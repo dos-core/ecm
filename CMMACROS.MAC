@@ -121,6 +121,9 @@ Public Domain by C. Masloch, 2008
 %ifntoken %1
 %define __SECT__ [section %1 %2 %3]
 __SECT__
+%elif %0 < 2
+%define __SECT__ [section %1 %2 %3]
+__SECT__
 %else
 %ifndef __SECTION_%1__
 [section %1 %2 %3]			; first declaration (with attributes)
