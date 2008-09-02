@@ -48,14 +48,14 @@ Public Domain by C. Masloch, 2008
 
 		; Bind major and minor version byte to version word and
 		; version word (bytes exchanged).
-%idefine ver(major,minor)	(major)<<8|(minor)
-%idefine verx(major,minor)	(minor)<<8|(major)
+%idefine ver(major,minor)	((major)<<8|(minor))
+%idefine verx(major,minor)	((minor)<<8|(major))
 
 		; Compute relative address
 		;
 		; address: which address is referenced
 		; fixup: how many bytes are added to get the absolute address
-%define __REL__(address,fixup) (address)-(fixup)
+%define __REL__(address,fixup) ((address)-(fixup))
 %define __REL8__(address,fixup) __REL__(address,fixup)
 %define __REL8__(address) __REL__(address,$+1)	; for __JMP_REL8 (db)
 %define __REL16__(address,fixup) __REL__(address,fixup)
