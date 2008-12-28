@@ -46,10 +46,29 @@ Public Domain by C. Masloch, 2008
 %idefine jnear jmpnear
 %idefine _jnear _jmpnear
 
-		; Bind major and minor version byte to version word and
-		; version word (bytes exchanged).
-%idefine ver(major,minor)	(major)<<8|(minor)
-%idefine verx(major,minor)	(minor)<<8|(major)
+		; Bind major and minor version byte to version word or
+		; version word with exchanged bytes.
+%idefine ver(major,minor)	((major)&0FFh)<<8|((minor)&0FFh)
+%idefine verx(major,minor)	((minor)&0FFh)<<8|((major)&0FFh)
+
+		; Compute required words/dwords/qwords/paragraphs/pages/KiB of known byte size (rounds up if necessary)
+%idefine bytes(b)	(b)
+%idefine words(b)	(((b)+1)/2)
+%idefine dwords(b)	(((b)+3)/4)
+%idefine qwords(b)	(((b)+7)/8)
+%idefine paragraphs(b)	(((b)+15)/16)
+%idefine pages(b)	(((b)+511)/512)
+%idefine kib(b)		(((b)+1023)/1024)
+
+		; Compute required bytes of known word/dword/qword/paragraph/page/KiB size
+%idefine frombytes(b)		(b)
+%idefine fromwords(w)		((w)*2)
+%idefine fromdwords(d)		((d)*4)
+%idefine fromqwords(q)		((q)*8)
+%idefine fromparagraphs(p)	((p)*16)
+%idefine frompages(p)		((p)*512)
+%idefine fromkib(k)		((k)*1024)
+
 
 		; Compute relative address
 		;
@@ -67,15 +86,16 @@ Public Domain by C. Masloch, 2008
 %define __JMP_FAR 0EAh
 %define __CALL_REL16 0E8h
 %define __CALL_FAR 9Ah
-%define __NOP 90h
-%define __NOP_DATA1 0A8h			; really "test al, imm8"
-%define __NOP_DATA2 0A9h			; really "test ax, imm16"
+%define __NOP 90h				; really "xchg ax, ax"
+%define __NOP_DATA1 0A8h			; really "test al, imm8", changes flags (always NC)
+%define __NOP_DATA2 0A9h			; really "test ax, imm16", changes flags (always NC)
 
 		; Remove the following macros if already found in other files
 %unimacro asciz 0-1+.nolist
 %unimacro section 1+.nolist			; removes NASM's standard macro
 %unimacro segment 1+.nolist			; removes NASM's standard macro
 %unimacro section 1-3+.nolist
+%unimacro call 1-*.nolist
 %undef segment
 %unimacro newsection 1-2+.nolist
 %undef newsegment
@@ -122,6 +142,15 @@ Public Domain by C. Masloch, 2008
 %if %0 >= 1
 		db %1
 %endif
+	%endmacro
+
+		; Call with word parameters behind opcode
+	%imacro call 1-*.nolist
+		%? %1
+%rep %0 - 1
+%rotate 1
+		dw %1
+%endrep
 	%endmacro
 
 		; section macro replacement
@@ -210,17 +239,21 @@ __SECT__
 		;
 		; %1 = Definition name. Will get an additional underscore prefix
 		; %2 = Value to assign if not defined
-		; %3 = Value to assign if defined, but no string
+		; %3 = Value to assign if defined, but no string (if not given, %2)
 		;
 		; Using braces { and } is useful for %2 and %3
-	%imacro strdef 3.nolist
-%ifdef _%1
+	%imacro strdef 2-3.nolist
+ %ifdef _%1
 %ifnstr _%1
+  %if %0 >= 3
 %define _%1 %3			; i.e. "-d_DEFINE" option on NASM's command line
+  %else
+%define _%1 %2
+  %endif
 %endif				;  (if option was "-d_DEFINE='FOO'", it's left as 'FOO')
-%else				; If not defined (no option on NASM's command line)
+ %else				; If not defined (no option on NASM's command line)
 %define _%1 %2			;
-%endif
+ %endif
 	%endmacro
 
 		; Include another definition if this definition is true
@@ -291,10 +324,10 @@ __SECT__
 		; %1 = Part of message before numerical CPU identifier (Defaults to "")
 		; %2 = Part of message after numerical CPU identifier (Defaults to " CPU required")
 		;
-		; Using braces { and } is useful for %1
+		; Using braces { and } is useful
 		;
 		; No data is generated if assembling for 8086
-	%imacro cpufailmsg 0-2+.nolist ""," CPU required"
+	%imacro cpufailmsg 0-2+.nolist "",{" CPU required",0}
 %if _386
 		db %1, "386", %2
 %elif _186
