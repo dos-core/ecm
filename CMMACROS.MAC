@@ -1,8 +1,9 @@
 [list -]
 %if 0
 
-CMMACROS.MAC - Useful (or not) NASM macros & defines
-Public Domain by C. Masloch, 2008
+CMMACROS.MAC - Useful (or not) NASM macros, defines & bloat
+Public Domain by C. Masloch, 2008-2009
+Currently targeted to Real Mode programs only.
 
 %endif
 
@@ -20,6 +21,47 @@ Public Domain by C. Masloch, 2008
 %idefine jmps jmp short
 %idefine jshort jmp short
 
+
+		; Make all conditional jumps short. Some NASM
+		; versions do that by default, some don't.
+		; Problem: Doesn't allow valid near conditional jumps on 386+. Currently disabled.
+%if 0
+%idefine jz	%?? short
+%idefine jnz	%?? short
+%idefine jc	%?? short
+%idefine jnc	%?? short
+%idefine je	%?? short
+%idefine jne	%?? short
+%idefine jb	%?? short
+%idefine jnb	%?? short
+%idefine jbe	%?? short
+%idefine jnbe	%?? short
+%idefine ja	%?? short
+%idefine jna	%?? short
+%idefine jae	%?? short
+%idefine jnae	%?? short
+%idefine jl	%?? short
+%idefine jnl	%?? short
+%idefine jle	%?? short
+%idefine jnle	%?? short
+%idefine jg	%?? short
+%idefine jng	%?? short
+%idefine jge	%?? short
+%idefine jnge	%?? short
+%idefine jp	%?? short
+%idefine jnp	%?? short
+%idefine jpe	%?? short
+%idefine jpo	%?? short
+%idefine js	%?? short
+%idefine jns	%?? short
+%idefine jo	%?? short
+%idefine jno	%?? short
+%idefine jcxz	%?? short
+
+		; New NASM versions seem to support the workaround code by default.
+		; However they don't throw an error or warning when translating an
+		; unspecified conditional jump (I expect short) to a near one.
+
 		; near conditional jump, uses 386 opcode if _386, else workaround code
 		;
 		; %1 = condition
@@ -27,7 +69,6 @@ Public Domain by C. Masloch, 2008
 	%imacro jmpnear 2.nolist
 %if _386
 	j%+1 near %2
-%assign %$done 1
 %else
 	_jmpnear %1,%2
 %endif
@@ -45,11 +86,43 @@ Public Domain by C. Masloch, 2008
 
 %idefine jnear jmpnear
 %idefine _jnear _jmpnear
+%else
+%endif
 
 		; Bind major and minor version byte to version word or
 		; version word with exchanged bytes.
 %idefine ver(major,minor)	((major)&0FFh)<<8|((minor)&0FFh)
 %idefine verx(major,minor)	((minor)&0FFh)<<8|((major)&0FFh)
+
+
+		; Work with 4-byte dates
+%define date(y,m,d)	(((y)&0FFFFh)<<16|((m)&0FFh)<<8|((d)&0FFh))	; create 4-byte date
+%define year(d)		(((d)>>16)&0FFFFh)	; get year from 4-byte date
+%define month(d)	(((d)>>8)&0FFh)		; get month from 4-byte date
+%define day(d)		((d)&0FFh)		; get day from 4-byte date
+						; The 4-byte date stores the year 0-65535 in the high word,
+						; followed by the month 0-255 in the high byte (of the low
+						; word) and the day 0-255 in the low byte.
+
+
+		; Write numbers as decimal digits into a string
+%define _1digits(d)	(((d)% 10)+'0')
+%define _2digits(d)	((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+%define _3digits(d)	((((d)/100)% 10)+'0'),((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+%define _4digits(d)	((((d)/1000)% 10)+'0'),((((d)/100)% 10)+'0'),((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+
+		; Write numbers as hexadecimal digits into a string
+%define _1digitshex(h)	(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _2digitshex(h)	((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
+			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _3digitshex(h)	((((h)/100h)% 10h)+'0' +(('A'-'9'-1)*((((h)/100h)% 10h)/0Ah))), \
+			((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
+			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _4digitshex(h)	((((h)/1000h)% 10h)+'0' +(('A'-'9'-1)*((((h)/1000h)% 10h)/0Ah))), \
+			((((h)/100h)% 10h)+'0' +(('A'-'9'-1)*((((h)/100h)% 10h)/0Ah))), \
+			((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
+			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+
 
 		; Compute required words/dwords/qwords/paragraphs/pages/KiB of known byte size (rounds up if necessary)
 %idefine bytes(b)	(b)
@@ -119,6 +192,13 @@ Public Domain by C. Masloch, 2008
 %unimacro _d 2.nolist
 %unimacro d0out 0-3.nolist
 %unimacro endarea 1-2.nolist
+%unimacro struc 1.nolist			; removes NASM's standard macro
+%unimacro struc 1-2.nolist
+%unimacro endstruc 0.nolist			; removes NASM's standard macro
+%unimacro endstruc 0-1.nolist
+%unimacro istruc 1.nolist			; removes NASM's standard macro
+%unimacro at 1-2+.nolist			; removes NASM's standard macro
+%unimacro iend 0.nolist				; removes NASM's standard macro
 %unimacro fill 2-3+.nolist
 %unimacro _fill 3.nolist
 %unimacro pad 2-3+.nolist
@@ -284,8 +364,8 @@ __SECT__
 %endif
 	%endmacro
 
-%ifndef __RXDMACRO_MAC__	; Note:	RXOPTION.MAC will make these numdefs (probably with default values)
-				;	if CMMMACROS.MAC is included in RXDMACRO.MAC.
+	numdef _CMMACROS_MAC__NODEFAULTDEFS
+%ifn __CMMACROS_MAC__NODEFAULTDEFS	; Only if we do want defaults.
 		; Well, let's use some of the above
 	numdef 186		; 186 opcodes allowed
 	numdef 386		; 386 opcodes allowed
@@ -298,9 +378,9 @@ __SECT__
 	numdef DEBUG4		; 5th level debug - include d4 code/breakpoints
 			; Note:	All debug levels are independent. _DEBUG4 (as well as
 			; any other level) does not force any other debug level on.
-	numdef LFN		; use LFNs in applications
-	numdef LBA		; use LBA in applications
-	numdef FAT32, 1		; use FAT32 in applications
+	numdef LFN		; support LFNs
+	numdef LBA		; support LBA
+	numdef FAT32		; support FAT32
 %endif
 
 		; And now, let's really use some of the above
@@ -322,7 +402,7 @@ __SECT__
 		; Write a message stating what CPU type is required.
 		;
 		; %1 = Part of message before numerical CPU identifier (Defaults to "")
-		; %2 = Part of message after numerical CPU identifier (Defaults to " CPU required")
+		; %2 = Part of message after numerical CPU identifier (Defaults to ASCIZ " CPU required")
 		;
 		; Using braces { and } is useful
 		;
@@ -336,6 +416,8 @@ __SECT__
 	%endmacro
 
 		; Check if required CPU is available
+		;
+		; The code uses cx, ax and comparison flags.
 		;
 		; %1 = Code to execute if CPU requirement not meet
 	%imacro checkcpu 1.nolist
@@ -353,9 +435,13 @@ _checkcpu:	check186
 	%endmacro
 
 		; Check for 186+ CPU
+		;
+		; %1 = true if .fail follows (jump to .pass),
+		;      false if .pass follows (jump to .fail)
+		;      Default true
 	%imacro check186 0-1.nolist 1
-		mov cx,1_0010_0001b		; Shift count's bit 0 and 5 are set; shift data is 1
-		shl ch,cl			; 186+ limits shift count to five bits (0-4): resulting
+		mov cx, 1_0010_0001b		; Shift count's bit 0 and 5 are set; shift data is 1
+		shl ch, cl			; 186+ limits shift count to five bits (0-4): resulting
 						; ch is 10b on 186+; 0 on 8086 (actual result overflows)
 %if %1
 		jnz .pass			; 186+ -->
@@ -365,6 +451,10 @@ _checkcpu:	check186
 	%endmacro
 
 		; Check for 286+ CPU
+		;
+		; %1 = true if .fail follows (jump to .pass),
+		;      false if .pass follows (jump to .fail)
+		;      Default true
 	%imacro check286 0-1.nolist 1
 		push sp
 		pop ax
@@ -377,6 +467,10 @@ _checkcpu:	check186
 	%endmacro
 
 		; Check for 386+ CPU
+		;
+		; %1 = true if .fail follows (jump to .pass),
+		;      false if .pass follows (jump to .fail)
+		;      Default true
 	%imacro check386 0-1.nolist 1
 		check286 0			; branches to .fail if 8086 or 186 -->
 		pushf
@@ -385,7 +479,7 @@ _checkcpu:	check186
 		pushf
 		pop ax				; get what was in FLAGS
 		popf				; restore original flags
-		test ax,0111_0000_0000_0000b	; 386+ leaves what we pushed; 286 clears bits 12-14 in
+		test ax, 0111_0000_0000_0000b	; 386+ leaves what we pushed; 286 clears bits 12-14 in
 						; Real Mode (Bits 12-14 are used in Protected Mode only)
 %if %1
 		jnz .pass			; 386+ -->
@@ -479,19 +573,42 @@ __CPU__
 %1_size_ki equ (%1_size +1023) /1024
 	%endmacro
 
-
-		; End structure and define size of area
-		;
-		; Provided labels: %1_size (byte), %1_size_b (same),
-		; %1_size_w (words), %1_size_d (dwords), %1_size_q
-		; (qwords), %1_size_p (paragraphs).
-		;
-		; Replaces NASM's endstruc. Requires compatible endstruc
-	%imacro endstruca 0.nolist
-		endarea %{$strucname}
+		; The following macros replace NASM's standard struc macros.
+		; They add support for non-zero starting offsets of structures
+		; (optional %2 of struc is starting offset) and creating endarea's
+		; various size definitions with endstruc (if optional %1 of endstruc
+		; is true).
+%imacro struc 1-2.nolist 0
+%push
+%define %$strucname %1
+[absolute %2]
+%$strucname:
+%endmacro
+%imacro endstruc 0-1.nolist 0
+%if %1
+endarea %$strucname
+%else
+%{$strucname}_size equ ($-%$strucname)
+%endif
 %pop
 __SECT__
-	%endmacro
+%endmacro
+
+%idefine endstruca endstruc 1
+
+%imacro istruc 1.nolist
+%push
+%define %$strucname %1
+%$strucstart:
+%endmacro
+%imacro at 1-2+.nolist
+	  times (%1-%$strucname)-($-%$strucstart) db 0
+	  %2
+%endmacro
+%imacro iend 0.nolist
+	  times %{$strucname}_size-($-%$strucstart) db 0
+%pop
+%endmacro
 
 
 	%imacro checkeven 1.nolist
