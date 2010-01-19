@@ -10,6 +10,10 @@ Currently targeted to Real Mode programs only.
 %ifndef __CMMACROS_MAC__
 %assign __CMMACROS_MAC__ 1
 
+%if !!2 - 1
+ %error Unary operator ! returns values > 1. Adjust all sources.
+%endif
+
 %idefine by byte
 %idefine wo word
 %idefine dwo dword
@@ -94,6 +98,9 @@ Currently targeted to Real Mode programs only.
 %idefine ver(major,minor)	((major)&0FFh)<<8|((minor)&0FFh)
 %idefine verx(major,minor)	((minor)&0FFh)<<8|((major)&0FFh)
 
+		; Macros for table creation
+%define count(start,stop) stop-start+1
+%define range(start,stop) (start),count(start,stop)	; generates two comma-separated values
 
 		; Work with 4-byte dates
 %define date(y,m,d)	(((y)&0FFFFh)<<16|((m)&0FFh)<<8|((d)&0FFh))	; create 4-byte date
@@ -107,40 +114,35 @@ Currently targeted to Real Mode programs only.
 
 		; Write numbers as decimal digits into a string
 %define _1digits(d)	(((d)% 10)+'0')
-%define _2digits(d)	((((d)/10)% 10)+'0'),(((d)% 10)+'0')
-%define _3digits(d)	((((d)/100)% 10)+'0'),((((d)/10)% 10)+'0'),(((d)% 10)+'0')
-%define _4digits(d)	((((d)/1000)% 10)+'0'),((((d)/100)% 10)+'0'),((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+%define _2digits(d)	_1digits((d)/10),_1digits(d)
+%define _3digits(d)	_1digits((d)/100),_2digits(d)
+%define _4digits(d)	_1digits((d)/1000),_3digits(d)
+
 
 		; Write numbers as hexadecimal digits into a string
-%define _1digitshex(h)	(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
-%define _2digitshex(h)	((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
-			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
-%define _3digitshex(h)	((((h)/100h)% 10h)+'0' +(('A'-'9'-1)*((((h)/100h)% 10h)/0Ah))), \
-			((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
-			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
-%define _4digitshex(h)	((((h)/1000h)% 10h)+'0' +(('A'-'9'-1)*((((h)/1000h)% 10h)/0Ah))), \
-			((((h)/100h)% 10h)+'0' +(('A'-'9'-1)*((((h)/100h)% 10h)/0Ah))), \
-			((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
-			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _1digitshex(h)	( ((h)& 0Fh) + '0' + ('A'-'9'-1)*(((h)& 0Fh)/0Ah) )
+%define _2digitshex(h)	_1digitshex((h)>>4),_1digitshex(h)
+%define _3digitshex(h)	_1digitshex((h)>>8),_2digitshex(h)
+%define _4digitshex(h)	_1digitshex((h)>>12),_3digitshex(h)
 
 
 		; Compute required words/dwords/qwords/paragraphs/pages/KiB of known byte size (rounds up if necessary)
 %idefine bytes(b)	(b)
-%idefine words(b)	(((b)+1)/2)
-%idefine dwords(b)	(((b)+3)/4)
-%idefine qwords(b)	(((b)+7)/8)
-%idefine paragraphs(b)	(((b)+15)/16)
-%idefine pages(b)	(((b)+511)/512)
-%idefine kib(b)		(((b)+1023)/1024)
+%idefine words(b)	((b)+1>>1)
+%idefine dwords(b)	((b)+3>>2)
+%idefine qwords(b)	((b)+7>>3)
+%idefine paragraphs(b)	((b)+15>>4)
+%idefine pages(b)	((b)+511>>9)
+%idefine kib(b)		((b)+1023>>10)
 
 		; Compute required bytes of known word/dword/qword/paragraph/page/KiB size
 %idefine frombytes(b)		(b)
-%idefine fromwords(w)		((w)*2)
-%idefine fromdwords(d)		((d)*4)
-%idefine fromqwords(q)		((q)*8)
-%idefine fromparagraphs(p)	((p)*16)
-%idefine frompages(p)		((p)*512)
-%idefine fromkib(k)		((k)*1024)
+%idefine fromwords(w)		((w)<<1)
+%idefine fromdwords(d)		((d)<<2)
+%idefine fromqwords(q)		((q)<<3)
+%idefine fromparagraphs(p)	((p)<<4)
+%idefine frompages(p)		((p)<<9)
+%idefine fromkib(k)		((k)<<10)
 
 
 		; Compute relative address
@@ -160,23 +162,33 @@ Currently targeted to Real Mode programs only.
 %define __CALL_REL16 0E8h
 %define __CALL_FAR 9Ah
 %define __NOP 90h				; really "xchg ax, ax"
-%define __NOP_DATA1 0A8h			; really "test al, imm8", changes flags (always NC)
-%define __NOP_DATA2 0A9h			; really "test ax, imm16", changes flags (always NC)
+%define __NOP_DATA1 0A8h			; really "test al, imm8", changes flags (NC)
+%define __NOP_DATA2 0A9h			; really "test ax, imm16", changes flags (NC)
+					; Longer NOPs below require two byte, like a short jump does.
+					; However they execute faster than unconditional jumps.
+%define __NOP_DATA3 0F7h,46h			; really "test word [bp+ofs8], imm16", changes flags (NC)
+%define __NOP_DATA4 0F7h,86h			; really "test word [bp+ofs16], imm16", changes flags (NC)
 
 		; Remove the following macros if already found in other files
 %unimacro asciz 0-1+.nolist
+%if 0
 %unimacro section 1+.nolist			; removes NASM's standard macro
 %unimacro segment 1+.nolist			; removes NASM's standard macro
 %unimacro section 1-3+.nolist
+%endif
 %unimacro call 1-*.nolist
+%if 0
 %undef segment
 %unimacro newsection 1-2+.nolist
 %undef newsegment
+%endif
 %unimacro verdef 4.nolist
 %unimacro numdef 1-3.nolist
 %unimacro strdef 3.nolist
 %unimacro incdef 2-4.nolist
 %unimacro _incdef 2-4.nolist
+%unimacro incdef 2-*.nolist
+%unimacro excdef 2-*.nolist
 %unimacro comment 0-*.nolist
 %unimacro commentif 2.nolist
 %unimacro commentifn 2.nolist
@@ -217,12 +229,27 @@ Currently targeted to Real Mode programs only.
 
 		; ASCII string
 		;
-		; %1+ = Optional string
+		; %1+ = optional string
 	%imacro ascii 0-1+.nolist
 %if %0 >= 1
 		db %1
 %endif
 	%endmacro
+
+		; Counted string
+		;
+		; %1 = data type of count
+		; %2+ = optional string
+	%imacro _counted 2+.nolist
+		d%1 %%end-%%start
+%%start:
+%if %0 >= 2
+		db %2
+%endif
+%%end:
+	%endmacro
+	%idefine counted _counted b,
+	%idefine countedw _counted w,
 
 		; Call with word parameters behind opcode
 	%imacro call 1-*.nolist
@@ -233,6 +260,7 @@ Currently targeted to Real Mode programs only.
 %endrep
 	%endmacro
 
+%if 0
 		; section macro replacement
 		;
 		; %1 = section name (a single token, i.e. no blanks inbetween)
@@ -258,20 +286,21 @@ __SECT__
 		; %2 = section attributes (as for section macro)
 	%imacro newsection 1-2+.nolist
 %ifdef __SECTION_%1__
- %error "section already declared"
+ %error Section %1 already declared
 %endif
 	section %1,%2
 	%endmacro
 
 %idefine newsegment newsection
 %idefine segment section
+%endif
 
 		; Define version information.
 		;
 		; %1 = Base name of single-line macros
 		; %2 = Additional letter for base name of single-line macros
-		; %2 = Major version
-		; %3 = Minor version
+		; %3 = Major version
+		; %4 = Minor version
 		;
 		; Created single-line macros:
 		; %1_VER%2 = version word, high byte = major version
@@ -336,51 +365,48 @@ __SECT__
  %endif
 	%endmacro
 
-		; Include another definition if this definition is true
+		; Include definitions if a condition is met
 		;
-		; %1 = Source definition name, without underscore prefix
-		; %2 = Included definition name, without underscore prefix
-		; %3 = Value to assign to _%2 if _%1 is true (defaults to 1)
-		; %4 = Value to assign to _%2 if _%1 is false (defaults to leave _%2 unchanged)
-	%imacro incdef 2-4.nolist 1
-%if %0 >= 4
-		_incdef _%1,%2,%3,%4
-%else
-		_incdef _%1,%2,%3
-%endif
+		; %1 = condition
+		; %2-* = included definition name, without underscore prefix
+	%imacro incdef 2-*.nolist
+ %if %1				; if true
+ %rep (%0 - 1)
+%rotate 1
+%assign _%1 1			; set any included to true
+ %endrep
+ %endif
 	%endmacro
 
-		; Include another definition if this expression is true
+		; Exclude definitions if a condition is met
 		;
-		; %1 = expression
-		; %2 = Included definition name, without underscore prefix
-		; %3 = Value to assign to _%2 if _%1 is true (defaults to 1)
-		; %4 = Value to assign to _%2 if _%1 is false (defaults to leave _%2 unchanged)
-	%imacro _incdef 2-4.nolist 1
-%if %1				; true
-%assign _%2 %3			;  set to %3
-%elif %0 >= 4			; not true. %4 included ?
-%assign _%2 %4			;  then set to %4
-%endif
+		; %1 = condition
+		; %2-* = excluded definition name, without underscore prefix
+	%imacro excdef 2-*.nolist
+ %if %1				; if true
+ %rep (%0 - 1)
+%rotate 1
+%assign _%1 0			; set any excluded to false
+ %endrep
+ %endif
 	%endmacro
 
-	numdef _CMMACROS_MAC__NODEFAULTDEFS
-%ifn __CMMACROS_MAC__NODEFAULTDEFS	; Only if we do want defaults.
-		; Well, let's use some of the above
+
+	numdef _CMMACROS_MAC__NODEFAULTS
+%ifn __CMMACROS_MAC__NODEFAULTS		; Only if we do want defaults.
+		; Let's use some of the above
 	numdef 186		; 186 opcodes allowed
 	numdef 386		; 386 opcodes allowed
-	incdef 386, 186		; excluding 186 opcodes on 386+ seems not useful
-	numdef DEBUG		; generic debug - include some code to make debugging easier
-	numdef DEBUG0		; 1st level debug - print those funny numbers sometimes
+	incdef _386,186		; excluding 186 opcodes on 386+ seems not useful
+	numdef DEBUG		; all of the debugging levels
+	incdef _DEBUG,DEBUG0,DEBUG1,DEBUG2,DEBUG3,DEBUG4
+	numdef DEBUG0		; 1st level debugging - display funny numbers sometimes
 	numdef DEBUG1		; 2nd level debug - show warnings on unsupported calls
 	numdef DEBUG2		; 3rd level debug - reserved
 	numdef DEBUG3		; 4th level debug - include d3 code/breakpoints
 	numdef DEBUG4		; 5th level debug - include d4 code/breakpoints
 			; Note:	All debug levels are independent. _DEBUG4 (as well as
 			; any other level) does not force any other debug level on.
-	numdef LFN		; support LFNs
-	numdef LBA		; support LBA
-	numdef FAT32		; support FAT32
 %endif
 
 		; And now, let's really use some of the above
@@ -473,6 +499,7 @@ _checkcpu:	check186
 		;      Default true
 	%imacro check386 0-1.nolist 1
 		check286 0			; branches to .fail if 8086 or 186 -->
+[cpu 286]
 		pushf
 		push wo 0111_0000_0000_0000b
 		popf				; set bits 12-14 of FLAGS ("push imm16" instruction 186+)
@@ -481,6 +508,7 @@ _checkcpu:	check186
 		popf				; restore original flags
 		test ax, 0111_0000_0000_0000b	; 386+ leaves what we pushed; 286 clears bits 12-14 in
 						; Real Mode (Bits 12-14 are used in Protected Mode only)
+__CPU__
 %if %1
 		jnz .pass			; 386+ -->
 %else
@@ -508,6 +536,7 @@ _checkcpu:	check186
 %idefine d4 _d 4,
 
 		; Breakpoint if xth level debug definition true
+%idefine dbp _d, __DEBUG_BP__
 %idefine d0bp d0 __DEBUG0_BP__
 %idefine d1bp d1 __DEBUG1_BP__
 %idefine d2bp d2 __DEBUG2_BP__
@@ -517,6 +546,7 @@ _checkcpu:	check186
 		; Breakpoint instructions for all debug levels
 		;
 		; "call ...", "int1", "int3" are useful single-instruction breakpoints
+%define __DEBUG_BP__ int3
 %define __DEBUG0_BP__ int3
 %define __DEBUG1_BP__ int3
 %define __DEBUG2_BP__ int3
@@ -559,18 +589,19 @@ __CPU__
 		;
 		; Provided labels: %1_size (byte), %1_size_b (same),
 		; %1_size_w (words), %1_size_d (dwords), %1_size_q
-		; (qwords), %1_size_p (paragraphs).
+		; (qwords), %1_size_p (paragraphs), %1_size_pg (pages),
+		; %1_size_ki (KiB).
 	%imacro endarea 1-2.nolist 0
 %ifn %2
 %1_size equ $ - %1
 %endif
-%1_size_b equ (%1_size)
-%1_size_w equ (%1_size +1) /2
-%1_size_d equ (%1_size +3) /4
-%1_size_q equ (%1_size +7) /8
-%1_size_p equ (%1_size +15) /16
-%1_size_pg equ (%1_size +511) /512
-%1_size_ki equ (%1_size +1023) /1024
+%1_size_b equ %1_size
+%1_size_w equ %1_size+1 >>1
+%1_size_d equ %1_size+3 >>2
+%1_size_q equ %1_size+7 >>3
+%1_size_p equ %1_size+15 >>4
+%1_size_pg equ %1_size+511 >>9
+%1_size_ki equ %1_size+1023 >>10
 	%endmacro
 
 		; The following macros replace NASM's standard struc macros.
@@ -613,10 +644,10 @@ __SECT__
 
 	%imacro checkeven 1.nolist
 %ifnnum %1
- %error "Number expected"
+ %error Number expected
 %endif
 %if %1 & 1
- %error "Even value expected"
+ %error Even value expected
 %endif
 	%endmacro
 
@@ -639,11 +670,11 @@ __SECT__
 		; %3 = Start label of data
 	%imacro _fill 3.nolist
 %if %1 < 0				; hu?
- %error "_fill: size is negative"
+ %error _fill: size is negative
 %elif $-%3 < 0				; should generate a phase error anyway. however
- %error "_fill: start label can't be behind filling"
+ %error _fill: start label must not be behind filling
 %elif %1-$+%3 < 0			; times would also throw an error then ("TIMES value x is negative")
- %error "_fill: data too large, exceeds size"	; but showing a more specific message won't hurt
+ %error _fill: data too large, exceeds size	; but showing a more specific message won't hurt
 %endif
 		times %1-$+%3 db %2	; Fill with fill byte to given size
 	%endmacro
@@ -674,11 +705,11 @@ __SECT__
 		; %3 = Start label of data (if it equals $, no padding is created)
 	%imacro _pad 3.nolist
 %if %1 < 0				; hu?
- %error "_pad: boundary is negative"
+ %error _pad: boundary is negative
 %elifn %1
- %error "_pad: boundary is zero"
+ %error _pad: boundary is zero
 %elif $-%3 < 0				; should generate a phase error anyway. however
- %error "_pad: start label can't be behind padding"
+ %error _pad: start label must not be behind padding
 %endif
 
 %push pad
@@ -691,7 +722,7 @@ __SECT__
 %assign %$count %$count+1		; else keep counting
 	%endrep
 %if %$count >= %1			; if loop end caused by %endrep
- %error "pad: an unknown error occured"
+ %error pad: an unknown error occured
 %endif
 		times (%$count-1) db %2	; put this data for the assembler. but in _one_ line
 %pop
@@ -706,9 +737,9 @@ __SECT__
 	%imacro alignd 2-3+.nolist
 		%3
 %if %1 < 0				; hu?
- %error "alignd: boundary is negative"
+ %error alignd: boundary is negative
 %elifn %1
- %error "alignd: boundary is zero"
+ %error alignd: boundary is zero
 %else
 		align %1,db %2
 %endif
