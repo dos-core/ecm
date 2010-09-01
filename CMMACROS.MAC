@@ -46,6 +46,80 @@ Public Domain by C. Masloch, 2008
 %idefine jnear jmpnear
 %idefine _jnear _jmpnear
 
+
+		; Write numbers as decimal digits into a string
+%define _1digits(d)	(((d)% 10)+'0')
+%define _2digits(d)	((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+%define _3digits(d)	((((d)/100)% 10)+'0'),((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+%define _4digits(d)	((((d)/1000)% 10)+'0'),((((d)/100)% 10)+'0'), \
+			((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+%define _5digits(d)	((((d)/10000)% 10)+'0'),((((d)/1000)% 10)+'0'), \
+			((((d)/100)% 10)+'0'),((((d)/10)% 10)+'0'),(((d)% 10)+'0')
+
+		; Write number as decimal digits into a string,
+		; and automagically determine how many digits to use.
+		; The input number is a critical expression to NASM.
+		;
+		; %1 = number to write
+		; %2 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 writes nothing)
+%macro _autodigits 1-2.nolist 1
+%if %2 > 5
+ %error Minimal number of digits 6 or more: %2
+%endif
+%if (%1) >= 100000
+ %error Number has 6 or more digits: %1
+%elif (%1) >= 10000 || %2 == 5
+	db _5digits(%1)
+%elif (%1) >= 1000 || %2 == 4
+	db _4digits(%1)
+%elif (%1) >= 100 || %2 == 3
+	db _3digits(%1)
+%elif (%1) >= 10 || %2 == 2
+	db _2digits(%1)
+%elif (%1) >= 1 || %2 == 1
+	db _1digits(%1)
+%endif
+%endmacro
+
+		; %1 = name of single-line macro to set. will be prefixed by underscore
+		; %2 = number to write
+		; %3 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 defines macro to "")
+%macro _autodigitsdef 2-3.nolist 1
+%if %3 > 5
+ %error Minimal number of digits 6 or more: %3
+%endif
+%if (%2) >= 100000
+ %error Number has 6 or more digits: %2
+%elif (%2) >= 10000 || %3 == 5
+%define _%1 %[_5digits(%2)]
+%elif (%2) >= 1000 || %3 == 4
+%define _%1 %[_4digits(%2)]
+%elif (%2) >= 100 || %3 == 3
+%define _%1 %[_3digits(%2)]
+%elif (%2) >= 10 || %3 == 2
+%define _%1 %[_2digits(%2)]
+%elif (%2) >= 1 || %3 == 1
+%define _%1 %[_1digits(%2)]
+%elif
+%define _%1 ""
+%endif
+%endmacro
+
+		; Write numbers as hexadecimal digits into a string
+%define _1digitshex(h)	(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _2digitshex(h)	((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
+			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _3digitshex(h)	((((h)/100h)% 10h)+'0' +(('A'-'9'-1)*((((h)/100h)% 10h)/0Ah))), \
+			((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
+			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+%define _4digitshex(h)	((((h)/1000h)% 10h)+'0' +(('A'-'9'-1)*((((h)/1000h)% 10h)/0Ah))), \
+			((((h)/100h)% 10h)+'0' +(('A'-'9'-1)*((((h)/100h)% 10h)/0Ah))), \
+			((((h)/10h)% 10h)+'0' +(('A'-'9'-1)*((((h)/10h)% 10h)/0Ah))), \
+			(((h)% 10h)+'0' +(('A'-'9'-1)*(((h)% 10h)/0Ah)))
+
+
 		; Bind major and minor version byte to version word or
 		; version word with exchanged bytes.
 %idefine ver(major,minor)	((major)&0FFh)<<8|((minor)&0FFh)
