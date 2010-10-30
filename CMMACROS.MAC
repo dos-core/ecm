@@ -2,7 +2,7 @@
 %if 0
 
 CMMACROS.MAC - Useful (or not) NASM macros, defines & bloat
-Public Domain by C. Masloch, 2008-2009
+Public Domain by C. Masloch, 2008-2010
 Currently targeted to Real Mode programs only.
 
 %endif
@@ -90,7 +90,43 @@ Currently targeted to Real Mode programs only.
 
 %idefine jnear jmpnear
 %idefine _jnear _jmpnear
-%else
+%elif 0
+%idefine jz	_checkcondjmp %??,
+%idefine jnz	_checkcondjmp %??,
+%idefine jc	_checkcondjmp %??,
+%idefine jnc	_checkcondjmp %??,
+%idefine je	_checkcondjmp %??,
+%idefine jne	_checkcondjmp %??,
+%idefine jb	_checkcondjmp %??,
+%idefine jnb	_checkcondjmp %??,
+%idefine jbe	_checkcondjmp %??,
+%idefine jnbe	_checkcondjmp %??,
+%idefine ja	_checkcondjmp %??,
+%idefine jna	_checkcondjmp %??,
+%idefine jae	_checkcondjmp %??,
+%idefine jnae	_checkcondjmp %??,
+%idefine jl	_checkcondjmp %??,
+%idefine jnl	_checkcondjmp %??,
+%idefine jle	_checkcondjmp %??,
+%idefine jnle	_checkcondjmp %??,
+%idefine jg	_checkcondjmp %??,
+%idefine jng	_checkcondjmp %??,
+%idefine jge	_checkcondjmp %??,
+%idefine jnge	_checkcondjmp %??,
+%idefine jp	_checkcondjmp %??,
+%idefine jnp	_checkcondjmp %??,
+%idefine jpe	_checkcondjmp %??,
+%idefine jpo	_checkcondjmp %??,
+%idefine js	_checkcondjmp %??,
+%idefine jns	_checkcondjmp %??,
+%idefine jo	_checkcondjmp %??,
+%idefine jno	_checkcondjmp %??,
+
+%macro _checkcondjmp 2.nolist
+%push
+%defstr %$targetstr %2
+
+%pop
 %endif
 
 		; Bind major and minor version byte to version word or
@@ -113,17 +149,85 @@ Currently targeted to Real Mode programs only.
 
 
 		; Write numbers as decimal digits into a string
-%define _1digits(d)	(((d)% 10)+'0')
-%define _2digits(d)	_1digits((d)/10),_1digits(d)
-%define _3digits(d)	_1digits((d)/100),_2digits(d)
-%define _4digits(d)	_1digits((d)/1000),_3digits(d)
+%define _1digits_nocheck(d)	(((d)% 10)+'0')
+%xdefine _2digits_nocheck(d)	_1digits_nocheck((d)/10),_1digits_nocheck(d)
+%xdefine _3digits_nocheck(d)	_1digits_nocheck((d)/100),_2digits_nocheck(d)
+%xdefine _4digits_nocheck(d)	_1digits_nocheck((d)/1000),_3digits_nocheck(d)
+%xdefine _5digits_nocheck(d)	_1digits_nocheck((d)/10000),_4digits_nocheck(d)
+%xdefine _1digits(d)	(!!(h/10)*(1<<32)+  _1digits_nocheck(d))
+%xdefine _2digits(d)	_1digits((d)/   10),_1digits_nocheck(d)
+%xdefine _3digits(d)	_1digits((d)/  100),_2digits_nocheck(d)
+%xdefine _4digits(d)	_1digits((d)/ 1000),_3digits_nocheck(d)
+%xdefine _5digits(d)	_1digits((d)/10000),_4digits_nocheck(d)
 
+		; Write number as decimal digits into a string,
+		; and automagically determine how many digits to use.
+		; The input number is a critical expression to NASM.
+		;
+		; %1 = number to write
+		; %2 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 writes nothing)
+%macro _autodigits 1-2.nolist 1
+%if %2 > 5
+ %error Minimal number of digits 6 or more: %2
+%endif
+%if (%1) >= 100000
+ %error Number has to use 6 or more digits: %1
+%elif (%1) >= 10000 || %2 == 5
+	db _5digits(%1)
+%elif (%1) >= 1000 || %2 == 4
+	db _4digits(%1)
+%elif (%1) >= 100 || %2 == 3
+	db _3digits(%1)
+%elif (%1) >= 10 || %2 == 2
+	db _2digits(%1)
+%elif (%1) >= 1 || %2 == 1
+	db _1digits(%1)
+%endif
+%endmacro
+
+		; %1 = name of single-line macro to set. will be prefixed by underscore
+		; %2 = number to write
+		; %3 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 defines macro to "")
+%macro _autodigitsdef 2-3.nolist 1
+%if %3 > 5
+ %error Minimal number of digits 6 or more: %3
+%endif
+%if (%2) >= 100000
+ %error Number has to use 6 or more digits: %2
+%elif (%2) >= 10000 || %3 == 5
+%define _%1 %[_5digits(%2)]
+%elif (%2) >= 1000 || %3 == 4
+%define _%1 %[_4digits(%2)]
+%elif (%2) >= 100 || %3 == 3
+%define _%1 %[_3digits(%2)]
+%elif (%2) >= 10 || %3 == 2
+%define _%1 %[_2digits(%2)]
+%elif (%2) >= 1 || %3 == 1
+%define _%1 %[_1digits(%2)]
+%elif
+%define _%1 ""
+%endif
+%endmacro
 
 		; Write numbers as hexadecimal digits into a string
-%define _1digitshex(h)	( ((h)& 0Fh) + '0' + ('A'-'9'-1)*(((h)& 0Fh)/0Ah) )
-%define _2digitshex(h)	_1digitshex((h)>>4),_1digitshex(h)
-%define _3digitshex(h)	_1digitshex((h)>>8),_2digitshex(h)
-%define _4digitshex(h)	_1digitshex((h)>>12),_3digitshex(h)
+%define _1digitshex_nocheck(h)	( ((h)& 0Fh) + '0' + ('A'-'9'-1)*(((h)& 0Fh)/10) )
+%xdefine _2digitshex_nocheck(h)	_1digitshex_nocheck((h)>> 4),_1digitshex_nocheck(h)
+%xdefine _3digitshex_nocheck(h)	_1digitshex_nocheck((h)>> 8),_2digitshex_nocheck(h)
+%xdefine _4digitshex_nocheck(h)	_1digitshex_nocheck((h)>>12),_3digitshex_nocheck(h)
+%xdefine _5digitshex_nocheck(h)	_1digitshex_nocheck((h)>>16),_4digitshex_nocheck(h)
+%xdefine _6digitshex_nocheck(h)	_1digitshex_nocheck((h)>>20),_5digitshex_nocheck(h)
+%xdefine _7digitshex_nocheck(h)	_1digitshex_nocheck((h)>>24),_6digitshex_nocheck(h)
+%xdefine _8digitshex_nocheck(h)	_1digitshex_nocheck((h)>>28),_7digitshex_nocheck(h)
+%xdefine _1digitshex(h)	(!!(h&~0Fh)*(1<<32)+ _1digitshex_nocheck(h))
+%xdefine _2digitshex(h)	_1digitshex((h)>> 4),_1digitshex_nocheck(h)
+%xdefine _3digitshex(h)	_1digitshex((h)>> 8),_2digitshex_nocheck(h)
+%xdefine _4digitshex(h)	_1digitshex((h)>>12),_3digitshex_nocheck(h)
+%xdefine _5digitshex(h)	_1digitshex((h)>>16),_4digitshex_nocheck(h)
+%xdefine _6digitshex(h)	_1digitshex((h)>>20),_5digitshex_nocheck(h)
+%xdefine _7digitshex(h)	_1digitshex((h)>>24),_6digitshex_nocheck(h)
+%xdefine _8digitshex(h)	_1digitshex((h)>>28),_7digitshex_nocheck(h)
 
 
 		; Compute required words/dwords/qwords/paragraphs/pages/KiB of known byte size (rounds up if necessary)
@@ -132,6 +236,7 @@ Currently targeted to Real Mode programs only.
 %idefine dwords(b)	((b)+3>>2)
 %idefine qwords(b)	((b)+7>>3)
 %idefine paragraphs(b)	((b)+15>>4)
+%idefine paras(b)	((b)+15>>4)
 %idefine pages(b)	((b)+511>>9)
 %idefine kib(b)		((b)+1023>>10)
 
@@ -150,10 +255,10 @@ Currently targeted to Real Mode programs only.
 		; address: which address is referenced
 		; fixup: how many bytes are added to get the absolute address
 %define __REL__(address,fixup) (address)-(fixup)
-%define __REL8__(address,fixup) __REL__(address,fixup)
-%define __REL8__(address) __REL__(address,$+1)	; for __JMP_REL8 (db)
-%define __REL16__(address,fixup) __REL__(address,fixup)
-%define __REL16__(address) __REL__(address,$+2)	; for __JMP_REL16 (dw)
+%xdefine __REL8__(address,fixup) __REL__(address,fixup)
+%xdefine __REL8__(address) __REL__(address,$+1)	; for __JMP_REL8 (db)
+%xdefine __REL16__(address,fixup) __REL__(address,fixup)
+%xdefine __REL16__(address) __REL__(address,$+2); for __JMP_REL16 (dw)
 
 		; Values of some opcodes
 %define __JMP_REL8 0EBh
@@ -161,13 +266,19 @@ Currently targeted to Real Mode programs only.
 %define __JMP_FAR 0EAh
 %define __CALL_REL16 0E8h
 %define __CALL_FAR 9Ah
-%define __NOP 90h				; really "xchg ax, ax"
-%define __NOP_DATA1 0A8h			; really "test al, imm8", changes flags (NC)
-%define __NOP_DATA2 0A9h			; really "test ax, imm16", changes flags (NC)
+%define __NOP 90h
+%define __TEST_IMM8 0A8h			; changes flags, NC
+%define __TEST_IMM16 0A9h			; changes flags, NC
+%xdefine __NOP_DATA1 __TEST_IMM8		; ! phasing this alias out
+%xdefine __NOP_DATA2 __TEST_IMM16		; ! phasing this alias out
 					; Longer NOPs below require two byte, like a short jump does.
 					; However they execute faster than unconditional jumps.
-%define __NOP_DATA3 0F7h,46h			; really "test word [bp+ofs8], imm16", changes flags (NC)
-%define __NOP_DATA4 0F7h,86h			; really "test word [bp+ofs16], imm16", changes flags (NC)
+					; These read random data in the stack segment.
+					;  (Search for better ones.)
+%define __TEST_OFS8_IMM16 0F7h,46h		; changes flags, NC
+%define __TEST_OFS16_IMM16 0F7h,86h		; changes flags, NC
+%xdefine __NOP_DATA3 __TEST_OFS8_IMM16		; ! phasing this alias out
+%xdefine __NOP_DATA4 __TEST_OFS16_IMM16		; ! phasing this alias out
 
 		; Remove the following macros if already found in other files
 %unimacro asciz 0-1+.nolist
@@ -192,6 +303,9 @@ Currently targeted to Real Mode programs only.
 %unimacro comment 0-*.nolist
 %unimacro commentif 2.nolist
 %unimacro commentifn 2.nolist
+%unimacro fixme 0-1+.nolist
+%unimacro noparam 0-1+.nolist
+%unimacro noparamnamed 1-2+.nolist
 %unimacro assignif 3-4.nolist
 %unimacro assignifn 3-4.nolist
 %unimacro cpu 1+.nolist				; removes NASM's standard macro
@@ -200,6 +314,9 @@ Currently targeted to Real Mode programs only.
 %unimacro check186 0-1.nolist
 %unimacro check286 0-1.nolist
 %unimacro check386 0-1.nolist
+%unimacro check186 0-3.nolist
+%unimacro check286 0-3.nolist
+%unimacro check386 0-3.nolist
 %unimacro checkcpu 1.nolist
 %unimacro _d 2.nolist
 %unimacro d0out 0-3.nolist
@@ -241,16 +358,58 @@ Currently targeted to Real Mode programs only.
 		; %1 = data type of count
 		; %2+ = optional string
 	%imacro _counted 2+.nolist
-		d%1 %%end-%%start
+ %if 0
+		%1 %%end-%%start
 %%start:
 %if %0 >= 2
 		db %2
 %endif
 %%end:
+ %else
+%push
+%ifnempty %2
+		_strlen %2
+		%1 %$len
+		db %2
+%else
+		%1 0
+%endif
+%pop
+ %endif
 	%endmacro
-	%idefine counted _counted b,
-	%idefine countedw _counted w,
+	%idefine counted _counted db,
+	%idefine countedw _counted dw,
 
+	%imacro _strlen 1-*.nolist
+%assign %$len 0
+%rep %0
+ %ifstr %1
+  %strlen %$addlen %1
+  %assign %$len %$len+%$addlen
+ %elifnempty %1
+  %assign %$len %$len+1
+ %endif
+ %rotate 1
+%endrep
+	%endmacro
+
+
+%if __NASM_VERSION_ID__ >= 020A0000h
+
+%fatal NASM PR
+		; Call with word parameters behind opcode
+	%imacro call 1.nolist
+		%? %1
+	%endmacro
+
+	%irmacro call 2-*.nolist
+		%? %1
+%rep %0 - 1
+%rotate 1
+		dw %1
+%endrep
+	%endmacro
+%else
 		; Call with word parameters behind opcode
 	%imacro call 1-*.nolist
 		%? %1
@@ -259,6 +418,7 @@ Currently targeted to Real Mode programs only.
 		dw %1
 %endrep
 	%endmacro
+%endif
 
 %if 0
 		; section macro replacement
@@ -399,6 +559,8 @@ __SECT__
 	numdef 386		; 386 opcodes allowed
 	incdef _386,186		; excluding 186 opcodes on 386+ seems not useful
 	numdef DEBUG		; all of the debugging levels
+		; Is this useful? NDebug sets NODEFAULTS to work around this incdef.
+		; (And because they don't use _386, _186.) Do we want this for building DOS?
 	incdef _DEBUG,DEBUG0,DEBUG1,DEBUG2,DEBUG3,DEBUG4
 	numdef DEBUG0		; 1st level debugging - display funny numbers sometimes
 	numdef DEBUG1		; 2nd level debug - show warnings on unsupported calls
@@ -448,12 +610,12 @@ __SECT__
 		; %1 = Code to execute if CPU requirement not meet
 	%imacro checkcpu 1.nolist
 %if _386
-_checkcpu:	check386
+%%checkcpu:	check386
 .fail:
 		%1
 .pass:
 %elif _186
-_checkcpu:	check186
+%%checkcpu:	check186
 .fail:
 		%1
 .pass:
@@ -465,14 +627,18 @@ _checkcpu:	check186
 		; %1 = true if .fail follows (jump to .pass),
 		;      false if .pass follows (jump to .fail)
 		;      Default true
-	%imacro check186 0-1.nolist 1
+		; %2 = label to jump to if 186+ CPU
+		;      Default .pass
+		; %3 = label to jump to if no 186+ CPU
+		;      Default .fail
+	%imacro check186 0-3.nolist 1 .pass .fail
 		mov cx, 1_0010_0001b		; Shift count's bit 0 and 5 are set; shift data is 1
 		shl ch, cl			; 186+ limits shift count to five bits (0-4): resulting
 						; ch is 10b on 186+; 0 on 8086 (actual result overflows)
 %if %1
-		jnz .pass			; 186+ -->
+		jnz %2				; 186+ -->
 %else
-		jz .fail			; 8086 -->
+		jz %3				; 8086 -->
 %endif
 	%endmacro
 
@@ -481,14 +647,19 @@ _checkcpu:	check186
 		; %1 = true if .fail follows (jump to .pass),
 		;      false if .pass follows (jump to .fail)
 		;      Default true
-	%imacro check286 0-1.nolist 1
+		; %2 = label to jump to if 286+ CPU
+		;      Default .pass
+		; %3 = label to jump to if no 286+ CPU
+		;      Default .fail
+
+	%imacro check286 0-3.nolist 1 .pass .fail
 		push sp
 		pop ax
 		cmp ax, sp			; 286+ pushes original sp value
 %if %1
-		je .pass			; 286+ -->
+		je %2				; 286+ -->
 %else
-		jne .fail			; 8086 or 186 -->
+		jne %3				; 8086 or 186 -->
 %endif
 	%endmacro
 
@@ -497,8 +668,12 @@ _checkcpu:	check186
 		; %1 = true if .fail follows (jump to .pass),
 		;      false if .pass follows (jump to .fail)
 		;      Default true
-	%imacro check386 0-1.nolist 1
-		check286 0			; branches to .fail if 8086 or 186 -->
+		; %2 = label to jump to if 386+ CPU
+		;      Default .pass
+		; %3 = label to jump to if no 386+ CPU
+		;      Default .fail
+	%imacro check386 0-3.nolist 1 .pass .fail
+		check286 0, {%2}, {%3}		; branches to .fail if 8086 or 186 -->
 [cpu 286]
 		pushf
 		push wo 0111_0000_0000_0000b
@@ -510,9 +685,9 @@ _checkcpu:	check186
 						; Real Mode (Bits 12-14 are used in Protected Mode only)
 __CPU__
 %if %1
-		jnz .pass			; 386+ -->
+		jnz %2				; 386+ -->
 %else
-		jz .fail			; 286 -->
+		jz %3				; 286 -->
 %endif
 	%endmacro
 
@@ -542,6 +717,11 @@ __CPU__
 %idefine d2bp d2 __DEBUG2_BP__
 %idefine d3bp d3 __DEBUG3_BP__
 %idefine d4bp d4 __DEBUG4_BP__
+%idefine dd0bp _d,{d0bp}
+%idefine dd1bp _d,{d1bp}
+%idefine dd2bp _d,{d2bp}
+%idefine dd3bp _d,{d3bp}
+%idefine dd4bp _d,{d4bp}
 
 		; Breakpoint instructions for all debug levels
 		;
@@ -785,6 +965,28 @@ __SECT__
 %define _%2 comment			; define it to invoke comment
 %else
 %define _%2				; define it to a zero string
+%endif
+	%endmacro
+
+
+		; Aborts assembling if found anywhere within source
+	%imacro fixme 0-1+.nolist
+%error %1
+	%endmacro
+
+
+		; Comment a line out but make sure there are no parameters
+	%imacro noparam 0-1+.nolist
+%if %0
+ %error Must not have parameters.
+%endif
+	%endmacro
+
+
+		; Like noparam, except %1 is a message to display
+	%imacro noparamnamed 1-2+.nolist
+%ifnempty %2
+ %error %1: Must not have parameters.
 %endif
 	%endmacro
 
