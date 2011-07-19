@@ -22,112 +22,12 @@ Currently targeted to Real Mode programs only.
 %idefine w word
 %idefine d dword
 
-%idefine jmps jmp short
-%idefine jshort jmp short
+%idefine sho short
+%idefine s short
 
+%idefine jmps jmp short		; deprecated
+%idefine jshort jmp short	; deprecated
 
-		; Make all conditional jumps short. Some NASM
-		; versions do that by default, some don't.
-		; Problem: Doesn't allow valid near conditional jumps on 386+. Currently disabled.
-%if 0
-%idefine jz	%?? short
-%idefine jnz	%?? short
-%idefine jc	%?? short
-%idefine jnc	%?? short
-%idefine je	%?? short
-%idefine jne	%?? short
-%idefine jb	%?? short
-%idefine jnb	%?? short
-%idefine jbe	%?? short
-%idefine jnbe	%?? short
-%idefine ja	%?? short
-%idefine jna	%?? short
-%idefine jae	%?? short
-%idefine jnae	%?? short
-%idefine jl	%?? short
-%idefine jnl	%?? short
-%idefine jle	%?? short
-%idefine jnle	%?? short
-%idefine jg	%?? short
-%idefine jng	%?? short
-%idefine jge	%?? short
-%idefine jnge	%?? short
-%idefine jp	%?? short
-%idefine jnp	%?? short
-%idefine jpe	%?? short
-%idefine jpo	%?? short
-%idefine js	%?? short
-%idefine jns	%?? short
-%idefine jo	%?? short
-%idefine jno	%?? short
-%idefine jcxz	%?? short
-
-		; New NASM versions seem to support the workaround code by default.
-		; However they don't throw an error or warning when translating an
-		; unspecified conditional jump (I expect short) to a near one.
-
-		; near conditional jump, uses 386 opcode if _386, else workaround code
-		;
-		; %1 = condition
-		; %2 = address if passed
-	%imacro jmpnear 2.nolist
-%if _386
-	j%+1 near %2
-%else
-	_jmpnear %1,%2
-%endif
-	%endmacro
-
-		; near conditional jump, generates 8086/186/286 workaround code
-		;
-		; %1 = condition
-		; %2 = address if passed
-	%imacro _jmpnear 2.nolist
-	j%-1 %%conditionfalse
-	jmp %2
- %%conditionfalse:
-	%endmacro
-
-%idefine jnear jmpnear
-%idefine _jnear _jmpnear
-%elif 0
-%idefine jz	_checkcondjmp %??,
-%idefine jnz	_checkcondjmp %??,
-%idefine jc	_checkcondjmp %??,
-%idefine jnc	_checkcondjmp %??,
-%idefine je	_checkcondjmp %??,
-%idefine jne	_checkcondjmp %??,
-%idefine jb	_checkcondjmp %??,
-%idefine jnb	_checkcondjmp %??,
-%idefine jbe	_checkcondjmp %??,
-%idefine jnbe	_checkcondjmp %??,
-%idefine ja	_checkcondjmp %??,
-%idefine jna	_checkcondjmp %??,
-%idefine jae	_checkcondjmp %??,
-%idefine jnae	_checkcondjmp %??,
-%idefine jl	_checkcondjmp %??,
-%idefine jnl	_checkcondjmp %??,
-%idefine jle	_checkcondjmp %??,
-%idefine jnle	_checkcondjmp %??,
-%idefine jg	_checkcondjmp %??,
-%idefine jng	_checkcondjmp %??,
-%idefine jge	_checkcondjmp %??,
-%idefine jnge	_checkcondjmp %??,
-%idefine jp	_checkcondjmp %??,
-%idefine jnp	_checkcondjmp %??,
-%idefine jpe	_checkcondjmp %??,
-%idefine jpo	_checkcondjmp %??,
-%idefine js	_checkcondjmp %??,
-%idefine jns	_checkcondjmp %??,
-%idefine jo	_checkcondjmp %??,
-%idefine jno	_checkcondjmp %??,
-
-%macro _checkcondjmp 2.nolist
-%push
-%defstr %$targetstr %2
-
-%pop
-%endif
 
 		; Bind major and minor version byte to version word or
 		; version word with exchanged bytes.
