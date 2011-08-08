@@ -25,6 +25,12 @@ Currently targeted to Real Mode programs only.
 %idefine jmps jmp short
 %idefine jshort jmp short
 
+%idefine s short
+%idefine sho short
+
+%idefine n near
+%idefine ne near
+
 
 		; Make all conditional jumps short. Some NASM
 		; versions do that by default, some don't.
@@ -282,6 +288,14 @@ Currently targeted to Real Mode programs only.
 
 		; Remove the following macros if already found in other files
 %unimacro asciz 0-1+.nolist
+%unimacro ascii 0-1+.nolist
+%unmacro _ascii_prefix_suffix 2-3+.nolist
+%undef ascii
+%undef asciz
+%undef ascic
+%undef asciiline
+%undef ascizline
+%undef ascicline
 %if 0
 %unimacro section 1+.nolist			; removes NASM's standard macro
 %unimacro segment 1+.nolist			; removes NASM's standard macro
@@ -334,24 +348,27 @@ Currently targeted to Real Mode programs only.
 %unimacro _pad 3.nolist
 %unimacro alignd 2-3+.nolist
 
-		; ASCIZ string
+
+
+		; String prefixed and/or suffixed with sequence(s)
 		;
-		; %1+ = Optional string
-	%imacro asciz 0-1+.nolist
-%if %0 >= 1
+		; %1 = prefix
+		; %2 = suffix
+		; %3+ = Optional string
+	%macro _ascii_prefix_suffix 2-3+.nolist
 		db %1
+%ifnempty %3
+		db %3
 %endif
-		db 0
+		db %2
 	%endmacro
 
-		; ASCII string
-		;
-		; %1+ = optional string
-	%imacro ascii 0-1+.nolist
-%if %0 >= 1
-		db %1
-%endif
-	%endmacro
+%idefine ascii _ascii_prefix_suffix "","",
+%idefine asciz _ascii_prefix_suffix "",0,
+%idefine ascic _ascii_prefix_suffix "",36,
+%idefine asciiline _ascii_prefix_suffix "",{13,10},
+%idefine ascizline _ascii_prefix_suffix "",{13,10,0},
+%idefine ascicline _ascii_prefix_suffix "",{13,10,36},
 
 		; Counted string
 		;
