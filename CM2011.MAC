@@ -1,0 +1,259 @@
+
+; Some NASM macros
+; Public Domain
+; 2011-08-02 C. Masloch
+
+%ifndef __CM2011_MAC__
+%assign __CM2011_MAC__ 1
+
+%include "CMMACROS.MAC"
+
+		; Initiate stack frame definition.
+		; %1	Type of frame for parameter processing.
+		;	What this really means is only how large the return
+		;	address and other things between bp and the last
+		;	parameter are.
+		;	Default: none
+		;	Accepted: none, near (or 2), far (or 4), numeric
+%imacro lframe 0-1.nolist none
+%ifctx LFRAME
+ %fatal Already inside lframe, must end previous with lenter
+%elifctx LENTER
+ %fatal Still inside lenter, must end previous with lleave
+%endif
+%push LFRAME
+%ifidni %1,none
+%elifidni %1,-
+%elifidni %1,near
+ %assign %$parofs 2
+%elifidni %1,far
+ %assign %$parofs 4
+%elifnum %1
+ %assign %$parofs %1
+%else
+ %fatal Invalid frame type specified: %1
+%endif
+%assign %$pars_size 0
+%define %$parlist
+%define %$labellist
+%assign %$ofs 0
+%assign %$enter 0
+%endmacro
+
+		; Define a stack frame variable.
+		; %1	Type or size of variable.
+		;	Accepted: byte (1), word (2), dword (4), numeric
+		; %2	Name of variable. A question mark is prepended.
+%imacro lvar 2.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifidni %1,byte
+ %assign %$varsize 1
+%elifidni %1,word
+ %assign %$varsize 2
+%elifidni %1,dword
+ %assign %$varsize 4
+%elifnum %1
+ %assign %$varsize %1
+%else
+ %fatal Invalid type specified: %1
+%endif
+%ifempty %$labellist
+ %xdefine %$labellist %2
+%else
+ %xdefine %$labellist %$labellist,%2
+%endif
+%assign %$ofs %$ofs-%$varsize
+%assign ?%2 %$ofs
+%assign %$enter 1
+%endmacro
+
+		; Define a stack frame parameter.
+		; %1	Type or size of parameter.
+		;	Accepted: byte (1), word (2), dword (4), numeric
+		; %2	Name of parameter. A question mark is prepended.
+%imacro lpar 2.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifndef %$parofs
+ %fatal Specified no frame type with lframe
+%endif
+%ifidni %1,byte
+ %assign %$varsize 1
+%elifidni %1,word
+ %assign %$varsize 2
+%elifidni %1,dword
+ %assign %$varsize 4
+%elifnum %1
+ %assign %$varsize %1
+%else
+ %fatal Invalid type specified: %1
+%endif
+%ifempty %$labellist
+ %xdefine %$labellist %2
+%else
+ %xdefine %$labellist %$labellist,%2
+%endif
+%assign %$pars_size %$pars_size+%$varsize
+%ifempty %$parlist
+ %xdefine %$parlist %$varsize,%2
+%else
+ %xdefine %$parlist %$parlist,%$varsize,%2
+%endif
+%assign %$enter 1
+%endmacro
+
+		; Create a defined stack frame.
+		; This sets up bp and reserves stack space for all defined
+		; variables. It also defines the labels for parameters.
+		; Note that bp is not set up if no variables and no
+		; parameters were defined. (To set up bp in any case,
+		; define an empty (size zero) variable.)
+		; Defines %$lsizeparameters to be the even number of bytes
+		; all parameters take up, and %$lsizevariables to be the
+		; even number of bytes all variables take up.
+%imacro lenter 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%repl LENTER
+%assign %$lsizevariables (-%$ofs+1)&~1
+%if %$enter
+	push bp
+	mov bp, sp
+ %if %$ofs
+	sub sp, %$lsizevariables
+ %endif
+%endif
+%assign %$lsizeparameters (%$pars_size+1)&~1
+__lenter_parse_parlist %$parlist
+%endmacro
+
+%macro __lenter_parse_parlist 0-*.nolist
+%if %0 & 1
+ %fatal Expected even number of macro parameters!
+%endif
+%rep %0 >> 1
+%assign %$pars_size %$pars_size - %1
+%assign ?%2 (%$pars_size + %$parofs + 2)
+%endrep
+%endmacro
+
+		; Remove a created stack frame.
+		; This restores bp if it was altered to access variables or
+		; parameters. It also restores sp from bp if sp was altered
+		; to allocate space to variables.
+		; This undefines all labels that were defined for variables
+		; and parameters in this stack frame, to prevent accidental
+		; usage of these labels later.
+		; If parameters were specified, lsizeparameters is defined
+		; as the (even) number of bytes that all parameters use on
+		; the stack. No return instruction is written by this macro.
+		; %1	Specifies whether to write the stack frame removal
+		;	code or to remove the macros' context. This allows
+		;	writing the code multiple times.
+		;	Default: code+ctx
+		;	Accepted: code+ctx (or ), code, ctx
+		; %2	Specifies whether to always restore sp.
+		;	Default: optimizerestoresp
+		;	Accepted: optimizerestoresp (or ), forcerestoresp
+%imacro lleave 0-2.nolist
+%ifnctx LENTER
+ %fatal Must use lenter first
+%endif
+%ifidni %1,code
+%elifidni %1,ctx
+%elifidni %1,code+ctx
+%elifempty %1
+%else
+ %fatal Invalid parameter specified: %1
+%endif
+%ifidni %2,forcerestoresp
+%elifidni %2,optimizerestoresp
+%elifempty %2
+%else
+ %fatal Invalid second parameter specified: %2
+%endif
+	%ifnidni %1,ctx
+%if %$enter
+ %if %$ofs
+	mov sp, bp
+ %else
+  %ifidni %2,forcerestoresp
+ 	mov sp, bp
+  %endif
+ %endif
+	pop bp
+%else
+ %ifidni %2,forcerestoresp
+  %fatal No stack frame was created
+ %endif
+%endif
+	%else
+%ifnempty %2
+ %fatal Invalid to specify second parameter
+%endif
+	%endif
+%ifdef %$parofs
+%assign lsizeparameters %$lsizeparameters
+%endif
+	%ifnidni %1,code
+__lleave_undefine_labels %$labellist
+%pop
+	%endif
+%endmacro
+
+%macro __lleave_undefine_labels 0-*.nolist
+%rep %0
+%undef ?%1
+%endrep
+%endmacro
+
+
+
+ %imacro @@ 1.nolist
+@F %+ %1
+ %ifdef @B
+  %ifdef @BB
+   %ifdef @BBB
+%ixdefine @BBBB @BBB
+   %endif
+%ixdefine @BBB @BB
+  %endif
+%ixdefine @BB @B
+ %endif
+%ixdefine @B @F
+%ixdefine @F @FF
+%ixdefine @FF @FFF
+%ixdefine @FFF @FFFF
+%idefine @FFFF %%@@label
+%ixdefine @B4 @BBBB
+%ixdefine @B3 @BBB
+%ixdefine @B2 @BB
+%ixdefine @B1 @B
+%ixdefine @F1 @F
+%ixdefine @F2 @FF
+%ixdefine @F3 @FFF
+%ixdefine @F4 @FFFF
+ %endmacro
+
+%idefine @F ..@first.@@label
+%idefine @FF ..@second.@@label
+%idefine @FFF ..@third.@@label
+%idefine @FFFF ..@fourth.@@label
+%ixdefine @F1 @F
+%ixdefine @F2 @FF
+%ixdefine @F3 @FFF
+%ixdefine @F4 @FFFF
+
+	%imacro checklframeend 0
+%ifctx LFRAME
+ %fatal Still inside lframe!
+%elifctx LENTER
+ %fatal Still inside lenter!
+%endif
+	%endmacro
+
+%endif
