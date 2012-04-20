@@ -7,10 +7,10 @@ Intended for 86 Mode programs.
 
 %endif
 
-%ifndef __CM2011_MAC__
-%assign __CM2011_MAC__ 1
+%ifndef __lMACROS2_MAC__
+%assign __lMACROS2_MAC__ 1
 
-%include "CMMACROS.MAC"
+%include "lmacros1.mac"
 [list -]
 
 		; Initiate stack frame definition.
