@@ -135,6 +135,7 @@ Currently targeted to Real Mode programs only.
 %pop
 %endif
 
+
 		; Bind major and minor version byte to version word or
 		; version word with exchanged bytes.
 %idefine ver(major,minor)	((major)&0FFh)<<8|((minor)&0FFh)
