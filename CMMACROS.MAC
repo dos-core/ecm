@@ -138,8 +138,8 @@ Currently targeted to Real Mode programs only.
 
 		; Bind major and minor version byte to version word or
 		; version word with exchanged bytes.
-%idefine ver(major,minor)	((major)&0FFh)<<8|((minor)&0FFh)
-%idefine verx(major,minor)	((minor)&0FFh)<<8|((major)&0FFh)
+%idefine ver(major,minor)	( ((major)&0FFh)<<8|((minor)&0FFh) )
+%idefine verx(major,minor)	( ((minor)&0FFh)<<8|((major)&0FFh) )
 
 		; Macros for table creation
 %define count(start,stop) stop-start+1
@@ -261,7 +261,7 @@ Currently targeted to Real Mode programs only.
 		;
 		; address: which address is referenced
 		; fixup: how many bytes are added to get the absolute address
-%define __REL__(address,fixup) (address)-(fixup)
+%define __REL__(address,fixup) ((address)-(fixup))
 %xdefine __REL8__(address,fixup) __REL__(address,fixup)
 %xdefine __REL8__(address) __REL__(address,$+1)	; for __JMP_REL8 (db)
 %xdefine __REL16__(address,fixup) __REL__(address,fixup)
@@ -446,6 +446,9 @@ Currently targeted to Real Mode programs only.
 		; %3 = section attributes only used for first declaration
 	%imacro section 1-3+.nolist
 %ifntoken %1
+%define __SECT__ [section %1 %2 %3]
+__SECT__
+%elif %0 < 2
 %define __SECT__ [section %1 %2 %3]
 __SECT__
 %else
