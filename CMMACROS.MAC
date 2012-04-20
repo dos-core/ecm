@@ -1,9 +1,9 @@
 [list -]
 %if 0
 
-CMMACROS.MAC - Useful (or not) NASM macros, defines & bloat
-Public Domain by C. Masloch, 2008-2010
-Currently targeted to Real Mode programs only.
+NASM macro collection
+Public Domain by C. Masloch, 2008-2012
+Intended for 86 Mode programs.
 
 %endif
 

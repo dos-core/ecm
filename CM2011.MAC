@@ -1,12 +1,17 @@
+[list -]
+%if 0
 
-; Some NASM macros
-; Public Domain
-; 2011-08-02 C. Masloch
+Extensions to NASM macro collection
+Public Domain by C. Masloch, 2011-2012
+Intended for 86 Mode programs.
+
+%endif
 
 %ifndef __CM2011_MAC__
 %assign __CM2011_MAC__ 1
 
 %include "CMMACROS.MAC"
+[list -]
 
 		; Initiate stack frame definition.
 		; %1	Type of frame for parameter processing.
@@ -257,3 +262,4 @@ __lleave_undefine_labels %$labellist
 	%endmacro
 
 %endif
+[list +]
