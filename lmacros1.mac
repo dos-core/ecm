@@ -292,6 +292,7 @@ Intended for 86 Mode programs.
  %endif
 	%endmacro
 	%idefine counted _counted db,
+	%idefine countedb _counted db,
 	%idefine countedw _counted dw,
 
 	%imacro _strlen 1-*.nolist
