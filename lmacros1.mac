@@ -28,6 +28,8 @@ Intended for 86 Mode programs.
 %idefine n near
 %idefine ne near
 
+%idefine f far
+
 %idefine jmps jmp short		; deprecated
 %idefine jshort jmp short	; deprecated
 
