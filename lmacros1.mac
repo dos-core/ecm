@@ -644,8 +644,6 @@ endarea %$strucname
 __SECT__
 %endmacro
 
-%idefine endstruca endstruc 1
-
 %imacro istruc 1.nolist
 %push
 %define %$strucname %1
