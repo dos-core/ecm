@@ -294,22 +294,6 @@ Intended for 86 Mode programs.
 	%endmacro
 
 
-%if __NASM_VERSION_ID__ >= 020A0000h
-
-%fatal NASM PR
-		; Call with word parameters behind opcode
-	%imacro call 1.nolist
-		%? %1
-	%endmacro
-
-	%irmacro call 2-*.nolist
-		%? %1
-%rep %0 - 1
-%rotate 1
-		dw %1
-%endrep
-	%endmacro
-%else
 		; Call with word parameters behind opcode
 	%imacro call 1-*.nolist
 		%? %1
@@ -318,7 +302,6 @@ Intended for 86 Mode programs.
 		dw %1
 %endrep
 	%endmacro
-%endif
 
 
 		; Define version information.
