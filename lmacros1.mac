@@ -465,26 +465,26 @@ __SECT__
 	%endmacro
 
 
-	numdef _lMACROS1_MAC__NODEFAULTS
-%ifn __lMACROS1_MAC__NODEFAULTS		; Only if we do want defaults.
-		; Let's use some of the above
+	numdef _lMACROS1_MAC__CPU_DEFAULTS
+%if __lMACROS1_MAC__CPU_DEFAULTS
 	numdef 186		; 186 opcodes allowed
 	numdef 386		; 386 opcodes allowed
 	incdef _386,186		; excluding 186 opcodes on 386+ seems not useful
-	numdef DEBUG		; all of the debugging levels
-		; Is this useful? NDebug sets NODEFAULTS to work around this incdef.
-		; (And because they don't use _386, _186.) Do we want this for building DOS?
-	incdef _DEBUG,DEBUG0,DEBUG1,DEBUG2,DEBUG3,DEBUG4
-	numdef DEBUG0		; 1st level debugging - display funny numbers sometimes
-	numdef DEBUG1		; 2nd level debug - show warnings on unsupported calls
-	numdef DEBUG2		; 3rd level debug - reserved
-	numdef DEBUG3		; 4th level debug - include d3 code/breakpoints
-	numdef DEBUG4		; 5th level debug - include d4 code/breakpoints
-			; Note:	All debug levels are independent. _DEBUG4 (as well as
-			; any other level) does not force any other debug level on.
 %endif
 
-		; And now, let's really use some of the above
+	numdef _lMACROS1_MAC__DEBUG_DEFAULTS
+%if __lMACROS1_MAC__DEBUG_DEFAULTS
+	numdef DEBUG		; all of the debugging levels
+	incdef _DEBUG,DEBUG0,DEBUG1,DEBUG2,DEBUG3,DEBUG4
+	numdef DEBUG0		; 1st level debug
+	numdef DEBUG1		; 2nd level debug
+	numdef DEBUG2		; 3rd level debug
+	numdef DEBUG3		; 4th level debug
+	numdef DEBUG4		; 5th level debug
+			; Note:	All specific debug levels are independent.
+			;	What each debug level does is program-specific.
+%endif
+
 
 		; Automatically select CPU depending on definitions
 		;
