@@ -673,7 +673,7 @@ __SECT__
 		; Fill data to specified byte size (specify data)
 		;
 		; %1 = Byte size to fill
-		; %2 = Fill byte (f.e. 0, 90h, 32)
+		; %2 = Fill byte (eg 0, 90h, 32)
 		; %3 = Actual instruction to place before filling (optional)
 	%imacro fill 2-3+.nolist
 %%data:
@@ -685,7 +685,7 @@ __SECT__
 		; Fill data to specified byte size (specify start label of data)
 		;
 		; %1 = Byte size to fill
-		; %2 = Fill byte (f.e. 0, 90h, 32)
+		; %2 = Fill byte (eg 0, 90h, 32)
 		; %3 = Start label of data
 	%imacro _fill 3.nolist
 %if %1 < 0				; hu?
@@ -705,7 +705,7 @@ __SECT__
 		; NASM's align (or alignd below) to pad (cough, cough... align) if you don't want that.
 		;
 		; %1 = Byte boundary
-		; %2 = Pad byte (f.e. 0, 90h, 32)
+		; %2 = Pad byte (eg 0, 90h, 32)
 		; %3 = Actual instruction to place before padding (optional, else macro creates nothing)
 	%imacro pad 2-3+.nolist
 %%data:
@@ -720,7 +720,7 @@ __SECT__
 		; NASM's align (or alignd below) to pad (cough, cough... align) if don't you want that.
 		;
 		; %1 = Byte boundary
-		; %2 = Pad byte (f.e. 0, 90h, 32)
+		; %2 = Pad byte (eg 0, 90h, 32)
 		; %3 = Start label of data (if it equals $, no padding is created)
 	%imacro _pad 3.nolist
 %if %1 < 0				; hu?
@@ -751,7 +751,7 @@ __SECT__
 		; Similar to pad but using align:
 		;
 		; %1 = Byte boundary (relative from the section start)
-		; %2 = Align byte (f.e. 0, 90h, 32)
+		; %2 = Align byte (eg 0, 90h, 32)
 		; %3 = Actual instruction to place before aligning (optional, else macro still aligns!)
 	%imacro alignd 2-3+.nolist
 		%3
