@@ -257,14 +257,6 @@ Intended for 86 Mode programs.
 		; %1 = data type of count
 		; %2+ = optional string
 	%imacro _counted 2+.nolist
- %if 0
-		%1 %%end-%%start
-%%start:
-%if %0 >= 2
-		db %2
-%endif
-%%end:
- %else
 %push
 %ifnempty %2
 		_strlen %2
@@ -274,7 +266,6 @@ Intended for 86 Mode programs.
 		%1 0
 %endif
 %pop
- %endif
 	%endmacro
 	%idefine counted _counted db,
 	%idefine countedb _counted db,
