@@ -41,10 +41,10 @@ Intended for 86 Mode programs.
 %define range(start,stop) (start),count(start,stop)	; generates two comma-separated values
 
 		; Work with 4-byte dates
-%define date(y,m,d)	(((y)&0FFFFh)<<16|((m)&0FFh)<<8|((d)&0FFh))	; create 4-byte date
-%define year(d)		(((d)>>16)&0FFFFh)	; get year from 4-byte date
-%define month(d)	(((d)>>8)&0FFh)		; get month from 4-byte date
-%define day(d)		((d)&0FFh)		; get day from 4-byte date
+%define date4b(y,m,d)	(((y)&0FFFFh)<<16|((m)&0FFh)<<8|((d)&0FFh))	; create 4-byte date
+%define year4bd(d)	(((d)>>16)&0FFFFh)	; get year from 4-byte date
+%define month4bd(d)	(((d)>>8)&0FFh)		; get month from 4-byte date
+%define day4bd(d)	((d)&0FFh)		; get day from 4-byte date
 						; The 4-byte date stores the year 0-65535 in the high word,
 						; followed by the month 0-255 in the high byte (of the low
 						; word) and the day 0-255 in the low byte.
