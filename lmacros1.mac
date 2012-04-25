@@ -30,9 +30,6 @@ Intended for 86 Mode programs.
 
 %idefine f far
 
-%idefine jmps jmp short		; deprecated
-%idefine jshort jmp short	; deprecated
-
 
 		; Bind major and minor version byte to version word or
 		; version word with exchanged bytes.
