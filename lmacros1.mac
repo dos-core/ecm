@@ -148,6 +148,7 @@ Intended for 86 Mode programs.
 %idefine fromdwords(d)		((d)<<2)
 %idefine fromqwords(q)		((q)<<3)
 %idefine fromparagraphs(p)	((p)<<4)
+%idefine fromparas(p)		((p)<<4)
 %idefine frompages(p)		((p)<<9)
 %idefine fromkib(k)		((k)<<10)
 
