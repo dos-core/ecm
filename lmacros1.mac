@@ -172,16 +172,11 @@ Intended for 86 Mode programs.
 %define __NOP 90h
 %define __TEST_IMM8 0A8h			; changes flags, NC
 %define __TEST_IMM16 0A9h			; changes flags, NC
-%xdefine __NOP_DATA1 __TEST_IMM8		; ! phasing this alias out
-%xdefine __NOP_DATA2 __TEST_IMM16		; ! phasing this alias out
-					; Longer NOPs below require two byte, like a short jump does.
+					; Longer NOPs require two bytes, like a short jump does.
 					; However they execute faster than unconditional jumps.
-					; These read random data in the stack segment.
+					; This one reads random data in the stack segment.
 					;  (Search for better ones.)
-%define __TEST_OFS8_IMM16 0F7h,46h		; changes flags, NC
-%define __TEST_OFS16_IMM16 0F7h,86h		; changes flags, NC
-%xdefine __NOP_DATA3 __TEST_OFS8_IMM16		; ! phasing this alias out
-%xdefine __NOP_DATA4 __TEST_OFS16_IMM16		; ! phasing this alias out
+%define __TEST_OFS16_IMM8 0F6h,86h		; changes flags, NC
 
 		; Remove the following macros if already found in other files
 %unimacro asciz 0-1+.nolist
