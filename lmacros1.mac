@@ -258,13 +258,13 @@ Intended for 86 Mode programs.
 		; %2+ = optional string
 	%imacro _counted 2+.nolist
 %push
-%ifnempty %2
+ %ifnempty %2
 		_strlen %2
 		%1 %$len
 		db %2
-%else
+ %else
 		%1 0
-%endif
+ %endif
 %pop
 	%endmacro
 	%idefine counted _counted db,
@@ -313,15 +313,14 @@ Intended for 86 Mode programs.
 %assign %1_VER%2_MIN	%4
 %assign %1_VER%2	ver(%3,%4)
 %assign %1_VER%2_X	verx(%3,%4)
-	%push defver
-%defstr %$maj		%3
-%defstr %$min		%4
-%if %4 < 10
-%strcat %$min		'0', %$min		; one digit low numbers padded to two digits
-%endif
-%strcat %1_VER%2_STR	%$maj, '.', %$min
-	%pop
-
+%push
+ %defstr %$maj		%3
+ %defstr %$min		%4
+ %if %4 < 10
+  %strcat %$min		'0', %$min		; one digit low numbers padded to two digits
+ %endif
+ %strcat %1_VER%2_STR	%$maj, '.', %$min
+%pop
 	%endmacro
 
 		; Define a numeric definition for conditional assembly
@@ -732,18 +731,18 @@ __SECT__
  %error _pad: start label must not be behind padding
 %endif
 
-%push pad
-%assign %$size $-%3			; size of data
-%assign %$count 0
+%push
+ %assign %$size $-%3			; size of data
+ %assign %$count 0
 	%rep %1				; must be at the boundary then
-%ifn (%$count + %$size) % %1		; if ( !((paddedcount + size) modulo boundary) )
+ %ifn (%$count + %$size) % %1		; if ( !((paddedcount + size) modulo boundary) )
 	%exitrep			; then { we're done }
-%endif
-%assign %$count %$count+1		; else keep counting
+ %endif
+ %assign %$count %$count+1		; else keep counting
 	%endrep
-%if %$count >= %1			; if loop end caused by %endrep
- %error pad: an unknown error occured
-%endif
+ %if %$count >= %1			; if loop end caused by %endrep
+  %error pad: an unknown error occured
+ %endif
 		times (%$count-1) db %2	; put this data for the assembler. but in _one_ line
 %pop
 	%endmacro
