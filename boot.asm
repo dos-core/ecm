@@ -1,43 +1,137 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; First-stage bootloader for FAT12 (DOS/Win) floppy
-; Chris Giese <geezer@execpc.com>, http://my.execpc.com/~geezer
-; Release date: Nov 26, 2002
-; This code is public domain (no copyright).
-; You can do whatever you want with it.
-;
-; BUILD:
-;	nasm -f bin -o fat12.bin fat12.asm
-;
-; DOS INSTALL; 1.44 meg floppies only:
-;	partcopy fat12.bin  0 200 -f0
-; -or-
-;	debug fat12.bin
-;	-w 100 0 0 1	('-' is DEBUG prompt. Type ? for help.)
-;	-q
-;
-; DOS INSTALL; floppies other than 1.44 meg:
-;	partcopy fat12.bin  0   3 -f0
-;	partcopy fat12.bin 24 1DC -f0 24
-;
-; UNIX INSTALL; 1.44 meg floppies only:
-;	cat fat12.bin >/dev/fd0
-;
-; UNIX INSTALL; floppies other than 1.44 meg:
-;	dd bs=1 if=fat12.bin skip=0  count=3   of=/dev/fd0
-;	dd bs=1 if=fat12.bin skip=36 count=476 of=/dev/fd0 seek=36
-;
-; Do not use RAWRITE (it will overwrite the first FAT).
-; Be careful using PARTCOPY and DEBUG so you don't trash your hard disk.
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; SS_NAME must be in FAT format: all caps, 11 chars total, 8-char
-; filename, 3-char extension, both padded on the right with spaces
-%define	SS_NAME	"LOAD    BIN"		; 2nd stage file name
-SS_ADR	EQU	10000h			; where to load 2nd stage
-SS_ORG	EQU	100h			; 2nd stage ORG value
+%if 0
 
-; "No user-serviceable parts beyond this point" :)
-; Actually, you can modify it if you want.
+File system boot sector loader code for FAT12
+
+Adapted from 2002-11-26 fatboot.zip/fat12.asm,
+ released as public domain by Chris Giese
+
+Public domain by C. Masloch, 2012
+
+%endif
+
+
+%include "lmacros1.mac"
+
+	numdef FREEDOS_COMPAT,	0	; partial FreeDOS load compatibility
+
+	strdef OEM_NAME,	"    lDOS"
+%ifn _FREEDOS_COMPAT
+	strdef LOAD_NAME,	"LDOS"
+	strdef LOAD_EXT,	"BIN"	; name of file to load
+	numdef LOAD_ADR,	00610h	; where to load
+	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
+	numdef EXEC_OFS,	0	; what value ip will be
+	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
+%else	; Following set is for _FREEDOS_COMPAT.
+	; Uses different defaults and forces one option on.
+	strdef LOAD_NAME,	"KERNEL"
+	strdef LOAD_EXT,	"SYS"
+	numdef LOAD_ADR,	00600h
+	numdef EXEC_SEG_ADJ,	0
+	numdef EXEC_OFS,	0
+ %assign _SET_BL_UNIT		1
+%endif
+
+%if 0
+
+Notes about partial FreeDOS load compatibility
+
+* Boot unit is always passed in dl;
+   with _SET_BL_UNIT turned on we _additionally_ pass it in bl
+* Load address defaults to 00600h, as expected/required
+* Execution address adjustments default to 0, ie 0060h:0000h
+* Called "partial" as we do not relocate to 27A00h (1FE0h:7C00h)
+
+%endif
+
+
+%assign LOADLIMIT 0A0000h
+%assign POSITION   07C00h
+
+%if (_LOAD_ADR & 0Fh)
+ %error Load address must be on a paragraph boundary
+%endif
+
+%if _LOAD_ADR > LOADLIMIT
+ %error Load address must be in LMA
+%elif _LOAD_ADR < 00500h
+ %error Load address must not overlap IVT or BDA
+%elif _LOAD_ADR > (POSITION-256) && (POSITION+512) < _LOAD_ADR
+ %error Load address must not overlap loader
+%endif
+
+%if ((_EXEC_SEG_ADJ<<4)+_EXEC_OFS) < 0
+ %error Execution address must be in loaded file
+%elif ((_EXEC_SEG_ADJ<<4)+_EXEC_OFS+_LOAD_ADR) > LOADLIMIT
+ %error Execution address must be in LMA
+%endif
+
+%if (_EXEC_OFS & ~0FFFFh)
+ %error Execution offset must fit into 16 bits
+%endif
+
+%if (_EXEC_SEG_ADJ & ~0FFFFh)
+ %error Execution segment adjustment must fit into 16 bits
+%endif
+
+%define OEM_NAME_FILL '_'
+
+
+%if 0
+
+There is some logic inside MS-DOS's hard disk partition initialisation
+code that sets up several requirements for us to fulfil. Otherwise,
+it will not accept the information given in the BPB (using default
+information based on the length as specified by MBR/EPBR instead) or
+make the whole file system inaccessible except for formatting. Both of
+those are undesirable of course. Some/all(?) checks are documented on
+pages 601,602 in "DOS Internals", Geoff Chappell 1994, as follows:
+
+* First three bytes contain either "jmp sho xx\ nop" or "jmp ne xx".
+* Media descriptor field >= 0F0h.
+* Bytes per sector field == 512.
+* Sectors per cluster field a power of 2 (1,2,4,8,16,32,64,128).
+* OEM name "version" (last three to four characters)
+ * must be "20.?", "10.?" (? = wildcard), but no other with "0.?",
+ * otherwise, must be "2.0", or
+  * 2nd-to-last,3rd-to-last character codes together > "3.", or
+   * those == "3.", last character code > "0"
+
+To stay compatible to those, display a warning here if the name
+itself would disqualify our boot sector already.
+
+%endif
+
+%push
+%strlen %$len _OEM_NAME
+%define %$nam _OEM_NAME
+%if %$len > 8
+ %error Specified OEM name is too long
+%else
+ %assign %$warn 0
+ %rep 8 - %$len
+  %strcat %$nam %$nam,OEM_NAME_FILL
+ %endrep
+ %substr %$prefix %$nam	5	; "wvxyZa.b", get "Z"
+ %substr %$major %$nam 6,7	; "wvxyzA.b", get "A."
+ %substr %$minor %$nam 8	; "wvxyza.B", get "B"
+ %if %$major == "0."
+  %ifn %$prefix == "1" || %$prefix == "2"
+   %assign %$warn 1
+  %endif
+ %elifn %$major == "2." && %$minor == "0"
+  %if %$major < "3."
+   %assign %$warn 1
+  %elif %$major == "3." && %$minor < "1"
+   %assign %$warn 1
+  %endif
+ %endif
+ %if %$warn
+  %warning Specified OEM name fails MS-DOS's validation
+ %endif
+%endif
+%pop
 
 ; first-stage address				offset	linear
 %define 	FS_ORG	100h			; 100h	7C00h
@@ -84,7 +178,7 @@ data_start		EQU (dir_ents_per_sector - 2)
 ; (2 bytes) number of 16-byte paragraphs per cluster
 para_per_cluster	EQU (data_start - 2)
 
-	jmp short skip_bpb
+	jmp strict short skip_bpb
 	nop
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -100,7 +194,7 @@ para_per_cluster	EQU (data_start - 2)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 oem_id:			; offset 03h (03) - not used by this code
-	db "GEEZER", 0, 0
+	fill 8,OEM_NAME_FILL,db _OEM_NAME
 bytes_per_sector:	; offset 0Bh (11)
 	dw 512
 sectors_per_cluster:	; offset 0Dh (13)
@@ -194,7 +288,7 @@ next_sect:
 	push cx
 		mov cx,[VAR(dir_ents_per_sector)]
 next_ent:
-		mov di,ss_name
+		mov di,load_name
 		push si
 		push cx
 			mov cx,11 ; 8.3 FAT filename
@@ -235,7 +329,7 @@ found_it:
 		int 12h
 
 ; subtract load address
-		sub ax,(SS_ADR / 1024)
+		sub ax,(_LOAD_ADR>>10)
 
 ; convert from K to bytes
 		mov dx,1024
@@ -255,7 +349,7 @@ found_it:
 
 ; set load address DI:BX
 		xor bx,bx
-		mov di,(SS_ADR / 16)
+		mov di,(_LOAD_ADR>>4)
 		xor ch,ch
 		mov cl,[VAR(sectors_per_cluster)]
 next_cluster:
@@ -281,15 +375,15 @@ next_cluster:
 		mov al,0
 		out dx,al
 
-; jump to second stage loaded at SS_ADR and ORGed to address SS_ORG
-		mov ax,((SS_ADR - SS_ORG) / 16)
+; jump to second stage
+		mov ax,(_LOAD_ADR>>4) + _EXEC_SEG_ADJ
 		mov ds,ax
 		mov es,ax
 
 ; we leave SS:SP as they were
 ; Here is the actual far 'jump' to the second stage (RETF, actually)
 		push ax
-		mov bx,SS_ORG
+		mov bx,_EXEC_OFS
 		push bx
 		retf
 
@@ -509,11 +603,12 @@ wf_4:
 ; this is relative to partition start, so we need only 16 bits
 curr_sector:
 	dw -1
-ss_name:
-	db SS_NAME
+load_name:
+	fill 8,32,db _LOAD_NAME
+	fill 3,32,db _LOAD_EXT
 
-; pad with NOPs to offset 510
-	times (510 + $$ - $) nop
+	_fill 508,38,start
 
+	dw 0
 ; 2-byte magic bootsector signature
-	db 55h, 0AAh
+	dw 0AA55h
