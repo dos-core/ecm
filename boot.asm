@@ -133,9 +133,6 @@ total_sectors_large:	; offset 20h (32) - not used by this code
 
 skip_bpb:
 ; put CPU into a known state
-%ifdef DOS
-	mov dl,0	; A: drive
-%else
 	jmp ((7C00h - FS_ORG) / 16):fix_cs
 fix_cs:
 	mov ax,cs
@@ -143,7 +140,6 @@ fix_cs:
 	mov es,ax
 	mov ss,ax
 	mov sp,ADR_STACK
-%endif
 	mov bp,start
 	mov [VAR(boot_drive)],dl
 	cld
@@ -228,15 +224,10 @@ error:
 	mov ax,0E07h	; *** BEEEP ***
 	int 10h
 exit:
-%ifdef DOS
-	mov ax,4C01h
-	int 21h
-%else
 	mov ah,0	; await key pressed
 	int 16h
 
 	int 19h		; re-start the boot process
-%endif
 
 found_it:
 ; leave the old CX value on the stack to save a byte or two
@@ -244,15 +235,7 @@ found_it:
 		int 12h
 
 ; subtract load address
-%ifdef DOS
-		mov dx,ds
-		add dx,((SS_ADR - 7C00h) / 16)
-		mov cl,6
-		shr dx,cl
-		sub ax,dx
-%else
 		sub ax,(SS_ADR / 1024)
-%endif
 
 ; convert from K to bytes
 		mov dx,1024
@@ -272,12 +255,7 @@ found_it:
 
 ; set load address DI:BX
 		xor bx,bx
-%ifdef DOS
-		mov di,ds
-		add di,(SS_ADR / 16)
-%else
 		mov di,(SS_ADR / 16)
-%endif
 		xor ch,ch
 		mov cl,[VAR(sectors_per_cluster)]
 next_cluster:
@@ -304,13 +282,7 @@ next_cluster:
 		out dx,al
 
 ; jump to second stage loaded at SS_ADR and ORGed to address SS_ORG
-%ifdef DOS
-; build or copy a PSP for the second stage? nah, too much work...
-		mov ax,ds
-		add ax,((SS_ADR - SS_ORG) / 16)
-%else
 		mov ax,((SS_ADR - SS_ORG) / 16)
-%endif
 		mov ds,ax
 		mov es,ax
 
@@ -463,12 +435,7 @@ walk_fat:
 		push ax
 
 ; prepare to load FAT
-%ifdef DOS
-			mov ax,ds
-			add ax,(ADR_FATBUF / 16)
-%else
 			mov ax,(ADR_FATBUF / 16)
-%endif
 			mov es,ax
 			xor bx,bx
 
