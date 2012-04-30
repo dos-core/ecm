@@ -11,7 +11,14 @@ Public domain by C. Masloch, 2012
 %endif
 
 
-%include "lmacros1.mac"
+%include "lmacros2.mac"
+
+%ifndef _MAP
+%elifstr _MAP
+%elifempty _MAP
+%else	; defined non-empty non-str
+	[map all _MAP]
+%endif
 
 	numdef FREEDOS_COMPAT,	0	; partial FreeDOS load compatibility
 
@@ -133,37 +140,32 @@ itself would disqualify our boot sector already.
 %endif
 %pop
 
-; first-stage address				offset	linear
-%define 	FS_ORG	100h			; 100h	7C00h
+; 512-byte stack.
+ADR_STACK	equ	lowest_variable		;~07DF0h
+ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
-; 512-byte stack. Put this ABOVE the code in memory, so this code
-; can also be built as a .COM file (for testing purposes only!)
-ADR_STACK	equ	(FS_ORG + 400h)		; 500h	8000h
-
-; one-sector directory buffer. I assume FAT sectors are no larger than 4K
-ADR_DIRBUF	equ	ADR_STACK		; 500h	8000h
+; one-sector directory buffer. Assumes FAT sectors are no larger than 8 KiB
+ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
 
 ; two-sector FAT buffer -- two sectors because FAT12
 ; entries are 12 bits and may straddle a sector boundary
-ADR_FATBUF	equ	(ADR_DIRBUF + 1000h)	; 1500h	9000h
+ADR_FATBUF	equ	(ADR_DIRBUF + 8192)	; 09E00h
 
-; start of unused memory:			  3500h	B000h
+; start of unused memory:
+ADR_FREE	equ	(ADR_FATBUF + 2*8192)	; 0DE00h
 
 ; use byte-offset addressing from BP for smaller code
 %define	VAR(x)	((x) - start) + bp
 
-; bootsector loaded at physical address 07C00h, but address 100h
-; will work if we load IP and segment registers properly.
-; This is also the ORG address of a DOS .COM file
-	ORG FS_ORG
+; bootsector loaded at address 07C00h, addressable using 0000h:7C00h
+	org 7C00h
 start:
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; VARIABLES
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+; Variables
 
 ; (1 byte) drive we booted from; 0=A, 80h=C
-boot_drive		EQU (start - 1)
+boot_drive		EQU (start - 2)
 
 ; (2 bytes) number of 16-byte paragraphs per sector
 para_per_sector		EQU (boot_drive - 2)
@@ -172,17 +174,24 @@ para_per_sector		EQU (boot_drive - 2)
 dir_ents_per_sector	EQU (para_per_sector - 2)
 
 ; (2 bytes) sector where the actual disk data starts
-; This is relative to partition start, so we need only 16 bits
-data_start		EQU (dir_ents_per_sector - 2)
+data_start		EQU (dir_ents_per_sector - 4)
 
 ; (2 bytes) number of 16-byte paragraphs per cluster
 para_per_cluster	EQU (data_start - 2)
 
+; (word) actual sectors per cluster
+adj_sectors_per_cluster equ (para_per_cluster - 2)
+
+; (word) segment behind available memory
+end_of_memory		equ (adj_sectors_per_cluster - 2)
+
+lowest_variable		equ end_of_memory
+
 	jmp strict short skip_bpb
 	nop
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; MINIMAL BIOS PARAMETER BLOCK (BPB)
+
+; Minimal BIOS Parameter Block (BPB)
 ;
 ; 'Minimal' means just enough of a BPB so DOS/Windows:
 ; - recognizes this disk as a FAT12 floppy,
@@ -190,8 +199,7 @@ para_per_cluster	EQU (data_start - 2)
 ; - doesn't insist on a full format if you say "FORMAT /Q A:"
 ;
 ; Installation will use the BPB already present on your floppy disk.
-; The values shown here work only with 1.44 meg disks (CHS=80:2:18)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; The values shown here work only with 1440 KiB disks (CHS=80:2:18)
 
 oem_id:			; offset 03h (03) - not used by this code
 	fill 8,OEM_NAME_FILL,db _OEM_NAME
@@ -221,15 +229,15 @@ hidden_sectors:		; offset 1Ch (28)
 total_sectors_large:	; offset 20h (32) - not used by this code
 	dd 0
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CODE
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; which sector is in the FAT buffer
+; this is relative to partition start, so we need only 16 bits
+curr_sector:
+	dw -1
+
+; Code
 
 skip_bpb:
-; put CPU into a known state
-	jmp ((7C00h - FS_ORG) / 16):fix_cs
-fix_cs:
-	mov ax,cs
+	xor ax, ax
 	mov ds,ax
 	mov es,ax
 	mov ss,ax
@@ -241,39 +249,50 @@ fix_cs:
 ; calculate some values that we need:
 ; 16-byte paragraphs per sector
 	mov ax,[VAR(bytes_per_sector)]
-	mov cl,4
+	mov cx,4			; ! ch = 0
 	shr ax,cl
 	mov [VAR(para_per_sector)],ax
+	push ax
 
 ; 16-byte paragraphs per cluster
 	xor dh,dh
 	mov dl,[VAR(sectors_per_cluster)]
+	dec dl
+	inc dx
+	mov [VAR(adj_sectors_per_cluster)], dx
 	mul dx
 	mov [VAR(para_per_cluster)],ax
 
 ; 32-byte FAT directory entries per sector
-	mov ax,[VAR(bytes_per_sector)]
-	mov bx,32 ; bytes/dirent
-	xor dx,dx
-	div bx
-	mov [VAR(dir_ents_per_sector)],ax
+	pop ax				; para per sector
+	shr ax, 1			; /2 = 32-byte entries per sector
+	mov [VAR(dir_ents_per_sector)], ax
 
 ; number of sectors used for root directory (store in CX)
-	mov ax,[VAR(num_root_dir_ents)]
-	mul bx
-	div word [VAR(bytes_per_sector)]
-	mov cx,ax
+	mov bx, ax
+	dec ax				; rounding up
+	add ax,[VAR(num_root_dir_ents)]	; from BPB
+	adc dx, dx			; account for overflow (dx was zero)
+	div bx				; get number of root sectors
+	xchg ax, cx			; cx = number of root secs, ! ah = 0
 
 ; first sector of root directory
-	xor ah,ah
-	mov al,[VAR(num_fats)]
+	mov al,[VAR(num_fats)]		; ! ah = 0, hence ax = number of FATs
 	mul word [VAR(sectors_per_fat)]
 	add ax,[VAR(num_reserved_sectors)]
+	adc dl, dh			; account for overflow (dh was and is 0)
+
+	push dx
+	push ax
 
 ; first sector of disk data area:
-	mov si,ax
-	add si,cx
-	mov [VAR(data_start)],si
+	add ax, cx
+	adc dx, 0
+	mov [VAR(data_start)], ax
+	mov [VAR(data_start+2)], dx
+
+	pop ax
+	pop dx
 
 ; scan root directory for file. We don't bother to check for deleted
 ; entries or 'virgin' entries (first byte = 0) that mark end of directory
@@ -282,10 +301,8 @@ next_sect:
 	push cx
 		mov cx,1
 		call read_sectors_chs
-	pop cx
 	jc disk_error
 	mov si,bx
-	push cx
 		mov cx,[VAR(dir_ents_per_sector)]
 next_ent:
 		mov di,load_name
@@ -302,72 +319,79 @@ next_ent:
 	add ax,byte 1	; next sector
 	adc dx,byte 0
 	loop next_sect
-	mov al,'F'	; file not found; display blinking 'F'
 
-; 'hide' the next 2-byte instruction by converting it to CMP AX,NNNN
-; I learned this trick from Microsoft's Color Computer BASIC :)
-	db 3Dh
+	mov al,'F'	; File not 'F'ound
+
+	db __TEST_IMM16	; (skip mov)
 disk_error:
-	mov al,'R'	; disk read error; display blinking 'R'
-error:
-	mov ah,9Fh	; blinking blue-on-white attribute
-	mov bx,0B800h	; xxx - 0B800h assumes color emulation...
-	mov es,bx	; ...should still be able to hear the beep
-	mov [es:0],ax
+	mov al,'R'	; Disk 'R'ead error
 
-	mov ax,0E07h	; *** BEEEP ***
-	int 10h
-exit:
-	mov ah,0	; await key pressed
+	db __TEST_IMM16	; (skip mov)
+error_filetoobig:
+	mov al,'M'	; Not enough 'M'emory
+
+error:
+	mov bh, [462h]
+	mov bl, 7
+	mov ah, 0Eh
+	int 10h		; display character
+	mov al, 07h
+	int 10h		; beep!
+
+	xor ax, ax	; await key pressed
 	int 16h
 
 	int 19h		; re-start the boot process
 
 found_it:
-; leave the old CX value on the stack to save a byte or two
-; Get conventional memory size (Kbytes) in AX
+		;pop cx			; (discard)
+		; (left on stack to save one byte here)
+
+%if _LOAD_ADR >= ADR_FREE
+; Get conventional memory size and store it
 		int 12h
-
-; subtract load address
-		sub ax,(_LOAD_ADR>>10)
-
-; convert from K to bytes
-		mov dx,1024
-		mul dx
-
-; 32-bit file size (4 bytes) is at [si + 28]
-; If second stage file is too big...
-		sub ax,[si + 28]
-		sbb dx,[si + 30]
-
-; ...display a blinking 'M'
-		mov al,'M'
-		jc error
+		mov cl, 6
+		shl ax, cl
+		mov [VAR(end_of_memory)], ax
+%elif _LOAD_ADR < ADR_STACK_LOW
+%else
+ %error Load address within used memory
+%endif
 
 ; get starting cluster of file
 		mov si,[si + 26]
 
 ; set load address DI:BX
 		xor bx,bx
-		mov di,(_LOAD_ADR>>4)
-		xor ch,ch
-		mov cl,[VAR(sectors_per_cluster)]
+		mov di, _LOAD_ADR>>4
+
+		mov cx, [VAR(adj_sectors_per_cluster)]
 next_cluster:
 ; convert 16-bit cluster value (in SI) to 32-bit LBA sector value (in DX:AX)
 ; and get next cluster in SI
 		call walk_fat
 		jc disk_error
 
+		mov es,di
+
+		add di, [VAR(para_per_cluster)]
+%if _LOAD_ADR >= ADR_FREE
+		cmp di, [VAR(end_of_memory)]
+%elif _LOAD_ADR < ADR_STACK_LOW
+		cmp di, (ADR_STACK_LOW+15)>>4
+%else
+ %error Load address within used memory
+%endif
+		ja error_filetoobig
+
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
-		mov es,di
 		call read_sectors_chs
 		jc disk_error
-		add di,[VAR(para_per_cluster)]
 
-; 0FF6h: reserved	0FF7h: bad cluster
-; 0FF8h-0FFEh: reserved	0FFFh: end of cluster chain
-		cmp si,0FF6h
+; 0FF7h: bad cluster
+; 0FF8h-0FFFh: end of cluster chain
+		cmp si,0FF7h
 		jb next_cluster
 
 ; turn off floppy motor
@@ -375,19 +399,15 @@ next_cluster:
 		mov al,0
 		out dx,al
 
-; jump to second stage
-		mov ax,(_LOAD_ADR>>4) + _EXEC_SEG_ADJ
-		mov ds,ax
-		mov es,ax
+; Set-up registers for and jump to loaded file
+; Already: ss:bp-> boot sector containing BPB
+		mov dl, [VAR(boot_drive)]	; set dl to unit
+%if _SET_BL_UNIT
+		mov bl, dl		; set bl to unit, too
+%endif
+		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
-; we leave SS:SP as they were
-; Here is the actual far 'jump' to the second stage (RETF, actually)
-		push ax
-		mov bx,_EXEC_OFS
-		push bx
-		retf
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; name:			read_sectors_chs
 ; action:		reads one or more disk sectors using INT 13h AH=02h
 ; in:			DX:AX=LBA number of sector to read (relative to
@@ -397,7 +417,6 @@ next_cluster:
 ; modifies:		(nothing)
 ; minimum CPU:		8088
 ; notes:
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 read_sectors_chs:
 	push es
@@ -518,75 +537,73 @@ walk_fat:
 		lea ax,[si - 2]
 
 ; convert from clusters to sectors
-		mov dh,0
-		mov dl,[VAR(sectors_per_cluster)]
-		mul dx
-		add ax,[VAR(data_start)]
-		adc dx,byte 0
+		mul word [VAR(adj_sectors_per_cluster)]
+		add ax, [VAR(data_start)]
+		adc dx, [VAR(data_start)+2]
 
 ; DX:AX is return value: save it
 		push dx
 		push ax
 
 ; prepare to load FAT
-			mov ax,(ADR_FATBUF / 16)
-			mov es,ax
-			xor bx,bx
+			mov ax, ADR_FATBUF>>4
+			mov es, ax
+			xor bx, bx
 
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ; so multiply cluster by 3 now, and divide by 2 later.
-			xor dx,dx
-			mov ax,si
-			shl ax,1
-			rcl dx,1
-			add ax,si
-			adc dx,byte 0
+			xor dx, dx
+			mov ax, si		; (up to 12 bits set)
+			shl ax, 1		; (up to 13 bits set)
+			; rcl dx, 1
+			add ax, si		; (up to 14 bits set)
+			; adc dx, byte 0
+			; (not necessary to use 32-bit calculation here!)
 
 ; DX:AX b0	=use high or low 12 bits of 16-bit value read from FAT
 ; DX:AX b9:1	=byte offset into FAT sector (9 bits assumes 512-byte sectors)
 ; DX:AX b?:10	=which sector of FAT to load
 			mov di,ax
-			shr dx,1
-			rcr ax,1
+			; shr dx,1
+			; rcr ax,1
+			shr ax, 1
 			div word [VAR(bytes_per_sector)]
 
 ; remainder is byte offset into FAT sector: put it in SI
 			mov si,dx
 
-; quotient in AX is FAT sector: add FAT starting sector
-			add ax,[VAR(fat_start)]
-
+; quotient in AX is FAT sector.
 ; check the FAT buffer to see if this sector is already loaded
 ; (simple disk cache; speeds things up a little --
 ; actually, it speeds things up a lot)
-			cmp ax,[curr_sector]
-			je wf_1
-			mov [curr_sector],ax
+			cmp ax,[VAR(curr_sector)]
+			je @F
+			mov [VAR(curr_sector)],ax
 
 ; read the target FAT sector. FAT12 entries may straddle a sector
 ; boundary, so read 2 sectors.
-			xor dx,dx
-			mov cx,2
+			xor dx, dx
+			add ax, [VAR(fat_start)]
+			adc dx, dx	; (account for overflow)
+			mov cx, 2
 			call read_sectors_chs
-			jc wf_4
-wf_1:
+			jc .err
+@@:
+
 ; get 16 bits from FAT
-			mov ax,[es:bx + si]
+			mov si, [es:bx + si]
 
 ; look at DI:0 to see if we want the high 12 bits or the low 12 bits
-			shr di,1
-			jc wf_2
-			and ax,0FFFh	; CY=1: use low 12 bits
-			jmp short wf_3
-wf_2:
-			mov cl,4
-			shr ax,cl	; CY=0: use high 12 bits
-wf_3:
-			mov si,ax
+			shr di, 1
+			jnc @F		; even, want low -->
+			mov cl, 4
+			shr si, cl	; odd: get high 12 bits
+@@:
+			and si, 0FFFh	; insure it's only 12 bits
 
 ; clear CY bit to signal success
-			xor dx,dx
-wf_4:
+			clc
+.err:
 		pop ax
 		pop dx
 	pop bx
@@ -595,14 +612,9 @@ wf_4:
 	pop es
 	ret
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; DATA
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; which sector is in the FAT buffer
-; this is relative to partition start, so we need only 16 bits
-curr_sector:
-	dw -1
+; Data
+
 load_name:
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
@@ -612,3 +624,5 @@ load_name:
 	dw 0
 ; 2-byte magic bootsector signature
 	dw 0AA55h
+
+end:
