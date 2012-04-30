@@ -297,12 +297,13 @@ skip_bpb:
 	mov ss, ax
 	mov sp, ADR_STACK
 	mov bp, start
-	mov [VAR(boot_unit)], dl
 	sti
 	cld
+	mov [VAR(boot_unit)], dl
 
 ; calculate some values that we need:
-; 16-byte paragraphs per cluster
+; adjusted sectors per cluster (store in a word,
+;  and decode EDR-DOS's special value 0 meaning 256)
 	mov al, [VAR(sectors_per_cluster)]
 	dec al
 	inc ax
@@ -319,10 +320,12 @@ skip_bpb:
 	mov [VAR(dir_ents_per_sector)], ax
 
 ; number of sectors used for root directory (store in CX)
+	xor dx, dx
 	mov si, [VAR(num_root_dir_ents)]
 	dec si
 	mov bx, ax
 	;dec ax				; rounding up
+	; (see dec si, inc si around here)
 	add ax, si			; from BPB
 	inc si
 	adc dx, dx			; account for overflow (dx was zero)
@@ -375,9 +378,11 @@ next_ent:
 
 	mov al,'F'	; File not 'F'ound
 
+%ifn _MEMORY_CONTINUE
 	db __TEST_IMM16	; (skip mov)
 error_filetoobig:
 	mov al,'M'	; Not enough 'M'emory
+%endif
 
 error:
 	mov bh, [462h]
@@ -391,6 +396,7 @@ error:
 	int 16h
 
 	int 19h		; re-start the boot process
+
 
 found_it:
 		;pop cx			; (discard)
@@ -681,5 +687,8 @@ signatures:
 	dw 0
 ; 2-byte magic bootsector signature
 	dw 0AA55h
+
+%assign num signatures-available
+%warning num bytes still available.
 
 end:
