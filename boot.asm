@@ -20,13 +20,10 @@ Public domain by C. Masloch, 2012
 	[map all _MAP]
 %endif
 
-	numdef FREEDOS_COMPAT,	0	; partial FreeDOS load compatibility
-	numdef IBM_COMPAT,	0	; partial IBMDOS load compatibility
-	numdef MS7_COMPAT,	0	; partial MS-DOS 7 load compatibility
+	defaulting
 
 	strdef OEM_NAME,	"    lDOS"
 	strdef DEFAULT_LABEL,	"lDOS"
-%if !_FREEDOS_COMPAT && !_IBM_COMPAT && !_MS7_COMPAT
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"BIN"	; name of file to load
 	numdef LOAD_ADR,	00610h	; where to load
@@ -38,8 +35,16 @@ Public domain by C. Masloch, 2012
 	numdef PUSH_DPT,	0	; if to push DPT address
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
-%elif _FREEDOS_COMPAT && !_IBM_COMPAT && !_MS7_COMPAT
-		; Following set is for _FREEDOS_COMPAT.
+
+	numdef FREEDOS_COMPAT,	0	; partial FreeDOS load compatibility
+	numdef IBM_COMPAT,	0	; partial IBMDOS load compatibility
+	numdef MS7_COMPAT,	0	; partial MS-DOS 7 load compatibility
+
+%if (!!_FREEDOS_COMPAT + !!_IBM_COMPAT + !!_MS7_COMPAT) > 1
+ %error At most one set must be selected.
+%endif
+
+%if _FREEDOS_COMPAT
 	strdef LOAD_NAME,	"KERNEL"
 	strdef LOAD_EXT,	"SYS"
 	numdef LOAD_ADR,	00600h
@@ -51,8 +56,9 @@ Public domain by C. Masloch, 2012
 	numdef PUSH_DPT,	0
 	numdef MEMORY_CONTINUE,	0
 	numdef SET_DI_CLUSTER,	0
-%elif _IBM_COMPAT && !_FREEDOS_COMPAT
-		; Following set is for _IBM_COMPAT.
+%endif
+
+%if _IBM_COMPAT
 	strdef LOAD_NAME,	"IBMBIO"
 	strdef LOAD_EXT,	"COM"
 	numdef LOAD_ADR,	00700h
@@ -64,8 +70,9 @@ Public domain by C. Masloch, 2012
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
 	numdef SET_DI_CLUSTER,	0
-%elif _MS7_COMPAT && !_FREEDOS_COMPAT && !_IBM_COMPAT
-		; Following set is for _MS7_COMPAT.
+%endif
+
+%if _MS7_COMPAT
 	strdef LOAD_NAME,	"IO"
 	strdef LOAD_EXT,	"SYS"
 	numdef LOAD_ADR,	00700h
@@ -77,19 +84,20 @@ Public domain by C. Masloch, 2012
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
  %assign _SET_DI_CLUSTER	1
-%else
- %error At most one set must be selected.
 %endif
 
 %if 0
 
-Notes about partial FreeDOS load compatibility
+Notes about partial load compatibilities
 
-* Boot unit is always passed in dl;
-   with _SET_BL_UNIT turned on we _additionally_ pass it in bl
-* Load address defaults to 00600h, as expected/required
-* Execution address adjustments default to 0, ie 0060h:0000h
-* Called "partial" as we do not relocate to 27A00h (1FE0h:7C00h)
+* FreeDOS:
+ * Does not relocate to 27A00h (1FE0h:7C00h)
+* IBMDOS:
+ * Does not put directory entry/entries to 00500h
+ * Does not search for IBMDOS file (only IBMBIO)
+ * Does not actually relocate DPT, just provide its address
+* MS-DOS 7:
+ * Does not actually relocate DPT, just provide its address
 
 %endif
 
