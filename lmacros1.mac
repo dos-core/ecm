@@ -334,12 +334,31 @@ Intended for 86 Mode programs.
 		; %2 = Value to assign if not defined (defaults to 0)
 		; %3 = Value to assign if defined, but no number (defaults to 1)
 	%imacro numdef 1-3.nolist 0,1
+%ifnum __DEFAULTED_%1
+ %if __lMACROS1_MAC__DEFAULTING && __DEFAULTED_%1
+  %undef _%1			; cause defaulting to take effect again
+  %if __DEFAULTED_%1 == 2	; defaulted to third parameter?
+   %define _%1			; cause alternative defaulting to take effect again
+  %endif
+ %endif
+%endif
 %ifdef _%1
-%ifnnum _%1
-%assign _%1 %3			; i.e. "-d_DEFINE" option on NASM's command line
-%endif				;  (if option was "-d_DEFINE=0", it's left as zero)
+ %ifnnum _%1
+  %assign _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
+  %if __lMACROS1_MAC__DEFAULTING
+   %assign __DEFAULTED_%1 2	; note alternative defaulting occurred
+  %endif
+ %endif				;  (if option was "-d_DEFINE=0", it's left as zero)
+ %if __lMACROS1_MAC__DEFAULTING
+  %ifnnum __DEFAULTED_%1
+   %assign __DEFAULTED_%1 0	; note no defaulting occurred
+  %endif
+ %endif
 %else				; If not defined (no option on NASM's command line)
-%assign _%1 %2			;  then assign to zero
+ %assign _%1 %2			;  then assign to zero
+ %if __lMACROS1_MAC__DEFAULTING
+  %assign __DEFAULTED_%1 1	; note defaulting occurred
+ %endif
 %endif
 	%endmacro
 
@@ -351,17 +370,34 @@ Intended for 86 Mode programs.
 		;
 		; Using braces { and } is useful for %2 and %3
 	%imacro strdef 2-3.nolist
- %ifdef _%1
-%ifnstr _%1
-  %if %0 >= 3
-%define _%1 %3			; i.e. "-d_DEFINE" option on NASM's command line
-  %else
-%define _%1 %2
+%ifnum __DEFAULTED_%1
+ %if __lMACROS1_MAC__DEFAULTING && __DEFAULTED_%1
+  %undef _%1			; cause defaulting to take effect again
+  %if __DEFAULTED_%1 == 2	; defaulted to third parameter?
+   %define _%1			; cause alternative defaulting to take effect again
   %endif
-%endif				;  (if option was "-d_DEFINE='FOO'", it's left as 'FOO')
- %else				; If not defined (no option on NASM's command line)
-%define _%1 %2			;
  %endif
+%endif
+%ifdef _%1
+ %ifnstr _%1
+  %if %0 >= 3
+   %define _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
+   %if __lMACROS1_MAC__DEFAULTING
+    %assign __DEFAULTED_%1 2	; note alternative defaulting occurred
+   %endif
+  %else
+   %define _%1 %2
+   %if __lMACROS1_MAC__DEFAULTING
+    %assign __DEFAULTED_%1 1	; note defaulting occurred
+   %endif
+  %endif
+ %endif				;  (if option was "-d_DEFINE='FOO'", it's left as 'FOO')
+%else				; If not defined (no option on NASM's command line)
+ %define _%1 %2			;
+ %if __lMACROS1_MAC__DEFAULTING
+  %assign __DEFAULTED_%1 1	; note defaulting occurred
+ %endif
+%endif
 	%endmacro
 
 		; Include definitions if a condition is met
@@ -390,6 +426,14 @@ Intended for 86 Mode programs.
  %endif
 	%endmacro
 
+%assign __lMACROS1_MAC__DEFAULTING 0
+	%imacro defaulting 0-1.nolist 1
+%ifidni %1,toggle
+ %assign __lMACROS1_MAC__DEFAULTING !__lMACROS1_MAC__DEFAULTING
+%else
+ %assign __lMACROS1_MAC__DEFAULTING !!(%1)
+%endif
+	%endmacro
 
 	numdef _lMACROS1_MAC__CPU_DEFAULTS
 %if __lMACROS1_MAC__CPU_DEFAULTS
