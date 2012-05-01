@@ -22,8 +22,10 @@ Public domain by C. Masloch, 2012
 
 	defaulting
 
+	numdef FAT16,		0	; 0 = FAT12, 1 = FAT16
 	strdef OEM_NAME,	"    lDOS"
 	strdef DEFAULT_LABEL,	"lDOS"
+
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"BIN"	; name of file to load
 	numdef LOAD_ADR,	00610h	; where to load
@@ -271,7 +273,7 @@ boot_unit:		db 0
 ext_bpb_signature:	db 29h
 serial_number:		dd 0
 volume_label:		fill 11,32,db _DEFAULT_LABEL
-filesystem_identifier:	fill 8,32,db "FAT12"
+filesystem_identifier:	fill 8,32,db "FAT1",'2'+4*!!_FAT16
 
 
 ; Initialised data
@@ -599,7 +601,7 @@ read_sector:
 		;	If everything is okay,
 		;	 si = next cluster number (or EOC value)
 		;	 dx:ax = sector number
-		; CHG:	-
+		; CHG:	cx
 walk_fat:
 	push es
 	push di
@@ -622,6 +624,16 @@ walk_fat:
 		mov es, ax
 		xor bx, bx
 
+%if _FAT16
+		xor dx, dx
+		mov ax, si		; dx:ax = entry to load (0..FFF6h)
+		add ax, ax
+		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
+		div word [VAR(bytes_per_sector)]
+					; dx = byte offset into sector (0..8190)
+					; ax = sector offset into FAT (0..4095)
+		mov si, dx
+%else
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ; so multiply cluster by 3 now, and divide by 2 later.
 		xor dx, dx
@@ -642,6 +654,7 @@ walk_fat:
 
 ; remainder is byte offset into FAT sector: put it in SI
 		mov si, dx
+%endif
 
 ; quotient in AX is FAT sector.
 ; check the FAT buffer to see if this sector is already loaded
@@ -657,12 +670,15 @@ walk_fat:
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
 		call read_sector
+%if !_FAT16
 		call read_sector	; pointer/number incremented - reads next
+%endif
 @@:
 
 ; get 16 bits from FAT
 		mov si, [es:bx + si]
 
+%if !_FAT16
 ; look at DI:0 to see if we want the high 12 bits or the low 12 bits
 		shr di, 1
 		jnc @F		; even entry, want low -->
@@ -670,6 +686,7 @@ walk_fat:
 		shr si, cl	; odd entry: get high 12 bits
 @@:
 		and si, 0FFFh	; insure it's only 12 bits
+%endif
 
 		pop ax
 		pop dx		; return: sector number
