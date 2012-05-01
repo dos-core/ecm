@@ -440,7 +440,6 @@ next_cluster:
 		;	 dx:ax = sector number
 		; CHG:	cx
 	push es
-	push di
 	push bx
 
 ; cluster 2 is the first data cluster
@@ -527,7 +526,6 @@ next_cluster:
 		pop ax
 		pop dx		; return: sector number
 	pop bx
-	pop di
 	pop es
 
 
