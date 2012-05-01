@@ -427,7 +427,109 @@ found_it:
 next_cluster:
 ; convert 16-bit cluster value (in SI) to 32-bit LBA sector value (in DX:AX)
 ; and get next cluster in SI
-		call walk_fat
+
+
+		; Converts cluster number to sector number
+		;  and finds next cluster in chain
+		;
+		; INP:	si = cluster number
+		; OUT:	If unable to read a FAT sector,
+		;	 ! jumps to error instead of returning
+		;	If everything is okay,
+		;	 si = next cluster number (or EOC value)
+		;	 dx:ax = sector number
+		; CHG:	cx
+	push es
+	push di
+	push bx
+
+; cluster 2 is the first data cluster
+		lea ax, [si - 2]
+
+; convert from clusters to sectors
+		mul word [VAR(adj_sectors_per_cluster)]
+		add ax, [VAR(data_start)]
+		adc dx, [VAR(data_start)+2]
+
+; DX:AX is return value: save it
+		push dx
+		push ax
+
+; prepare to load FAT
+		mov ax, ADR_FATBUF>>4
+		mov es, ax
+		xor bx, bx
+
+%if _FAT16
+		xor dx, dx
+		mov ax, si		; dx:ax = entry to load (0..FFF6h)
+		add ax, ax
+		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
+		div word [VAR(bytes_per_sector)]
+					; dx = byte offset into sector (0..8190)
+					; ax = sector offset into FAT (0..4095)
+		mov si, dx
+%else
+; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
+; so multiply cluster by 3 now, and divide by 2 later.
+		xor dx, dx
+		mov ax, si		; (up to 12 bits set)
+		shl ax, 1		; (up to 13 bits set)
+		; rcl dx, 1
+		add ax, si		; (up to 14 bits set)
+		; adc dx, byte 0
+		; (not necessary to use 32-bit calculation here!)
+
+; DX:AX b0	=use high or low 12 bits of 16-bit value read from FAT
+; DX:AX b9:1	=byte offset into FAT sector (9 bits assumes 512-byte sectors)
+; DX:AX b?:10	=which sector of FAT to load
+		; shr dx,1
+		shr ax, 1	; rcr ax,1
+		pushf			; preserve CF of that shift
+		div word [VAR(bytes_per_sector)]
+
+; remainder is byte offset into FAT sector: put it in SI
+		mov si, dx
+%endif
+
+; quotient in AX is FAT sector.
+; check the FAT buffer to see if this sector is already loaded
+; (simple disk cache; speeds things up a little --
+; actually, it speeds things up a lot)
+		cmp ax, [VAR(curr_sector)]
+		je @F
+		mov [VAR(curr_sector)], ax
+
+; read the target FAT sector. FAT12 entries may straddle a sector
+; boundary, so read 2 sectors.
+		xor dx, dx
+		add ax, [VAR(fat_start)]
+		adc dx, dx		; (account for overflow)
+		call read_sector
+%if !_FAT16
+		call read_sector	; pointer/number incremented - reads next
+%endif
+@@:
+
+; get 16 bits from FAT
+		mov si, [ADR_FATBUF + si]
+
+%if !_FAT16
+; look at previous CF (from shr ax, 1) to decide which 12 bits to use
+		popf
+		jnc @F		; even entry, want low -->
+		mov cl, 4
+		shr si, cl	; odd entry: get high 12 bits
+@@:
+		and si, 0FFFh	; insure it's only 12 bits
+%endif
+
+		pop ax
+		pop dx		; return: sector number
+	pop bx
+	pop di
+	pop es
+
 
 		mov es,di
 
@@ -590,110 +692,6 @@ read_sector:
 .err:
 	mov al, 'R'	; Disk 'R'ead error
 	jmp error
-
-
-		; Converts cluster number to sector number
-		;  and finds next cluster in chain
-		;
-		; INP:	si = cluster number
-		; OUT:	If unable to read a FAT sector,
-		;	 ! jumps to error instead of returning
-		;	If everything is okay,
-		;	 si = next cluster number (or EOC value)
-		;	 dx:ax = sector number
-		; CHG:	cx
-walk_fat:
-	push es
-	push di
-	push bx
-
-; cluster 2 is the first data cluster
-		lea ax, [si - 2]
-
-; convert from clusters to sectors
-		mul word [VAR(adj_sectors_per_cluster)]
-		add ax, [VAR(data_start)]
-		adc dx, [VAR(data_start)+2]
-
-; DX:AX is return value: save it
-		push dx
-		push ax
-
-; prepare to load FAT
-		mov ax, ADR_FATBUF>>4
-		mov es, ax
-		xor bx, bx
-
-%if _FAT16
-		xor dx, dx
-		mov ax, si		; dx:ax = entry to load (0..FFF6h)
-		add ax, ax
-		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
-		div word [VAR(bytes_per_sector)]
-					; dx = byte offset into sector (0..8190)
-					; ax = sector offset into FAT (0..4095)
-		mov si, dx
-%else
-; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
-; so multiply cluster by 3 now, and divide by 2 later.
-		xor dx, dx
-		mov ax, si		; (up to 12 bits set)
-		shl ax, 1		; (up to 13 bits set)
-		; rcl dx, 1
-		add ax, si		; (up to 14 bits set)
-		; adc dx, byte 0
-		; (not necessary to use 32-bit calculation here!)
-
-; DX:AX b0	=use high or low 12 bits of 16-bit value read from FAT
-; DX:AX b9:1	=byte offset into FAT sector (9 bits assumes 512-byte sectors)
-; DX:AX b?:10	=which sector of FAT to load
-		; shr dx,1
-		shr ax, 1	; rcr ax,1
-		pushf			; preserve CF of that shift
-		div word [VAR(bytes_per_sector)]
-
-; remainder is byte offset into FAT sector: put it in SI
-		mov si, dx
-%endif
-
-; quotient in AX is FAT sector.
-; check the FAT buffer to see if this sector is already loaded
-; (simple disk cache; speeds things up a little --
-; actually, it speeds things up a lot)
-		cmp ax, [VAR(curr_sector)]
-		je @F
-		mov [VAR(curr_sector)], ax
-
-; read the target FAT sector. FAT12 entries may straddle a sector
-; boundary, so read 2 sectors.
-		xor dx, dx
-		add ax, [VAR(fat_start)]
-		adc dx, dx		; (account for overflow)
-		call read_sector
-%if !_FAT16
-		call read_sector	; pointer/number incremented - reads next
-%endif
-@@:
-
-; get 16 bits from FAT
-		mov si, [ADR_FATBUF + si]
-
-%if !_FAT16
-; look at previous CF (from shr ax, 1) to decide which 12 bits to use
-		popf
-		jnc @F		; even entry, want low -->
-		mov cl, 4
-		shr si, cl	; odd entry: get high 12 bits
-@@:
-		and si, 0FFFh	; insure it's only 12 bits
-%endif
-
-		pop ax
-		pop dx		; return: sector number
-	pop bx
-	pop di
-	pop es
-	retn
 
 
 available:
