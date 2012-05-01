@@ -647,9 +647,9 @@ walk_fat:
 ; DX:AX b0	=use high or low 12 bits of 16-bit value read from FAT
 ; DX:AX b9:1	=byte offset into FAT sector (9 bits assumes 512-byte sectors)
 ; DX:AX b?:10	=which sector of FAT to load
-		mov di, ax
 		; shr dx,1
 		shr ax, 1	; rcr ax,1
+		pushf			; preserve CF of that shift
 		div word [VAR(bytes_per_sector)]
 
 ; remainder is byte offset into FAT sector: put it in SI
@@ -679,8 +679,8 @@ walk_fat:
 		mov si, [ADR_FATBUF + si]
 
 %if !_FAT16
-; look at DI:0 to see if we want the high 12 bits or the low 12 bits
-		shr di, 1
+; look at previous CF (from shr ax, 1) to decide which 12 bits to use
+		popf
 		jnc @F		; even entry, want low -->
 		mov cl, 4
 		shr si, cl	; odd entry: get high 12 bits
