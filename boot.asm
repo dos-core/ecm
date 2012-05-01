@@ -669,10 +669,12 @@ walk_fat:
 		xor dx, dx
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
+		push es
 		call read_sector
 %if !_FAT16
 		call read_sector	; pointer/number incremented - reads next
 %endif
+		pop es
 @@:
 
 ; get 16 bits from FAT
