@@ -31,6 +31,10 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00610h	; where to load
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	0	; what value ip will be
+
+	numdef QUERY_GEOMETRY,	0	; query geometry via 13.08
+	numdef USE_PART_INFO,	0	; use ds:si-> partition info from MBR, if any
+
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
 	numdef SET_DSSI_DPT,	0	; if to pass DPT address in ds:si
@@ -293,14 +297,32 @@ load_name:
 skip_bpb:
 	cli
 	xor ax, ax
-	mov ds, ax
 	mov es, ax
 	mov ss, ax
 	mov sp, ADR_STACK
 	mov bp, start
+	mov [VAR(boot_unit)], dl
+
+%if _USE_PART_INFO	; +17 bytes
+; Check whether an MBR left us partition information.
+; byte[ds:si] bit 7 means active and must be set if valid.
+	cmp byte [si], al	; flags for xx-00h (result is xx), SF = bit 7
+	jns @F			; xx < 80h, ie info invalid -->
+; byte[ds:si+4] is the file system type. Check for valid one.
+	cmp byte [si+4], al	; is it zero?
+	je @F			; yes, info invalid -->
+; Info valid, trust their hidden sectors over hardcoded.
+; Assume the movsw instructions won't run with si = FFFFh.
+	mov di, hidden_sectors	; -> BPB field
+	add si, 8		; -> partition start sector in info
+	movsw
+	movsw			; overwrite BPB field with value from info
+@@:
+%endif
+	mov ds, ax
 	sti
 	cld
-	mov [VAR(boot_unit)], dl
+
 
 ; calculate some values that we need:
 ; adjusted sectors per cluster (store in a word,
@@ -309,6 +331,23 @@ skip_bpb:
 	dec al
 	inc ax
 	mov [VAR(adj_sectors_per_cluster)], ax
+
+%if _QUERY_GEOMETRY	; +27 bytes
+	test dl, dl		; floppy?
+	jns @F			; don't attempt query, might fail -->
+	mov ah, 08h
+	xor cx, cx		; initialise cl to 0
+	stc			; initialise to CY
+	int 13h			; query drive geometry
+	jc @F			; apparently failed -->
+	and cx, 3Fh		; get sectors
+	jz @F			; invalid (S is 1-based), don't use -->
+	mov [VAR(sectors_per_track)], cx
+	mov cl, dh		; cx = maximum head number
+	inc cx			; cx = number of heads (H is 0-based)
+	mov [VAR(heads)], cx
+@@:
+%endif
 
 ; 16-byte paragraphs per sector
 	mov ax,[VAR(bytes_per_sector)]
