@@ -187,7 +187,7 @@ itself would disqualify our boot sector already.
 %pop
 
 ; 512-byte stack.
-ADR_STACK	equ	lowest_variable		;~07DF0h
+ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07DF0h
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
 ; one-sector directory buffer. Assumes FAT sectors are no larger than 8 KiB
@@ -206,7 +206,7 @@ ADR_FREE	equ	(ADR_FATBUF + 2*8192)	; 0DE00h
 
 	cpu 8086
 ; bootsector loaded at address 07C00h, addressable using 0000h:7C00h
-	org 7C00h
+	org POSITION
 start:
 
 
