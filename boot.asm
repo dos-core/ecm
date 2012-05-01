@@ -51,11 +51,6 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
  %assign _SET_BL_UNIT		1
-	numdef SET_AXBX_DATA,	0
-	numdef SET_DSSI_DPT,	0
-	numdef PUSH_DPT,	0
-	numdef MEMORY_CONTINUE,	0
-	numdef SET_DI_CLUSTER,	0
 %endif
 
 %if _COMPAT_IBM
@@ -64,12 +59,10 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
-	numdef SET_BL_UNIT,	0
  %assign _SET_AXBX_DATA		1
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
-	numdef SET_DI_CLUSTER,	0
 %endif
 
 %if _COMPAT_MS7
@@ -78,8 +71,6 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
-	numdef SET_BL_UNIT,	0
-	numdef SET_AXBX_DATA,	0
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
