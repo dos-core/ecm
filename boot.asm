@@ -440,7 +440,6 @@ next_cluster:
 		;	 dx:ax = sector number
 		; CHG:	cx
 	push es
-	push bx
 
 ; cluster 2 is the first data cluster
 		lea ax, [si - 2]
@@ -457,7 +456,6 @@ next_cluster:
 ; prepare to load FAT
 		mov ax, ADR_FATBUF>>4
 		mov es, ax
-		xor bx, bx
 
 %if _FAT16
 		xor dx, dx
@@ -525,7 +523,6 @@ next_cluster:
 
 		pop ax
 		pop dx		; return: sector number
-	pop bx
 	pop es
 
 
