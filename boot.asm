@@ -439,8 +439,6 @@ next_cluster:
 		;	 si = next cluster number (or EOC value)
 		;	 dx:ax = sector number
 		; CHG:	cx
-	push es
-
 ; cluster 2 is the first data cluster
 		lea ax, [si - 2]
 
@@ -523,10 +521,8 @@ next_cluster:
 
 		pop ax
 		pop dx		; return: sector number
-	pop es
 
-
-		mov es,di
+		mov es, di
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
