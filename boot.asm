@@ -224,10 +224,10 @@ para_per_sector		EQU (adj_sectors_per_cluster - 2)
 ; (word) number of 32-byte FAT directory entries per sector
 dir_ents_per_sector	EQU (para_per_sector - 2)
 
-; (word) segment behind available memory
-end_of_memory		equ (dir_ents_per_sector - 2)
+; (word) segment of last available memory for sector
+last_available_sector	equ (dir_ents_per_sector - 2)
 
-lowest_variable		equ end_of_memory
+lowest_variable		equ last_available_sector
 
 	jmp strict short skip_bpb
 	nop
@@ -351,12 +351,10 @@ skip_bpb:
 ; entries or 'virgin' entries (first byte = 0) that mark end of directory
 		; number of root entries in si here
 next_sect:
-	mov bx, ADR_DIRBUF	; es:bx-> where to load
+	mov bx, ADR_DIRBUF>>4	; bx:0-> where to load
 	call read_sector
 
-	push ds
-	pop es			; reset es
-	mov di, bx		; es:di-> first entry in this sector
+	xor di, di		; es:di-> first entry in this sector
 	mov cx, [VAR(dir_ents_per_sector)]	; loop counter for sector
 next_ent:
 	push si
@@ -408,7 +406,8 @@ found_it:
 		int 12h
 		mov cl, 6
 		shl ax, cl
-		mov [VAR(end_of_memory)], ax
+		sub ax, [VAR(para_per_sector)]
+		mov [VAR(last_available_sector)], ax
 %elif _LOAD_ADR < ADR_STACK_LOW
 %else
  %error Load address within used memory
@@ -420,9 +419,8 @@ found_it:
 		push si			; remember cluster for later
 %endif
 
-; set load address DI:BX
-		xor bx,bx
-		mov di, _LOAD_ADR>>4
+; set load address bx:0
+		mov bx, _LOAD_ADR>>4
 
 next_cluster:
 ; convert 16-bit cluster value (in SI) to 32-bit LBA sector value (in DX:AX)
@@ -452,8 +450,6 @@ next_cluster:
 		push ax
 
 ; prepare to load FAT
-		mov ax, ADR_FATBUF>>4
-		mov es, ax
 
 %if _FAT16
 		xor dx, dx
@@ -497,6 +493,8 @@ next_cluster:
 
 ; read the target FAT sector. FAT12 entries may straddle a sector
 ; boundary, so read 2 sectors.
+		push bx
+		mov bx, ADR_FATBUF>>4
 		xor dx, dx
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
@@ -504,6 +502,7 @@ next_cluster:
 %if !_FAT16
 		call read_sector	; pointer/number incremented - reads next
 %endif
+		pop bx
 @@:
 
 ; get 16 bits from FAT
@@ -522,22 +521,19 @@ next_cluster:
 		pop ax
 		pop dx		; return: sector number
 
-		mov es, di
-
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 		mov cx, [VAR(adj_sectors_per_cluster)]
 @@:		
-		add di, [VAR(para_per_sector)]
 %if _LOAD_ADR >= ADR_FREE
-		cmp di, [VAR(end_of_memory)]
+		cmp bx, [VAR(last_available_sector)]
 %elif _LOAD_ADR < ADR_STACK_LOW
-		cmp di, ADR_STACK_LOW>>4
+		cmp bx, (ADR_STACK_LOW-8192)>>4
 %else
  %error Load address within used memory
 %endif
 %if _MEMORY_CONTINUE
-		ja @FF
+		ja @F
 %else
 		ja error_filetoobig
 %endif
@@ -592,19 +588,20 @@ next_cluster:
 		; Read a sector using Int13.02
 		;
 		; INP:	dx:ax = sector number within partition
-		;	es:bx-> buffer
+		;	bx:0-> buffer
 		; OUT:	If unable to read,
 		;	 ! jumps to error instead of returning
 		;	If sector has been read,
 		;	 dx:ax = next sector number (has been incremented)
-		;	 es:bx-> next buffer (es += para_per_sector)
+		;	 bx:0-> next buffer (bx = es+para_per_sector)
+		;	 es = input bx
 		; CHG:	-
 read_sector:
-	push di
-
 	push dx
 	push cx
 	push ax
+
+	push bx
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -625,16 +622,16 @@ read_sector:
 
 ; DX:AX=quotient, CX=remainder=sector (S) - 1
 ; divide quotient by number of heads
-			mov di, ax
+			mov bx, ax
 			xchg ax, dx
 			xor dx, dx
 			div word [VAR(heads)]
-			xchg di, ax
+			xchg bx, ax
 			div word [VAR(heads)]
 
-; di:ax=quotient=cylinder (C), dx=remainder=head (H)
+; bx:ax=quotient=cylinder (C), dx=remainder=head (H)
 ; error if cylinder >=1024
-			test di, di	; di != 0; so cyl >= 65536
+			test bx, bx	; bx != 0; so cyl >= 65536
 			jnz .err
 			cmp ah,4	; ah >= 4; so cyl >= 1024
 			jae .err
@@ -650,6 +647,8 @@ read_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
+			pop es
+			xor bx, bx
 			mov ax, 0201h
 			int 13h		; read one sector
 			jnc .done
@@ -664,9 +663,8 @@ read_sector:
 
 .done:
 ; increment segment
-	mov ax, es
-	add ax, [VAR(para_per_sector)]
-	mov es, ax
+	mov bx, es
+	add bx, [VAR(para_per_sector)]
 
 	pop ax
 	pop cx
@@ -676,7 +674,6 @@ read_sector:
 	jne @F
 	inc dx
 @@:
-	pop di
 
 	retn
 
