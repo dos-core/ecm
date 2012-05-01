@@ -36,15 +36,15 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
 
-	numdef FREEDOS_COMPAT,	0	; partial FreeDOS load compatibility
-	numdef IBM_COMPAT,	0	; partial IBMDOS load compatibility
-	numdef MS7_COMPAT,	0	; partial MS-DOS 7 load compatibility
+	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
+	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
+	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
 
-%if (!!_FREEDOS_COMPAT + !!_IBM_COMPAT + !!_MS7_COMPAT) > 1
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7) > 1
  %error At most one set must be selected.
 %endif
 
-%if _FREEDOS_COMPAT
+%if _COMPAT_FREEDOS
 	strdef LOAD_NAME,	"KERNEL"
 	strdef LOAD_EXT,	"SYS"
 	numdef LOAD_ADR,	00600h
@@ -58,7 +58,7 @@ Public domain by C. Masloch, 2012
 	numdef SET_DI_CLUSTER,	0
 %endif
 
-%if _IBM_COMPAT
+%if _COMPAT_IBM
 	strdef LOAD_NAME,	"IBMBIO"
 	strdef LOAD_EXT,	"COM"
 	numdef LOAD_ADR,	00700h
@@ -72,7 +72,7 @@ Public domain by C. Masloch, 2012
 	numdef SET_DI_CLUSTER,	0
 %endif
 
-%if _MS7_COMPAT
+%if _COMPAT_MS7
 	strdef LOAD_NAME,	"IO"
 	strdef LOAD_EXT,	"SYS"
 	numdef LOAD_ADR,	00700h
