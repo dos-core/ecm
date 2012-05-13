@@ -13,27 +13,56 @@ Intended for 86 Mode programs.
 %include "lmacros1.mac"
 [list -]
 
+%ifdef _186
+ %ifnum _186				; if appears like it is available:
+	numdef _lframe__use_186_def, 1	;  then default to use it
+ %endif
+%endif
+	numdef _lframe__use_186_def	; use _186 to determine whether 186 available
+	numdef _lframe__force_186	; regardless the above: assume 186 available
+ %assign __lframe__override_force_8086 0; regardless the above: temporarily stay 8086-compatible
+
 		; Initiate stack frame definition.
 		; %1	Type of frame for parameter processing.
 		;	What this really means is only how large the return
-		;	address and other things between bp and the last
-		;	parameter are.
+		;	 address and other things between bp and the last
+		;	 parameter are.
 		;	Default: none
-		;	Accepted: none, near (or 2), far (or 4), numeric
+		;	Accepted: none, near (or 2), far (or 4), int (or 6),
+		;		   positive even numbers
+		;	Notice:	lret's auto %1 observes near/far/int here.
 %imacro lframe 0-1.nolist none
+%ifdef lsizeparameters
+ %undef lsizeparameters
+%endif
+%ifdef __lframe__autoret
+ %undef __lframe__autoret
+%endif
 %ifctx LFRAME
  %fatal Already inside lframe, must end previous with lenter
 %elifctx LENTER
  %fatal Still inside lenter, must end previous with lleave
 %endif
 %push LFRAME
+%define %$autoret
 %ifidni %1,none
 %elifidni %1,-
 %elifidni %1,near
+ %define %$autoret near
  %assign %$parofs 2
 %elifidni %1,far
+ %define %$autoret far
  %assign %$parofs 4
+%elifidni %1,int
+ %define %$autoret int
+ %assign %$parofs 6
 %elifnum %1
+ %if %1 < 0
+  %fatal Invalid frame type specified (negative): %1
+ %endif
+ %if %1 & 1
+  %fatal Invalid frame type specified (odd): %1
+ %endif
  %assign %$parofs %1
 %else
  %fatal Invalid frame type specified: %1
@@ -43,14 +72,58 @@ Intended for 86 Mode programs.
 %define %$labellist
 %assign %$ofs 0
 %assign %$enter 0
+%assign %$req 0
+%assign %$usereq 0
+%endmacro
+
+		; Indicate that the stack frame set-up should not
+		;  actually write any code (is not required) if no
+		;  parameters or variables are registered.
+		; Note that if no variables or parameters are
+		;  registered before lenter, and this is used, then it
+		;  is an error to register variables after lenter.
+		; As a workaround, do not use this then, or additionally
+		;  use lframe_needotherwise (effectively overriding this).
+		;
+		; This must be placed before lenter.
+%imacro lframe_needonlyregistered 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%assign %$usereq 1
+%endmacro
+
+		; Indicate that the stack frame set-up is necessary,
+		;  even if no parameters or variables are registered.
+		;
+		; This must be placed before lenter.
+%imacro lframe_needotherwise 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%assign %$req 1
 %endmacro
 
 		; Define a stack frame variable.
 		; %1	Type or size of variable.
 		;	Accepted: byte (1), word (2), dword (4), numeric
 		; %2	Name of variable. A question mark is prepended.
+		;
+		; Variables registered before lenter are accounted for
+		;  in the code lenter generates, ie uninitialised space
+		;  is automatically allocated for them on the stack.
+		; Variables registered after lenter are not automatically
+		;  allocated, you must manually either push data onto the
+		;  stack (possibly with desired initial values) or adjust
+		;  sp to allocate space for them on the stack.
+		; Defining variables after "lleave code" is untested and
+		;  potentially has unexpected results.
 %imacro lvar 2.nolist
-%ifnctx LFRAME
+%ifctx LENTER
+ %ifn %$enter
+  %fatal lenter did not set up stack frame
+ %endif
+%elifnctx LFRAME
  %fatal Must use lframe first
 %endif
 %ifidni %1,byte
@@ -71,13 +144,19 @@ Intended for 86 Mode programs.
 %endif
 %assign %$ofs %$ofs-%$varsize
 %assign ?%2 %$ofs
-%assign %$enter 1
+%assign %$req 1
 %endmacro
 
 		; Define a stack frame parameter.
 		; %1	Type or size of parameter.
 		;	Accepted: byte (1), word (2), dword (4), numeric
 		; %2	Name of parameter. A question mark is prepended.
+		;
+		; Parameters must be registered before lenter, as lenter
+		;  contains the mechanism to automatically calculate the
+		;  final offsets. This is necessary to allow registering
+		;  parameters in the same order they have to be pushed
+		;  onto the stack by the caller.
 %imacro lpar 2.nolist
 %ifnctx LFRAME
  %fatal Must use lframe first
@@ -107,29 +186,55 @@ Intended for 86 Mode programs.
 %else
  %xdefine %$parlist %$parlist,%$varsize,%2
 %endif
-%assign %$enter 1
+%assign %$req 1
 %endmacro
 
 		; Create a defined stack frame.
 		; This sets up bp and reserves stack space for all defined
-		; variables. It also defines the labels for parameters.
-		; Note that bp is not set up if no variables and no
-		; parameters were defined. (To set up bp in any case,
-		; define an empty (size zero) variable.)
+		;  variables. It also defines the labels for parameters.
+		; If no variables or parameters were registered until now,
+		;  and lframe_needonlyregistered has been used (without
+		;  overriding it by using lframe_needotherwise), then it is
+		;  assumed that no more variables will be registered after
+		;  this and that the stack frame is unnecessary. It will
+		;  thus not be created. lenter and lleave will consequently
+		;  nout create any code.
 		; Defines %$lsizeparameters to be the even number of bytes
-		; all parameters take up, and %$lsizevariables to be the
-		; even number of bytes all variables take up.
+		;  all parameters take up, and %$lsizevariables to be the
+		;  even number of bytes all variables take up.
 %imacro lenter 0.nolist
 %ifnctx LFRAME
  %fatal Must use lframe first
 %endif
 %repl LENTER
 %assign %$lsizevariables (-%$ofs+1)&~1
-%if %$enter
+%ifn %$usereq
+ %assign %$req 1
+%endif
+%if %$req
+ %assign %$enter 1
+ %assign %$186 0
+ %if __lframe__override_force_8086
+ %elif __lframe__force_186
+  %assign %$186 1
+ %elif __lframe__use_186_def
+  %assign %$186 _186
+ %endif
+ %if %$186 && %$ofs
+	enter %$lsizevariables, 0
+ %else
 	push bp
 	mov bp, sp
- %if %$ofs
+  %if %$ofs
+   %if %$lsizevariables == 2
+	push ax
+   %elif %$lsizevariables == 4
+	push ax
+	push ax
+   %else
 	sub sp, %$lsizevariables
+   %endif
+  %endif
  %endif
 %endif
 %assign %$lsizeparameters (%$pars_size+1)&~1
@@ -148,22 +253,28 @@ __lenter_parse_parlist %$parlist
 
 		; Remove a created stack frame.
 		; This restores bp if it was altered to access variables or
-		; parameters. It also restores sp from bp if sp was altered
-		; to allocate space to variables.
+		;  parameters. It also restores sp from bp if sp was altered
+		;  to allocate space to variables.
 		; This undefines all labels that were defined for variables
-		; and parameters in this stack frame, to prevent accidental
-		; usage of these labels later.
-		; If parameters were specified, lsizeparameters is defined
-		; as the (even) number of bytes that all parameters use on
-		; the stack. No return instruction is written by this macro.
+		;  and parameters in this stack frame, to prevent accidental
+		;  usage of these labels later.
+		; lsizeparameters is defined as the (even) number of bytes
+		;  that all parameters use on the stack. (This is zero if no
+		;  parameters have been registered.)
+		; No return instruction is written by this macro; you may use
+		;  lret or place the appropriate instruction(s) manually.
+		; If none of lframe_needonlyregistered,needotherwise have
+		;  been used, and no variables or parameters at all have been
+		;  registered (regardless whether before or after lenter),
+		;  then this will stop with an error.
 		; %1	Specifies whether to write the stack frame removal
 		;	code or to remove the macros' context. This allows
 		;	writing the code multiple times.
 		;	Default: code+ctx
 		;	Accepted: code+ctx (or ), code, ctx
 		; %2	Specifies whether to always restore sp.
-		;	Default: optimizerestoresp
-		;	Accepted: optimizerestoresp (or ), forcerestoresp
+		;	Default: optimiserestoresp
+		;	Accepted: optimiserestoresp (or ), forcerestoresp
 %imacro lleave 0-2.nolist
 %ifnctx LENTER
  %fatal Must use lenter first
@@ -177,22 +288,47 @@ __lenter_parse_parlist %$parlist
 %endif
 %ifidni %2,forcerestoresp
 %elifidni %2,optimizerestoresp
+%elifidni %2,optimiserestoresp
 %elifempty %2
 %else
  %fatal Invalid second parameter specified: %2
 %endif
 	%ifnidni %1,ctx
 %if %$enter
- %if %$ofs
-	mov sp, bp
- %else
-  %ifidni %2,forcerestoresp
- 	mov sp, bp
+ %ifn %$req
+  %fatal lframe apparently unnecessary
+	; Note that to fix this, you either have to remove
+	; the lframe usage altogether, or employ one of those:
+	; * lframe_needonlyregistered
+	; * lframe_needotherwise
+	; See the descriptions of those.
+ %endif
+ %assign %$186 0
+ %if __lframe__override_force_8086
+ %elif __lframe__force_186
+  %assign %$186 1
+ %elif __lframe__use_186_def
+  %assign %$186 _186
+ %endif
+ %ifn %$ofs
+  %ifnidni %2,forcerestoresp
+   %assign %$186 0
   %endif
  %endif
+ %if %$186
+	leave
+ %else
+  %if %$ofs
+	mov sp, bp
+  %elifidni %2,forcerestoresp
+ 	mov sp, bp
+  %endif
 	pop bp
+ %endif
 %else
- %ifidni %2,forcerestoresp
+ %if %$ofs
+  %fatal No stack frame was created
+ %elifidni %2,forcerestoresp
   %fatal No stack frame was created
  %endif
 %endif
@@ -202,8 +338,9 @@ __lenter_parse_parlist %$parlist
 %endif
 	%endif
 %ifdef %$parofs
-%assign lsizeparameters %$lsizeparameters
+ %assign lsizeparameters %$lsizeparameters
 %endif
+%xdefine __lframe__autoret %$autoret
 	%ifnidni %1,code
 __lleave_undefine_labels %$labellist
 %pop
@@ -214,6 +351,73 @@ __lleave_undefine_labels %$labellist
 %rep %0
 %undef ?%1
 %endrep
+%endmacro
+
+		; Place matching return instruction.
+		; This uses lsizeparameters, if it has been set by
+		;  lleave, as the size of all parameters on the
+		;  caller's stack frame.
+		; This generally must be used after using lleave.
+		; This may be used any number of times.
+		; %1	Specifies type of return.
+		;	Default: auto
+		;	Accepted: auto, near, far, int
+		;	Notice:	auto will use lframe's %1 only if it was
+		;		one of near, far, int. Otherwise, auto
+		;		(including the default) is an error!
+		; %2	Specifies an adjustment to remove either more
+		;	 or less than all the registered parameters
+		;	 from the caller's stack frame.
+		;	Default: 0
+		;	Accepted: even numbers, including negatives.
+		;		  Must be at least -lsizeparameters!
+		;	Notice:	The sum of lsizeparameters and %2
+		;		must be 0 for type int (ie iret).
+%imacro lret 0-2.nolist auto,0
+%ifctx LFRAME
+ %fatal Must use lenter first
+%endif
+; Do not check specifically for ctx LENTER here!
+; Usually, lleave already popped the ctx.
+%push
+ %define %$type %1
+ %ifidni %$type,-
+  %define %$type auto
+ %endif
+ %ifempty %$type
+  %define %$type auto
+ %endif
+ %ifidni %$type,auto
+  %ifdef __lframe__autoret
+   %ifnempty __lframe__autoret
+    %define %$type __lframe__autoret
+   %endif
+  %endif
+ %endif
+ %ifidni %$type,near
+  %define %$inst retn
+ %elifidni %$type,far
+  %define %$inst retf
+ %elifidni %$type,int
+  %define %$inst iret
+ %else
+  %fatal Invalid type specified: %1
+ %endif
+ %if %2 & 1
+  %fatal Invalid adjustment %2, is odd
+ %endif
+ %assign %$remov %2
+ %ifnum lsizeparameters
+  %assign %$remov %$remov+lsizeparameters
+ %endif
+ %if %$remov < 0
+  %fatal Invalid adjustment %2, sum is negative
+ %endif
+ %ifn %$remov
+  %define %$remov
+ %endif
+	%$inst %$remov
+%pop
 %endmacro
 
 
