@@ -198,7 +198,7 @@ Intended for 86 Mode programs.
 		;  assumed that no more variables will be registered after
 		;  this and that the stack frame is unnecessary. It will
 		;  thus not be created. lenter and lleave will consequently
-		;  nout create any code.
+		;  not create any code.
 		; Defines %$lsizeparameters to be the even number of bytes
 		;  all parameters take up, and %$lsizevariables to be the
 		;  even number of bytes all variables take up.
