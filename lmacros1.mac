@@ -56,7 +56,7 @@ Intended for 86 Mode programs.
 %xdefine _3digits_nocheck(d)	_1digits_nocheck((d)/100),_2digits_nocheck(d)
 %xdefine _4digits_nocheck(d)	_1digits_nocheck((d)/1000),_3digits_nocheck(d)
 %xdefine _5digits_nocheck(d)	_1digits_nocheck((d)/10000),_4digits_nocheck(d)
-%xdefine _1digits(d)	(!!(h/10)*(1<<32)+  _1digits_nocheck(d))
+%xdefine _1digits(d)	(!!(d/10)*(1<<32)+  _1digits_nocheck(d))
 %xdefine _2digits(d)	_1digits((d)/   10),_1digits_nocheck(d)
 %xdefine _3digits(d)	_1digits((d)/  100),_2digits_nocheck(d)
 %xdefine _4digits(d)	_1digits((d)/ 1000),_3digits_nocheck(d)
