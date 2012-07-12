@@ -423,22 +423,84 @@ __lleave_undefine_labels %$labellist
 
 
 
- %imacro @@ 1.nolist
-@F %+ %1
- %ifdef @B
-  %ifdef @BB
-   %ifdef @BBB
-%ixdefine @BBBB @BBB
-   %endif
-%ixdefine @BBB @BB
-  %endif
-%ixdefine @BB @B
+%unimacro @@ 1+.nolist
+%unimacro @@ 0-1+.nolist
+
+	; Core macro implementing anonymous local labels that behave
+	;  similarly to (but not exactly the same way as) MS MASM's.
+	; It shifts @FFFF..@BBBB by one and then invents a new label
+	;  name for @FFFF. The invented names contain incrementing
+	;  numbers to insure they are unique, and all start with ..@
+	;  to avoid interfering with NASM's named local labels.
+	;
+	; Provided (cap-insensitive) smacros:
+	;  @FFFF (or @F4)	Forward reference to fourth @@
+	;  @FFF (or @F3)	Forward reference to third @@
+	;  @FF (or @F2)		Forward reference to second @@
+	;  @F (or @F1)		Forward reference to next @@
+	;  @B (or @B1)		Backward reference to previous @@
+	;  @BB (or @B2)		Backward reference to second @@
+	;  @BBB (or @B3)	Backward reference to third @@
+	;  @BBBB (or @B4)	Backward reference to fourth @@
+	; (It is recommended to seldom use anything but @F and @B.)
+	; Internally used (cap-sensitive) smacro:
+	;  __@@_seq		Incremented by @S, initialised to 0
+	;			 by including this file. This gives
+	;			 the first number of invented names.
+	;  __@@_num		Incremented by @@, initialised to 4
+	;			 by including this file as well as
+	;			 by @S. This gives the second number
+	;			 of invented names. (Note that the
+	;			 current value is always what @@
+	;			 will invent for the new @FFFF; thus
+	;			 eg the current @F refers to a name
+	;			 that was invented with the current
+	;			 value less four. Consequently the
+	;			 first @@ defines a label whose name
+	;			 contains a 0 as the second number.)
+	; Invented names, full form:
+	;  ..@.@@.%[__@@_seq].%[__@@_num]
+	;  eg ..@.@@.0.0, ..@.@@.0.1, etc; ..@.@@.1.0, etc
+	;
+	; Note that as NASM has no procedure concept, the @@ labels
+	;  of logically distinct code sequences aren't automatically
+	;  reset, that is an @F near the end of one code sequence
+	;  whose intended target @@ erroneously wasn't placed will
+	;  jump to the next placed @@ after the code sequence.
+	; To work around that, manually place @S (start sequence for
+	;  @@ labels) between logically distinct code sequences. For
+	;  more strict checks, put @@I (invalidate @@ references)
+	;  whereever a logically distinct code sequence ends, and
+	;  @@S whereever a logically distinct code sequence begins.
+	;  (This disallows any @@ references outside such marked
+	;  code sequences.)
+	
+	; This
+	;  will cause all erroneous @@ forward references in front
+	;  of it and all erroneous @@ backward references behind it
+	;  to refer to undefined labels.
+	; The former will have a (regular) positive second number in
+	;  the referenced label name, while the latter will have a
+	;  (special) negative second number -4..-1 in the referenced
+	;  label name. The line on which the error occurs is the
+	;  line with the erroneous reference.
+ %macro __@@_next 0-1.nolist 1
+%if _@@_check && ! __@@_in_seq
+ %if _@@_check == 1
+  %warning "not in a sequence"
+ %else
+  %error "not in a sequence"
  %endif
+%endif
+  %rep %1
+%ixdefine @BBBB @BBB
+%ixdefine @BBB @BB
+%ixdefine @BB @B
 %ixdefine @B @F
 %ixdefine @F @FF
 %ixdefine @FF @FFF
 %ixdefine @FFF @FFFF
-%idefine @FFFF %%@@label
+%idefine @FFFF ..@.@@.%[__@@_seq].%[__@@_num]
 %ixdefine @B4 @BBBB
 %ixdefine @B3 @BBB
 %ixdefine @B2 @BB
@@ -447,16 +509,152 @@ __lleave_undefine_labels %$labellist
 %ixdefine @F2 @FF
 %ixdefine @F3 @FFF
 %ixdefine @F4 @FFFF
+
+%assign __@@_num __@@_num+1
+  %endrep
  %endmacro
 
-%idefine @F ..@first.@@label
-%idefine @FF ..@second.@@label
-%idefine @FFF ..@third.@@label
-%idefine @FFFF ..@fourth.@@label
-%ixdefine @F1 @F
-%ixdefine @F2 @FF
-%ixdefine @F3 @FFF
+	; This macro defines an anonymous local label (optionally
+	;  writing any kind of code afterwards)
+	;  then it calls the above macro to shift the pre-invented
+	;  names and invent a new one for @FFFF.
+	; Note that smacros inside following code if any are
+	;  expanded by NASM's preprocessor before processing mmacros
+	;  hence "@@: jmp @F" is equivalent to "@@: jmp $".
+	; (If correct label missing colon warning behaviour wasn't
+	;  wanted, then the implementation could be simpler. Hmm.)
+ %macro @@ 0.nolist
+@F
+__@@_next
+ %endmacro
+	; "@@", label alone on line missing colon warning.
+ %macro @@ 1+.nolist
+%ifidn %1,:
+@F %+ :
+__@@_next
+%else
+ %push
+  %defstr %$str %1
+  %substr %$colon %$str 1
+  %ifidn %$colon,':'
+   %substr %$str %$str 2,-1
+   %deftok %$str %$str
+@F %+ :
+__@@_next
+%$str
+  %else
+@F times 0 nop
+__@@_next
+%1
+  %endif
+ %pop
+%endif
+ %endmacro
+	; "@@ :", (trivial) no label-missing-colon warnings.
+	; "@@ nop", label missing colon warning; the "times 0 nop"
+	;  part is necessary so that this warning isn't 'promoted'
+	;  to the label alone on line missing colon warning.
+	; "@@ : nop", no label-missing-colon warnings.
+	; Not handled like actual label: following "instruction" is
+	;  allowed to be a directive, another label, or even an
+	;  mmacro usage like @@ itself. Hmmm... allows eg "@@: @@:"
+	;  to define two @@ labels at once. May be useful.
+
+	; Only invalidate outstanding @@ forward references.
+	;  The sequence flag is reset, unless non-zero %1 is given.
+ %imacro @FI 0.nolist
+%assign __@@_num_inv __@@_num_inv+1
+%define @FFFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%define @FFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%define @FF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%define @F ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %ixdefine @F4 @FFFF
+%ixdefine @F3 @FFF
+%ixdefine @F2 @FF
+%ixdefine @F1 @F
+ %endmacro
+
+	; Only invalidate @@ backward references.
+ %imacro @BI 0.nolist
+%assign __@@_num_inv __@@_num_inv+1
+%define @B ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%define @BB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%define @BBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%define @BBBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%ixdefine @B4 @BBBB
+%ixdefine @B3 @BBB
+%ixdefine @B2 @BB
+%ixdefine @B1 @B
+ %endmacro
+
+	; Invalidate all references.
+	;  The sequence flag is reset, unless non-zero %1 is given.
+ %imacro @I 0-1.nolist 0
+%assign __@@_in_seq __@@_in_seq && %1
+@FI
+@BI
+ %endmacro
+
+	; Invalidate outstanding @@ forward references (by causing
+	;  them to ultimately refer to undefined labels) then invent
+	;  four new names for @BBBB..@B that are invalid (ie would
+	;  ultimately refer to undefined labels) then invent four
+	;  new names for @F..@FFFF that can be defined by @@.
+	; Note that __@@_next successfully passes along whatever
+	;  @F..@FFFF are initialised to when this macro is used;
+	;  even if they aren't initialised at all (in that case
+	;  their names are passed along!). No error conditions are
+	;  caused there, and all of these passed names are discarded
+	;  by @BI.
+	; As __@@_num is initialised to -4, at the end of this
+	;  macro's processing the @@ backward references @BBBB..@B
+	;  refer to names ending in -4..-1 (which are to be left
+	;  undefined) and the @@ forward references @F..@FFFF refer
+	;  to ..@.@@.%[__@@_seq].0..3 (which can be defined by @@).
+ %imacro @S 0-1.nolist _@@_check
+%if %1 && __@@_in_seq
+ %if %1 == 1
+  %warning "already in a sequence"
+ %else
+  %error "already in a sequence"
+ %endif
+%endif
+
+%assign __@@_seq __@@_seq+1
+%assign __@@_num 0
+%assign __@@_num_inv 0
+%assign __@@_in_seq 1
+
+__@@_next 4
+@BI
+ %endmacro
+
+%ifnnum __@@_in_seq
+ %assign __@@_in_seq 0
+%endif
+%ifnnum __@@_seq
+ %assign __@@_seq 0
+ %assign __@@_num 0
+ %assign __@@_num_inv 0
+%endif
+%ifnnum __@@_num
+ %assign __@@_num 0
+%endif
+%ifnnum __@@_num_inv
+ %assign __@@_num_inv 0
+%endif
+	numdef @@_check, 0	; 0 = none, 1 = warn, else = error
+	numdef @@_start, 1	; 0 = omit @S, else = do @S
+%if _@@_start
+ @S
+%endif
+
 
 	%imacro checklframeend 0
 %ifctx LFRAME
