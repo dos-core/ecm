@@ -260,6 +260,7 @@ __lenter_parse_parlist %$parlist
 %else
  %assign ?%2 (%$pars_size + %$parofs + 2)
 %endif
+%rotate 2
 %endrep
 %endmacro
 
