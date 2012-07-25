@@ -369,6 +369,7 @@ __lleave_undefine_labels %$labellist
 %else
  %undef ?%1
 %endif
+%rotate 1
 %endrep
 %endmacro
 
