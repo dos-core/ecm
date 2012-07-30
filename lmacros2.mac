@@ -143,13 +143,7 @@ Intended for 86 Mode programs.
  %xdefine %$labellist %$labellist,%2
 %endif
 %assign %$ofs %$ofs-%$varsize
-%ifstr %2
- %strcat %$name "?",%2
- %deftok %$name %$name
- %assign %[%$name] %$ofs
-%else
- %assign ?%2 %$ofs
-%endif
+%assign ?%2 %$ofs
 %assign %$req 1
 %endmacro
 
@@ -253,13 +247,7 @@ __lenter_parse_parlist %$parlist
 %endif
 %rep %0 >> 1
 %assign %$pars_size %$pars_size - %1
-%ifstr %2
- %strcat %$name "?",%2
- %deftok %$name %$name
- %assign %[%$name] (%$pars_size + %$parofs + 2)
-%else
- %assign ?%2 (%$pars_size + %$parofs + 2)
-%endif
+%assign ?%2 (%$pars_size + %$parofs + 2)
 %rotate 2
 %endrep
 %endmacro
@@ -362,13 +350,7 @@ __lleave_undefine_labels %$labellist
 
 %macro __lleave_undefine_labels 0-*.nolist
 %rep %0
-%ifstr %1
- %strcat %$name "?",%1
- %deftok %$name %$name
- %undef %[%$name]
-%else
- %undef ?%1
-%endif
+%undef ?%1
 %rotate 1
 %endrep
 %endmacro
