@@ -437,9 +437,6 @@ error:
 
 
 found_it:
-		;pop cx			; (discard)
-		; (left on stack to save one byte here)
-
 %if _LOAD_ADR >= ADR_FREE
 ; Get conventional memory size and store it
 		int 12h
