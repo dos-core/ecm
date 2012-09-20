@@ -296,11 +296,11 @@ load_name:
 
 skip_bpb:
 	cli
-	xor ax, ax
-	mov es, ax
-	mov ss, ax
-	mov sp, ADR_STACK
+	 xor ax, ax
 	mov bp, start
+	 mov ss, ax
+	mov sp, ADR_STACK
+	 mov es, ax
 	mov [VAR(boot_unit)], dl
 
 %if _USE_PART_INFO	; +17 bytes
