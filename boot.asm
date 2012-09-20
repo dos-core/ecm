@@ -602,13 +602,22 @@ next_cluster:
 		mov ax, [VAR(data_start+2)]
 %endif
 %if _PUSH_DPT || _SET_DSSI_DPT
+ %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
+		mov di, 1Eh*4
+		les si, [di]		; -> original (also current) DPT
+		push es
+		push si			; original (also current) DPT address
+		push ss
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+ %else
 		mov di, 1Eh*4
 		lds si, [di]		; -> original (also current) DPT
- %if _PUSH_DPT
+  %if _PUSH_DPT
 		push ds
 		push si			; original (also current) DPT address
 		push ss
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %endif
  %endif
 %endif
 %if _SET_DI_CLUSTER
