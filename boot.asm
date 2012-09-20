@@ -386,8 +386,8 @@ skip_bpb:
 	mov [VAR(data_start)], cx
 	mov [VAR(data_start+2)], di
 
-; scan root directory for file. We don't bother to check for deleted
-; entries or 'virgin' entries (first byte = 0) that mark end of directory
+; Scan root directory for file. We don't bother to check for deleted
+;  entries (E5h) or entries that mark the end of the directory (00h).
 		; number of root entries in si here
 next_sect:
 	mov bx, ADR_DIRBUF>>4	; bx:0-> where to load
