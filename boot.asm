@@ -669,25 +669,24 @@ read_sector:
 			div word [VAR(heads)]
 
 ; bx:ax=quotient=cylinder (C), dx=remainder=head (H)
-; error if cylinder >=1024
-			test bx, bx	; bx != 0; so cyl >= 65536
-			jnz .err
-			cmp ah,4	; ah >= 4; so cyl >= 1024
-			jae .err
-
 ; move variables into registers for INT 13h AH=02h
 			mov dh, dl	; dh = head
 			inc cx		; cl5:0 = sector
 			xchg ch, al	; ch = cylinder 7:0, al = 0
 			shr ax, 1
 			shr ax, 1	; al7:6 = cylinder 9:8
+	; bx only has 1 bits if it's > 0, indicating a cylinder >= 65536.
+			 or bl, bh	; collect 1 bits from bh
 			or cl, al	; cl7:6 = cylinder 9:8
+	; ah only has 1 bits if it was >= 4, indicating a cylinder >= 1024.
+			 or bl, ah	; collect 1 bits from ah
 			mov dl,[VAR(boot_unit)] ; dl = drive
+			 jnz .err	; error if cylinder >= 1024 -->
+					; ! bx = 0 (for 13.02 call)
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 			pop es
-			xor bx, bx
 			mov ax, 0201h
 			int 13h		; read one sector
 			jnc .done
