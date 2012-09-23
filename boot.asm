@@ -191,7 +191,7 @@ itself would disqualify our boot sector already.
 %pop
 
 ; 512-byte stack.
-ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07DF0h
+ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
 ; one-sector directory buffer. Assumes FAT sectors are no larger than 8 KiB
