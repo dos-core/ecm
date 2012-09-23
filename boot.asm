@@ -300,10 +300,12 @@ skip_bpb:
 	mov bp, start
 	 mov ss, ax
 	mov sp, ADR_STACK
-	 mov es, ax
 	mov [VAR(boot_unit)], dl
 
-%if _USE_PART_INFO	; +17 bytes
+	; Note:	es is left uninitialised here until the first call to
+	;	 read_sector if the below conditional is false.
+%if _USE_PART_INFO	; +19 bytes
+	 mov es, ax
 ; Check whether an MBR left us partition information.
 ; byte[ds:si] bit 7 means active and must be set if valid.
 	cmp byte [si], al	; flags for xx-00h (result is xx), SF = bit 7
