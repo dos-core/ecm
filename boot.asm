@@ -636,7 +636,7 @@ next_cluster:
 		;	 ! jumps to error instead of returning
 		;	If sector has been read,
 		;	 dx:ax = next sector number (has been incremented)
-		;	 bx:0-> next buffer (bx = es+para_per_sector)
+		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
 		;	 es = input bx
 		; CHG:	-
 read_sector:
