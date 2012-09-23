@@ -512,7 +512,7 @@ next_cluster:
 ; DX:AX b?:10	=which sector of FAT to load
 		; shr dx,1
 		shr ax, 1	; rcr ax,1
-		pushf			; preserve CF of that shift
+		sbb cx, cx		; = -1 iff CY, else 0
 		div word [VAR(bytes_per_sector)]
 
 ; remainder is byte offset into FAT sector: put it in SI
@@ -545,12 +545,8 @@ next_cluster:
 		mov si, [ADR_FATBUF + si]
 
 %if !_FAT16
-; look at previous CF (from shr ax, 1) to decide which 12 bits to use
-		popf
-		jnc @F		; even entry, want low -->
-		mov cl, 4
-		shr si, cl	; odd entry: get high 12 bits
-@@:
+		and cl, 4	; = 4 iff CY after shift, else 0
+		shr si, cl	; shift down iff odd entry, else unchanged
 		and si, 0FFFh	; insure it's only 12 bits
 %endif
 
