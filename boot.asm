@@ -475,17 +475,8 @@ next_cluster:
 		;	 si = next cluster number (or EOC value)
 		;	 dx:ax = sector number
 		; CHG:	cx
-; cluster 2 is the first data cluster
-		lea ax, [si - 2]
 
-; convert from clusters to sectors
-		mul word [VAR(adj_sectors_per_cluster)]
-		add ax, [VAR(data_start)]
-		adc dx, [VAR(data_start)+2]
-
-; DX:AX is return value: save it
-		push dx
-		push ax
+		push si			; preserve cluster number for later
 
 ; prepare to load FAT
 
@@ -551,9 +542,17 @@ next_cluster:
 		shr si, cl	; shift down iff odd entry, else unchanged
 		and si, 0FFFh	; insure it's only 12 bits
 %endif
+		pop ax		; restore cluster number
 
-		pop ax
-		pop dx		; return: sector number
+; adjust cluster number to make it 0-based
+		dec ax
+		dec ax
+
+; convert from clusters to sectors
+		mul word [VAR(adj_sectors_per_cluster)]
+		add ax, [VAR(data_start)]
+		adc dx, [VAR(data_start)+2]
+				; dx:ax = sector number
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
