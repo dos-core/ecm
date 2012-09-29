@@ -482,7 +482,7 @@ next_cluster:
 
 %if _FAT16
 		xor dx, dx
-		mov ax, si		; dx:ax = entry to load (0..FFF6h)
+		xchg ax, si		; dx:ax = entry to load (0..FFF6h)
 		add ax, ax
 		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
 		div word [VAR(bytes_per_sector)]
