@@ -284,11 +284,6 @@ filesystem_identifier:	fill 8,32,db "FAT1",'2'+4*!!_FAT16
 
 ; Initialised data
 
-; which sector is in the FAT buffer
-; this is relative to FAT start, so we need only 16 bits
-curr_sector:
-	dw -1
-
 load_name:
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
@@ -458,8 +453,8 @@ found_it:
 		push si			; remember cluster for later
 %endif
 
-; set load address bx:0
-		mov bx, _LOAD_ADR>>4
+		mov bx, _LOAD_ADR>>4	; :0-> load address
+		mov di, -1		; = no FAT sector read yet
 
 next_cluster:
 ; convert 16-bit cluster value (in SI) to 32-bit LBA sector value (in DX:AX)
@@ -469,12 +464,14 @@ next_cluster:
 		; Converts cluster number to sector number
 		;  and finds next cluster in chain
 		;
-		; INP:	si = cluster number
+		; INP:	si = valid cluster number
+		;	di = currently buffered FAT sector, -1 if none
 		; OUT:	If unable to read a FAT sector,
 		;	 ! jumps to error instead of returning
 		;	If everything is okay,
 		;	 si = next cluster number (or EOC value)
 		;	 dx:ax = sector number
+		;	 di = currently buffered FAT sector
 		; CHG:	cx
 
 		push si			; preserve cluster number for later
@@ -516,9 +513,9 @@ next_cluster:
 ; check the FAT buffer to see if this sector is already loaded
 ; (simple disk cache; speeds things up a little --
 ; actually, it speeds things up a lot)
-		cmp ax, [VAR(curr_sector)]
+		cmp ax, di
 		je @F
-		mov [VAR(curr_sector)], ax
+		mov di, ax
 
 ; read the target FAT sector. FAT12 entries may straddle a sector
 ; boundary, so read 2 sectors.
