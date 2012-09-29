@@ -573,9 +573,15 @@ next_cluster:
 		call read_sector
 		loop @B
 
+%if _FAT16
+; FFF7h: bad cluster
+; FFF8h-FFFFh: end of cluster chain
+		cmp si, 0FFF7h
+%else
 ; 0FF7h: bad cluster
 ; 0FF8h-0FFFh: end of cluster chain
-		cmp si,0FF7h
+		cmp si, 0FF7h
+%endif
 		jb next_cluster
 
 @@:
