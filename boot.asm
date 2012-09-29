@@ -194,15 +194,17 @@ itself would disqualify our boot sector already.
 ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
-; one-sector directory buffer. Assumes FAT sectors are no larger than 8 KiB
+; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
 ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
 
 ; two-sector FAT buffer -- two sectors because FAT12
-; entries are 12 bits and may straddle a sector boundary
-ADR_FATBUF	equ	(ADR_DIRBUF + 8192)	; 09E00h
+;  entries are 12 bits and may straddle a sector boundary
+; this shares its area with the directory buffer as they
+;  are not simultaneously used
+ADR_FATBUF	equ	ADR_DIRBUF		; 07E00h
 
 ; start of unused memory:
-ADR_FREE	equ	(ADR_FATBUF + 2*8192)	; 0DE00h
+ADR_FREE	equ	(ADR_FATBUF + 2*8192)	; 0BE00h
 
 ; use byte-offset addressing from BP for smaller code
 %define	VAR(x)	((x) - start) + bp
@@ -392,8 +394,7 @@ skip_bpb:
 		; number of root entries in si here
 next_sect:
 	mov cx, bx		; entries per sector as loop counter
-	mov bx, ADR_DIRBUF>>4	; bx:0-> where to load
-	call read_sector
+	call read_sector_buf
 	mov bx, cx		; restore bx for next iteration later
 
 	xor di, di		; es:di-> first entry in this sector
@@ -522,11 +523,10 @@ next_cluster:
 ; read the target FAT sector. FAT12 entries may straddle a sector
 ; boundary, so read 2 sectors.
 		push bx
-		mov bx, ADR_FATBUF>>4
 		xor dx, dx
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
-		call read_sector
+		call read_sector_buf
 %if !_FAT16
 		call read_sector	; pointer/number incremented - reads next
 %endif
@@ -625,6 +625,18 @@ next_cluster:
 %endif
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
+
+		; INP:	dx:ax = sector
+		; OUT:	only if successful
+		;	dx:ax = incremented
+		;	bx:0-> behind read sector
+		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
+		; CHG:	-
+read_sector_buf:
+%if ADR_DIRBUF != ADR_FATBUF
+ %error Buffers assumed to be the same.
+%endif
+	mov bx, ADR_FATBUF>>4
 
 		; Read a sector using Int13.02
 		;
