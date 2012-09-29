@@ -534,13 +534,14 @@ next_cluster:
 @@:
 
 ; get 16 bits from FAT
-		mov si, [ADR_FATBUF + si]
+		es lodsw
 
 %if !_FAT16
 		and cl, 4	; = 4 iff CY after shift, else 0
-		shr si, cl	; shift down iff odd entry, else unchanged
-		and si, 0FFFh	; insure it's only 12 bits
+		shr ax, cl	; shift down iff odd entry, else unchanged
+		and ax, 0FFFh	; insure it's only 12 bits
 %endif
+		xchg ax, si
 		pop ax		; restore cluster number
 
 ; adjust cluster number to make it 0-based
