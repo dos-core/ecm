@@ -481,36 +481,35 @@ next_cluster:
 ; prepare to load FAT
 
 %if _FAT16
-		xor dx, dx
-		xchg ax, si		; dx:ax = entry to load (0..FFF6h)
+; Multiply cluster number by 2.
+		xchg ax, si
+		xor dx, dx		; dx:ax = entry to load (0..FFF6h)
 		add ax, ax
 		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
-		div word [VAR(bytes_per_sector)]
-					; dx = byte offset into sector (0..8190)
-					; ax = sector offset into FAT (0..4095)
-		mov si, dx
+
+			; After the following division:
+			; dx = byte offset into sector (0..8190)
+			; ax = sector offset into FAT (0..4095)
 %else
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
-; so multiply cluster by 3 now, and divide by 2 later.
+;  so multiply cluster number by 3 first, then divide by 2.
+		mov ax, si		; = cluster number (up to 12 bits set)
 		xor dx, dx
-		mov ax, si		; (up to 12 bits set)
-		shl ax, 1		; (up to 13 bits set)
-		; rcl dx, 1
-		add ax, si		; (up to 14 bits set)
-		; adc dx, byte 0
-		; (not necessary to use 32-bit calculation here!)
-
-; DX:AX b0	=use high or low 12 bits of 16-bit value read from FAT
-; DX:AX b9:1	=byte offset into FAT sector (9 bits assumes 512-byte sectors)
-; DX:AX b?:10	=which sector of FAT to load
-		; shr dx,1
-		shr ax, 1	; rcr ax,1
+		shl ax, 1		; = 2n (up to 13 bits set)
+		add ax, si		; = 2n+n = 3n (up to 14 bits set)
+		shr ax, 1		; ax = byte offset into FAT (0..6129)
+					; CF = whether to use high 12 bits
 		sbb cx, cx		; = -1 iff CY, else 0
-		div word [VAR(bytes_per_sector)]
 
-; remainder is byte offset into FAT sector: put it in SI
-		mov si, dx
+			; After the following division:
+			; dx = byte offset into sector (0..6129)
+			; ax = sector offset into FAT (0..191)
 %endif
+
+; Divide by sector size to split dx:ax into the remainder as the byte offset
+;  into the FAT sector, and quotient as the sector offset into the FAT.
+		div word [VAR(bytes_per_sector)]
+		mov si, dx		; = byte offset in sector
 
 ; quotient in AX is FAT sector.
 ; check the FAT buffer to see if this sector is already loaded
