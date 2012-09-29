@@ -359,7 +359,6 @@ skip_bpb:
 
 ; 32-byte FAT directory entries per sector
 	shr ax, 1			; /2 = 32-byte entries per sector
-	mov [VAR(dir_ents_per_sector)], ax
 
 ; number of sectors used for root directory (store in CX)
 	xor dx, dx
@@ -392,11 +391,12 @@ skip_bpb:
 ;  entries (E5h) or entries that mark the end of the directory (00h).
 		; number of root entries in si here
 next_sect:
+	mov cx, bx		; entries per sector as loop counter
 	mov bx, ADR_DIRBUF>>4	; bx:0-> where to load
 	call read_sector
+	mov bx, cx		; restore bx for next iteration later
 
 	xor di, di		; es:di-> first entry in this sector
-	mov cx, [VAR(dir_ents_per_sector)]	; loop counter for sector
 next_ent:
 	push si
 	push di
