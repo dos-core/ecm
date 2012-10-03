@@ -1,0 +1,242 @@
+
+%if 0
+
+multboot.asm - Multiboot header and loader
+
+Copyright (C) 2008-2012 C. Masloch
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following
+conditions are met:
+
+* Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+* Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+%endif
+
+%macro mbootchecksummed 1.nolist 1BADB002h
+	dd %2		; signature
+	dd %1		; flags
+	dd -(%2+%1)	; checksum: dword sum of these three = 0
+%endmacro
+
+MBOOTBASE equ (1024+64)*1024		; one paragraph above the HMA
+
+		; Multiboot header
+		; must be dword aligned and in first 8 KiB!
+	align 4, db 0
+mbootheader:
+	mbootchecksummed 00010000h
+			; flags: provides info where to load image
+fixme Check whether the above macro works as expected
+	; dd 1BADB002h
+	; dd 00010000h
+	; dd 0E4514FFEh
+	dd MBOOTBASE+mbootheader	; load address of header
+%if _LOAD_CMPR
+ fixme CHDR specification must involve the following two or three fields.
+		; The "load area end" field can be specified as 0 which
+		;  means that the whole file should be loaded. But then,
+		;  we will be unable to specify any uninitialised area,
+		;  which is necessary to insure free memory that will not
+		;  overlap with any of the structures and modules that a
+		;  loader may pass to us. So we don't do that.
+%endif
+	dd MBOOTBASE	; load address
+.load_area_end:
+	dd MBOOTBASE+lDOS_size+..@headersignature_size
+					; load area end (0 = load whole file)
+	dd 0				; uninitialised area end (0 = none)
+	dd MBOOTBASE+mbootentry		; entry point
+
+%unmacro mbootchecksummed 1.nolist 1BADB002h
+
+%if ($-$$) > 8192
+ %fatal Multiboot header must be in the first 8 KiB
+%endif
+
+	struc MBI
+mbiFlags:	resd 1
+		resb 8
+mbiBootDevice:	resd 1
+mbiCmdLine:	resd 1
+mbiModuleCount:	resd 1
+mbiModuleTable:	resd 1
+		; (More data follows but none which seems useful.)
+	endstruc
+
+[cpu 386]
+[bits 32]
+
+	numdef MULTIBOOT_CHECKS, 1
+
+ %if _MULTIBOOT_CHECKS
+mbootentry.halt:
+		; Unfortunately, as the environment is unknown, we can only
+		;  literally halt here, as we don't know how to do I/O.
+	cli
+@@:
+	hlt
+	jmp sho @F
+ %endif
+
+		; INP:	eax = 2BADB002h
+		;	ebx-> multiboot info structure
+		; STT:	loaded and executed according to Multiboot header, ie
+		;	 loaded at MBOOTBASE
+		;	 eip = MBOOTBASE+mbootentry
+		;	in PM32 with paging disabled
+		;	CPL 0
+		;	cs,ds,es,fs,gs,ss = flat 32-bit code/data selectors
+		;	DI
+		;	! stack not set up
+		;	! GDT might not be set up
+		;	! IDT might not be set up
+		;	A20 on
+		;
+		; Note:	Although A20 is on, HMA access without an XMM
+		;	 to manage it might be undesirable. Multiboot
+		;	 also doesn't tell us whether and if so then
+		;	 how we can switch A20.
+mbootentry:
+ %if _MULTIBOOT_CHECKS
+[bits 16]
+	test ax, 0			; (test eax if in 32-bit segment)
+	jmp sho .halt			; (skipped if in 32-bit segment)
+[bits 32]
+	cmp eax, 2BADB002h		; signature ?
+	jne sho .halt			; no -->
+	smsw eax
+	rol eax, 1			; 2 = protection, 1 = paging
+	and al, 3			; mask off others
+	cmp al, 2			; PE but not PG ?
+	jz sho .halt			; no -->
+	mov eax, cs
+	and al, 3			; CPL 0 ?
+	jnz sho .halt			; no -->
+ %endif
+
+		; prepare this and that
+	mov esi, MBOOTBASE
+	mov edx, MBOOTBASE+init0data
+	inc dword [ edx+i0MBFlag ]	; flag Multiboot entry for determining partition
+	and dword [ edx+i0Partition ], 0; insure invalid
+
+		; locate boot drive in Multiboot info structure
+	test byte [ ebx + mbiFlags ], 2	; boot device info valid ?
+	jnz @F
+	mov eax, [ ebx + mbiBootDevice ]; get the info
+	mov [ .dl ], al
+	mov [ edx+i0MBDevice ], eax	; save it there
+@@:
+
+		; A20 is on. set up some things
+	xor ecx, ecx
+	mov edi, 1024*1024
+	xor eax, eax
+	mov cl, 10h			; (ecx = 10h)
+	rep stosd			; clear this area so A20 tests succeed
+; The above writes to 10_0000h..10_003Fh, leaving edi = 10_0040h
+	mov al, 0C0h			; (eax = C0h)
+	mov byte [ edi-40h+eax ], 0EAh
+	mov [ edi-40h+eax+1 ], eax	; write jump for CP/M entry hack here
+; The above writes to 10_00C0h..10_00C4h
+
+		; relocate image to optimal location, 000600h
+	mov edi, 000600h
+	mov ecx, dword [ MBOOTBASE+mbootheader.load_area_end ]
+	sub ecx, esi
+	rep movsb
+
+		; now back to real mode
+	o32 lgdt [ MBOOTBASE+mbootgdtdesc ]
+					; set our GDT
+	mov ax, 10h
+	mov ds, ax
+	mov es, ax
+	mov ss, ax
+	mov fs, ax
+	mov gs, ax			; set 64 KiB segment limits
+	mov esp, 600h			; set a valid stack; also required by RM entry
+	push 0
+	popf				; reset all flags
+	jmp 08h:.pm16			; use 16-bit selector
+
+[bits 16]
+		; now really switch to real mode
+		; (already executing relocated code)
+.pm16:
+	mov eax, cr0
+	dec ax
+	mov cr0, eax				; clear PE bit
+
+	jmp dword 60h:.rm			; reload cs
+
+		; Set up registers and the environment for
+		; the kernel entry point. It doesn't need initialised
+		; segment registers but we'll initialise them in case
+		; they still contain selector content.
+.rm:
+		; some sources indicate we should set the IDT
+	o32 lidt [mbootidtdesc]			; set IDT to RM IVT
+	xor ax, ax
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	mov ss, ax
+	mov dl, -1
+.dl: equ $-1
+ %if _FIX_FREEDOS_LOAD
+	mov dh, dl
+ %endif
+	mov ax, cs
+	; (cs should be = 60h now, need no far jump)
+	jmp loadentry.mbootenter		; enter this RM entry -->
+
+	align 16, db 0				; right.. shouldn't this be aligned?
+mbootgdt:
+	dw 0,0
+	db 0,0,0,0
+
+		; selector 8: 16-bit real mode CS
+		; base = 00000600h, limit 0FFFFh (1 B Granularity), present
+		; type = 16-bit code execute/read only/conforming, DPL = 0
+	dw 0FFFFh,600h
+	db 0,9Eh,0,0
+
+		; selector 10h: 16-bit real mode DS
+		; base = 00000000h, limit 0FFFFh (1 B Granularity), present
+		; type = 16-bit data read/write, DPL = 0
+	dw 0FFFFh,0
+	db 0,92h,0,0
+	endarea mbootgdt
+
+mbootgdtdesc:
+	dw mbootgdt_size-1	; limit
+	dd MBOOTBASE+mbootgdt	; address
+
+mbootidtdesc:
+	dw 400h-1		; limit
+	dd 0			; address (RM IVT)
+
+__CPU__
