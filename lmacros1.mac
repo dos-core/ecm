@@ -514,7 +514,7 @@ Intended for 86 Mode programs.
 		;      Default .pass
 		; %3 = label to jump to if no 186+ CPU
 		;      Default .fail
-	%imacro check186 0-3.nolist 1 .pass .fail
+	%imacro check186 0-3 1 .pass .fail
 		mov cx, 1_0010_0001b		; Shift count's bit 0 and 5 are set; shift data is 1
 		shl ch, cl			; 186+ limits shift count to five bits (0-4): resulting
 						; ch is 10b on 186+; 0 on 8086 (actual result overflows)
@@ -535,7 +535,7 @@ Intended for 86 Mode programs.
 		; %3 = label to jump to if no 286+ CPU
 		;      Default .fail
 
-	%imacro check286 0-3.nolist 1 .pass .fail
+	%imacro check286 0-3 1 .pass .fail
 		push sp
 		pop ax
 		cmp ax, sp			; 286+ pushes original sp value
@@ -555,7 +555,7 @@ Intended for 86 Mode programs.
 		;      Default .pass
 		; %3 = label to jump to if no 386+ CPU
 		;      Default .fail
-	%imacro check386 0-3.nolist 1 .pass .fail
+	%imacro check386 0-3 1 .pass .fail
 		check286 0, {%2}, {%3}		; branches to .fail if 8086 or 186 -->
 [cpu 286]
 		pushf
