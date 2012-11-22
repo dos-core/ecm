@@ -525,7 +525,9 @@ next_cluster:
 		adc dx, dx		; (account for overflow)
 		call read_sector_buf
 %if !_FAT16
+		push es
 		call read_sector	; pointer/number incremented - reads next
+		pop es
 %endif
 		pop bx
 @@:
