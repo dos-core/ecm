@@ -448,7 +448,7 @@ found_it:
 %endif
 
 ; get starting cluster of file
-		mov si,[di + 26]
+		mov si,[es:di + 26]
 %if _SET_DI_CLUSTER
 		push si			; remember cluster for later
 %endif
