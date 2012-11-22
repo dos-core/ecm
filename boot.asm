@@ -114,7 +114,7 @@ Notes about partial load compatibilities
  %error Load address must be in LMA
 %elif _LOAD_ADR < 00500h
  %error Load address must not overlap IVT or BDA
-%elif _LOAD_ADR > (POSITION-256) && (POSITION+512) < _LOAD_ADR
+%elif _LOAD_ADR > (POSITION-256) && _LOAD_ADR < (POSITION+512)
  %error Load address must not overlap loader
 %endif
 
