@@ -569,7 +569,9 @@ next_cluster:
 %else
 		ja error_filetoobig
 %endif
+		push es
 		call read_sector
+		pop es
 		loop @B
 
 %if _FAT16
