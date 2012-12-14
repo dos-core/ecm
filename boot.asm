@@ -360,12 +360,9 @@ skip_bpb:
 ; number of sectors used for root directory (store in CX)
 	xor dx, dx
 	mov si, [VAR(num_root_dir_ents)]
-	dec si
 	mov bx, ax
-	;dec ax				; rounding up
-	; (see dec si, inc si around here)
+	dec ax				; rounding up
 	add ax, si			; from BPB
-	inc si
 	adc dx, dx			; account for overflow (dx was zero)
 	div bx				; get number of root sectors
 	xchg ax, cx			; cx = number of root secs, ! ah = 0
