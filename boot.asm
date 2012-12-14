@@ -454,6 +454,20 @@ found_it:
 %endif
 
 %if !_FAT16
+; Load the entire FAT into memory. This is easily feasible for FAT12,
+;  as the FAT can only contain less than 4096 entries.
+; (The exact condition should be "at most 4087 entries", or with a
+;  specific FF7h semantic, "at most 4088 entries"; the more reliable
+;  and portable alternative would be "at most 4080 entries".)
+; Thus, no more than 6 KiB need to be read, even though the FAT size
+;  as indicated by word[sectors_per_fat] could be much higher. The
+;  first loop condition below is to correctly handle the latter case.
+; (Sector size is assumed to be a power of two between 32 and 8192
+;  bytes, inclusive. An 8 KiB buffer is necessary if the sector size
+;  is 4 or 8 KiB, because reading the FAT can or will write to 8 KiB
+;  of memory instead of only the relevant 6 KiB. This is always true
+;  if the sector size is 8 KiB, and with 4 KiB sector size it is true
+;  iff word[sectors_per_fat] is higher than one.)
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [VAR(sectors_per_fat)]
 					; maximum size of this FS's FAT
@@ -484,18 +498,19 @@ next_cluster:
 		;  and finds next cluster in chain
 		;
 		; INP:	si = valid cluster number
-		;	di = currently buffered FAT sector, -1 if none
+		;	(!_FAT16) [ADR_FATBUF] = entire FAT as read from FS
+		;	(_FAT16) di = currently buffered FAT sector, -1 if none
 		; OUT:	If unable to read a FAT sector,
 		;	 ! jumps to error instead of returning
 		;	If everything is okay,
 		;	 si = next cluster number (or EOC value)
 		;	 dx:ax = sector number
-		;	 di = currently buffered FAT sector
+		;	 (_FAT16) di = currently buffered FAT sector
 		; CHG:	cx
 
 		push si			; preserve cluster number for later
 
-; prepare to load FAT
+; prepare to load entry from FAT
 
 %if _FAT16
 ; Multiply cluster number by 2.
@@ -582,7 +597,7 @@ next_cluster:
 		ja error_filetoobig
 %endif
 %if _FAT16
-		push es
+		push es		; (must preserve ADR_FATBUF reference)
 %endif
 		call read_sector
 %if _FAT16
