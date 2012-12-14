@@ -728,11 +728,11 @@ read_sector:
 			xchg ch, al	; ch = cylinder 7:0, al = 0
 			shr ax, 1
 			shr ax, 1	; al7:6 = cylinder 9:8
-	; bx only has 1 bits if it's > 0, indicating a cylinder >= 65536.
-			 or bl, bh	; collect 1 bits from bh
+	; bx has bits set iff it's > 0, indicating a cylinder >= 65536.
+			 or bl, bh	; collect set bits from bh
 			or cl, al	; cl7:6 = cylinder 9:8
-	; ah only has 1 bits if it was >= 4, indicating a cylinder >= 1024.
-			 or bl, ah	; collect 1 bits from ah
+	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
+			 or bl, ah	; collect set bits from ah
 			mov dl,[VAR(boot_unit)] ; dl = drive
 			 jnz .err	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
