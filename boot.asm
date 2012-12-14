@@ -453,8 +453,27 @@ found_it:
 		push si			; remember cluster for later
 %endif
 
+%if !_FAT16
+		mov di, 6 << 10		; maximum size of FAT12 to load
+		mov cx, [VAR(sectors_per_fat)]
+					; maximum size of this FS's FAT
+		xor dx, dx
+		mov ax, [VAR(fat_start)]; = first FAT sector
+		mov bx, ADR_FATBUF>>4
+@@:
+		call read_sector	; read next FAT sector
+		sub di, [VAR(bytes_per_sector)]
+					; di = bytes still left to read
+		jbe @F			; if none -->
+					; (jbe means jump if CF || ZF)
+		loop @B			; if any FAT sector still remains -->
+@@:					; one of the limits reached; FAT read
+%endif
+
 		mov bx, _LOAD_ADR>>4	; :0-> load address
+%if _FAT16
 		mov di, -1		; = no FAT sector read yet
+%endif
 
 next_cluster:
 ; convert 16-bit cluster value (in SI) to 32-bit LBA sector value (in DX:AX)
@@ -485,9 +504,32 @@ next_cluster:
 		add ax, ax
 		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
 
-			; After the following division:
+; Divide by sector size to split dx:ax into the remainder as the byte offset
+;  into the FAT sector, and quotient as the sector offset into the FAT.
+		div word [VAR(bytes_per_sector)]
+		mov si, dx		; = byte offset in sector
 			; dx = byte offset into sector (0..8190)
 			; ax = sector offset into FAT (0..4095)
+
+; quotient in AX is FAT sector.
+; check the FAT buffer to see if this sector is already loaded
+; (simple disk cache; speeds things up a little --
+; actually, it speeds things up a lot)
+		cmp ax, di
+		je @F
+		mov di, ax
+
+; read the target FAT sector.
+		push bx
+		xor dx, dx
+		add ax, [VAR(fat_start)]
+		adc dx, dx		; (account for overflow)
+		call read_sector_buf
+		pop bx
+@@:
+
+; get 16 bits from FAT
+		es lodsw
 %else
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ;  so multiply cluster number by 3 first, then divide by 2.
@@ -499,50 +541,20 @@ next_cluster:
 					; CF = whether to use high 12 bits
 		sbb cx, cx		; = -1 iff CY, else 0
 
-			; After the following division:
-			; dx = byte offset into sector (0..6129)
-			; ax = sector offset into FAT (0..191)
-%endif
-
-; Divide by sector size to split dx:ax into the remainder as the byte offset
-;  into the FAT sector, and quotient as the sector offset into the FAT.
-		div word [VAR(bytes_per_sector)]
-		mov si, dx		; = byte offset in sector
-
-; quotient in AX is FAT sector.
-; check the FAT buffer to see if this sector is already loaded
-; (simple disk cache; speeds things up a little --
-; actually, it speeds things up a lot)
-		cmp ax, di
-		je @F
-		mov di, ax
-
-; read the target FAT sector. FAT12 entries may straddle a sector
-; boundary, so read 2 sectors.
-		push bx
-		xor dx, dx
-		add ax, [VAR(fat_start)]
-		adc dx, dx		; (account for overflow)
-		call read_sector_buf
-%if !_FAT16
-		push es
-		call read_sector	; pointer/number incremented - reads next
-		pop es
-%endif
-		pop bx
-@@:
+; Use the calculated byte offset as an offset into the FAT
+;  buffer, which holds all of the FAT's relevant data.
+		add ax, ADR_FATBUF	; -> 16-bit word in FAT to load
+		xchg ax, si
 
 ; get 16 bits from FAT
-		es lodsw
+		lodsw
 
-%if !_FAT16
 		and cl, 4	; = 4 iff CY after shift, else 0
 		shr ax, cl	; shift down iff odd entry, else unchanged
 		and ax, 0FFFh	; insure it's only 12 bits
 %endif
 		xchg ax, si
 		pop ax		; restore cluster number
-
 ; adjust cluster number to make it 0-based
 		dec ax
 		dec ax
@@ -569,9 +581,13 @@ next_cluster:
 %else
 		ja error_filetoobig
 %endif
+%if _FAT16
 		push es
+%endif
 		call read_sector
+%if _FAT16
 		pop es
+%endif
 		loop @B
 
 %if _FAT16
