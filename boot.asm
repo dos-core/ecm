@@ -403,9 +403,9 @@ next_ent:
 	pop cx
 	pop di
 	pop si
+	lea di, [di + 32]	; bytes/dirent
 	je found_it		; found entry -->
 
-	add di, 32		; bytes/dirent
 	dec si			; count down entire root's entries
 	loopnz next_ent		; count down sector's entries (jumps iff si >0 && cx >0)
 	jnz next_sect		; (jumps iff si >0 && cx ==0)
@@ -448,7 +448,7 @@ found_it:
 %endif
 
 ; get starting cluster of file
-		mov si,[es:di + 26]
+		mov si,[es:di + 26 - 32]
 %if _SET_DI_CLUSTER
 		push si			; remember cluster for later
 %endif
