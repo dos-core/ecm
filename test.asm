@@ -57,3 +57,9 @@ second: @S 0
 @@:
 	jmp exit
 	align 16
+
+	jmp @B
+	jmp @BB
+	jmp @B3
+	jmp @B4
+
