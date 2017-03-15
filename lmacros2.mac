@@ -469,9 +469,9 @@ __lleave_undefine_labels %$labellist
 	;  jump to the next placed @@ after the code sequence.
 	; To work around that, manually place @S (start sequence for
 	;  @@ labels) between logically distinct code sequences. For
-	;  more strict checks, put @@I (invalidate @@ references)
+	;  more strict checks, put @I (invalidate @@ references)
 	;  whereever a logically distinct code sequence ends, and
-	;  @@S whereever a logically distinct code sequence begins.
+	;  @S whereever a logically distinct code sequence begins.
 	;  (This disallows any @@ references outside such marked
 	;  code sequences.)
 	
