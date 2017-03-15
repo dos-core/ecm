@@ -351,6 +351,7 @@ __lleave_undefine_labels %$labellist
 %macro __lleave_undefine_labels 0-*.nolist
 %rep %0
 %undef ?%1
+%rotate 1
 %endrep
 %endmacro
 
