@@ -379,7 +379,7 @@ Intended for 86 Mode programs.
  %endif
 %endif
 %ifdef _%1
- %ifnstr _%1
+ %ifempty _%1
   %if %0 >= 3
    %define _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
    %if __lMACROS1_MAC__DEFAULTING
@@ -390,6 +390,13 @@ Intended for 86 Mode programs.
    %if __lMACROS1_MAC__DEFAULTING
     %assign __DEFAULTED_%1 1	; note defaulting occurred
    %endif
+  %endif
+ %else
+  %ifnstr _%1
+; refer to http://stackoverflow.com/questions/15650276/nasm-convert-integer-to-string-using-preprocessor
+    %define %%quot "
+    %define %%stringify(x) %%quot %+ x %+ %%quot
+    %xdefine _%1 %%stringify(_%1)
   %endif
  %endif				;  (if option was "-d_DEFINE='FOO'", it's left as 'FOO')
 %else				; If not defined (no option on NASM's command line)
