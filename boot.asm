@@ -34,6 +34,7 @@ Public domain by C. Masloch, 2012
 
 	numdef QUERY_GEOMETRY,	0	; query geometry via 13.08
 	numdef USE_PART_INFO,	0	; use ds:si-> partition info from MBR, if any
+	numdef RPL,		0	; support RPL and do not overwrite it
 
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
@@ -437,6 +438,7 @@ found_it:
 		int 12h
 		mov cl, 6
 		shl ax, cl
+%if _RPL
 	xchg dx, ax
 	lds si, [4 * 2Fh]
 	add si, 3
@@ -455,6 +457,7 @@ found_it:
 	push ss
 	pop ds
 	xchg ax, dx
+%endif
 		sub ax, [VAR(para_per_sector)]
 		mov [VAR(last_available_sector)], ax
 %elif _LOAD_ADR < ADR_STACK_LOW
