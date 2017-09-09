@@ -437,6 +437,24 @@ found_it:
 		int 12h
 		mov cl, 6
 		shl ax, cl
+	xchg dx, ax
+	lds si, [4 * 2Fh]
+	add si, 3
+	lodsb
+	cmp al, 'R'
+	jne .no_rpl
+	lodsb
+	cmp al, 'P'
+	jne .no_rpl
+	lodsb
+	cmp al, 'L'
+	jne .no_rpl
+	mov ax, 4A06h
+	int 2Fh
+.no_rpl:
+	push ss
+	pop ds
+	xchg ax, dx
 		sub ax, [VAR(para_per_sector)]
 		mov [VAR(last_available_sector)], ax
 %elif _LOAD_ADR < ADR_STACK_LOW
