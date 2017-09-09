@@ -198,14 +198,17 @@ ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
 ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
 
-; two-sector FAT buffer -- two sectors because FAT12
-;  entries are 12 bits and may straddle a sector boundary
+; this used to be a two-sector FAT buffer -- two sectors because FAT12
+;  entries are 12 bits and may straddle a sector boundary.
+; however, with the FAT12 loaded completely, the buffer only needs to hold
+;  one 8 KiB sector, two 4 KiB sectors, three 2 KiB sectors, six 1 KiB sectors,
+;  or twelve 512 byte sectors.
 ; this shares its area with the directory buffer as they
 ;  are not simultaneously used
 ADR_FATBUF	equ	ADR_DIRBUF		; 07E00h
 
 ; start of unused memory:
-ADR_FREE	equ	(ADR_FATBUF + 2*8192)	; 0BE00h
+ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0BE00h
 
 ; use byte-offset addressing from BP for smaller code
 %define	VAR(x)	((x) - start) + bp
