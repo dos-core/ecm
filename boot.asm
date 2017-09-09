@@ -32,9 +32,9 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	0	; what value ip will be
 
-	numdef QUERY_GEOMETRY,	0	; query geometry via 13.08
-	numdef USE_PART_INFO,	0	; use ds:si-> partition info from MBR, if any
-	numdef RPL,		0	; support RPL and do not overwrite it
+	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08
+	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
+	numdef RPL,		1	; support RPL and do not overwrite it
 
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
