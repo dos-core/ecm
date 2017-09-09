@@ -800,6 +800,10 @@ signatures:
 	dw 0AA55h
 
 %assign num signatures-available
-%warning num bytes still available.
+%assign fatbits 12
+%if _FAT16
+ %assign fatbits 16
+%endif
+%warning FAT fatbits: num bytes still available.
 
 end:
