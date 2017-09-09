@@ -441,7 +441,7 @@ found_it:
 		int 12h
 		mov cl, 6
 		shl ax, cl
-%if _RPL
+%if _RPL		; +31 bytes
 	xchg dx, ax
 	lds si, [4 * 2Fh]
 	add si, 3
