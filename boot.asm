@@ -45,6 +45,7 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
+	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -672,10 +673,12 @@ next_cluster:
 
 @@:
 
+%if _TURN_OFF_FLOPPY
 ; turn off floppy motor
 		mov dx,3F2h
 		mov al,0
 		out dx,al
+%endif
 
 ; Set-up registers for and jump to loaded file
 ; Already: ss:bp-> boot sector containing BPB
