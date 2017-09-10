@@ -32,9 +32,11 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	0	; what value ip will be
 
-	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08
+	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
 	numdef RPL,		1	; support RPL and do not overwrite it
+	numdef CHS,		1	; support CHS (if it fits)
+	numdef LBA,		1	; support LBA (if available)
 
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
@@ -134,6 +136,10 @@ Notes about partial load compatibilities
 %endif
 
 %define OEM_NAME_FILL '_'
+
+%if !_CHS && _QUERY_GEOMETRY
+ %warning No CHS support but querying geometry anyway
+%endif
 
 
 %if 0
@@ -702,6 +708,7 @@ read_sector_buf:
 		;
 		; INP:	dx:ax = sector number within partition
 		;	bx:0-> buffer
+		;	(_LBA) ds = ss
 		; OUT:	If unable to read,
 		;	 ! jumps to error instead of returning
 		;	If sector has been read,
@@ -721,6 +728,63 @@ read_sector:
 		add ax,[VAR(hidden_sectors + 0)]
 		adc dx,[VAR(hidden_sectors + 2)]
 
+%if _LBA
+	xor cx, cx
+	push cx
+	push cx
+	push dx
+	push ax		; qword sector number
+	push bx
+	push cx		; bx:0 -> buffer
+	inc cx
+	push cx		; word number of sectors to read
+	mov cl, 10h
+	push cx		; word size of disk address packet
+	mov si, sp	; ds:si -> disk address packet (on stack)
+
+	mov ah, 41h
+	mov dl, [VAR(boot_unit)]
+	mov bx, 55AAh
+	stc
+	int 13h		; 13.41.bx=55AA extensions installation check
+	jc .no_lba
+	cmp bx, 0AA55h
+	jne .no_lba
+	test cl, 1
+	jz .no_lba
+
+	mov ah, 42h
+	int 13h		; 13.42 extensions read
+	jnc .lba_done
+
+	xor ax, ax
+	int 13h
+	jc .lba_error
+
+	mov ah, 42h
+	int 13h
+	jc .lba_error
+
+.lba_done:
+	add sp, 10h
+	pop bx
+	jmp short .chs_done
+
+.lba_error: equ .err
+
+ %if !_CHS
+.no_lba: equ .err
+ %else
+.no_lba:
+	add sp, 8
+	pop ax
+	pop dx
+	pop cx
+	pop cx
+ %endif
+%endif	
+
+%if _CHS
 ; DX:AX=LBA sector number
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
@@ -776,6 +840,9 @@ read_sector:
 .done:
 ; increment segment
 	mov bx, es
+%endif
+
+.chs_done:
 	add bx, [VAR(para_per_sector)]
 
 	pop ax
