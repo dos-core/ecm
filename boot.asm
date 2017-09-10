@@ -728,7 +728,7 @@ read_sector:
 		add ax,[VAR(hidden_sectors + 0)]
 		adc dx,[VAR(hidden_sectors + 2)]
 
-%if _LBA
+%if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
 	xor cx, cx
 	push cx
 	push cx
@@ -784,7 +784,7 @@ read_sector:
  %endif
 %endif	
 
-%if _CHS
+%if _CHS		; +70 bytes
 ; DX:AX=LBA sector number
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
