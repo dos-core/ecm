@@ -44,6 +44,7 @@ Public domain by C. Masloch, 2012
 	numdef PUSH_DPT,	0	; if to push DPT address
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
+	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -205,8 +206,12 @@ itself would disqualify our boot sector already.
 ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
-; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
-ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
+%if _DIRBUF_500
+ ADR_DIRBUF	equ	500h
+%else
+ ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
+ ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
+%endif
 
 ; this used to be a two-sector FAT buffer -- two sectors because FAT12
 ;  entries are 12 bits and may straddle a sector boundary.
@@ -214,8 +219,8 @@ ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
 ;  one 8 KiB sector, two 4 KiB sectors, three 2 KiB sectors, six 1 KiB sectors,
 ;  or twelve 512 byte sectors.
 ; this shares its area with the directory buffer as they
-;  are not simultaneously used
-ADR_FATBUF	equ	ADR_DIRBUF		; 07E00h
+;  are not simultaneously used. (if not _DIRBUF_500.)
+ADR_FATBUF	equ	end -start+7C00h	; 07E00h
 
 ; start of unused memory:
 ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0BE00h
@@ -413,7 +418,12 @@ skip_bpb:
 		; number of root entries in si here
 next_sect:
 	mov cx, bx		; entries per sector as loop counter
-	call read_sector_buf
+%if ADR_DIRBUF == ADR_FATBUF
+	call read_sector_dirbuf
+%else
+	mov bx, ADR_DIRBUF>>4
+	call read_sector
+%endif
 	mov bx, cx		; restore bx for next iteration later
 
 	xor di, di		; es:di-> first entry in this sector
@@ -583,7 +593,7 @@ next_cluster:
 		xor dx, dx
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
-		call read_sector_buf
+		call read_sector_fatbuf
 		pop bx
 @@:
 
@@ -715,10 +725,10 @@ next_cluster:
 		;	bx:0-> behind read sector
 		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
 		; CHG:	-
-read_sector_buf:
-%if ADR_DIRBUF != ADR_FATBUF
- %error Buffers assumed to be the same.
+%if ADR_DIRBUF == ADR_FATBUF
+read_sector_dirbuf:
 %endif
+read_sector_fatbuf:
 	mov bx, ADR_FATBUF>>4
 
 		; Read a sector using Int13.02
