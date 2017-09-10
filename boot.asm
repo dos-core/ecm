@@ -220,6 +220,19 @@ ADR_FATBUF	equ	ADR_DIRBUF		; 07E00h
 ; start of unused memory:
 ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0BE00h
 
+%if ADR_FREE > 1_0000h && ADR_FATBUF < 1_0000h
+ %warning Possibly crossing 64 KiB boundary while reading
+%endif
+
+%if _LOAD_ADR >= ADR_FREE
+	; if reading on a 8 KiB boundary, no crossing can occur.
+ %if _LOAD_ADR & (8192 - 1)
+  %warning Possibly crossing 64 KiB boundary while reading
+ %endif
+%else
+	; if loading below the boot sector, address 1_0000h is never reached.
+%endif
+
 ; use byte-offset addressing from BP for smaller code
 %define	VAR(x)	((x) - start) + bp
 
