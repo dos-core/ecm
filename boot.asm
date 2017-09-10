@@ -47,6 +47,8 @@ Public domain by C. Masloch, 2012
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 
+	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
+
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
@@ -110,6 +112,19 @@ Notes about partial load compatibilities
 
 %assign LOADLIMIT 0A0000h
 %assign POSITION   07C00h
+
+%if _FIX_SECTOR_SIZE
+ %assign i 5
+ %rep 13-5
+  %if (1 << i) != (_FIX_SECTOR_SIZE)
+   %assign i i+1
+  %endif
+ %endrep
+ %if (1 << i) != (_FIX_SECTOR_SIZE)
+  %error Invalid sector size _FIX_SECTOR_SIZE
+ %endif
+%endif
+
 
 %if (_LOAD_ADR & 0Fh)
  %error Load address must be on a paragraph boundary
@@ -381,6 +396,12 @@ skip_bpb:
 @@:
 %endif
 
+%if _FIX_SECTOR_SIZE
+	cmp word [VAR(bytes_per_sector)], _FIX_SECTOR_SIZE
+	mov al, 'S'
+	je error
+	mov ax, _FIX_SECTOR_SIZE >> 5
+%else
 ; 16-byte paragraphs per sector
 	mov ax,[VAR(bytes_per_sector)]
 	mov cx,4			; ! ch = 0
@@ -389,6 +410,7 @@ skip_bpb:
 
 ; 32-byte FAT directory entries per sector
 	shr ax, 1			; /2 = 32-byte entries per sector
+%endif
 
 ; number of sectors used for root directory (store in CX)
 	xor dx, dx
@@ -495,7 +517,11 @@ found_it:
 	pop ds
 	xchg ax, dx
 %endif
+%if _FIX_SECTOR_SIZE
+		sub ax, _FIX_SECTOR_SIZE >> 4
+%else
 		sub ax, [VAR(para_per_sector)]
+%endif
 		mov [VAR(last_available_sector)], ax
 %elif _LOAD_ADR < ADR_STACK_LOW
 %else
@@ -531,7 +557,11 @@ found_it:
 		mov bx, ADR_FATBUF>>4
 @@:
 		call read_sector	; read next FAT sector
+%if _FIX_SECTOR_SIZE
+		sub di, _FIX_SECTOR_SIZE
+%else
 		sub di, [VAR(bytes_per_sector)]
+%endif
 					; di = bytes still left to read
 		jbe @F			; if none -->
 					; (jbe means jump if CF || ZF)
@@ -873,7 +903,11 @@ read_sector:
 %endif
 
 .chs_done:
+%if _FIX_SECTOR_SIZE
+	add bx, _FIX_SECTOR_SIZE >> 4
+%else
 	add bx, [VAR(para_per_sector)]
+%endif
 
 	pop ax
 	pop cx
