@@ -48,6 +48,8 @@ Public domain by C. Masloch, 2012
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
+	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
+					;  also will not write 0AA55h signature!
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -927,6 +929,7 @@ read_sector:
 	jmp error
 
 
+%if !_NO_LIMIT
 available:
 	_fill 508,38,start
 
@@ -941,5 +944,6 @@ signatures:
  %assign fatbits 16
 %endif
 %warning FAT fatbits: num bytes still available.
+%endif
 
 end:
