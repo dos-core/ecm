@@ -141,6 +141,10 @@ Notes about partial load compatibilities
  %warning No CHS support but querying geometry anyway
 %endif
 
+%if !_CHS && !_LBA
+ %error Either CHS or LBA or both must be enabled
+%endif
+
 
 %if 0
 
