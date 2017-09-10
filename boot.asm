@@ -749,6 +749,8 @@ next_cluster:
 		pop di
  %endif
 %endif
+			; dl = BIOS unit
+			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
 
