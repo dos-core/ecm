@@ -346,6 +346,7 @@ load_name:
 
 skip_bpb:
 	cli
+	cld
 	 xor ax, ax
 	mov bp, start
 	 mov ss, ax
@@ -373,7 +374,6 @@ skip_bpb:
 %endif
 	mov ds, ax
 	sti
-	cld
 
 
 ; calculate some values that we need:
