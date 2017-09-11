@@ -383,8 +383,11 @@ skip_bpb:
 	mov [VAR(adj_sectors_per_cluster)], ax
 
 %if _QUERY_GEOMETRY	; +27 bytes
-	test dl, dl		; floppy?
-	jns @F			; don't attempt query, might fail -->
+;	test dl, dl		; floppy?
+;	jns @F			; don't attempt query, might fail -->
+	; Note that while the original PC BIOS doesn't support this function
+	;  (for its diskettes), it does properly return the error code 01h.
+	; https://sites.google.com/site/pcdosretro/ibmpcbios (IBM PC version 1)
 	mov ah, 08h
 	xor cx, cx		; initialise cl to 0
 	stc			; initialise to CY
