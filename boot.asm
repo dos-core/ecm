@@ -397,7 +397,6 @@ skip_bpb:
 	mov al, 'C'
 	jne error
  %endif
-	mov word [VAR(adj_sectors_per_cluster)], _FIX_CLUSTER_SIZE
 %else
 ; calculate some values that we need:
 ; adjusted sectors per cluster (store in a word,
@@ -693,7 +692,11 @@ next_cluster:
 		dec ax
 		dec ax
 
+%if _FIX_CLUSTER_SIZE
+		mov cx, _FIX_CLUSTER_SIZE
+%else
 		mov cx, [VAR(adj_sectors_per_cluster)]
+%endif
 
 ; convert from clusters to sectors
 		mul cx
