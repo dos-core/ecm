@@ -50,6 +50,7 @@ Public domain by C. Masloch, 2012
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
+	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -806,6 +807,9 @@ read_sector:
 	push cx		; word size of disk address packet
 	mov si, sp	; ds:si -> disk address packet (on stack)
 
+ %if _LBA_SKIP_CHECK		; -14 bytes
+	mov dl, [VAR(boot_unit)]
+ %else
 	mov ah, 41h
 	mov dl, [VAR(boot_unit)]
 	mov bx, 55AAh
@@ -814,8 +818,9 @@ read_sector:
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
-	test cl, 1
+	test cl, 1	; support bitmap bit 0
 	jz .no_lba
+ %endif
 
 	mov ah, 42h
 	int 13h		; 13.42 extensions read
@@ -827,7 +832,14 @@ read_sector:
 
 	mov ah, 42h
 	int 13h
+ %if _LBA_SKIP_CHECK
+	jnc .lba_done
+	cmp ah, 1	; invalid function?
+	je .no_lba	; try CHS instead -->
+	jmp .lba_error
+ %else
 	jc .lba_error
+ %endif
 
 .lba_done:
 	add sp, 10h
