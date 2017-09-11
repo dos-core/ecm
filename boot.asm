@@ -407,7 +407,7 @@ skip_bpb:
 %if _FIX_SECTOR_SIZE
 	cmp word [VAR(bytes_per_sector)], _FIX_SECTOR_SIZE
 	mov al, 'S'
-	je error
+	jne error
 	mov ax, _FIX_SECTOR_SIZE >> 5
 %else
 ; 16-byte paragraphs per sector
