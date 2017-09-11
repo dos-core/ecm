@@ -317,9 +317,9 @@ lowest_variable		equ last_available_sector
 
 oem_id:			; offset 03h (03) - not used by this code
 	fill 8,OEM_NAME_FILL,db _OEM_NAME
-bytes_per_sector:	; offset 0Bh (11)
+bytes_per_sector:	; offset 0Bh (11) - refer to _FIX_SECTOR_SIZE !
 	dw 512
-sectors_per_cluster:	; offset 0Dh (13)
+sectors_per_cluster:	; offset 0Dh (13) - refer to _FIX_CLUSTER_SIZE !
 	db 1
 fat_start:
 num_reserved_sectors:	; offset 0Eh (14)
