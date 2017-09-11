@@ -541,7 +541,7 @@ found_it:
 		int 12h
 		mov cl, 6
 		shl ax, cl
-%if _RPL		; +31 bytes
+ %if _RPL		; +31 bytes
 	xchg dx, ax
 	lds si, [4 * 2Fh]
 	add si, 3
@@ -560,6 +560,11 @@ found_it:
 	push ss
 	pop ds
 	xchg ax, dx
+ %endif
+%elif _LOAD_ADR < ADR_STACK_LOW
+	mov ax, ADR_STACK_LOW >> 4	; rounding *down*
+%else
+ %error Load address within used memory
 %endif
 %if _FIX_SECTOR_SIZE
 		sub ax, _FIX_SECTOR_SIZE >> 4
@@ -567,10 +572,6 @@ found_it:
 		sub ax, [VAR(para_per_sector)]
 %endif
 		mov [VAR(last_available_sector)], ax
-%elif _LOAD_ADR < ADR_STACK_LOW
-%else
- %error Load address within used memory
-%endif
 
 ; get starting cluster of file
 		mov si,[es:di + 26 - 32]
@@ -718,13 +719,7 @@ next_cluster:
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 @@:		
-%if _LOAD_ADR >= ADR_FREE
 		cmp bx, [VAR(last_available_sector)]
-%elif _LOAD_ADR < ADR_STACK_LOW
-		cmp bx, (ADR_STACK_LOW-8192)>>4
-%else
- %error Load address within used memory
-%endif
 %if _MEMORY_CONTINUE
 		ja @F
 %else
