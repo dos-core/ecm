@@ -70,6 +70,7 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
  %assign _SET_BL_UNIT		1
+	; The FreeDOS load protocol mandates that the entire file be loaded.
 %endif
 
 %if _COMPAT_IBM
@@ -79,7 +80,12 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
  %assign _MEMORY_CONTINUE	1
+	; 3 sectors * 512 BpS should suffice. We load into 700h--(7A00h-8192),
+	;  ie >= 5300h bytes (20.75 KiB), <= 7300h bytes (28.75 KiB).
  %assign _DIRBUF_500		1
+ 	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
+ 	;  We do not check this to be the case, but the load protocol may
+ 	;  prescribe that these two entries are at 0:500h and 0:520h.
  %assign _SET_AXBX_DATA		1
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
@@ -95,6 +101,8 @@ Public domain by C. Masloch, 2012
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
+	; 3 sectors * 512 BpS should suffice. We load into 700h--(7A00h-8192),
+	;  ie >= 5300h bytes (20.75 KiB), <= 7300h bytes (28.75 KiB).
  %assign _SET_DI_CLUSTER	1
 %endif
 
