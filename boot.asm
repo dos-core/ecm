@@ -134,6 +134,9 @@ Notes about partial load compatibilities
 %endif
 
 %if _FIX_CLUSTER_SIZE
+ %if _FIX_CLUSTER_SIZE > 256
+  %error Invalid cluster size _FIX_CLUSTER_SIZE
+ %endif
  %assign i 0
  %rep 8-0
   %if (1 << i) != (_FIX_CLUSTER_SIZE)
@@ -141,7 +144,7 @@ Notes about partial load compatibilities
   %endif
  %endrep
  %if (1 << i) != (_FIX_CLUSTER_SIZE)
-  %error Invalid cluster size _FIX_CLUSTER_SIZE
+  %warning Non-power-of-two cluster size _FIX_CLUSTER_SIZE
  %endif
 %endif
 
