@@ -48,6 +48,9 @@ Public domain by C. Masloch, 2012
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
+	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
+	numdef FIX_CLUSTER_SIZE,		0	; fix cluster size
+	numdef FIX_CLUSTER_SIZE_SKIP_CHECK,	0	; don't check cluster size
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
@@ -127,6 +130,18 @@ Notes about partial load compatibilities
  %endrep
  %if (1 << i) != (_FIX_SECTOR_SIZE)
   %error Invalid sector size _FIX_SECTOR_SIZE
+ %endif
+%endif
+
+%if _FIX_CLUSTER_SIZE
+ %assign i 0
+ %rep 8-0
+  %if (1 << i) != (_FIX_CLUSTER_SIZE)
+   %assign i i+1
+  %endif
+ %endrep
+ %if (1 << i) != (_FIX_CLUSTER_SIZE)
+  %error Invalid cluster size _FIX_CLUSTER_SIZE
  %endif
 %endif
 
@@ -376,6 +391,14 @@ skip_bpb:
 	sti
 
 
+%if _FIX_CLUSTER_SIZE
+ %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
+	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
+	mov al, 'C'
+	jne error
+ %endif
+	mov word [VAR(adj_sectors_per_cluster)], _FIX_CLUSTER_SIZE
+%else
 ; calculate some values that we need:
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
@@ -383,6 +406,7 @@ skip_bpb:
 	dec al
 	inc ax
 	mov [VAR(adj_sectors_per_cluster)], ax
+%endif
 
 %if _QUERY_GEOMETRY	; +27 bytes
 ;	test dl, dl		; floppy?
@@ -405,9 +429,11 @@ skip_bpb:
 %endif
 
 %if _FIX_SECTOR_SIZE
+ %if !_FIX_SECTOR_SIZE_SKIP_CHECK
 	cmp word [VAR(bytes_per_sector)], _FIX_SECTOR_SIZE
 	mov al, 'S'
 	jne error
+ %endif
 	mov ax, _FIX_SECTOR_SIZE >> 5
 %else
 ; 16-byte paragraphs per sector
