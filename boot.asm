@@ -667,15 +667,16 @@ next_cluster:
 		dec ax
 		dec ax
 
+		mov cx, [VAR(adj_sectors_per_cluster)]
+
 ; convert from clusters to sectors
-		mul word [VAR(adj_sectors_per_cluster)]
+		mul cx
 		add ax, [VAR(data_start)]
 		adc dx, [VAR(data_start)+2]
 				; dx:ax = sector number
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
-		mov cx, [VAR(adj_sectors_per_cluster)]
 @@:		
 %if _LOAD_ADR >= ADR_FREE
 		cmp bx, [VAR(last_available_sector)]
