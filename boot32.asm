@@ -342,45 +342,60 @@ lowest_variable		equ last_available_sector
 
 ; BIOS Parameter Block (BPB)
 ;
-; Installation will use the BPB already present on your floppy disk.
-; The values shown here work only with 1440 KiB disks (CHS=80:2:18)
+; Installation will use the BPB already present in your file system.
+; These values must be initialised when installing the loader.
 
 oem_id:			; offset 03h (03) - not used by this code
 	fill 8,OEM_NAME_FILL,db _OEM_NAME
 bytes_per_sector:	; offset 0Bh (11) - refer to _FIX_SECTOR_SIZE !
-	dw 512
+	dw 0
 sectors_per_cluster:	; offset 0Dh (13) - refer to _FIX_CLUSTER_SIZE !
-	db 1
+	db 0
 fat_start:
 num_reserved_sectors:	; offset 0Eh (14)
-	dw 1
+	dw 0
 num_fats:		; offset 10h (16)
-	db 2
+	db 0
 num_root_dir_ents:	; offset 11h (17)
-	dw 224
+	dw 0
 total_sectors:		; offset 13h (19) - not used by this code
-	dw 18 * 2 * 80	; (= 2880)
+	dw 0
 media_id:		; offset 15h (21) - not used by this code
-	db 0F0h
+	db 0
 sectors_per_fat:	; offset 16h (22)
-	dw 9
+	dw 0
 sectors_per_track:	; offset 18h (24)
-	dw 18
+	dw 0
 heads:			; offset 1Ah (26)
-	dw 2
+	dw 0
 hidden_sectors:		; offset 1Ch (28)
 	dd 0
 total_sectors_large:	; offset 20h (32) - not used by this code
 	dd 0
 
-; Extended BPB
+sectors_per_fat_large:	; offset 24h (36)
+	dd 0
+fsflags:		; offset 28h (40)
+	dw 0
+fsversion:		; offset 2Ah (42)
+	dw 0
+root_cluster:		; offset 2Ch (44)
+	dd 0
+fsinfo_sector:		; offset 30h (48)
+	dw 0
+backup_sector:		; offset 32h (50)
+	dw 0
+
+	times 12 db 0	; offset 34h (52) reserved
+
+; Extended BPB		; offset 40h (64)
 
 boot_unit:		db 0
 			db 0
 ext_bpb_signature:	db 29h
 serial_number:		dd 0
 volume_label:		fill 11,32,db _DEFAULT_LABEL
-filesystem_identifier:	fill 8,32,db "FAT1",'2'+4*!!_FAT16
+filesystem_identifier:	fill 8,32,db "FAT32"
 
 
 ; Initialised data
