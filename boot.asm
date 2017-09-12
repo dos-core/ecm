@@ -46,6 +46,7 @@ Public domain by C. Masloch, 2012
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
+	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
@@ -87,6 +88,7 @@ Public domain by C. Masloch, 2012
  	;  We do not check this to be the case, but the load protocol may
  	;  prescribe that these two entries are at 0:500h and 0:520h.
  %assign _SET_AXBX_DATA		1
+ %assign _DATASTART_HIDDEN	1
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
@@ -104,6 +106,7 @@ Public domain by C. Masloch, 2012
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
  %assign _SET_DI_CLUSTER	1
+ %assign _DATASTART_HIDDEN	1
 %endif
 
 %if 0
@@ -769,6 +772,12 @@ next_cluster:
 		mov dl, [VAR(boot_unit)]	; set dl to unit
 %if _SET_DI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
 		pop cx
+%endif
+%if _DATASTART_HIDDEN
+		mov bx, [VAR(hidden_sectors + 0)]
+		mov ax, [VAR(hidden_sectors + 2)]
+		add word [VAR(data_start + 0)], bx
+		adc word [VAR(data_start + 2)], ax
 %endif
 %if _SET_BL_UNIT
 		mov bl, dl		; set bl to unit, too
