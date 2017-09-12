@@ -255,28 +255,27 @@ itself would disqualify our boot sector already.
 ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
-%if _DIRBUF_500
- ADR_DIRBUF	equ	500h
-%else
- ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
- ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
-%endif
-
-; this used to be a two-sector FAT buffer -- two sectors because FAT12
-;  entries are 12 bits and may straddle a sector boundary.
-; however, with the FAT12 loaded completely, the buffer only needs to hold
-;  one 8 KiB sector, two 4 KiB sectors, three 2 KiB sectors, six 1 KiB sectors,
-;  or twelve 512 byte sectors.
-; this shares its area with the directory buffer as they
-;  are not simultaneously used. (if not _DIRBUF_500.)
 ADR_FATBUF	equ	end -start+7C00h	; 07E00h
 
-; start of unused memory:
-ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0BE00h
+%if _DIRBUF_500
+ ADR_DIRBUF	equ	500h
+ ; start of unused memory:
+ ADR_FREE	equ	(ADR_FATBUF + 8192)	; 09E00h
+%else
+ ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
+ ADR_DIRBUF	equ	(ADR_FATBUF + 8192)	; 09E00h
+ ; start of unused memory:
+ ADR_FREE	equ	(ADR_DIRBUF + 8192)	; 0BE00h
+%endif
 
-%if ADR_FREE > 1_0000h && ADR_FATBUF < 1_0000h
+%if (ADR_FATBUF + 8192) > 1_0000h && ADR_FATBUF < 1_0000h
  %warning Possibly crossing 64 KiB boundary while reading
 %endif
+
+%if (ADR_DIRBUF + 8192) > 1_0000h && ADR_DIRBUF < 1_0000h
+ %warning Possibly crossing 64 KiB boundary while reading
+%endif
+
 
 %if _LOAD_ADR >= ADR_FREE
 	; if reading on a 8 KiB boundary, no crossing can occur.
