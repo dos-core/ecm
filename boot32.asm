@@ -43,7 +43,7 @@ Public domain by C. Masloch, 2012
 	numdef SET_DSSI_DPT,	0	; if to pass DPT address in ds:si
 	numdef PUSH_DPT,	0	; if to push DPT address
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
-	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
+	numdef SET_SIDI_CLUSTER,0	; if to pass first load file cluster in si:di
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
@@ -59,9 +59,8 @@ Public domain by C. Masloch, 2012
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
-	numdef COMPAT_MS6,	0	; partial MS-DOS 6 load compatibility
 
-%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7 + !!_COMPAT_MS6) > 1
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7) > 1
  %error At most one set must be selected.
 %endif
 
@@ -105,27 +104,8 @@ Public domain by C. Masloch, 2012
  %assign _MEMORY_CONTINUE	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _SET_DI_CLUSTER	1
+ %assign _SET_SIDI_CLUSTER	1
  %assign _DATASTART_HIDDEN	1
-%endif
-
-%if _COMPAT_MS6
-	strdef LOAD_NAME,	"IO"
-	strdef LOAD_EXT,	"SYS"
-	numdef LOAD_ADR,	00700h
-	numdef EXEC_SEG_ADJ,	0
-	numdef EXEC_OFS,	0
- %assign _MEMORY_CONTINUE	1
-	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
-	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _DIRBUF_500		1
- 	; Note: IO.SYS must be the first file, MSDOS.SYS the second file.
- 	;  We do not check this to be the case, but the load protocol may
- 	;  prescribe that these two entries are at 0:500h and 0:520h.
- %assign _SET_AXBX_DATA		1
- %assign _DATASTART_HIDDEN	1
- %assign _SET_DSSI_DPT		1
- %assign _PUSH_DPT		1
 %endif
 
 %if 0
@@ -334,7 +314,13 @@ dir_ents_per_sector	EQU (para_per_sector - 2)
 ; (word) segment of last available memory for sector
 last_available_sector	equ (dir_ents_per_sector - 2)
 
-lowest_variable		equ last_available_sector
+; (word) current load segment
+load_seg		equ (last_available_sector - 2)
+
+; (word) directory entries per sector
+entries_per_sector	equ (load_seg - 2)
+
+lowest_variable		equ entries_per_sector
 
 	jmp strict short skip_bpb
 	nop
@@ -492,44 +478,63 @@ skip_bpb:
 ; 32-byte FAT directory entries per sector
 	shr ax, 1			; /2 = 32-byte entries per sector
 %endif
+	mov word [VAR(entries_per_sector)], ax
 
-; number of sectors used for root directory (store in CX)
-	xor dx, dx
-	mov si, [VAR(num_root_dir_ents)]
-	mov bx, ax
-	dec ax				; rounding up
-	add ax, si			; from BPB
-	adc dx, dx			; account for overflow (dx was zero)
-	div bx				; get number of root sectors
-	xchg ax, cx			; cx = number of root secs, ! ah = 0
-
+	xor ax, ax
 ; first sector of root directory
 	mov al,[VAR(num_fats)]		; ! ah = 0, hence ax = number of FATs
-	mul word [VAR(sectors_per_fat)]
+	push ax
+	mul word [VAR(sectors_per_fat_large)]
+		; ax = low word SpF*nF
+		; dx = high word
+	xchg bx, ax
+	xchg cx, dx
+		; cx:bx = first mul
+	pop ax
+	mul word [VAR(sectors_per_fat_large + 2)]
+		; ax = high word adjust
+		; dx = third word
+	test dx, dx
+	jnz error_badchain
+	xchg dx, ax
+		; dx = high word adjust
+	add dx, cx
+		; dx:bx = result
+	xchg ax, bx
+		; dx:ax = result
+	
 	add ax,[VAR(num_reserved_sectors)]
-	adc dl, dh			; account for overflow (dh was and is 0)
+	adc dx, 0
+	jc error_badchain
 
 	xor di, di
 
 ; first sector of disk data area:
-	add cx, ax
-	adc di, dx
-	mov [VAR(data_start)], cx
-	mov [VAR(data_start+2)], di
+	mov [VAR(data_start)], ax
+	mov [VAR(data_start+2)], dx
+
+	mov ax, [VAR(root_cluster)]
+	mov dx, [VAR(root_cluster + 2)]
+	mov di, -1
+	mov si, di
+	call check_clust
+	jc file_not_found
+
+next_root_clust:
+	call clust_to_first_sector
+	push cx
+	push bx
+	mov cx, [VAR(adj_sectors_per_cluster)]
+next_root_sect:
+	push cx
+	mov cx, [VAR(entries_per_sector)]
 
 ; Scan root directory for file. We don't bother to check for deleted
 ;  entries (E5h) or entries that mark the end of the directory (00h).
-		; number of root entries in si here
-next_sect:
-	mov cx, bx		; entries per sector as loop counter
-%if ADR_DIRBUF == ADR_FATBUF
-	call read_sector_dirbuf
-%else
 	mov bx, ADR_DIRBUF>>4
 	call read_sector
-%endif
-	mov bx, cx		; restore bx for next iteration later
 
+	push di
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
 	push si
@@ -544,12 +549,16 @@ next_ent:
 	lea di, [di + 32]	; bytes/dirent
 	je found_it		; found entry -->
 
-	dec si			; count down entire root's entries
-	loopnz next_ent		; count down sector's entries (jumps iff si >0 && cx >0)
-	jnz next_sect		; (jumps iff si >0 && cx ==0)
-				; ends up here iff si ==0
-				;  ie all root entries checked unsuccessfully
+	loop next_ent		; count down sector's entries (jumps iff cx >0)
+	pop di
+	pop cx
+	loop next_root_sect
+	pop bx
+	pop cx
+	call clust_next
+	jnc next_root_clust
 
+file_not_found:
 	mov al,'F'	; File not 'F'ound
 
 %ifn _MEMORY_CONTINUE
@@ -557,6 +566,10 @@ next_ent:
 error_filetoobig:
 	mov al,'M'	; Not enough 'M'emory
 %endif
+
+	db __TEST_IMM16	; (skip mov)
+error_badchain:
+	mov al,'B'
 
 error:
 	mov bh, [462h]
@@ -572,13 +585,100 @@ error:
 	int 19h		; re-start the boot process
 
 
+		; INP:	dx:ax = cluster - 2 (0-based cluster)
+		; OUT:	cx:bx = input dx:ax
+		;	dx:ax = first sector of that cluster
+		; CHG:	-
+clust_to_first_sector:
+	push dx
+	push ax
+	 push dx
+	mul word [VAR(adj_sectors_per_cluster)]
+	xchg bx, ax
+	xchg cx, dx
+	 pop ax
+	mul word [VAR(adj_sectors_per_cluster)]
+	test dx, dx
+	jnz error_badchain
+	xchg dx, ax
+	add dx, cx
+	xchg ax, bx
+
+	add ax, [VAR(data_start)]
+	adc dx, [VAR(data_start + 2)]
+	jc error_badchain
+				; dx:ax = first sector in cluster
+	pop bx
+	pop cx			; cx:bx = cluster
+	retn
+
+
+		; INP:	cx:bx = cluster (0-based)
+		;	si:di = loaded FAT sector, -1 if none
+		; OUT:	CY if no next cluster
+		;	NC if next cluster found,
+		;	 dx:ax = next cluster value (0-based)
+		;	si:di = loaded FAT sector
+		; CHG:	cx, bx
+clust_next:
+	mov ax, bx
+	mov dx, cx
+	add ax, 2
+	adc dx, 0
+
+	add ax, ax
+	adc dx, dx
+	add ax, ax
+	adc dx, dx		; * 4 = byte offset into FAT (0--4000_0000h)
+	 push ax
+	xchg ax, dx
+	xor dx, dx		; dx:ax = high word
+	div word [VAR(bytes_per_sector)]
+	mov bx, ax
+	 pop ax			; dx = remainder, ax = low word
+	div word [VAR(bytes_per_sector)]
+	xchg dx, bx		; dx:ax = result, bx = remainder
+				; dx:ax = sector offset into FAT (0--200_0000h)
+				; bx = byte offset into FAT sector (0--8190)
+	cmp dx, si
+	jne @F		; read sector
+	cmp ax, di
+	je @FF		; sector is already buffered
+@@:
+	mov si, dx
+	mov di, ax
+	push bx
+	add ax, [VAR(fat_start)]
+	adc dx, 0
+	call read_sector_fatbuf
+	pop bx
+@@:
+	mov ax, [es:bx]
+	mov dx, [es:bx + 2]
+
+		; INP:	dx:ax = cluster value, 2-based
+		; OUT:	dx:ax -= 2 (makes it 0-based)
+		;	CY iff invalid cluster
+check_clust:
+	and dx, 0FFFh
+	sub ax, 2
+	sbb dx, 0
+	cmp dx, 0FFFh
+	jb @F		; CY here means valid ...-
+	cmp ax, 0FFF7h - 2
+@@:			;  -... or if NC first, CY here also
+	cmc		; NC if valid
+	retn
+
+
 found_it:
 %if _LOAD_ADR >= ADR_FREE
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
 		shl ax, cl
- %if _RPL		; +31 bytes
+ %if _RPL		; +33 bytes
+	push si
 	xchg dx, ax
 	lds si, [4 * 2Fh]
 	add si, 3
@@ -597,6 +697,7 @@ found_it:
 	push ss
 	pop ds
 	xchg ax, dx
+	pop si
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
  %if !_FIX_SECTOR_SIZE
@@ -617,135 +718,24 @@ found_it:
 %endif
 
 ; get starting cluster of file
-		mov si,[es:di + 26 - 32]
-%if _SET_DI_CLUSTER
-		push si			; remember cluster for later
+		mov ax, [es:di + 26 - 32]
+		mov dx, [es:di + 20 - 32]
+		pop di			; restore si:di = loaded FAT sector
+%if _SET_SIDI_CLUSTER
+		push dx
+		push ax			; remember cluster for later
 %endif
 
-%if !_FAT16
-; Load the entire FAT into memory. This is easily feasible for FAT12,
-;  as the FAT can only contain less than 4096 entries.
-; (The exact condition should be "at most 4087 entries", or with a
-;  specific FF7h semantic, "at most 4088 entries"; the more reliable
-;  and portable alternative would be "at most 4080 entries".)
-; Thus, no more than 6 KiB need to be read, even though the FAT size
-;  as indicated by word[sectors_per_fat] could be much higher. The
-;  first loop condition below is to correctly handle the latter case.
-; (Sector size is assumed to be a power of two between 32 and 8192
-;  bytes, inclusive. An 8 KiB buffer is necessary if the sector size
-;  is 4 or 8 KiB, because reading the FAT can or will write to 8 KiB
-;  of memory instead of only the relevant 6 KiB. This is always true
-;  if the sector size is 8 KiB, and with 4 KiB sector size it is true
-;  iff word[sectors_per_fat] is higher than one.)
-		mov di, 6 << 10		; maximum size of FAT12 to load
-		mov cx, [VAR(sectors_per_fat)]
-					; maximum size of this FS's FAT
-		xor dx, dx
-		mov ax, [VAR(fat_start)]; = first FAT sector
-		mov bx, ADR_FATBUF>>4
-@@:
-		call read_sector	; read next FAT sector
-%if _FIX_SECTOR_SIZE
-		sub di, _FIX_SECTOR_SIZE
-%else
-		sub di, [VAR(bytes_per_sector)]
-%endif
-					; di = bytes still left to read
-		jbe @F			; if none -->
-					; (jbe means jump if CF || ZF)
-		loop @B			; if any FAT sector still remains -->
-@@:					; one of the limits reached; FAT read
-%endif
+		mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
+		call check_clust
+		jc error_badchain
 
-		mov bx, _LOAD_ADR>>4	; :0-> load address
-%if _FAT16
-		mov di, -1		; = no FAT sector read yet
-%endif
-
-next_cluster:
-; convert 16-bit cluster value (in SI) to 32-bit LBA sector value (in DX:AX)
-; and get next cluster in SI
-
-
-		; Converts cluster number to sector number
-		;  and finds next cluster in chain
-		;
-		; INP:	si = valid cluster number
-		;	(!_FAT16) [ADR_FATBUF] = entire FAT as read from FS
-		;	(_FAT16) di = currently buffered FAT sector, -1 if none
-		; OUT:	If unable to read a FAT sector,
-		;	 ! jumps to error instead of returning
-		;	If everything is okay,
-		;	 si = next cluster number (or EOC value)
-		;	 dx:ax = sector number
-		;	 (_FAT16) di = currently buffered FAT sector
-		; CHG:	cx
-
-		push si			; preserve cluster number for later
-
-; prepare to load entry from FAT
-
-%if _FAT16
-; Multiply cluster number by 2.
-		xchg ax, si
-		xor dx, dx		; dx:ax = entry to load (0..FFF6h)
-		add ax, ax
-		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
-
-; Divide by sector size to split dx:ax into the remainder as the byte offset
-;  into the FAT sector, and quotient as the sector offset into the FAT.
-		div word [VAR(bytes_per_sector)]
-		mov si, dx		; = byte offset in sector
-			; dx = byte offset into sector (0..8190)
-			; ax = sector offset into FAT (0..4095)
-
-; quotient in AX is FAT sector.
-; check the FAT buffer to see if this sector is already loaded
-; (simple disk cache; speeds things up a little --
-; actually, it speeds things up a lot)
-		cmp ax, di
-		je @F
-		mov di, ax
-
-; read the target FAT sector.
-		push bx
-		xor dx, dx
-		add ax, [VAR(fat_start)]
-		adc dx, dx		; (account for overflow)
-		call read_sector_fatbuf
-		pop bx
-@@:
-
-; get 16 bits from FAT
-		es lodsw
-%else
-; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
-;  so multiply cluster number by 3 first, then divide by 2.
-		mov ax, si		; = cluster number (up to 12 bits set)
-		xor dx, dx
-		shl ax, 1		; = 2n (up to 13 bits set)
-		add ax, si		; = 2n+n = 3n (up to 14 bits set)
-		shr ax, 1		; ax = byte offset into FAT (0..6129)
-					; CF = whether to use high 12 bits
-		sbb cx, cx		; = -1 iff CY, else 0
-
-; Use the calculated byte offset as an offset into the FAT
-;  buffer, which holds all of the FAT's relevant data.
-		add ax, ADR_FATBUF	; -> 16-bit word in FAT to load
-		xchg ax, si
-
-; get 16 bits from FAT
-		lodsw
-
-		and cl, 4	; = 4 iff CY after shift, else 0
-		shr ax, cl	; shift down iff odd entry, else unchanged
-		and ax, 0FFFh	; insure it's only 12 bits
-%endif
-		xchg ax, si
-		pop ax		; restore cluster number
-; adjust cluster number to make it 0-based
-		dec ax
-		dec ax
+next_load_cluster:
+		call clust_to_first_sector
+			; dx:ax = first sector of cluster
+			; cx:bx = cluster value
+		push cx
+		push bx			; preserve cluster number for later
 
 %if _FIX_CLUSTER_SIZE
 		mov cx, _FIX_CLUSTER_SIZE
@@ -753,12 +743,7 @@ next_cluster:
 		mov cx, [VAR(adj_sectors_per_cluster)]
 %endif
 
-; convert from clusters to sectors
-		mul cx
-		add ax, [VAR(data_start)]
-		adc dx, [VAR(data_start)+2]
-				; dx:ax = sector number
-
+		mov bx, [VAR(load_seg)]
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 @@:
@@ -780,19 +765,23 @@ next_cluster:
 		pop es
 %endif
 		loop @B
+		mov [VAR(load_seg)], bx
+		pop bx
+		pop cx
+		call clust_next
+		jnc next_load_cluster
+		inc ax
+		inc ax
+		test ax, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
+				;  clear in 0, 1, and 0FFF_FFF7h
+		jz error_badchain
 
-%if _FAT16
-; FFF7h: bad cluster
-; FFF8h-FFFFh: end of cluster chain
-		cmp si, 0FFF7h
-%else
-; 0FF7h: bad cluster
-; 0FF8h-0FFFh: end of cluster chain
-		cmp si, 0FF7h
-%endif
-		jb next_cluster
-
+%if _MEMORY_CONTINUE
+		db __TEST_IMM16
 @@:
+		pop bx
+		pop cx
+%endif
 
 %if _TURN_OFF_FLOPPY
 ; turn off floppy motor
@@ -803,18 +792,15 @@ next_cluster:
 
 ; Set-up registers for and jump to loaded file
 ; Already: ss:bp-> boot sector containing BPB
-		mov dl, [VAR(boot_unit)]	; set dl to unit
-%if _SET_DI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
+%if _SET_SIDI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
 		pop cx
+		pop dx
 %endif
 %if _DATASTART_HIDDEN
 		mov bx, [VAR(hidden_sectors + 0)]
 		mov ax, [VAR(hidden_sectors + 2)]
 		add word [VAR(data_start + 0)], bx
 		adc word [VAR(data_start + 2)], ax
-%endif
-%if _SET_BL_UNIT
-		mov bl, dl		; set bl to unit, too
 %endif
 %if _SET_AXBX_DATA
 		mov bx, [VAR(data_start)]
@@ -839,12 +825,18 @@ next_cluster:
   %endif
  %endif
 %endif
-%if _SET_DI_CLUSTER
+%if _SET_SIDI_CLUSTER
  %if _PUSH_DPT || _SET_DSSI_DPT
 		mov di, cx
+		mov si, dx
  %else
 		pop di
+		pop si
  %endif
+%endif
+		mov dl, [VAR(boot_unit)]	; set dl to unit
+%if _SET_BL_UNIT
+		mov bl, dl		; set bl to unit, too
 %endif
 			; dl = BIOS unit
 			; ss:bp-> boot sector with BPB
@@ -857,13 +849,10 @@ next_cluster:
 		;	bx:0-> behind read sector
 		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
 		; CHG:	-
-%if ADR_DIRBUF == ADR_FATBUF
-read_sector_dirbuf:
-%endif
 read_sector_fatbuf:
 	mov bx, ADR_FATBUF>>4
 
-		; Read a sector using Int13.02
+		; Read a sector using Int13.02 or Int13.42
 		;
 		; INP:	dx:ax = sector number within partition
 		;	bx:0-> buffer
@@ -1045,11 +1034,7 @@ signatures:
 	dw 0AA55h
 
 %assign num signatures-available
-%assign fatbits 12
-%if _FAT16
- %assign fatbits 16
-%endif
-%warning FAT fatbits: num bytes still available.
+%warning FAT 32: num bytes still available.
 %endif
 
 end:
