@@ -126,7 +126,6 @@ Public domain by C. Masloch, 2012
  %assign _DATASTART_HIDDEN	1
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
- %assign _SET_DI_CLUSTER	1		; may be unneeded
 %endif
 
 %if 0
