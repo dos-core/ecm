@@ -935,7 +935,8 @@ fsiboot:
 .load_name:	dw 0
 
 		; INP:	ss:bp -> boot sector, with EBPB
-
+		;	adj_sectors_per_cluster, data_start, load_seg (uninit)
+		;	last_available_sector. Stack layout has to match!
 	mov ax, [VAR(root_cluster)]
 	mov dx, [VAR(root_cluster + 2)]
 	mov di, -1
