@@ -1036,4 +1036,5 @@ signatures:
 %warning FAT 32: num bytes still available.
 %endif
 
+	align 16, nop
 end:
