@@ -255,17 +255,19 @@ itself would disqualify our boot sector already.
 ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
-ADR_FATBUF	equ	end -start+7C00h	; 07E00h
+ADR_FSIBOOT	equ	end -start+7C00h	; 07E00h
+
+ADR_FATBUF	equ	(ADR_FSIBOOT + 512)	; 08000h
 
 %if _DIRBUF_500
  ADR_DIRBUF	equ	500h
  ; start of unused memory:
- ADR_FREE	equ	(ADR_FATBUF + 8192)	; 09E00h
+ ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0A000h
 %else
  ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
- ADR_DIRBUF	equ	(ADR_FATBUF + 8192)	; 09E00h
+ ADR_DIRBUF	equ	(ADR_FATBUF + 8192)	; 0A000h
  ; start of unused memory:
- ADR_FREE	equ	(ADR_DIRBUF + 8192)	; 0BE00h
+ ADR_FREE	equ	(ADR_DIRBUF + 8192)	; 0C000h
 %endif
 
 %if (ADR_FATBUF + 8192) > 1_0000h && ADR_FATBUF < 1_0000h
@@ -285,6 +287,23 @@ ADR_FATBUF	equ	end -start+7C00h	; 07E00h
 %else
 	; if loading below the boot sector, address 1_0000h is never reached.
 %endif
+
+	struc FSINFO	; FAT32 FSINFO sector layout
+.signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
+.reserved1:			; former unused, initialized to zero by FORMAT
+.fsiboot:	resb 480	; now used for FSIBOOT
+.signature2:	resd 1		; 61417272h ("rrAa") for valid FSINFO
+.numberfree:	resd 1		; FSINFO: number of free clusters or -1
+.nextfree:	resd 1		; FSINFO: first free cluster or -1
+.reserved2:	resd 3		; unused, initialized to zero by FORMAT
+.signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
+	endstruc
+
+	struc FSIBOOTG	; FSIBOOT general layout
+.signature:	resq 1		; 8 byte that identify the FSIBOOT type
+.fsicode:	resb 472	; 472 byte FSIBOOT type specific data or code
+	endstruc
+
 
 ; use byte-offset addressing from BP for smaller code
 %define	VAR(x)	((x) - start) + bp
@@ -389,6 +408,9 @@ load_name:
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
 
+fsiboot_name:
+	db "FSIBOOT",0
+
 
 ; Code
 
@@ -430,6 +452,8 @@ skip_bpb:
 	mov al, 'C'
 	jne error
  %endif
+	mov word [VAR(adj_sectors_per_cluster)], _FIX_CLUSTER_SIZE
+		; needed for FSIBOOT!
 %else
 ; calculate some values that we need:
 ; adjusted sectors per cluster (store in a word,
@@ -512,165 +536,38 @@ skip_bpb:
 	mov [VAR(data_start)], ax
 	mov [VAR(data_start+2)], dx
 
-	mov ax, [VAR(root_cluster)]
-	mov dx, [VAR(root_cluster + 2)]
-	mov di, -1
-	mov si, di
-	call check_clust
-	jc file_not_found
-
-next_root_clust:
-	call clust_to_first_sector
-	push cx
-	push bx
-	mov cx, [VAR(adj_sectors_per_cluster)]
-next_root_sect:
-	push cx
-	mov cx, [VAR(entries_per_sector)]
-
-; Scan root directory for file. We don't bother to check for deleted
-;  entries (E5h) or entries that mark the end of the directory (00h).
-	mov bx, ADR_DIRBUF>>4
+load_fsiboot:
+	mov ax, [VAR(fsinfo_sector)]
+;	inc ax
+;	jz error_fsiboot	; was FFFFh, invalid -->
+;	dec ax
+		; FFFFh always fails the < num_reserved_sectors check
+	test ax, ax
+	jz error_fsiboot	; is 0 ? invalid -->
+	cmp ax, [VAR(num_reserved_sectors)]
+	jae error_fsiboot
+	xor dx, dx		; dx:ax = FSINFO sector
+	mov cx, 512
+	mov bx, ADR_FSIBOOT >> 4
+@@:
 	call read_sector
+	sub cx, [VAR(bytes_per_sector)]
+	ja @B			; read 512 bytes -->
 
-	push di
-	xor di, di		; es:di-> first entry in this sector
-next_ent:
-	push si
-	push di
-	push cx
-	mov si, load_name	; ds:si-> name to match
-	mov cx, 11		; length of padded 8.3 FAT filename
-	repe cmpsb		; check entry
-	pop cx
-	pop di
-	pop si
-	lea di, [di + 32]	; bytes/dirent
-	je found_it		; found entry -->
+	push ds
+	pop es
+	mov si, signatures
+	mov di, ADR_FSIBOOT + FSINFO.signature3
+	cmpsw
+	jne error_fsiboot
+	cmpsw
+	jne error_fsiboot
+	mov di, ADR_FSIBOOT + FSINFO.reserved1
+	mov si, fsiboot_name
+	mov cx, 4
+	repe cmpsw
+	jne error_fsiboot
 
-	loop next_ent		; count down sector's entries (jumps iff cx >0)
-	pop di
-	pop cx
-	loop next_root_sect
-	pop bx
-	pop cx
-	call clust_next
-	jnc next_root_clust
-
-file_not_found:
-	mov al,'F'	; File not 'F'ound
-
-%ifn _MEMORY_CONTINUE
-	db __TEST_IMM16	; (skip mov)
-error_filetoobig:
-	mov al,'M'	; Not enough 'M'emory
-%endif
-
-	db __TEST_IMM16	; (skip mov)
-error_badchain:
-	mov al,'B'
-
-error:
-	mov bh, [462h]
-	mov bl, 7
-	mov ah, 0Eh
-	int 10h		; display character
-	mov al, 07h
-	int 10h		; beep!
-
-	xor ax, ax	; await key pressed
-	int 16h
-
-	int 19h		; re-start the boot process
-
-
-		; INP:	dx:ax = cluster - 2 (0-based cluster)
-		; OUT:	cx:bx = input dx:ax
-		;	dx:ax = first sector of that cluster
-		; CHG:	-
-clust_to_first_sector:
-	push dx
-	push ax
-	 push dx
-	mul word [VAR(adj_sectors_per_cluster)]
-	xchg bx, ax
-	xchg cx, dx
-	 pop ax
-	mul word [VAR(adj_sectors_per_cluster)]
-	test dx, dx
-	jnz error_badchain
-	xchg dx, ax
-	add dx, cx
-	xchg ax, bx
-
-	add ax, [VAR(data_start)]
-	adc dx, [VAR(data_start + 2)]
-	jc error_badchain
-				; dx:ax = first sector in cluster
-	pop bx
-	pop cx			; cx:bx = cluster
-	retn
-
-
-		; INP:	cx:bx = cluster (0-based)
-		;	si:di = loaded FAT sector, -1 if none
-		; OUT:	CY if no next cluster
-		;	NC if next cluster found,
-		;	 dx:ax = next cluster value (0-based)
-		;	si:di = loaded FAT sector
-		; CHG:	cx, bx
-clust_next:
-	mov ax, bx
-	mov dx, cx
-	add ax, 2
-	adc dx, 0
-
-	add ax, ax
-	adc dx, dx
-	add ax, ax
-	adc dx, dx		; * 4 = byte offset into FAT (0--4000_0000h)
-	 push ax
-	xchg ax, dx
-	xor dx, dx		; dx:ax = high word
-	div word [VAR(bytes_per_sector)]
-	mov bx, ax
-	 pop ax			; dx = remainder, ax = low word
-	div word [VAR(bytes_per_sector)]
-	xchg dx, bx		; dx:ax = result, bx = remainder
-				; dx:ax = sector offset into FAT (0--200_0000h)
-				; bx = byte offset into FAT sector (0--8190)
-	cmp dx, si
-	jne @F		; read sector
-	cmp ax, di
-	je @FF		; sector is already buffered
-@@:
-	mov si, dx
-	mov di, ax
-	push bx
-	add ax, [VAR(fat_start)]
-	adc dx, 0
-	call read_sector_fatbuf
-	pop bx
-@@:
-	mov ax, [es:bx]
-	mov dx, [es:bx + 2]
-
-		; INP:	dx:ax = cluster value, 2-based
-		; OUT:	dx:ax -= 2 (makes it 0-based)
-		;	CY iff invalid cluster
-check_clust:
-	and dx, 0FFFh
-	sub ax, 2
-	sbb dx, 0
-	cmp dx, 0FFFh
-	jb @F		; CY here means valid ...-
-	cmp ax, 0FFF7h - 2
-@@:			;  -... or if NC first, CY here also
-	cmc		; NC if valid
-	retn
-
-
-found_it:
 %if _LOAD_ADR >= ADR_FREE
 ; Get conventional memory size and store it
 		int 12h
@@ -706,7 +603,8 @@ found_it:
  %error Load address within used memory
 %endif
 %if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
-	; user of last_available_sector will hardcode the value!
+		mov [VAR(last_available_sector)], (ADR_STACK_LOW >> 4) - (_FIX_SECTOR_SIZE >> 4)
+			; needed for FSIBOOT!
 %else
  %if _FIX_SECTOR_SIZE
 		sub ax, _FIX_SECTOR_SIZE >> 4
@@ -716,71 +614,60 @@ found_it:
 		mov [VAR(last_available_sector)], ax
 %endif
 
-; get starting cluster of file
-		mov ax, [es:di + 26 - 32]
-		mov dx, [es:di + 20 - 32]
-		pop di			; restore si:di = loaded FAT sector
-%if _SET_SIDI_CLUSTER
-		push dx
-		push ax			; remember cluster for later
-%endif
+	mov si, fsinfo_table
+	mov di, ADR_FSIBOOT + FSINFO.reserved1 + 8
+	mov cx, (fsinfo_table.end - fsinfo_table) >> 1
+	rep movsw
 
-		mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
-		call check_clust
-		jc error_badchain
+	jmp ADR_FSIBOOT + FSINFO.reserved1 + 8 + (fsinfo_table.end - fsinfo_table)
 
-next_load_cluster:
-		call clust_to_first_sector
-			; dx:ax = first sector of cluster
-			; cx:bx = cluster value
-		push cx
-		push bx			; preserve cluster number for later
-
-%if _FIX_CLUSTER_SIZE
-		mov cx, _FIX_CLUSTER_SIZE
-%else
-		mov cx, [VAR(adj_sectors_per_cluster)]
-%endif
-
-		mov bx, [VAR(load_seg)]
-; xxx - this will always load an entire cluster (e.g. 64 sectors),
-; even if the file is shorter than this
-@@:
- %if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
-		cmp bx, (ADR_STACK_LOW >> 4) - (_FIX_SECTOR_SIZE >> 4)
- %else
-		cmp bx, [VAR(last_available_sector)]
- %endif
+	align 2
+fsinfo_table:
+.error:		dw error
+.success:	dw load_finish
 %if _MEMORY_CONTINUE
-		ja @F
+.memory_full:	dw load_finish_mc
 %else
-		ja error_filetoobig
+.memory_full:	dw error_filetoobig
 %endif
-%if _FAT16
-		push es		; (must preserve ADR_FATBUF reference)
+.read_sector:	dw read_sector
+.load_name:	dw load_name
+.end:
+
+
+error_fsiboot:
+	mov al,'I'
+
+	db __TEST_IMM16	; (skip mov)
+error_badchain:
+	mov al,'B'
+
+%if !_MEMORY_CONTINUE
+	db __TEST_IMM16	; (skip mov)
+error_filetoobig:
+	mov al,'M'	; Not enough 'M'emory
 %endif
-		call read_sector
-%if _FAT16
-		pop es
-%endif
-		loop @B
-		mov [VAR(load_seg)], bx
-		pop bx
-		pop cx
-		call clust_next
-		jnc next_load_cluster
-		inc ax
-		inc ax
-		test ax, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
-				;  clear in 0, 1, and 0FFF_FFF7h
-		jz error_badchain
+
+error:
+	mov bh, [462h]
+	mov bl, 7
+	mov ah, 0Eh
+	int 10h		; display character
+	mov al, 07h
+	int 10h		; beep!
+
+	xor ax, ax	; await key pressed
+	int 16h
+
+	int 19h		; re-start the boot process
+
 
 %if _MEMORY_CONTINUE
-		db __TEST_IMM16
-@@:
+load_finish_mc:
 		pop bx
 		pop cx
 %endif
+load_finish:
 
 %if _TURN_OFF_FLOPPY
 ; turn off floppy motor
@@ -841,15 +728,6 @@ next_load_cluster:
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
-
-		; INP:	dx:ax = sector
-		; OUT:	only if successful
-		;	dx:ax = incremented
-		;	bx:0-> behind read sector
-		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
-		; CHG:	-
-read_sector_fatbuf:
-	mov bx, ADR_FATBUF>>4
 
 		; Read a sector using Int13.02 or Int13.42
 		;
@@ -1034,7 +912,229 @@ signatures:
 
 %assign num signatures-available
 %warning FAT 32: num bytes still available.
+%else	; for testing
+	align 4
+signatures:
+	dw 0
+; 2-byte magic bootsector signature
+	dw 0AA55h
 %endif
 
 	align 16, nop
 end:
+
+fsiboot:
+	dd "RRaA"
+	db "FSIBOOT", 0
+
+.table:		; these are to be initialised by the loader
+.error:		dw 0
+.success:	dw 0
+.memory_full:	dw 0
+.read_sector:	dw 0
+.load_name:	dw 0
+
+		; INP:	ss:bp -> boot sector, with EBPB
+
+	mov ax, [VAR(root_cluster)]
+	mov dx, [VAR(root_cluster + 2)]
+	mov di, -1
+	mov si, di
+	call check_clust
+	jc file_not_found
+
+next_root_clust:
+	call clust_to_first_sector
+	push cx
+	push bx
+	mov cx, [VAR(adj_sectors_per_cluster)]
+next_root_sect:
+	push cx
+	mov cx, [VAR(entries_per_sector)]
+
+; Scan root directory for file. We don't bother to check for deleted
+;  entries (E5h) or entries that mark the end of the directory (00h).
+	mov bx, ADR_DIRBUF>>4
+	call near word [fsiboot.read_sector]
+
+	push di
+	xor di, di		; es:di-> first entry in this sector
+next_ent:
+	push si
+	push di
+	push cx
+	mov si, [fsiboot.load_name]	; ds:si-> name to match
+	mov cx, 11		; length of padded 8.3 FAT filename
+	repe cmpsb		; check entry
+	pop cx
+	pop di
+	pop si
+	lea di, [di + 32]	; bytes/dirent
+	je found_it		; found entry -->
+
+	loop next_ent		; count down sector's entries (jumps iff cx >0)
+	pop di
+	pop cx
+	loop next_root_sect
+	pop bx
+	pop cx
+	call clust_next
+	jnc next_root_clust
+file_not_found:
+	mov al, 'F'
+	db __TEST_IMM16
+fsiboot_error_badchain:
+	mov al, 'B'
+
+	jmp near word [fsiboot.error]
+
+
+
+
+		; INP:	dx:ax = cluster - 2 (0-based cluster)
+		; OUT:	cx:bx = input dx:ax
+		;	dx:ax = first sector of that cluster
+		; CHG:	-
+clust_to_first_sector:
+	push dx
+	push ax
+	 push dx
+	mul word [VAR(adj_sectors_per_cluster)]
+	xchg bx, ax
+	xchg cx, dx
+	 pop ax
+	mul word [VAR(adj_sectors_per_cluster)]
+	test dx, dx
+	jnz fsiboot_error_badchain
+	xchg dx, ax
+	add dx, cx
+	xchg ax, bx
+
+	add ax, [VAR(data_start)]
+	adc dx, [VAR(data_start + 2)]
+	jc fsiboot_error_badchain
+				; dx:ax = first sector in cluster
+	pop bx
+	pop cx			; cx:bx = cluster
+	retn
+
+
+		; INP:	cx:bx = cluster (0-based)
+		;	si:di = loaded FAT sector, -1 if none
+		; OUT:	CY if no next cluster
+		;	NC if next cluster found,
+		;	 dx:ax = next cluster value (0-based)
+		;	si:di = loaded FAT sector
+		; CHG:	cx, bx
+clust_next:
+	mov ax, bx
+	mov dx, cx
+	add ax, 2
+	adc dx, 0
+
+	add ax, ax
+	adc dx, dx
+	add ax, ax
+	adc dx, dx		; * 4 = byte offset into FAT (0--4000_0000h)
+	 push ax
+	xchg ax, dx
+	xor dx, dx		; dx:ax = high word
+	div word [VAR(bytes_per_sector)]
+	mov bx, ax
+	 pop ax			; dx = remainder, ax = low word
+	div word [VAR(bytes_per_sector)]
+	xchg dx, bx		; dx:ax = result, bx = remainder
+				; dx:ax = sector offset into FAT (0--200_0000h)
+				; bx = byte offset into FAT sector (0--8190)
+	cmp dx, si
+	jne @F		; read sector
+	cmp ax, di
+	je @FF		; sector is already buffered
+@@:
+	mov si, dx
+	mov di, ax
+	push bx
+	add ax, [VAR(fat_start)]
+	adc dx, 0
+	mov bx, ADR_FATBUF>>4
+	call near word [fsiboot.read_sector]
+	pop bx
+@@:
+	mov ax, [es:bx]
+	mov dx, [es:bx + 2]
+
+		; INP:	dx:ax = cluster value, 2-based
+		; OUT:	dx:ax -= 2 (makes it 0-based)
+		;	CY iff invalid cluster
+check_clust:
+	and dx, 0FFFh
+	sub ax, 2
+	sbb dx, 0
+	cmp dx, 0FFFh
+	jb @F		; CY here means valid ...-
+	cmp ax, 0FFF7h - 2
+@@:			;  -... or if NC first, CY here also
+	cmc		; NC if valid
+	retn
+
+
+found_it:
+; get starting cluster of file
+		mov ax, [es:di + 26 - 32]
+		mov dx, [es:di + 20 - 32]
+		pop di			; restore si:di = loaded FAT sector
+
+		push dx
+		push ax			; remember cluster for later
+
+		mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
+		call check_clust
+		jc fsiboot_error_badchain
+
+next_load_cluster:
+		call clust_to_first_sector
+			; dx:ax = first sector of cluster
+			; cx:bx = cluster value
+		push cx
+		push bx			; preserve cluster number for later
+
+		mov cx, [VAR(adj_sectors_per_cluster)]
+
+		mov bx, [VAR(load_seg)]
+; xxx - this will always load an entire cluster (e.g. 64 sectors),
+; even if the file is shorter than this
+@@:
+		cmp bx, [VAR(last_available_sector)]
+		jbe @F
+		jmp near word [fsiboot.memory_full]
+
+@@:
+		push es		; (must preserve ADR_FATBUF reference)
+		call near word [fsiboot.read_sector]
+		pop es
+
+		loop @B
+		mov [VAR(load_seg)], bx
+		pop bx
+		pop cx
+		call clust_next
+		jnc next_load_cluster
+		inc ax
+		inc ax
+		test ax, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
+				;  clear in 0, 1, and 0FFF_FFF7h
+		jz fsiboot_error_badchain
+		jmp near word [fsiboot.success]
+
+
+fsinfo_available:
+	_fill 480 + 4,38,fsiboot
+
+%assign num $-fsinfo_available
+%warning FSINFO: num bytes still available.
+
+	dd "rrAa"
+	dd 0		; number of free clusters
+	dd 0		; first free cluster
+	times 3 dd 0	; FSINFO.reserved2
+	dd 0_AA55_0000h	; FSINFO.signature3
