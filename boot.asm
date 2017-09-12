@@ -561,8 +561,10 @@ found_it:
 	pop ds
 	xchg ax, dx
  %endif
-%elif _LOAD_ADR < ADR_STACK_LOW && !_FIX_SECTOR_SIZE
+%elif _LOAD_ADR < ADR_STACK_LOW
+ %if !_FIX_SECTOR_SIZE
 	mov ax, ADR_STACK_LOW >> 4	; rounding *down*
+ %endif
 %else
  %error Load address within used memory
 %endif
