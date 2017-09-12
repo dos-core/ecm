@@ -59,8 +59,9 @@ Public domain by C. Masloch, 2012
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
+	numdef COMPAT_MS6,	0	; partial MS-DOS 6 load compatibility
 
-%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7) > 1
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7 + !!_COMPAT_MS6) > 1
  %error At most one set must be selected.
 %endif
 
@@ -91,7 +92,6 @@ Public domain by C. Masloch, 2012
  %assign _DATASTART_HIDDEN	1
  %assign _SET_DSSI_DPT		1
  %assign _PUSH_DPT		1
- %assign _MEMORY_CONTINUE	1
 %endif
 
 %if _COMPAT_MS7
@@ -107,6 +107,26 @@ Public domain by C. Masloch, 2012
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
  %assign _SET_DI_CLUSTER	1
  %assign _DATASTART_HIDDEN	1
+%endif
+
+%if _COMPAT_MS6
+	strdef LOAD_NAME,	"IO"
+	strdef LOAD_EXT,	"SYS"
+	numdef LOAD_ADR,	00700h
+	numdef EXEC_SEG_ADJ,	0
+	numdef EXEC_OFS,	0
+ %assign _MEMORY_CONTINUE	1
+	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
+	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
+ %assign _DIRBUF_500		1
+ 	; Note: IO.SYS must be the first file, MSDOS.SYS the second file.
+ 	;  We do not check this to be the case, but the load protocol may
+ 	;  prescribe that these two entries are at 0:500h and 0:520h.
+ %assign _SET_AXBX_DATA		1
+ %assign _DATASTART_HIDDEN	1
+ %assign _SET_DSSI_DPT		1
+ %assign _PUSH_DPT		1
+ %assign _SET_DI_CLUSTER	1		; may be unneeded
 %endif
 
 %if 0
