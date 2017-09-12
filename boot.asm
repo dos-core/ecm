@@ -561,17 +561,21 @@ found_it:
 	pop ds
 	xchg ax, dx
  %endif
-%elif _LOAD_ADR < ADR_STACK_LOW
+%elif _LOAD_ADR < ADR_STACK_LOW && !_FIX_SECTOR_SIZE
 	mov ax, ADR_STACK_LOW >> 4	; rounding *down*
 %else
  %error Load address within used memory
 %endif
-%if _FIX_SECTOR_SIZE
-		sub ax, _FIX_SECTOR_SIZE >> 4
+%if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
+	; user of last_available_sector will hardcode the value!
 %else
+ %if _FIX_SECTOR_SIZE
+		sub ax, _FIX_SECTOR_SIZE >> 4
+ %else
 		sub ax, [VAR(para_per_sector)]
-%endif
+ %endif
 		mov [VAR(last_available_sector)], ax
+%endif
 
 ; get starting cluster of file
 		mov si,[es:di + 26 - 32]
@@ -718,8 +722,12 @@ next_cluster:
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
-@@:		
+@@:
+ %if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
+		cmp bx, (ADR_STACK_LOW >> 4) - (_FIX_SECTOR_SIZE >> 4)
+ %else
 		cmp bx, [VAR(last_available_sector)]
+ %endif
 %if _MEMORY_CONTINUE
 		ja @F
 %else
