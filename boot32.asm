@@ -858,14 +858,19 @@ fsiboot:
 	db "FSIBOOT", 0
 
 .table:		; these are to be initialised by the loader
-.error:		dw 0
-.success:	dw 0
-.memory_full:	dw 0
-.read_sector:	dw 0
-.load_name:	dw 0
+.error:		dw 0	; nothing
+.success:	dw 0	; stack: (if _SET_SIDI_CLUSTER) first cluster dword
+.memory_full:	dw 0	; stack: next cluster number dword,
+			; (if _SET_SIDI_CLUSTER) first cluster dword
+.read_sector:	dw 0	; INP: dx:ax = sector number within partition,
+			; bx:0-> buffer, (_LBA) ds = ss
+			; OUT: dx:ax incremented, bx:0-> incremented,
+			; es = input bx
+			; CHG: none
+.load_name:	dw 0	; 11-byte blank-padded filename
+
 
 .start:
-
 		; INP:	ss:bp -> boot sector, with EBPB
 		;	adj_sectors_per_cluster (uninit), data_start (uninit),
 		;	load_seg (uninit), last_available_sector,
