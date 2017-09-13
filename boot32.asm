@@ -533,9 +533,9 @@ load_fsiboot:
 		; With FSIBOOT, para_per_sector isn't initialised yet.
 		; So instead we store the address *after* the last buffer here.
 %if _LOAD_ADR < ADR_STACK_LOW
-		mov [VAR(last_available_sector)], (ADR_STACK_LOW >> 4)
+		mov word [VAR(last_available_sector)], (ADR_STACK_LOW >> 4)
 %else
-		mov [VAR(last_available_sector)], ax
+		mov word [VAR(last_available_sector)], ax
 %endif
 
 	mov si, fsinfo_table
