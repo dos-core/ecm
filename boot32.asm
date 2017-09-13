@@ -503,39 +503,6 @@ skip_bpb:
 %endif
 	mov word [VAR(entries_per_sector)], ax
 
-	xor ax, ax
-; first sector of root directory
-	mov al,[VAR(num_fats)]		; ! ah = 0, hence ax = number of FATs
-	push ax
-	mul word [VAR(sectors_per_fat_large)]
-		; ax = low word SpF*nF
-		; dx = high word
-	xchg bx, ax
-	xchg cx, dx
-		; cx:bx = first mul
-	pop ax
-	mul word [VAR(sectors_per_fat_large + 2)]
-		; ax = high word adjust
-		; dx = third word
-	test dx, dx
-	jnz error_badchain
-	xchg dx, ax
-		; dx = high word adjust
-	add dx, cx
-		; dx:bx = result
-	xchg ax, bx
-		; dx:ax = result
-	
-	add ax,[VAR(num_reserved_sectors)]
-	adc dx, 0
-	jc error_badchain
-
-	xor di, di
-
-; first sector of disk data area:
-	mov [VAR(data_start)], ax
-	mov [VAR(data_start+2)], dx
-
 load_fsiboot:
 	mov ax, [VAR(fsinfo_sector)]
 ;	inc ax
@@ -934,9 +901,46 @@ fsiboot:
 .read_sector:	dw 0
 .load_name:	dw 0
 
+.start:
+
 		; INP:	ss:bp -> boot sector, with EBPB
-		;	adj_sectors_per_cluster, data_start, load_seg (uninit)
-		;	last_available_sector. Stack layout has to match!
+		;	adj_sectors_per_cluster, data_start (uninit),
+		;	load_seg (uninit), last_available_sector.
+		;	Stack layout has to match!
+
+	xor ax, ax
+; first sector of root directory
+	mov al,[VAR(num_fats)]		; ! ah = 0, hence ax = number of FATs
+	push ax
+	mul word [VAR(sectors_per_fat_large)]
+		; ax = low word SpF*nF
+		; dx = high word
+	xchg bx, ax
+	xchg cx, dx
+		; cx:bx = first mul
+	pop ax
+	mul word [VAR(sectors_per_fat_large + 2)]
+		; ax = high word adjust
+		; dx = third word
+	test dx, dx
+	jnz fsiboot_error_badchain
+	xchg dx, ax
+		; dx = high word adjust
+	add dx, cx
+		; dx:bx = result
+	xchg ax, bx
+		; dx:ax = result
+	
+	add ax,[VAR(num_reserved_sectors)]
+	adc dx, 0
+	jc fsiboot_error_badchain
+
+	xor di, di
+
+; first sector of disk data area:
+	mov [VAR(data_start)], ax
+	mov [VAR(data_start+2)], dx
+
 	mov ax, [VAR(root_cluster)]
 	mov dx, [VAR(root_cluster + 2)]
 	mov di, -1
