@@ -467,43 +467,6 @@ skip_bpb:
 %endif
 
 
-%if _FIX_CLUSTER_SIZE
- %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
-	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
-	mov al, 'C'
-	jne error
- %endif
-	mov word [VAR(adj_sectors_per_cluster)], _FIX_CLUSTER_SIZE
-		; needed for FSIBOOT!
-%else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
-	mov al, [VAR(sectors_per_cluster)]
-	dec al
-	inc ax
-	mov [VAR(adj_sectors_per_cluster)], ax
-%endif
-
-%if _FIX_SECTOR_SIZE
- %if !_FIX_SECTOR_SIZE_SKIP_CHECK
-	cmp word [VAR(bytes_per_sector)], _FIX_SECTOR_SIZE
-	mov al, 'S'
-	jne error
- %endif
-	mov ax, _FIX_SECTOR_SIZE >> 5
-%else
-; 16-byte paragraphs per sector
-	mov ax,[VAR(bytes_per_sector)]
-	mov cx,4			; ! ch = 0
-	shr ax,cl
-	mov [VAR(para_per_sector)],ax
-
-; 32-byte FAT directory entries per sector
-	shr ax, 1			; /2 = 32-byte entries per sector
-%endif
-	mov word [VAR(entries_per_sector)], ax
-
 load_fsiboot:
 	mov ax, [VAR(fsinfo_sector)]
 ;	inc ax
@@ -905,9 +868,27 @@ fsiboot:
 .start:
 
 		; INP:	ss:bp -> boot sector, with EBPB
-		;	adj_sectors_per_cluster, data_start (uninit),
-		;	load_seg (uninit), last_available_sector.
+		;	adj_sectors_per_cluster (uninit), data_start (uninit),
+		;	load_seg (uninit), last_available_sector,
+		;	para_per_sector (uninit)
 		;	Stack layout has to match!
+; calculate some values that we need:
+; adjusted sectors per cluster (store in a word,
+;  and decode EDR-DOS's special value 0 meaning 256)
+	mov al, [VAR(sectors_per_cluster)]
+	dec al
+	inc ax
+	mov [VAR(adj_sectors_per_cluster)], ax
+
+; 16-byte paragraphs per sector
+	mov ax, [VAR(bytes_per_sector)]
+	mov cx, 4			; ! ch = 0
+	shr ax, cl
+	mov [VAR(para_per_sector)], ax
+
+; 32-byte FAT directory entries per sector
+	shr ax, 1			; /2 = 32-byte entries per sector
+	mov word [VAR(entries_per_sector)], ax
 
 	xor ax, ax
 ; first sector of root directory
