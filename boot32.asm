@@ -875,8 +875,10 @@ fsiboot:
 			; es = input bx
 			; CHG: none
 .load_name:	dw 0	; -> 11-byte blank-padded filename
-.fatbuf:	dw 0	; => FAT buffer (one sector)
-.dirbuf:	dw 0	; => dir buffer (one sector -- must not overlap!)
+.fatbuf:	dw 0	; => FAT sector buffer (one sector)
+.dirbuf:	dw 0	; => directory sector buffer (one sector)
+			;  These two must not overlap! However, the directory
+			;  sector can overlap with the load file's buffer.
 
 
 .start:
