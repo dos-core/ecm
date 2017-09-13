@@ -446,24 +446,6 @@ skip_bpb:
 	sti
 
 
-%if _FIX_CLUSTER_SIZE
- %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
-	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
-	mov al, 'C'
-	jne error
- %endif
-	mov word [VAR(adj_sectors_per_cluster)], _FIX_CLUSTER_SIZE
-		; needed for FSIBOOT!
-%else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
-	mov al, [VAR(sectors_per_cluster)]
-	dec al
-	inc ax
-	mov [VAR(adj_sectors_per_cluster)], ax
-%endif
-
 %if _QUERY_GEOMETRY	; +27 bytes
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
@@ -482,6 +464,25 @@ skip_bpb:
 	inc cx			; cx = number of heads (H is 0-based)
 	mov [VAR(heads)], cx
 @@:
+%endif
+
+
+%if _FIX_CLUSTER_SIZE
+ %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
+	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
+	mov al, 'C'
+	jne error
+ %endif
+	mov word [VAR(adj_sectors_per_cluster)], _FIX_CLUSTER_SIZE
+		; needed for FSIBOOT!
+%else
+; calculate some values that we need:
+; adjusted sectors per cluster (store in a word,
+;  and decode EDR-DOS's special value 0 meaning 256)
+	mov al, [VAR(sectors_per_cluster)]
+	dec al
+	inc ax
+	mov [VAR(adj_sectors_per_cluster)], ax
 %endif
 
 %if _FIX_SECTOR_SIZE
