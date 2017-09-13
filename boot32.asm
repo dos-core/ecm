@@ -564,6 +564,8 @@ fsinfo_table:
 %endif
 .read_sector:	dw read_sector
 .load_name:	dw load_name
+.fatbuf:	dw ADR_FATBUF>>4
+.dirbuf:	dw ADR_DIRBUF>>4
 .end:
 
 
@@ -861,15 +863,20 @@ fsiboot:
 
 .table:		; these are to be initialised by the loader
 .error:		dw 0	; nothing
-.success:	dw 0	; stack: (if _SET_SIDI_CLUSTER) first cluster dword
+.success:	dw 0	; stack: (for _SET_SIDI_CLUSTER) first cluster dword
 .memory_full:	dw 0	; stack: next cluster number dword,
-			; (if _SET_SIDI_CLUSTER) first cluster dword
+			; (for _SET_SIDI_CLUSTER) first cluster dword
+			; Note: The first cluster dword is always filled in
+			;  by FSIBOOT; the option only affects usage in the
+			;  primary loader.
 .read_sector:	dw 0	; INP: dx:ax = sector number within partition,
 			; bx:0-> buffer, (_LBA) ds = ss
 			; OUT: dx:ax incremented, bx:0-> incremented,
 			; es = input bx
 			; CHG: none
-.load_name:	dw 0	; 11-byte blank-padded filename
+.load_name:	dw 0	; -> 11-byte blank-padded filename
+.fatbuf:	dw 0	; => FAT buffer (one sector)
+.dirbuf:	dw 0	; => dir buffer (one sector -- must not overlap!)
 
 
 .start:
@@ -938,7 +945,7 @@ next_root_sect:
 
 ; Scan root directory for file. We don't bother to check for deleted
 ;  entries (E5h) or entries that mark the end of the directory (00h).
-	mov bx, ADR_DIRBUF>>4
+	mov bx, [fsiboot.dirbuf]
 	call near word [fsiboot.read_sector]
 
 	push di
@@ -1040,7 +1047,7 @@ clust_next:
 	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
-	mov bx, ADR_FATBUF>>4
+	mov bx, [fsiboot.fatbuf]
 	call near word [fsiboot.read_sector]
 	pop bx
 @@:
