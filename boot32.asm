@@ -527,21 +527,14 @@ load_fsiboot:
 	pop si
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
- %if !_FIX_SECTOR_SIZE
-	mov ax, ADR_STACK_LOW >> 4	; rounding *down*
- %endif
 %else
  %error Load address within used memory
 %endif
-%if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
-		mov [VAR(last_available_sector)], (ADR_STACK_LOW >> 4) - (_FIX_SECTOR_SIZE >> 4)
-			; needed for FSIBOOT!
+		; With FSIBOOT, para_per_sector isn't initialised yet.
+		; So instead we store the address *after* the last buffer here.
+%if _LOAD_ADR < ADR_STACK_LOW
+		mov [VAR(last_available_sector)], (ADR_STACK_LOW >> 4)
 %else
- %if _FIX_SECTOR_SIZE
-		sub ax, _FIX_SECTOR_SIZE >> 4
- %else
-		sub ax, [VAR(para_per_sector)]
- %endif
 		mov [VAR(last_available_sector)], ax
 %endif
 
@@ -670,6 +663,9 @@ load_finish:
 		;	If sector has been read,
 		;	 dx:ax = next sector number (has been incremented)
 		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
+		;		Note that this is initialised only in FSIBOOT,
+		;		 so that it is undefined for the read of the
+		;		 FSINFO sector. But this isn't in use then.
 		;	 es = input bx
 		; CHG:	-
 read_sector:
@@ -885,10 +881,12 @@ fsiboot:
 	mov cx, 4			; ! ch = 0
 	shr ax, cl
 	mov [VAR(para_per_sector)], ax
+	sub word [VAR(last_available_sector)], ax
 
 ; 32-byte FAT directory entries per sector
 	shr ax, 1			; /2 = 32-byte entries per sector
 	mov word [VAR(entries_per_sector)], ax
+
 
 	xor ax, ax
 ; first sector of root directory
