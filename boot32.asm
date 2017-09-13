@@ -898,7 +898,6 @@ fsiboot:
 
 
 	xor ax, ax
-; first sector of root directory
 	mov al,[VAR(num_fats)]		; ! ah = 0, hence ax = number of FATs
 	push ax
 	mul word [VAR(sectors_per_fat_large)]
