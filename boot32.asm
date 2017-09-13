@@ -467,6 +467,16 @@ skip_bpb:
 %endif
 
 
+; 16-byte paragraphs per sector
+	mov ax, [VAR(bytes_per_sector)]
+	mov cx, 4			; ! ch = 0
+	shr ax, cl
+	mov [VAR(para_per_sector)], ax
+
+; 32-byte FAT directory entries per sector
+	shr ax, 1			; /2 = 32-byte entries per sector
+	mov word [VAR(entries_per_sector)], ax
+
 load_fsiboot:
 	mov ax, [VAR(fsinfo_sector)]
 ;	inc ax
@@ -527,16 +537,12 @@ load_fsiboot:
 	pop si
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
+	mov ax, (ADR_STACK_LOW >> 4)
 %else
  %error Load address within used memory
 %endif
-		; With FSIBOOT, para_per_sector isn't initialised yet.
-		; So instead we store the address *after* the last buffer here.
-%if _LOAD_ADR < ADR_STACK_LOW
-		mov word [VAR(last_available_sector)], (ADR_STACK_LOW >> 4)
-%else
-		mov word [VAR(last_available_sector)], ax
-%endif
+	sub ax, word [VAR(para_per_sector)]
+	mov word [VAR(last_available_sector)], ax
 
 	mov si, fsinfo_table
 	mov di, ADR_FSIBOOT + FSINFO.reserved1 + 8
@@ -663,9 +669,6 @@ load_finish:
 		;	If sector has been read,
 		;	 dx:ax = next sector number (has been incremented)
 		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
-		;		Note that this is initialised only in FSIBOOT,
-		;		 so that it is undefined for the read of the
-		;		 FSINFO sector. But this isn't in use then.
 		;	 es = input bx
 		; CHG:	-
 read_sector:
@@ -866,26 +869,15 @@ fsiboot:
 		; INP:	ss:bp -> boot sector, with EBPB
 		;	adj_sectors_per_cluster (uninit), data_start (uninit),
 		;	load_seg (uninit), last_available_sector,
-		;	para_per_sector (uninit), entries_per_sector (uninit)
+		;	para_per_sector, entries_per_sector
 		;	Stack layout has to match!
-; calculate some values that we need:
+
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
 	mov al, [VAR(sectors_per_cluster)]
 	dec al
 	inc ax
 	mov [VAR(adj_sectors_per_cluster)], ax
-
-; 16-byte paragraphs per sector
-	mov ax, [VAR(bytes_per_sector)]
-	mov cx, 4			; ! ch = 0
-	shr ax, cl
-	mov [VAR(para_per_sector)], ax
-	sub word [VAR(last_available_sector)], ax
-
-; 32-byte FAT directory entries per sector
-	shr ax, 1			; /2 = 32-byte entries per sector
-	mov word [VAR(entries_per_sector)], ax
 
 
 	xor ax, ax
