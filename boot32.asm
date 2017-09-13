@@ -549,6 +549,8 @@ load_fsiboot:
 	mov cx, (fsinfo_table.end - fsinfo_table) >> 1
 	rep movsw
 
+	mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
+
 	jmp ADR_FSIBOOT + FSINFO.reserved1 + 8 + (fsinfo_table.end - fsinfo_table)
 
 	align 2
@@ -873,7 +875,7 @@ fsiboot:
 .start:
 		; INP:	ss:bp -> boot sector, with EBPB
 		;	adj_sectors_per_cluster (uninit), data_start (uninit),
-		;	load_seg (uninit), last_available_sector,
+		;	load_seg, last_available_sector,
 		;	para_per_sector, entries_per_sector
 		;	Stack layout has to match!
 
@@ -1069,7 +1071,6 @@ found_it:
 		push dx
 		push ax			; remember cluster for later
 
-		mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
 		call check_clust
 		jc fsiboot_error_badchain
 
