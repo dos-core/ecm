@@ -866,7 +866,7 @@ fsiboot:
 		; INP:	ss:bp -> boot sector, with EBPB
 		;	adj_sectors_per_cluster (uninit), data_start (uninit),
 		;	load_seg (uninit), last_available_sector,
-		;	para_per_sector (uninit)
+		;	para_per_sector (uninit), entries_per_sector (uninit)
 		;	Stack layout has to match!
 ; calculate some values that we need:
 ; adjusted sectors per cluster (store in a word,
