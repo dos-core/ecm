@@ -332,11 +332,8 @@ adj_sectors_per_cluster equ (data_start - 2)
 ; (word) number of 16-byte paragraphs per sector
 para_per_sector		EQU (adj_sectors_per_cluster - 2)
 
-; (word) number of 32-byte FAT directory entries per sector
-dir_ents_per_sector	EQU (para_per_sector - 2)
-
 ; (word) segment of last available memory for sector
-last_available_sector	equ (dir_ents_per_sector - 2)
+last_available_sector	equ (para_per_sector - 2)
 
 lowest_variable		equ last_available_sector
 
