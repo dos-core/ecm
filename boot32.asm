@@ -1132,7 +1132,7 @@ fsinfo_available:
 %warning FSINFO: num bytes still available.
 
 	dd "rrAa"
-	dd 0		; number of free clusters
-	dd 0		; first free cluster
+	dd -1		; number of free clusters
+	dd -1		; first free cluster
 	times 3 dd 0	; FSINFO.reserved2
 	dd 0_AA55_0000h	; FSINFO.signature3
