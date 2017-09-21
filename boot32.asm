@@ -328,19 +328,19 @@ adj_sectors_per_cluster equ (data_start - 2)
 ; (word) number of 16-byte paragraphs per sector
 para_per_sector		EQU (adj_sectors_per_cluster - 2)
 
-; (word) number of 32-byte FAT directory entries per sector
-dir_ents_per_sector	EQU (para_per_sector - 2)
+; (word) number of 32-byte directory entries per sector
+entries_per_sector	equ (para_per_sector - 2)
 
 ; (word) segment of last available memory for sector
-last_available_sector	equ (dir_ents_per_sector - 2)
+last_available_sector	equ (entries_per_sector - 2)
 
 ; (word) current load segment
 load_seg		equ (last_available_sector - 2)
 
-; (word) directory entries per sector
-entries_per_sector	equ (load_seg - 2)
+; (word) paragraphs left to read
+paras_left		equ (load_seg - 2)
 
-lowest_variable		equ entries_per_sector
+lowest_variable		equ paras_left
 
 	jmp strict short skip_bpb
 	nop
@@ -891,7 +891,8 @@ fsiboot:
 		; INP:	ss:bp -> boot sector, with EBPB
 		;	adj_sectors_per_cluster (uninit), data_start (uninit),
 		;	load_seg, last_available_sector,
-		;	para_per_sector, entries_per_sector
+		;	para_per_sector, entries_per_sector,
+		;	paras_left (uninit)
 		;	Stack layout has to match!
 
 ; adjusted sectors per cluster (store in a word,
@@ -1079,8 +1080,37 @@ check_clust:
 
 found_it:
 ; get starting cluster of file
+		mov bx, [es:di + 28 - 32]
+		mov ax, [es:di + 30 - 32]	; ax:bx = file size
+		mov dl, [es:di + 12 - 32]	; dl = FAT+ size bits
+		mov dh, dl
+		and dx, 0E007h		; obtain bits 7-5 and 2-0
+		shr dh, 1
+		shr dh, 1
+		or dl, dh		; dl:ax:bx = file size
+		mov cx, [VAR(bytes_per_sector)]
+		dec cx
+		add bx, cx
+		adc ax, 0
+		adc dl, 0		; round up to next sector
+		mov cx, 4
+@@:
+		shr dl, 1
+		rcr ax, 1
+		rcr bx, 1
+		loop @B
+			; dl:ax:bx = size in paragraphs
+		or al, dl
+		mov dx, 0FFFFh
+		test ax, ax		; > 0FFFFh
+		jz @F			; take 0FFFFh
+		mov dx, bx		; size in paragraphs
+@@:
+		mov word [VAR(paras_left)], dx
+
 		mov ax, [es:di + 26 - 32]
-		mov dx, [es:di + 20 - 32]
+		mov dx, [es:di + 20 - 32]	; dx:ax = first cluster
+
 		pop di			; restore si:di = loaded FAT sector
 
 		push dx
@@ -1111,10 +1141,17 @@ next_load_cluster:
 		call near word [fsiboot.read_sector]
 		pop es
 
+		push ax
+		mov ax, [VAR(para_per_sector)]
+		sub word [VAR(paras_left)], ax
+		pop ax
+		jbe @F		; read enough -->
+
 		loop @BB
 		mov [VAR(load_seg)], bx
 		pop bx
 		pop cx
+
 		call clust_next
 		jnc next_load_cluster
 		inc ax
@@ -1122,6 +1159,10 @@ next_load_cluster:
 		test ax, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 				;  clear in 0, 1, and 0FFF_FFF7h
 		jz fsiboot_error_badchain
+		db __TEST_IMM16
+@@:
+		pop bx
+		pop cx
 		jmp near word [fsiboot.success]
 
 
