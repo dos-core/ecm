@@ -55,6 +55,8 @@ Public domain by C. Masloch, 2012
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
+	numdef LBA_RETRY,	0	; retry LBA reads one time
+	numdef CHS_RETRY,	1	; retry CHS reads one time
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -901,6 +903,7 @@ read_sector:
 	jz .no_lba
  %endif
 
+%if _LBA_RETRY
 	mov ah, 42h
 	int 13h		; 13.42 extensions read
 	jnc .lba_done
@@ -908,6 +911,7 @@ read_sector:
 	xor ax, ax
 	int 13h
 	jc .lba_error
+%endif
 
 	mov ah, 42h
 	int 13h
@@ -980,6 +984,7 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 			pop es
+%if _CHS_RETRY
 			mov ax, 0201h
 			int 13h		; read one sector
 			jnc .done
@@ -987,6 +992,7 @@ read_sector:
 			xor ax, ax
 			int 13h
 			jc .err
+%endif
 ; try read again
 			mov ax, 0201h
 			int 13h
