@@ -1111,7 +1111,7 @@ next_load_cluster:
 		call near word [fsiboot.read_sector]
 		pop es
 
-		loop @B
+		loop @BB
 		mov [VAR(load_seg)], bx
 		pop bx
 		pop cx
