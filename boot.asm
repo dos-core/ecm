@@ -47,6 +47,7 @@ Public domain by C. Masloch, 2012
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
+	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
@@ -109,6 +110,7 @@ Public domain by C. Masloch, 2012
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
  %assign _SET_DI_CLUSTER	1
  %assign _DATASTART_HIDDEN	1
+ %assign _LBA_SET_TYPE		1
 %endif
 
 %if _COMPAT_MS6
@@ -339,7 +341,11 @@ last_available_sector	equ (dir_ents_per_sector - 2)
 lowest_variable		equ last_available_sector
 
 	jmp strict short skip_bpb
-	nop
+%if !_CHS && _LBA_SET_TYPE
+	db 0Eh		; LBA-enabled FAT16 FS partition type
+%else
+	nop		; default: no LBA
+%endif
 
 
 ; BIOS Parameter Block (BPB)
@@ -925,6 +931,9 @@ read_sector:
  %endif
 
 .lba_done:
+%if _CHS && _LBA_SET_TYPE
+	mov byte [bp + 2], 0Eh	; LBA-enabled FAT16 FS partition type
+%endif
 	add sp, 10h
 	pop bx
 	jmp short .chs_done
