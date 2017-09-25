@@ -48,6 +48,7 @@ Public domain by C. Masloch, 2012
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
+	numdef SET_LOAD_SEG,	0	; if to set load_seg (word [ss:bp - 6])
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
@@ -326,8 +327,11 @@ start:
 ; (dword) sector where the actual disk data starts
 data_start		EQU (start - 4)
 
+; (word) current load segment
+load_seg		equ (data_start - 2)
+
 ; (word) actual sectors per cluster
-adj_sectors_per_cluster equ (data_start - 2)
+adj_sectors_per_cluster equ (load_seg - 2)
 
 ; (word) number of 16-byte paragraphs per sector
 para_per_sector		EQU (adj_sectors_per_cluster - 2)
@@ -768,6 +772,9 @@ next_cluster:
 		call read_sector
 %if _FAT16
 		pop es
+%endif
+%if _SET_LOAD_SEG
+		mov [VAR(load_seg)], bx	; => after last read data
 %endif
 		loop @B
 
