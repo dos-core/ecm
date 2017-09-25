@@ -899,11 +899,20 @@ fsiboot:
 
 .start:
 		; INP:	ss:bp -> boot sector, with EBPB
-		;	adj_sectors_per_cluster (uninit), data_start (uninit),
-		;	load_seg, last_available_sector,
-		;	para_per_sector, entries_per_sector,
-		;	paras_left (uninit)
+		;	dwo [ss:bp - 4] = data_start (uninit)
+		;	wo [ss:bp -  6] = load_seg
+		;	wo [ss:bp -  8] = adj_sectors_per_cluster (uninit)
+		;	wo [ss:bp - 10] = para_per_sector
+		;	wo [ss:bp - 12] = entries_per_sector
+		;	wo [ss:bp - 14] = last_available_sector
+		;	wo [ss:bp - 16] = paras_left (uninit)
 		;	Stack layout has to match!
+		; OUT:	jumps to fsiboot.error, fsiboot.success, or
+		;	 fsiboot.memory_full (for interfaces refer to table)
+		;	data_start (within partition) initialised
+		;	adj_sectors_per_cluster initialised
+		;	paras_left initialised
+		;	load_seg => behind last loaded data
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
