@@ -49,6 +49,8 @@ Public domain by C. Masloch, 2012
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
 	numdef SET_LOAD_SEG,	0	; if to set load_seg (word [ss:bp - 6])
+	numdef SET_FAT_SEG,	0	; if to set fat_seg (word [ss:bp - 8])
+	numdef SET_CLUSTER,	0	; if to set first_cluster (word [ss:bp - 16])
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
@@ -328,8 +330,18 @@ data_start		EQU (start - 4)
 ; (word) current load segment
 load_seg		equ (data_start - 2)
 
+; (word) segment of FAT buffer
+; for FAT32 this holds the sector given by dwo[fat_sector]
+fat_seg			equ (load_seg - 2)
+
+; (dword for FAT32) currently loaded sector-in-FAT, -1 if none
+fat_sector		equ (fat_seg - 4)
+
+; (dword for FAT32) first cluster of load file
+first_cluster		equ (fat_sector - 4)
+
 ; (word) actual sectors per cluster
-adj_sectors_per_cluster equ (load_seg - 2)
+adj_sectors_per_cluster equ (first_cluster - 2)
 
 ; (word) number of 16-byte paragraphs per sector
 para_per_sector		EQU (adj_sectors_per_cluster - 2)
@@ -559,6 +571,11 @@ load_fsiboot:
 	rep movsw
 
 	mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
+%if _SET_FAT_SEG
+	mov word [VAR(fat_seg)], ADR_FATBUF>>4
+	mov word [VAR(fat_sector + 0)], -1
+	mov word [VAR(fat_sector + 2)], -1
+%endif
 
 	jmp ADR_FSIBOOT + FSINFO.reserved1 + 8 + (fsinfo_table.end - fsinfo_table)
 
@@ -899,13 +916,16 @@ fsiboot:
 
 .start:
 		; INP:	ss:bp -> boot sector, with EBPB
-		;	dwo [ss:bp - 4] = data_start (uninit)
+		;	dwo [ss:bp -  4] = data_start (uninit)
 		;	wo [ss:bp -  6] = load_seg
-		;	wo [ss:bp -  8] = adj_sectors_per_cluster (uninit)
-		;	wo [ss:bp - 10] = para_per_sector
-		;	wo [ss:bp - 12] = entries_per_sector
-		;	wo [ss:bp - 14] = last_available_sector
-		;	wo [ss:bp - 16] = paras_left (uninit)
+		;	wo [ss:bp -  8] = fat_seg (not used by FSIBOOT)
+		;	dwo [ss:bp - 12] = fat_sector (init to -1)
+		;	dwo [ss:bp - 16] = first_cluster (uninit)
+		;	wo [ss:bp - 18] = adj_sectors_per_cluster (uninit)
+		;	wo [ss:bp - 20] = para_per_sector
+		;	wo [ss:bp - 22] = entries_per_sector
+		;	wo [ss:bp - 24] = last_available_sector
+		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
 		; OUT:	jumps to fsiboot.error, fsiboot.success, or
 		;	 fsiboot.memory_full (for interfaces refer to table)
@@ -1072,6 +1092,9 @@ clust_next:
 @@:
 	mov si, dx
 	mov di, ax
+	mov word [VAR(fat_sector + 2)], dx
+	mov word [VAR(fat_sector + 0)], ax
+
 	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
@@ -1098,7 +1121,6 @@ check_clust:
 
 
 found_it:
-; get starting cluster of file
 		mov bx, [es:di + 28 - 32]
 		mov ax, [es:di + 30 - 32]	; ax:bx = file size
 		mov dl, [es:di + 12 - 32]	; dl = FAT+ size bits
@@ -1127,11 +1149,14 @@ found_it:
 @@:
 		mov word [VAR(paras_left)], dx
 
+; get starting cluster of file
 		mov ax, [es:di + 26 - 32]
 		mov dx, [es:di + 20 - 32]	; dx:ax = first cluster
 
 		pop di			; restore si:di = loaded FAT sector
 
+		mov word [VAR(first_cluster + 0)], ax
+		mov word [VAR(first_cluster + 2)], dx
 		push dx
 		push ax			; remember cluster for later
 
