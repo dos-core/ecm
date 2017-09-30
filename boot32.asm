@@ -65,8 +65,9 @@ Public domain by C. Masloch, 2012
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
+	numdef COMPAT_LDOS,	0	; lDOS load compatibility
 
-%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7) > 1
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7 + !!_COMPAT_LDOS) > 1
  %error At most one set must be selected.
 %endif
 
@@ -113,6 +114,18 @@ Public domain by C. Masloch, 2012
  %assign _SET_SIDI_CLUSTER	1
  %assign _DATASTART_HIDDEN	1
  %assign _LBA_SET_TYPE		1
+%endif
+
+%if _COMPAT_LDOS
+	strdef LOAD_NAME,	"LDOS"
+	strdef LOAD_EXT,	"COM"
+	numdef LOAD_ADR,	00700h
+	numdef EXEC_SEG_ADJ,	0
+	numdef EXEC_OFS,	400h
+ %assign _SET_CLUSTER		1
+ %assign _SET_FAT_SEG		1
+ %assign _MEMORY_CONTINUE	1
+ %assign _DATASTART_HIDDEN	0
 %endif
 
 %if 0
