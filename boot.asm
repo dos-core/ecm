@@ -45,6 +45,11 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
+	numdef DIR_ENTRY_500,	0	; if to copy directory entry to 0:500h
+	numdef DIR_ENTRY_520,	0	; if to copy next directory entry to 0:520h
+%if _DIR_ENTRY_520
+ %assign _DIR_ENTRY_500		1
+%endif
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
@@ -594,6 +599,27 @@ error:
 
 
 found_it:
+%if _DIR_ENTRY_500	; +24 bytes, probably
+	mov cx, 32
+	 push ds
+	 push es
+	xchg si, di
+	sub si, cx
+	push es
+	pop ds		; ds:si -> directory entry
+	xor ax, ax
+	mov es, ax
+	mov di, 500h	; es:di -> 0:500h
+ %if _DIR_ENTRY_520
+	rep movsw	; move to here (two directory entries)
+ %else
+	rep movsb	; move to here
+ %endif
+	 pop es
+	 pop ds
+	xchg si, di	; es:di -> behind (second) directory entry
+%endif
+
 %if _LOAD_ADR >= ADR_FREE
 ; Get conventional memory size and store it
 		int 12h
@@ -638,7 +664,7 @@ found_it:
 %endif
 
 ; get starting cluster of file
-		mov si,[es:di + 26 - 32]
+		mov si,[es:di + 26 - 32 - (32 * !!_DIR_ENTRY_520)]
 %if _SET_CLUSTER
 		mov word [VAR(first_cluster)], si
 %endif

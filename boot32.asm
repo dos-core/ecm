@@ -45,6 +45,11 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
 	numdef SET_SIDI_CLUSTER,0	; if to pass first load file cluster in si:di
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
+	numdef DIR_ENTRY_500,	0	; if to copy directory entry to 0:500h
+	numdef DIR_ENTRY_520,	0	; if to copy next directory entry to 0:520h
+%if _DIR_ENTRY_520
+ %assign _DIR_ENTRY_500		1
+%endif
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
@@ -1134,9 +1139,25 @@ check_clust:
 
 
 found_it:
-		mov bx, [es:di + 28 - 32]
-		mov ax, [es:di + 30 - 32]	; ax:bx = file size
-		mov dl, [es:di + 12 - 32]	; dl = FAT+ size bits
+		; _DIR_ENTRY_500 && _DIR_ENTRY_520 handling (always enabled)
+	mov cx, 32
+	 push ds
+	 push es
+	xchg si, di
+	sub si, cx
+	push es
+	pop ds		; ds:si -> directory entry
+	xor ax, ax
+	mov es, ax
+	mov di, 500h	; es:di -> 0:500h
+	rep movsw	; move to here (two directory entries)
+	 pop es
+	 pop ds
+	xchg si, di	; es:di -> behind (second) directory entry
+
+		mov bx, [es:di + 28 - 64]
+		mov ax, [es:di + 30 - 64]	; ax:bx = file size
+		mov dl, [es:di + 12 - 64]	; dl = FAT+ size bits
 		mov dh, dl
 		and dx, 0E007h		; obtain bits 7-5 and 2-0
 		shr dh, 1
@@ -1163,8 +1184,8 @@ found_it:
 		mov word [VAR(paras_left)], dx
 
 ; get starting cluster of file
-		mov ax, [es:di + 26 - 32]
-		mov dx, [es:di + 20 - 32]	; dx:ax = first cluster
+		mov ax, [es:di + 26 - 64]
+		mov dx, [es:di + 20 - 64]	; dx:ax = first cluster
 
 		pop di			; restore si:di = loaded FAT sector
 
