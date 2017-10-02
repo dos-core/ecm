@@ -47,9 +47,6 @@ Public domain by C. Masloch, 2012
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef DIR_ENTRY_500,	0	; if to copy directory entry to 0:500h
 	numdef DIR_ENTRY_520,	0	; if to copy next directory entry to 0:520h
-%if _DIR_ENTRY_520
- %assign _DIR_ENTRY_500		1
-%endif
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
@@ -96,7 +93,7 @@ Public domain by C. Masloch, 2012
  %assign _MEMORY_CONTINUE	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _DIRBUF_500		1
+ %assign _DIR_ENTRY_520		1
  	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
  	;  We do not check this to be the case, but the load protocol may
  	;  prescribe that these two entries are at 0:500h and 0:520h.
@@ -131,7 +128,7 @@ Public domain by C. Masloch, 2012
  %assign _MEMORY_CONTINUE	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _DIRBUF_500		1
+ %assign _DIR_ENTRY_520		1
  	; Note: IO.SYS must be the first file, MSDOS.SYS the second file.
  	;  We do not check this to be the case, but the load protocol may
  	;  prescribe that these two entries are at 0:500h and 0:520h.
@@ -158,18 +155,23 @@ Public domain by C. Masloch, 2012
 Notes about partial load compatibilities
 
 * FreeDOS:
- * Does not relocate to 27A00h (1FE0h:7C00h)
+ * Does not relocate to 27A00h (1FE0h:7C00h), so the kernel doesn't fit
 * IBMDOS:
- * Does not put directory entry/entries to 00500h
- * Does not search for IBMDOS file (only IBMBIO)
+* MS-DOS 6:
+ * Does not search for IBMDOS (MSDOS) file, only IBMBIO (IO)
  * Does not actually relocate DPT, just provide its address
 * MS-DOS 7:
  * Does not actually relocate DPT, just provide its address
+ * Does not contain message table used by loader
 
 %endif
 
 %if _SET_BL_UNIT && _SET_AXBX_DATA
  %error Cannot select both of these options!
+%endif
+
+%if _DIR_ENTRY_520
+ %assign _DIR_ENTRY_500		1
 %endif
 
 

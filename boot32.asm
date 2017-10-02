@@ -95,7 +95,7 @@ Public domain by C. Masloch, 2012
  %assign _MEMORY_CONTINUE	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _DIRBUF_500		1
+ %assign _DIR_ENTRY_520		1
  	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
  	;  We do not check this to be the case, but the load protocol may
  	;  prescribe that these two entries are at 0:500h and 0:520h.
@@ -138,13 +138,13 @@ Public domain by C. Masloch, 2012
 Notes about partial load compatibilities
 
 * FreeDOS:
- * Does not relocate to 27A00h (1FE0h:7C00h)
+ * Does not relocate to 27A00h (1FE0h:7C00h), so the kernel doesn't fit
 * IBMDOS:
- * Does not put directory entry/entries to 00500h
- * Does not search for IBMDOS file (only IBMBIO)
+ * Does not search for IBMDOS file, only IBMBIO
  * Does not actually relocate DPT, just provide its address
 * MS-DOS 7:
  * Does not actually relocate DPT, just provide its address
+ * Does not contain message table used by loader
 
 %endif
 
