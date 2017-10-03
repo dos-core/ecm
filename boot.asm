@@ -510,6 +510,7 @@ skip_bpb:
 	jne error
  %endif
 	mov ax, _FIX_SECTOR_SIZE >> 5
+	mov ch, 0			; ! ch = 0
 %else
 ; 16-byte paragraphs per sector
 	mov ax,[VAR(bytes_per_sector)]

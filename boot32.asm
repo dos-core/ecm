@@ -508,7 +508,7 @@ skip_bpb:
 
 ; 16-byte paragraphs per sector
 	mov ax, [VAR(bytes_per_sector)]
-	mov cx, 4			; ! ch = 0
+	mov cl, 4
 	shr ax, cl
 	mov [VAR(para_per_sector)], ax
 
