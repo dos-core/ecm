@@ -109,7 +109,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
- %assign _SET_DSSI_DPT		1
+ %assign _SET_DSSI_DPT		0
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
