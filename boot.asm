@@ -928,7 +928,7 @@ read_sector_dirbuf:
 read_sector_fatbuf:
 	mov bx, ADR_FATBUF>>4
 
-		; Read a sector using Int13.02
+		; Read a sector using Int13.02 or Int13.42
 		;
 		; INP:	dx:ax = sector number within partition
 		;	bx:0-> buffer
