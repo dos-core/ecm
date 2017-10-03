@@ -1090,7 +1090,7 @@ clust_to_first_sector:
 		;	NC if next cluster found,
 		;	 dx:ax = next cluster value (0-based)
 		;	si:di = loaded FAT sector
-		; CHG:	cx, bx
+		; CHG:	cx, bx, es
 clust_next:
 	mov ax, bx
 	mov dx, cx
@@ -1128,6 +1128,7 @@ clust_next:
 	call near word [fsiboot.read_sector]
 	pop bx
 @@:
+	mov es, [fsiboot.fatbuf]
 	mov ax, [es:bx]
 	mov dx, [es:bx + 2]
 

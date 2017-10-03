@@ -617,6 +617,7 @@ clust_next:
 	call read_sector
 	pop bx
 @@:
+	mov es, [bp + lsvFATSeg]
 	xor dx, dx
 	mov ax, [es:bx]
 
