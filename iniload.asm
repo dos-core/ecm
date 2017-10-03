@@ -830,7 +830,9 @@ ldos_entry:
 		mov cl, 6
 		shl ax, cl
 %if _RPL
+	xor si, si
 	xchg dx, ax
+	mov ds, si
 	lds si, [4 * 2Fh]
 	add si, 3
 	lodsb
