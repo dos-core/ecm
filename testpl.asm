@@ -25,11 +25,23 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	cpu 8086
 	org 0
 payload:
-
 	cmp word [cs:signature], 2638h
-	je sig_valid
+	je .sig1_valid
+.sig_invalid:
 	call error
 	db "Signature invalid.", 0
+
+.sig1_valid:
+	push ds
+	push bx
+	mov bx, cs
+	add bx, (signature2 -$$+0) >> 4
+	mov ds, bx
+	cmp word [(signature2 -$$+0) & 0Fh], 2638h
+	pop bx
+	pop ds
+	jne .sig_invalid
+	jmp sig_valid
 
 msg:
 .error:	db "Test payload error: ", 0
@@ -168,7 +180,11 @@ table:
 	db -1, -1, 13,10
 .end:
 
+signature:
+	dw 2638h
+	align 16, db 0
+
 	times 64 * 1024 db 0
 
-signature:
+signature2:
 	dw 2638h
