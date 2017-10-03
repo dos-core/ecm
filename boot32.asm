@@ -129,6 +129,7 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_OFS,	400h
  %assign _SET_CLUSTER		1
  %assign _SET_FAT_SEG		1
+ %assign _SET_LOAD_SEG		1
  %assign _MEMORY_CONTINUE	1
  %assign _DATASTART_HIDDEN	0
 %endif
