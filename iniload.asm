@@ -873,7 +873,7 @@ ldos_entry:
 		; bx = FAT seg
 		; cx = the lower of the two
 .gotsegs:
-	sub cx, (+512 -LOADDATA + EBPB_size + BPBN_size + 15) >> 4
+	sub cx, (+512 -LOADDATA + bsBPB + EBPB_size + BPBN_size + 15) >> 4
 		; cx = stack seg
 
 	cmp cx, word [bp + lsvLoadSeg]
@@ -888,7 +888,7 @@ ldos_entry:
 	mov bp, 512 - LOADDATA
 	push cx
 	mov di, 512 - LOADDATA + LOADSTACKVARS
-	mov cx, (- LOADSTACKVARS + EBPB_size + BPBN_size + 1) >> 1
+	mov cx, (- LOADSTACKVARS + bsBPB + EBPB_size + BPBN_size + 1) >> 1
 	rep movsw
 
 	mov word [bp + ldMemoryTop], dx
