@@ -723,6 +723,7 @@ read_sector:
 	push dx
 	push cx
 	push ax
+	push si
 
 	push bx
 
@@ -864,12 +865,14 @@ read_sector:
 %endif
 
 .chs_done:
+	mov es, bx
 %if _FIX_SECTOR_SIZE
 	add bx, _FIX_SECTOR_SIZE >> 4
 %else
 	add bx, [VAR(para_per_sector)]
 %endif
 
+	pop si
 	pop ax
 	pop cx
 	pop dx
