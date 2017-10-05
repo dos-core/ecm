@@ -661,8 +661,16 @@ check_clust:
 
 
 		; ds => first chunk of to be relocated data
+		; es => first chunk of relocation destination
+		; cx = number of words in first chunk
+relocator:
+	rep movsw
+	retf		; jump to relocated relocate_to
+
+		; ds => first chunk of to be relocated data
 		; es => first chunk of relocated data
 		; bx = 1000h (64 KiB >> 4)
+		; ax = number of paragraphs after first chunk (in next chunk)
 relocate_to:
 @@:
 	mov dx, es
@@ -1101,12 +1109,6 @@ ldos_entry:
 	shl cx, 1	; how much to relocate first,
 			;  << 3 == convert paragraphs to words
 	retf		; jump to relocator
-
-		; ds => first chunk of to be relocated data
-		; es => first chunk of relocation destination
-relocator:
-	rep movsw
-	retf		; jump to relocated relocate_to
 
 %assign num 1024+512-($-$$)
 %warning iniload: num bytes in front of end
