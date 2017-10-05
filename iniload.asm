@@ -855,61 +855,73 @@ ldos_entry:
 	xchg ax, dx
 %endif
 	push ax
-	sub ax, 32 >> 4
+	sub ax, 32 >> 4	; make space for two MCBs: top MCB, RPL MCB
 	mov cx, ax
-	sub ax, (8192 + 16) >> 4
-	dec cx
-	mov dx, ax
+	sub ax, (8192) >> 4
+	dec cx		; => last paragraph of higher buffer
+	mov dx, ax	; => first paragraph of higher buffer
 	mov bx, cx
-	and dx, 0F000h
-	and bx, 0F000h
-	cmp bx, dx
-	je .gotsectorseg
-	mov bx, ax
-	sub ax, (8192 + 16) >> 4
-	mov cx, ax
+	and dx, 0F000h	; 64 KiB chunk of first paragraph of higher buffer
+	and bx, 0F000h	; 64 KiB chunk of last paragraph of higher buffer
+	cmp bx, dx	; in same chunk?
+	je .gotsectorseg	; yes, use higher buffer as sector buffer ->
+	mov bx, ax	; use higher buffer as FAT buffer
+	sub ax, (8192 + 32) >> 4
+			; leave space for higher buffer MCB + header
+	mov cx, ax	; use lower buffer as sector buffer
 	jmp short .gotsegs
 
 .gotsectorseg:
+			; ax = use higher buffer as sector buffer
 	mov bx, ax
-	sub bx, (8192 + 16) >> 4
+	sub bx, (8192 + 32) >> 4	; use lower buffer as FAT buffer
+			; leave space for higher buffer MCB + header
 	mov cx, bx
 		; ax = sector seg
 		; bx = FAT seg
 		; cx = the lower of the two
 .gotsegs:
-	sub cx, (+512 -LOADDATA + bsBPB + EBPB_size + BPBN_size + 15) >> 4
+	sub cx, (+512 -LOADDATA + bsBPB + EBPB_size + BPBN_size + 32 + 15) >> 4
+			; 32 = leave space for lower buffer MCB + header
 		; cx = stack seg
 
+	dec cx		; leave space for stack + BPB buffer MCB
 	cmp cx, word [bp + lsvLoadSeg]
 	jb error_outofmemory
-	pop dx	; top of memory
+	pop dx		; top of memory (=> start of RPL, EBDA, video memory)
+	inc cx		; => stack + BPB buffer
 	push ss
 	pop ds
-	lea si, [bp + LOADSTACKVARS]
+	lea si, [bp + LOADSTACKVARS]	; ds:si -> lsv + BPB
 	mov es, cx
-	mov ss, cx
-	mov sp, 512
-	mov bp, 512 - LOADDATA
-	push cx
-	mov di, 512 - LOADDATA + LOADSTACKVARS
+	mov di, 512 - LOADDATA + LOADSTACKVARS	; es:di -> where to place lsv
+	push cx		; top of memory below buffers
 	mov cx, (- LOADSTACKVARS + bsBPB + EBPB_size + BPBN_size + 1) >> 1
 	rep movsw
+	pop cx
+	mov ss, cx
+	mov sp, 512	; -> above end of stack space
+	mov bp, 512 - LOADDATA	; -> BPB, above end of lsv
+	dec cx		; => space for stack + BPB buffer MCB
 
+		; ax => sector buffer
+		; bx => FAT buffer
+		; cx => above end of memory available for load
+		; dx => above end of memory used by us
 	mov word [bp + ldMemoryTop], dx
-	pop word [bp + ldLoadTop]
+	mov word [bp + ldLoadTop], cx
 	mov word [bp + ldSectorSeg], ax
 
 	mov ax, word [bp + lsvFATSeg]
 	mov ds, ax
-	xor si, si
+	xor si, si	; ds:si -> FAT buffer
 	mov es, bx
-	xor di, di
+	xor di, di	; es:di -> where to move
 	mov cx, 8192 >> 1
 	rep movsw
 	mov word [bp + lsvFATSeg], bx
 
-	push ax
+	push ax		; to check for word [lsvFATSeg] == zero later on
 
 	push ss
 	pop es
