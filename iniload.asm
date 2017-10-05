@@ -982,10 +982,10 @@ ldos_entry:
 	db "Bad amount of clusters.", 0
 
 @@:
-	cmp ax, 0FFF7h
+	cmp ax, 0FFF7h - 2
 	ja .badclusters
 	mov byte [bp + ldFATType], 16
-	cmp ax, 0FF7h
+	cmp ax, 0FF7h - 2
 	ja .got_fat_type
 
 	mov byte [bp + ldFATType], 12
