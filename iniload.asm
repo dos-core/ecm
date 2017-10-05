@@ -459,6 +459,8 @@ error_outofmemory:
 	db "Out of memory.", 0
 
 
+%assign num 512-($-$$)
+%warning iniload: num bytes in front of ms7_entry
 	_fill 512,38,start
 ms7_entry:
 		; This is the MS-DOS 7 compatible entry point.
@@ -794,6 +796,8 @@ loaded_all:
 	retf
 
 
+%assign num 1024-($-$$)
+%warning iniload: num bytes in front of ldos_entry
 	_fill 1024,38,start
 ldos_entry:
 		; cs:ip = 70h:400h
@@ -1092,9 +1096,9 @@ relocator:
 	rep movsw
 	retf		; jump to relocated relocate_to
 
-
-%assign loader_end ($ -$$+0)
-%warning Loader ends at loader_end
+%assign num 1024+512-($-$$)
+%warning iniload: num bytes in front of end
+	_fill 1024+512,38,start
 	align 16, db 38
 end:
 
