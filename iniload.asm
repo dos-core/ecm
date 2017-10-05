@@ -660,6 +660,23 @@ check_clust:
 	retn
 
 
+finish_relocation:
+	mov cx, word [bp + lsvLoadSeg]
+	sub cx, bx	; length of currently loaded fragment
+	mov bx, 1000h
+	mov ax, cx
+	cmp ax, bx	; > 64 KiB ?
+	jbe @F
+	mov cx, bx	; first relocate the first 64 KiB
+@@:
+	sub ax, cx	; how much to relocate later
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1	; how much to relocate first,
+			;  << 3 == convert paragraphs to words
+	retf		; jump to relocator
+
+
 		; ds => first chunk of to be relocated data
 		; es => first chunk of relocation destination
 		; cx = number of words in first chunk
@@ -1095,20 +1112,8 @@ ldos_entry:
 	xor di, di	; -> where to relocate to
 	xor si, si	; ds:si = cs:0
 
-	mov cx, word [bp + lsvLoadSeg]
-	sub cx, bx	; length of currently loaded fragment
-	mov bx, 1000h
-	mov ax, cx
-	cmp ax, bx	; > 64 KiB ?
-	jbe @F
-	mov cx, bx	; first relocate the first 64 KiB
-@@:
-	sub ax, cx	; how much to relocate later
-	shl cx, 1
-	shl cx, 1
-	shl cx, 1	; how much to relocate first,
-			;  << 3 == convert paragraphs to words
-	retf		; jump to relocator
+	jmp finish_relocation
+
 
 %assign num 1024+512-($-$$)
 %warning iniload: num bytes in front of end
