@@ -661,6 +661,13 @@ check_clust:
 
 
 finish_relocation:
+	mov si, relocator	; ds:si -> relocator
+	mov cx, 8
+	rep movsw	; move 16 bytes
+	mov es, ax
+	xor di, di	; -> where to relocate to
+	xor si, si	; ds:si = cs:0
+
 	mov cx, word [bp + lsvLoadSeg]
 	sub cx, bx	; length of currently loaded fragment
 	mov bx, 1000h
@@ -722,16 +729,12 @@ relocate_to:
 		; lsvLoadSeg => after last loaded fragment
 		; ldLoadTop => after last available memory
 		; ldParaPerSector = initialised
+		; word [ss:sp] = payload.end in paras rounded up to sector size
 finish_load:
 	mov ax, cs
 	mov word [bp + ldLoadingSeg], ax
-	mov ax, ((payload.end -$$+0) >> 4)
-	mov bx, [bp + ldParaPerSector]
-	add ax, bx
-	dec ax		; (payload.end >> 4) + (pps - 1)
-	dec bx
-	not bx
-	and ax, bx	; ((payload.end >> 4) + (pps - 1)) & ~ (pps - 1)
+
+	pop ax
 	mov bx, cs
 	add ax, bx
 	mov word [bp + ldLoadUntilSeg], ax
@@ -912,7 +915,29 @@ ldos_entry:
 
 	dec cx		; leave space for stack + BPB buffer MCB
 	cmp cx, word [bp + lsvLoadSeg]
-	jb error_outofmemory
+	jnb @F
+.error_outofmemory:
+	jmp error_outofmemory
+@@:
+
+	push ax
+	mov dx, ss
+	mov ax, bp
+	add ax, bsBPB + EBPB_size + BPBN_size + 15
+	shr ax, 1
+	shr ax, 1
+	shr ax, 1
+	shr ax, 1
+	add dx, ax
+	cmp dx, cx
+	ja .error_outofmemory
+		; note that the next conditional doesn't jump for lsvFATSeg = 0
+	mov dx, word [bp + lsvFATSeg]
+	add dx, (8192) >> 4
+	cmp dx, cx
+	ja .error_outofmemory
+	pop ax
+
 	pop dx		; top of memory (=> start of RPL, EBDA, video memory)
 	inc cx		; => stack + BPB buffer
 	push ss
@@ -1081,11 +1106,13 @@ ldos_entry:
 
 	mov ax, (payload.end -$$+0) >> 4
 	mov bx, [bp + ldParaPerSector]
-	dec bx		; paras per sector - 1
+	dec bx		; para per sector - 1
 	add ax, bx	; round up
-	not bx		; ~ (paras per sector - 1)
+	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
 		; ((payload.end -$$+0) >> 4 + pps - 1) & ~ (pps - 1)
+	push ax
+		; on stack: payload.end in paragraphs rounded up to sector size
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
@@ -1103,14 +1130,8 @@ ldos_entry:
 	xor di, di	; es:di -> where to put relocator
 	push es
 	push di		; dword on stack: relocator destination
-	mov ds, bx
-	mov si, relocator	; ds:si -> relocator
-	mov cx, 8
-	rep movsw	; move 16 bytes
-	inc ax
-	mov es, ax
-	xor di, di	; -> where to relocate to
-	xor si, si	; ds:si = cs:0
+	mov ds, bx	; ds => unrelocated cs
+	inc ax		; ax => where to relocate to
 
 	jmp finish_relocation
 
