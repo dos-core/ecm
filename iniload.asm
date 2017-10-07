@@ -580,17 +580,14 @@ clust_next:
 		xor dx, dx
 	jmp short .gotvalue
 
-.fat16:
-	add ax, ax
-	adc dx, dx		; * 2 = byte offset into FAT (0--2_0000h)
-	jmp short .fat1632_common
-
 .fat32:
+		; * 4 = byte offset into FAT (0--4000_0000h)
 	add ax, ax
 	adc dx, dx
+.fat16:
+		; * 2 = byte offset into FAT (0--2_0000h)
 	add ax, ax
-	adc dx, dx		; * 4 = byte offset into FAT (0--4000_0000h)
-.fat1632_common:
+	adc dx, dx
 
 	 push ax
 	xchg ax, dx
@@ -769,7 +766,7 @@ skip_next_sect:
 	ja skipped_all
 	add ax, 1		; emulate read_sector:
 	adc dx, 0		; dx:ax += 1
-	add bx, [bp + ldParaPerSector]	; bx += paras per sector
+	mov bx, cx		; bx += paras per sector
 	mov [bp + ldLoadingSeg], bx
 
 	pop cx
