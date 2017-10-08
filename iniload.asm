@@ -75,6 +75,9 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	numdef CHS_RETRY,	1	; retry CHS reads
 
 	strdef PAYLOAD_FILE,	"lDOS.BIN"
+	numdef EXEC_OFFSET,	0
+	numdef EXEC_SEGMENT,	0
+
 
 	struc LOADSTACKVARS, -10h
 lsvFirstCluster:	resd 1
@@ -811,11 +814,15 @@ skipped_all:
 
 loaded_all:
 	mov ax, cs
-	add ax, (payload -$$+0) >> 4
+	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
 	push ax
+%if _EXEC_OFFSET
+	mov ax, _EXEC_OFFSET
+%else
 	xor ax, ax
+%endif
 	push ax
-		; cs:ip = xxxxh:0
+		; cs:ip = xxxxh:_EXEC_OFFSET
 		; entire payload loaded (payload -- payload.end)
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
 	retf
