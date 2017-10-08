@@ -1146,6 +1146,7 @@ ldos_entry:
 	align 16, db 38
 end:
 
+	align 16
 payload:
 	incbin _PAYLOAD_FILE
 	align 16, db 38
