@@ -761,7 +761,7 @@ skip_next_sect:
 
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all
+	jae loaded_all.3stack
 
 	mov cx, bx
 	add cx, [bp + ldParaPerSector]
@@ -800,7 +800,7 @@ load_next_sect:
 
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all
+	jae loaded_all.3stack
 skipped_all:
 	call read_sector
 	mov [bp + ldLoadingSeg], bx
@@ -812,6 +812,10 @@ skipped_all:
 	jnc load_next_clust
 	jmp short end_of_chain
 
+loaded_all.3stack:
+	pop ax
+	pop ax
+	pop ax
 loaded_all:
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
