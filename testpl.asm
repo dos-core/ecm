@@ -80,6 +80,7 @@ disp_al:
 	retn
 
 sig_valid:
+		; S0 +28
 	pushf	; +26
 	sti
 	cld
@@ -177,6 +178,24 @@ table:
 	dw +22, "BX"
 	dw +20, "CX"
 	dw +18, "DX"
+	db -1, -1, 13,10
+	dw +28, "S0"
+	dw +30, "S1"
+	dw +32, "S2"
+	dw +34, "S3"
+	dw +36, "S4"
+	dw +38, "S5"
+	dw +40, "S6"
+	dw +42, "S7"
+	db -1, -1, 13,10
+	dw +44, "S8"
+	dw +46, "S9"
+	dw +48, "SA"
+	dw +50, "SB"
+	dw +52, "SC"
+	dw +54, "SD"
+	dw +56, "SE"
+	dw +58, "SF"
 	db -1, -1, 13,10
 .end:
 
