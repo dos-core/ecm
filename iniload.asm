@@ -74,11 +74,18 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
 
-	strdef PAYLOAD_FILE,	"lDOS.BIN"
+	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	
 	numdef IMAGE_EXE,	0
+	numdef IMAGE_EXE_IP,	64
+	numdef SECOND_PAYLOAD_EXE,	0
+	numdef SECOND_PAYLOAD_EXE_IP,	64
+	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
+%if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
+ %error Cannot use both of these.
+%endif
 
 
 	struc LOADSTACKVARS, -10h
@@ -118,7 +125,18 @@ start:
 	dw -1		; exeMaxAlloc
 	dw -16, 0	; exeInitSS, exeInitSP
 	dw 0		; exeChecksum
-	dw 256 + 64, -16; exeInitCSIP
+	dw 256 + _IMAGE_EXE_IP, -16; exeInitCSIP
+	dw 0		; exeRelocTable
+%elif _SECOND_PAYLOAD_EXE
+		; for now hardcoded to carry a .COM-like executable
+	dw (second_payload.end - $$ + 511) / 512	; exePages
+	dw 0		; exeRelocItems
+	dw (second_payload -$$+0) >> 4	; exeHeaderSize
+	dw (65536 - (second_payload.end - second_payload) + 512 + 15) >> 4	; exeMinAlloc
+	dw -1		; exeMaxAlloc
+	dw -16, 0	; exeInitSS, exeInitSP
+	dw 0		; exeChecksum
+	dw 256 + _SECOND_PAYLOAD_EXE_IP, -16; exeInitCSIP
 	dw 0		; exeRelocTable
 %else
 	dw -1		; exePages
@@ -1165,7 +1183,7 @@ ldos_entry:
 	align 16, db 38
 end:
 
-	align 16
+	align 16, db 38
 payload:
 	incbin _PAYLOAD_FILE
 	align 16, db 38
@@ -1177,3 +1195,13 @@ payload:
 		; Thus alignment to the file-level page boundary is correct.
 %endif
 .end:
+
+%if _SECOND_PAYLOAD_EXE
+	align 16, db 38
+second_payload:
+	incbin _SECOND_PAYLOAD_FILE
+	align 512, db 38
+	times 512 db 38
+.end:
+%endif
+
