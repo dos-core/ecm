@@ -77,6 +77,8 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	strdef PAYLOAD_FILE,	"lDOS.BIN"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
+	
+	numdef IMAGE_EXE,	0
 
 
 	struc LOADSTACKVARS, -10h
@@ -107,6 +109,18 @@ start:
 		; dec bp, pop dx
 	jmp strict short ms6_entry	; exeExtraBytes
 			; db 0EBh, 16h	; dw 16EBh
+%if _IMAGE_EXE
+		; for now hardcoded to carry a .COM-like executable
+	dw (payload.end - $$ + 511) / 512	; exePages
+	dw 0		; exeRelocItems
+	dw (payload -$$+0) >> 4	; exeHeaderSize
+	dw (65536 - (payload.end - payload) + 512 + 15) >> 4	; exeMinAlloc
+	dw -1		; exeMaxAlloc
+	dw -16, 0	; exeInitSS, exeInitSP
+	dw 0		; exeChecksum
+	dw 256 + 64, -16; exeInitCSIP
+	dw 0		; exeRelocTable
+%else
 	dw -1		; exePages
 	dw 0		; exeRelocItems
 	dw -1		; exeHeaderSize
@@ -116,6 +130,7 @@ start:
 	dw 0		; exeChecksum
 	dw 100h, -16	; exeInitCSIP
 	dw 0		; exeRelocTable
+%endif
 
 ms6_entry:
 		; This is the MS-DOS 6 / IBMDOS compatible entry point.
@@ -1154,4 +1169,11 @@ end:
 payload:
 	incbin _PAYLOAD_FILE
 	align 16, db 38
+%if _IMAGE_EXE
+	align 512, db 38	; until end of page
+	times 512 db 38		; a full additional page,
+				; this is for the bogus exeExtraBytes
+		; Note that the pages start counting within the EXE header!
+		; Thus alignment to the file-level page boundary is correct.
+%endif
 .end:
