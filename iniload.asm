@@ -1173,6 +1173,21 @@ loaded_all.3stack:
 	pop ax
 	pop ax
 loaded_all:
+	mov ax, word [bp + bsBPB + bpbSectorsPerFAT]
+	test ax, ax
+	jz .fat32
+
+	xor ax, ax
+	push ss
+	pop es
+	lea di, [bp + bsBPB + ebpbFSFlags]
+	mov cx, (EBPB_size - ebpbFSFlags) / 2
+	rep stosw
+		; initialise ebpbFSFlags (reinit), ebpbFSVersion,
+		; ebpbRootCluster (reinit), ebpbFSINFOSector, ebpbBackupSector,
+		; ebpbReserved
+
+.fat32:
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
 	push ax
