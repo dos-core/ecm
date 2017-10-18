@@ -554,6 +554,9 @@ ms7_entry:
 	mov ax, cs
 	add ax, (3 * 512) >> 4
 	mov word [bp + lsvLoadSeg], ax
+		; Actually it seems that the MS-DOS 7 loaders load 4 sectors
+		;  instead of only three (as the MS-DOS 6 loaders do).
+		;  However, we do not currently need (nor use) that.
 
 	jmp ldos_entry.ms7_common
 
