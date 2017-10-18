@@ -154,7 +154,7 @@ ms6_entry:
 		; This is the MS-DOS 6 / IBMDOS compatible entry point.
 		;  Note that this supports FAT32 for PC-DOS 7.10!
 		; cs:ip = 70h:0
-		; bx:ax = first data sector of first cluster,
+		; ax:bx = first data sector of first cluster,
 		;	including hidden sectors
 		; 0:7C00h-> boot sector with BPB,
 		;	    load unit field set, hidden sectors set
