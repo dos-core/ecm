@@ -165,23 +165,40 @@ ms6_entry:
 	cli
 	cld
 	push dx
-	inc bp		; undo signature instructions
+	; inc bp	; undo signature instructions
 
 	xor cx, cx
+
+		; Note: It has been observed that (FAT32 compatible) IBMBIO
+		;	 boot sector loaders pass the int 1Eh address on the
+		;	 stack (like MS-DOS 7 loading does). So we detect
+		;	 whether the first dword (far pointer to IVT entry)
+		;	 matches and then assume that the second dword has
+		;	 the original int 1Eh address.
+	mov di, 1Eh * 4	; -> IVT entry of int 1Eh
+	cmp dx, di	; int 1Eh address on stack ?
+	jne .dssi	; no -->
+	mov bp, sp
+	cmp word [bp + 2], cx	; segment 0 in next word ?
+	jne .dssi	; no -->
+	pop si
+	pop ds		; discard
+	pop si
+	pop ds		; get old int 1Eh address from stack
+.dssi:
+
 	mov es, cx
 	mov ss, cx
 	mov sp, 7C00h + LOADSTACKVARS
 	mov bp, 7C00h
 
-	mov word [es:1Eh * 4], si
-	mov word [es:1Eh * 4 + 2], ds
+	mov word [es:di], si
+	mov word [es:di + 2], ds	; restore old int 1Eh address
 
 	mov dx, word [es:500h + 26]
 	mov cx, word [es:500h + 20]
-	mov word [bp + lsvFirstCluster + 0], dx
-	mov word [bp + lsvFirstCluster + 2], cx
 
-	jmp ms6_continue
+	jmp ms6_continue1
 
 
 error:
@@ -843,6 +860,12 @@ skipped_all:
 	jmp short end_of_chain
 
 
+ms6_continue1:
+	mov word [bp + lsvFirstCluster + 0], dx
+	mov word [bp + lsvFirstCluster + 2], cx
+	jmp ms6_continue2
+
+
 %assign num 1024-($-$$)
 %warning iniload: num bytes in front of ldos_entry
 	_fill 1024,38,start
@@ -1154,7 +1177,7 @@ ldos_entry:
 	jmp finish_relocation
 
 
-ms6_continue:
+ms6_continue2:
 	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
 	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
 	mov word [bp + lsvDataStart + 0], bx
