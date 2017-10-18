@@ -846,25 +846,6 @@ skipped_all:
 	jnc load_next_clust
 	jmp short end_of_chain
 
-loaded_all.3stack:
-	pop ax
-	pop ax
-	pop ax
-loaded_all:
-	mov ax, cs
-	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
-	push ax
-%if _EXEC_OFFSET
-	mov ax, _EXEC_OFFSET
-%else
-	xor ax, ax
-%endif
-	push ax
-		; cs:ip = xxxxh:_EXEC_OFFSET
-		; entire payload loaded (payload -- payload.end)
-		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
-	retf
-
 
 %assign num 1024-($-$$)
 %warning iniload: num bytes in front of ldos_entry
@@ -1183,6 +1164,28 @@ ldos_entry:
 	_fill 1024+512,38,start
 	align 16, db 38
 end:
+
+		; This handling is in the second header part,
+		;  behind the needed part to finish loading.
+		;  It is only used when the file is completely loaded.
+loaded_all.3stack:
+	pop ax
+	pop ax
+	pop ax
+loaded_all:
+	mov ax, cs
+	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
+	push ax
+%if _EXEC_OFFSET
+	mov ax, _EXEC_OFFSET
+%else
+	xor ax, ax
+%endif
+	push ax
+		; cs:ip = xxxxh:_EXEC_OFFSET
+		; entire payload loaded (payload -- payload.end)
+		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
+	retf
 
 	align 16, db 38
 payload:
