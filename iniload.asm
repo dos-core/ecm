@@ -1047,9 +1047,8 @@ ldos_entry:
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
 	mov word [bp + bsBPB + ebpbFSFlags], cx
-	mov word [bp + bsBPB + ebpbRootCluster], cx
-	mov word [bp + bsBPB + ebpbRootCluster + 2], cx
-	; FSVersion, FSINFOSector, BackupSector, Reserved: uninitialised
+	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
+	;  uninitialised here (initialised by loaded_all later)
 
 	; dx:ax = total amount of sectors
 	sub ax, word [bp + lsvDataStart]
@@ -1184,8 +1183,8 @@ loaded_all:
 	mov cx, (EBPB_size - ebpbFSFlags) / 2
 	rep stosw
 		; initialise ebpbFSFlags (reinit), ebpbFSVersion,
-		; ebpbRootCluster (reinit), ebpbFSINFOSector, ebpbBackupSector,
-		; ebpbReserved
+		;  ebpbRootCluster, ebpbFSINFOSector, ebpbBackupSector,
+		;  ebpbReserved
 
 .fat32:
 	mov ax, cs
