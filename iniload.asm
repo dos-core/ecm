@@ -169,12 +169,12 @@ ms6_entry:
 
 	xor cx, cx
 
-		; Note: It has been observed that (FAT32 compatible) IBMBIO
+		; Note: It has been observed that some IBMBIO.COM / IO.SYS
 		;	 boot sector loaders pass the int 1Eh address on the
 		;	 stack (like MS-DOS 7 loading does). So we detect
 		;	 whether the first dword (far pointer to IVT entry)
 		;	 matches and then assume that the second dword has
-		;	 the original int 1Eh address.
+		;	 the original int 1Eh address. Else, ds:si is used.
 	mov di, 1Eh * 4	; -> IVT entry of int 1Eh
 	cmp dx, di	; int 1Eh address on stack ?
 	jne .dssi	; no -->
