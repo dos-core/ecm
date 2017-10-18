@@ -794,7 +794,7 @@ skip_next_sect:
 
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.3stack
+	jae ..@ae__loaded_all.3stack
 
 	mov cx, bx
 	add cx, [bp + ldParaPerSector]
@@ -833,6 +833,7 @@ load_next_sect:
 
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
+..@ae__loaded_all.3stack:
 	jae loaded_all.3stack
 skipped_all:
 	call read_sector
