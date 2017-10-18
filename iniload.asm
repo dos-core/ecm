@@ -181,11 +181,7 @@ ms6_entry:
 	mov word [bp + lsvFirstCluster + 0], dx
 	mov word [bp + lsvFirstCluster + 2], cx
 
-	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
-	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
-	mov word [bp + lsvDataStart + 0], bx
-	mov word [bp + lsvDataStart + 2], ax
-	jmp ms7_entry.ms6_common
+	jmp ms6_continue
 
 
 error:
@@ -1156,6 +1152,14 @@ ldos_entry:
 	inc ax		; ax => where to relocate to
 
 	jmp finish_relocation
+
+
+ms6_continue:
+	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
+	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
+	mov word [bp + lsvDataStart + 0], bx
+	mov word [bp + lsvDataStart + 2], ax
+	jmp ms7_entry.ms6_common
 
 
 %assign num 1024+512-($-$$)
