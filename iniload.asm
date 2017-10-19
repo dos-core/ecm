@@ -1238,6 +1238,15 @@ loaded_all:
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
 	retf
 
+
+%assign num 2046-($-$$)
+%warning iniload: num bytes in front of end2
+	_fill 2046,38,start
+	dw "MS"			; signature of MS-DOS 7 load
+	align 16, db 38
+end2:
+
+
 	align 16, db 38
 payload:
 	incbin _PAYLOAD_FILE
