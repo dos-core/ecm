@@ -521,31 +521,10 @@ ms7_entry:
 		; dwo [ss:sp + 4] = old int 1Eh address
 		; ss:bp -> boot sector with (E)BPB,
 		;	    load unit field set, hidden sectors set
-	inc dx
-	dec dx		; "BJ" FAT32 support signature
-	cli
-	cld
-
-	pop di
-	pop es
-	pop word [es:di]
-	pop word [es:di + 2]
-
-	mov ax, sp
-	lea bx, [bp + LOADSTACKVARS]
-	cmp ax, bx
-	jbe @F
-	mov sp, bx
-@@:
-	mov word [bp + lsvFirstCluster + 0], di
-	mov word [bp + lsvFirstCluster + 2], si
-
-	mov ax, word [bp + bsBPB + bpbHiddenSectors + 0]
-	mov dx, word [bp + bsBPB + bpbHiddenSectors + 2]
-	sub word [bp + lsvDataStart + 0], ax
-	sbb word [bp + lsvDataStart + 2], dx
+	jmp .continue
 
 .ms6_common:
+.continue2:
 	mov ax, -1
 	mov word [bp + lsvFATSector + 0], ax
 	mov word [bp + lsvFATSector + 2], ax
@@ -1193,6 +1172,34 @@ ms6_continue2:
 	_fill 1024+512,38,start
 	align 16, db 38
 end:
+
+
+ms7_entry.continue:
+	inc dx
+	dec dx		; "BJ" FAT32 support signature
+	cli
+	cld
+
+	pop di
+	pop es
+	pop word [es:di]
+	pop word [es:di + 2]
+
+	mov ax, sp
+	lea bx, [bp + LOADSTACKVARS]
+	cmp ax, bx
+	jbe @F
+	mov sp, bx
+@@:
+	mov word [bp + lsvFirstCluster + 0], di
+	mov word [bp + lsvFirstCluster + 2], si
+
+	mov ax, word [bp + bsBPB + bpbHiddenSectors + 0]
+	mov dx, word [bp + bsBPB + bpbHiddenSectors + 2]
+	sub word [bp + lsvDataStart + 0], ax
+	sbb word [bp + lsvDataStart + 2], dx
+
+	jmp ms7_entry.continue2
 
 		; This handling is in the second header part,
 		;  behind the needed part to finish loading.
