@@ -524,15 +524,15 @@ ms7_entry:
 	jmp .continue
 
 .ms6_common:
+	mov ax, cs
+	add ax, (3 * 512) >> 4
 .continue2:
+	mov word [bp + lsvLoadSeg], ax
 	mov ax, -1
 	mov word [bp + lsvFATSector + 0], ax
 	mov word [bp + lsvFATSector + 2], ax
 	inc ax
 	mov word [bp + lsvFATSeg], ax
-	mov ax, cs
-	add ax, (3 * 512) >> 4
-	mov word [bp + lsvLoadSeg], ax
 		; Actually it seems that the MS-DOS 7 loaders load 4 sectors
 		;  instead of only three (as the MS-DOS 6 loaders do).
 		;  However, we do not currently need (nor use) that.
@@ -1198,6 +1198,9 @@ ms7_entry.continue:
 	mov dx, word [bp + bsBPB + bpbHiddenSectors + 2]
 	sub word [bp + lsvDataStart + 0], ax
 	sbb word [bp + lsvDataStart + 2], dx
+
+	mov ax, cs
+	add ax, (4 * 512) >> 4
 
 	jmp ms7_entry.continue2
 
