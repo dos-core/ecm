@@ -879,6 +879,7 @@ ldos_entry:
 
 .ms7_common:
 
+	mov ax, cs
 	mov cx, word [bp + lsvLoadSeg]
 	sub cx, ax
 	cmp cx, (end -$$+0) >> 4
@@ -888,7 +889,6 @@ ldos_entry:
 @@:
 
 	mov cx, word [bp + lsvLoadSeg]
-	mov ax, cs
 	sub cx, ax
 	mov bx, (payload.end -$$+0) >> 4
 	cmp cx, bx
