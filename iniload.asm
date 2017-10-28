@@ -694,6 +694,9 @@ check_clust:
 
 
 finish_relocation:
+	push es
+	push di		; dword on stack: relocator destination
+
 	mov ds, bx	; ds => unrelocated cs
 	inc ax		; ax => where to relocate to
 	mov si, relocator	; ds:si -> relocator
@@ -1162,8 +1165,6 @@ ldos_entry:
 	jb error_outofmemory
 	mov es, ax
 	xor di, di	; es:di -> where to put relocator
-	push es
-	push di		; dword on stack: relocator destination
 
 	jmp finish_relocation
 
