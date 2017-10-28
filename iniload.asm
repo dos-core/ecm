@@ -542,7 +542,7 @@ ms7_entry:
 
 		; Actually it seems that the MS-DOS 7 loaders load 4 sectors
 		;  instead of only three (as the MS-DOS 6 loaders do).
-		;  However, we do not currently need (nor use) that.
+		;  We use this to store specific handling in that last sector.
 
 	jmp ldos_entry.ms7_common
 
