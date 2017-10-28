@@ -683,7 +683,7 @@ found_it:
 
 %if !_FAT16
 ; Load the entire FAT into memory. This is easily feasible for FAT12,
-;  as the FAT can only contain less than 4096 entries.
+;  as the FAT can only contain at most 4096 entries.
 ; (The exact condition should be "at most 4087 entries", or with a
 ;  specific FF7h semantic, "at most 4088 entries"; the more reliable
 ;  and portable alternative would be "at most 4080 entries".)
