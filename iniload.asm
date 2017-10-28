@@ -924,7 +924,9 @@ ldos_entry:
 	xchg ax, dx
 %endif
 	push ax
-	sub ax, 32 >> 4	; make space for two MCBs: top MCB, RPL MCB
+	; sub ax, 32 >> 4	; make space for two MCBs: top MCB, RPL MCB
+	dec ax
+	dec ax
 	mov cx, ax
 	sub ax, (8192) >> 4
 	dec cx		; => last paragraph of higher buffer
