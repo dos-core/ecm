@@ -681,13 +681,11 @@ check_clust:
 	cmp ax, 0FF7h - 2
 	jmp short .common
 
-.fat16:
-	cmp ax, 0FFF7h - 2
-	jmp short .common
-
 .fat32:
 	cmp dx, 0FFFh
 	jb @F		; CY here means valid ...-
+
+.fat16:
 	cmp ax, 0FFF7h - 2
 @@:			;  -... or if NC first, CY here also
 .common:
