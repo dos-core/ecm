@@ -521,6 +521,11 @@ ms7_entry:
 		; dwo [ss:sp + 4] = old int 1Eh address
 		; ss:bp -> boot sector with (E)BPB,
 		;	    load unit field set, hidden sectors set
+	inc dx
+	dec dx		; "BJ" FAT32 support signature
+	cli
+	cld
+
 	jmp .continue
 
 .ms6_common:
@@ -1175,11 +1180,6 @@ end:
 
 
 ms7_entry.continue:
-	inc dx
-	dec dx		; "BJ" FAT32 support signature
-	cli
-	cld
-
 	pop bx
 	pop es
 	pop word [es:bx]
