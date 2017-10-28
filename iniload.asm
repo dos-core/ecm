@@ -985,6 +985,7 @@ ldos_entry:
 	mov sp, 512	; -> above end of stack space
 	mov bp, 512 - LOADDATA	; -> BPB, above end of lsv
 	dec cx		; => space for stack + BPB buffer MCB
+	sti
 
 		; ax => sector buffer
 		; bx => FAT buffer
