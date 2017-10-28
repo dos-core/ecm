@@ -1196,9 +1196,8 @@ ms7_entry.continue:
 	pop word [es:bx]
 	pop word [es:bx + 2]
 
-	mov ax, sp
 	lea bx, [bp + LOADSTACKVARS]
-	cmp ax, bx
+	cmp sp, bx
 	jbe @F
 	mov sp, bx
 @@:
