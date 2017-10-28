@@ -694,6 +694,8 @@ check_clust:
 
 
 finish_relocation:
+	mov ds, bx	; ds => unrelocated cs
+	inc ax		; ax => where to relocate to
 	mov si, relocator	; ds:si -> relocator
 	mov cx, 8
 	rep movsw	; move 16 bytes
@@ -1162,8 +1164,6 @@ ldos_entry:
 	xor di, di	; es:di -> where to put relocator
 	push es
 	push di		; dword on stack: relocator destination
-	mov ds, bx	; ds => unrelocated cs
-	inc ax		; ax => where to relocate to
 
 	jmp finish_relocation
 
