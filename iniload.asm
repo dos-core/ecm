@@ -878,6 +878,15 @@ ldos_entry:
 		; dwo [ss:bp - 16] = first_cluster (FAT32)
 
 .ms7_common:
+
+	mov cx, word [bp + lsvLoadSeg]
+	sub cx, ax
+	cmp cx, (end -$$+0) >> 4
+	jae @F
+	call error
+	db "Initial loader not fully loaded.", 0
+@@:
+
 	mov bx, word [bp + lsvLoadSeg]
 	mov ax, cs
 	sub bx, ax
@@ -886,14 +895,6 @@ ldos_entry:
 	jbe @F
 	add cx, ax
 	mov word [bp + lsvLoadSeg], cx
-@@:
-	mov cx, word [bp + lsvLoadSeg]
-	sub cx, ax
-	cmp cx, (end -$$+0) >> 4
-	jae @F
-	call error
-	db "Initial loader not fully loaded.", 0
-
 @@:
 
 
