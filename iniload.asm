@@ -533,11 +533,13 @@ ms7_entry:
 	add ax, (3 * 512) >> 4
 .continue2:
 	mov word [bp + lsvLoadSeg], ax
-	mov ax, -1
+
+	xor ax, ax
+	mov word [bp + lsvFATSeg], ax	; initialise to zero (for FAT12)
+	dec ax
 	mov word [bp + lsvFATSector + 0], ax
-	mov word [bp + lsvFATSector + 2], ax
-	inc ax
-	mov word [bp + lsvFATSeg], ax
+	mov word [bp + lsvFATSector + 2], ax	; initialise to -1
+
 		; Actually it seems that the MS-DOS 7 loaders load 4 sectors
 		;  instead of only three (as the MS-DOS 6 loaders do).
 		;  However, we do not currently need (nor use) that.
