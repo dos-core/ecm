@@ -888,8 +888,6 @@ ldos_entry:
 	db "Initial loader not fully loaded.", 0
 @@:
 
-	mov cx, word [bp + lsvLoadSeg]
-	sub cx, ax
 	mov bx, (payload.end -$$+0) >> 4
 	cmp cx, bx
 	jbe @F
