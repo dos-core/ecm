@@ -1156,6 +1156,7 @@ ldos_entry:
 	jbe finish_load
 
 	push ax
+	neg ax
 	add ax, bx	; ax = cs - paras to move down
 	mov di, relocate_to
 	push ax
