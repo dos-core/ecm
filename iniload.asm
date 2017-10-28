@@ -1043,11 +1043,13 @@ ldos_entry:
 	jnz @F
 	mov dx, [bp + bsBPB + bpbTotalSectorsLarge + 2]
 	mov ax, [bp + bsBPB + bpbTotalSectorsLarge]
-	jmp short @FF
+
+		; fall through and let it overwrite the field with the
+		; already current contents. saves a jump.
 @@:
 	mov [bp + bsBPB + bpbTotalSectorsLarge + 2], dx
 	mov [bp + bsBPB + bpbTotalSectorsLarge], ax
-@@:
+
 	; dx:ax = total sectors
 
 	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
