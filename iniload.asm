@@ -1180,10 +1180,10 @@ ms7_entry.continue:
 	cli
 	cld
 
-	pop di
+	pop bx
 	pop es
-	pop word [es:di]
-	pop word [es:di + 2]
+	pop word [es:bx]
+	pop word [es:bx + 2]
 
 	mov ax, sp
 	lea bx, [bp + LOADSTACKVARS]
