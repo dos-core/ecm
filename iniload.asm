@@ -1160,15 +1160,19 @@ ldos_entry:
 	push ax
 	neg ax
 	add ax, bx	; ax = cs - paras to move down
+	jnc .error_outofmemory2
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
 	dec ax		; one less to allow relocator
 	cmp ax, 60h
-	jb error_outofmemory
+	jb .error_outofmemory2
 	mov es, ax
 
 	jmp finish_relocation
+
+.error_outofmemory2:
+	jmp error_outofmemory
 
 
 ms6_continue2:
