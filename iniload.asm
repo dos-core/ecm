@@ -769,7 +769,7 @@ relocate_to:
 		; lsvLoadSeg => after last loaded fragment
 		; ldLoadTop => after last available memory
 		; ldParaPerSector = initialised
-		; word [ss:sp] = payload.end in paras rounded up to sector size
+		; word [ss:sp] = payload.end in paras
 finish_load:
 	mov ax, cs
 	mov word [bp + ldLoadingSeg], ax
@@ -779,10 +779,6 @@ finish_load:
 	add ax, bx
 	mov word [bp + ldLoadUntilSeg], ax
 		; ldLoadUntilSeg => after last to-be-loaded paragraph
-
-	cmp ax, word [bp + ldLoadTop]
-	ja error_outofmemory
-		; shouldn't happen, but to be sure ...-
 
 	mov ax, [bp + lsvFirstCluster]
 	mov dx, [bp + lsvFirstCluster + 2]
@@ -888,7 +884,7 @@ ldos_entry:
 	db "Initial loader not fully loaded.", 0
 @@:
 
-	mov bx, (payload.end -$$+0) >> 4
+	mov bx, (payload.end -$$+0 +15) >> 4
 	cmp cx, bx
 	jbe @F
 	add bx, ax
@@ -1146,15 +1142,16 @@ ldos_entry:
 	pop ax
 @@:
 
-	mov ax, (payload.end -$$+0) >> 4
+	mov ax, (payload.end -$$+0 +15) >> 4
+	push ax
+		; on stack: payload.end in paragraphs
 	mov bx, [bp + ldParaPerSector]
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
 	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
-		; ((payload.end -$$+0) >> 4 + pps - 1) & ~ (pps - 1)
-	push ax
-		; on stack: payload.end in paragraphs rounded up to sector size
+		; ((payload.end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
+
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
