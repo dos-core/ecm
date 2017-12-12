@@ -522,11 +522,11 @@ ms7_entry:
 		; ss:bp -> boot sector with (E)BPB,
 		;	    load unit field set, hidden sectors set
 	inc dx
-	dec dx		; "BJ" FAT32 support signature
+	dec dx		; "BJ" signature (apparently not about FAT32 support)
 	cli
 	cld
 
-	jmp .continue
+	jmp .continue	; jump to handler above 600h (sector loads 800h bytes)
 
 .ms6_common:
 	mov ax, cs
