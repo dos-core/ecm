@@ -228,6 +228,9 @@ msg:
 query_geometry:
 %if _QUERY_GEOMETRY	; +30 bytes
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+ %if !_LBA_SKIP_CHECK
+	push dx
+ %endif
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -249,7 +252,11 @@ query_geometry:
 
 %if !_LBA_SKIP_CHECK
 	mov ah, 41h
+ %if _QUERY_GEOMETRY
+	pop dx
+ %else
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+ %endif
 	mov bx, 55AAh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
