@@ -1046,12 +1046,10 @@ ldos_entry:
 	; dx:ax = total sectors
 
 	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
-	test bx, bx
-	jnz .fat_not_32
 	mov byte [bp + ldFATType], 32
-	jmp .got_fat_type
+	test bx, bx
+	jz .got_fat_type
 
-.fat_not_32:
 	lea si, [bp + bsBPB + bpbNew]
 	lea di, [bp + bsBPB + ebpbNew]
 	mov cx, (BPBN_size + 1) >> 1
