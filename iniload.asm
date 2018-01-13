@@ -564,6 +564,7 @@ clust_to_first_sector:
 	jnz error_badchain
 	xchg dx, ax
 	add dx, cx
+	jc error_badchain
 	xchg ax, bx
 
 	add ax, [bp + lsvDataStart]
