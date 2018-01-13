@@ -195,9 +195,6 @@ ms6_entry:
 	mov word [es:di], si
 	mov word [es:di + 2], ds	; restore old int 1Eh address
 
-	mov dx, word [es:500h + 26]
-	mov cx, word [es:500h + 20]
-
 	jmp ms6_continue1
 
 
@@ -223,8 +220,6 @@ disp_error:
 	int 10h
 	pop bp
 	jmp short .
-.ret:
-	retn
 
 msg:
 .error:	db "Load error: ", 0
@@ -269,7 +264,8 @@ query_geometry:
 	mov byte [bp + ldHasLBA], al
 %endif
 
-%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
+%if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
+disp_error.ret:
 	retn
 %endif
 
@@ -864,6 +860,9 @@ skipped_all:
 
 
 ms6_continue1:
+	mov dx, word [es:500h + 26]
+	mov cx, word [es:500h + 20]
+
 	mov word [bp + lsvFirstCluster + 0], dx
 	mov word [bp + lsvFirstCluster + 2], cx
 	jmp ms6_continue2
