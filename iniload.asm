@@ -101,7 +101,7 @@ ldMemoryTop:	resw 1
 ldLoadTop:	resw 1
 ldSectorSeg:	resw 1
 ldFATType:	resb 1
-		resb 1
+ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
 ldLoadingSeg:	resw 1
@@ -230,8 +230,8 @@ msg:
 .error:	db "Load error: ", 0
 
 
-%if _QUERY_GEOMETRY	; +30 bytes
 query_geometry:
+%if _QUERY_GEOMETRY	; +30 bytes
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
@@ -250,8 +250,29 @@ query_geometry:
 	inc cx			; cx = number of heads (H is 0-based)
 	mov [bp + bsBPB + bpbCHSHeads], cx
 @@:
+%endif
+
+%if !_LBA_SKIP_CHECK
+	mov ah, 41h
+	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+	mov bx, 55AAh
+	stc
+	int 13h		; 13.41.bx=55AA extensions installation check
+	mov al, 0	; zero in case of no LBA support
+	jc .no_lba
+	cmp bx, 0AA55h
+	jne .no_lba
+	test cl, 1	; support bitmap bit 0
+	jz .no_lba
+	inc ax		; al = 1 to indicate LBA support
+.no_lba:
+	mov byte [bp + ldHasLBA], al
+%endif
+
+%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	retn
 %endif
+
 
 		; Read a sector using Int13.02 or Int13.42
 		;
@@ -296,20 +317,11 @@ read_sector:
 	push cx		; word size of disk address packet
 	mov si, sp	; ds:si -> disk address packet (on stack)
 
- %if _LBA_SKIP_CHECK		; -14 bytes
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
- %else
-	mov ah, 41h
-	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
-	mov bx, 55AAh
-	stc
-	int 13h		; 13.41.bx=55AA extensions installation check
-	jc .no_lba
-	cmp bx, 0AA55h
-	jne .no_lba
-	test cl, 1	; support bitmap bit 0
+%if !_LBA_SKIP_CHECK
+	test byte [bp + ldHasLBA], 1
 	jz .no_lba
- %endif
+%endif
 
 %if _LBA_RETRY
 	mov ah, 42h
@@ -1092,7 +1104,7 @@ ldos_entry:
 	ja .got_fat_type
 
 	mov byte [bp + ldFATType], 12
-%if _QUERY_GEOMETRY
+%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	call query_geometry
 		; do it here because loading the FAT uses the geometry.
 		; however, the ebpbNew BPBN needs to be initialised.
@@ -1135,7 +1147,7 @@ ldos_entry:
 .got_fat12:
 	jmp short @F
 .got_fat_type:
-%if _QUERY_GEOMETRY
+%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	call query_geometry
 %endif
 	pop ax
