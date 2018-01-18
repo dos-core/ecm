@@ -326,20 +326,14 @@ read_sector:
 	jz .no_lba
 %endif
 
+	mov ah, 42h	; 13.42 extensions read
 %if _LBA_RETRY
-	mov ah, 42h
-	int 13h		; 13.42 extensions read
-	jnc .lba_done
-
-	xor ax, ax
+	call .int13_retry
+%else
 	int 13h
-	jc .lba_error
 %endif
-
-	mov ah, 42h
-	int 13h
-
 	jnc .lba_done
+
 %if _LBA_SKIP_CHECK
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
@@ -353,19 +347,13 @@ read_sector:
 	 pop word [si + 4 + 2]
 	; and word [si + 4 + 0], byte 0
 
+	mov ah, 42h
 %if _LBA_RETRY
-	mov ah, 42h
+	call .int13_retry
+%else
 	int 13h
-	jnc .lba_sectorseg_done
-
-	xor ax, ax
-	int 13h
-	jc .lba_error
 %endif
-	mov ah, 42h
-	int 13h
 	jc .lba_error
-.lba_sectorseg_done:
 
 	pop es
 	; pop cx
@@ -432,38 +420,28 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 			pop es
+
+			mov ax, 0201h	; read one sector
 %if _CHS_RETRY
-			mov ax, 0201h
-			int 13h		; read one sector
-			jnc .done
-; reset drive
-			xor ax, ax
+			call .int13_retry
+%else
 			int 13h
-			jc .err
 %endif
-; try read again
-			mov ax, 0201h
-			int 13h
-	jnc .done
+			jnc .done
+
 	cmp ah, 9	; data boundary error?
 	jne .err
 
 	push es		; user buffer
 	 mov es, word [bp + ldSectorSeg]
 
+	mov ax, 0201h
 %if _CHS_RETRY
-	mov ax, 0201h
+	call .int13_retry
+%else
 	int 13h
-	jnc .chs_sectorseg_done
-
-	xor ax, ax
-	int 13h
-	jc .err
 %endif
-	mov ax, 0201h
-	int 13h
 	jc .err
-.chs_sectorseg_done:
 
 	pop es
 	call .sectorseg_helper
@@ -488,6 +466,28 @@ read_sector:
 @@:
 	retn
 
+
+%if _LBA_RETRY || _CHS_RETRY
+.int13_retry:
+	push ax
+	int 13h		; first try
+	jnc @F		; NC, success on first attempt -->
+
+; reset drive
+	xor ax, ax
+	int 13h
+	jc @F		; CY, reset failed, error in ah -->
+
+; try read again
+	pop ax		; restore function number
+	int 13h		; retry, CF error status, ah error number
+	retn
+
+@@:			; NC or CY, stack has function number
+	inc sp
+	inc sp		; discard word on stack, preserve CF
+	retn
+%endif
 
 .sectorseg_helper:
 	xor si, si
