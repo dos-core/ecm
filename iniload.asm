@@ -367,19 +367,10 @@ read_sector:
 	jc .lba_error
 .lba_sectorseg_done:
 
-	xor si, si
-	mov ds, word [bp + ldSectorSeg]
 	pop es
 	; pop cx
-	 push di
-	; mov di, cx
-	xor di, di
-	mov cx, word [bp + bsBPB + bpbBytesPerSector]
-	rep movsb
-	 pop di
+	call .sectorseg_helper
 
-	push ss
-	pop ds
 .lba_done:
 	add sp, 10h
 	pop bx
@@ -474,17 +465,9 @@ read_sector:
 	jc .err
 .chs_sectorseg_done:
 
-	xor si, si
-	mov ds, word [bp + ldSectorSeg]
 	pop es
-	 push di
-	xor di, di
-	mov cx, word [bp + bsBPB + bpbBytesPerSector]
-	rep movsb
-	 pop di
+	call .sectorseg_helper
 
-	push ss
-	pop ds
 .done:
 ; increment segment
 	mov bx, es
@@ -503,6 +486,21 @@ read_sector:
 	jne @F
 	inc dx
 @@:
+	retn
+
+
+.sectorseg_helper:
+	xor si, si
+	mov ds, word [bp + ldSectorSeg]
+	 push di
+	; mov di, cx
+	xor di, di
+	mov cx, word [bp + bsBPB + bpbBytesPerSector]
+	rep movsb
+	 pop di
+
+	push ss
+	pop ds
 	retn
 
 .err:
