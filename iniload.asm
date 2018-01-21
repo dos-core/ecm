@@ -165,7 +165,12 @@ ms6_entry:
 	cli
 	cld
 	push dx
-	; inc bp	; undo signature instructions
+	inc bp		; undo signature instructions
+
+	push cs
+	pop cx
+	cmp cx, 60h
+	je freedos_entry
 
 	xor cx, cx
 
@@ -785,14 +790,19 @@ relocate_to:
 		; ldParaPerSector = initialised
 		; word [ss:sp] = payload.end in paras
 finish_load:
-	mov ax, cs
-	mov word [bp + ldLoadingSeg], ax
-
 	pop ax
 	mov bx, cs
 	add ax, bx
 	mov word [bp + ldLoadUntilSeg], ax
 		; ldLoadUntilSeg => after last to-be-loaded paragraph
+
+	mov bx, word [bp + lsvLoadSeg]
+	mov word [bp + ldLoadingSeg], bx
+	cmp bx, ax
+	jae loaded_all		; (for FreeDOS entrypoint) already loaded -->
+
+	mov ax, cs
+	mov word [bp + ldLoadingSeg], ax
 
 	mov ax, [bp + lsvFirstCluster]
 	mov dx, [bp + lsvFirstCluster + 2]
@@ -884,11 +894,14 @@ ldos_entry:
 		; dwo [ss:bp - 4] = first data sector (without hidden sectors)
 		; wo [ss:bp - 6] = load_seg, => after last loaded data
 		; wo [ss:bp - 8] = fat_seg, 0 if invalid
+		;  initialised to 0 by MS-DOS 6, 7, FreeDOS entrypoints
 		;  fat_sector is not used for FAT12 !
 		; wo [ss:bp - 12] = fat_sector, -1 if none (FAT16)
 		; dwo [ss:bp - 12] = fat_sector, -1 if none (FAT32)
+		;  initialised to -1 by MS-DOS 6, 7, FreeDOS entrypoints
 		; wo [ss:bp - 16] = first_cluster (FAT16, FAT12)
 		; dwo [ss:bp - 16] = first_cluster (FAT32)
+		;  initialised to 0 by FreeDOS entrypoint
 
 .ms7_common:
 
@@ -1265,6 +1278,106 @@ loaded_all:
 		; entire payload loaded (payload -- payload.end)
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
 	retf
+
+
+freedos_entry:
+		; This is the FreeDOS compatible entry point.
+		;  Supports FAT32 too.
+		; cs:ip = 60h:0
+		; whole load file loaded
+		; first cluster of load file: not given!
+		; first data sector: not given!
+		; int 1Eh not modified, original address: not given!
+		; bl = load unit (not used by us)
+		; ss:bp -> boot sector with (E)BPB,
+		;	    load unit field set, hidden sectors set
+		;  (usually at 1FE0h:7C00h)
+
+	lea bx, [bp + LOADSTACKVARS]
+	cmp sp, bx
+	jbe @F
+	mov sp, bx
+@@:
+
+	xor cx, cx			; ! ch = 0
+	mov word [bp + lsvFirstCluster + 0], cx
+	mov word [bp + lsvFirstCluster + 2], cx
+
+		; Although this currently is unused, we calculate the
+		;  first data sector (including root directory size)
+		;  here to complete the LOADSTACKVARS.
+
+; 16-byte paragraphs per sector
+	mov ax, [bp + bsBPB + bpbBytesPerSector]
+	mov cl, 4			; ! ch = 0
+	shr ax, cl
+	mov [bp + ldParaPerSector], ax
+
+; 32-byte FAT directory entries per sector
+	shr ax, 1			; /2 = 32-byte entries per sector
+
+; number of sectors used for root directory (store in CX)
+	xor dx, dx
+	mov si, [bp + bsBPB + bpbNumRootDirEnts]	; (0 iff FAT32)
+	mov bx, ax
+	dec ax				; rounding up
+	add ax, si			; from BPB
+	adc dx, dx			; account for overflow (dx was zero)
+	div bx				; get number of root sectors
+	xchg ax, cx			; cx = number of root secs, ! ah = 0
+
+	push cx				; number of root secs
+; first sector of root directory
+	mov al, [bp + bsBPB + bpbNumFATs]		; ! ah = 0, hence ax = number of FATs
+	mov cx, word [bp + bsBPB + bpbSectorsPerFAT]
+	xor di, di			; di:cx = sectors per FAT
+					;  iff FAT12, FAT16
+	test cx, cx			; is FAT32 ?
+	jnz @F				; no -->
+	mov cx, word [bp + bsBPB + ebpbSectorsPerFATLarge]
+	mov di, word [bp + bsBPB + ebpbSectorsPerFATLarge + 2]	; for FAT32
+@@:
+	push ax
+	mul cx
+		; ax = low word SpF*nF
+		; dx = high word
+	xchg bx, ax
+	xchg cx, dx
+		; cx:bx = first mul
+	pop ax
+	mul di
+		; ax = high word adjust
+		; dx = third word
+	test dx, dx
+	jnz .error_badchain
+	xchg dx, ax
+		; dx = high word adjust
+	add dx, cx
+		; dx:bx = result
+	xchg ax, bx
+		; dx:ax = result
+	jc .error_badchain
+
+	add ax, [bp + bsBPB + bpbReservedSectors]
+	adc dx, byte 0
+	jc .error_badchain
+
+	pop cx				; number of root sectors
+	xor di, di
+
+; first sector of disk data area:
+	add cx, ax
+	adc di, dx
+	mov [bp + lsvDataStart], cx
+	mov [bp + lsvDataStart + 2], di
+
+	mov ax, cs
+	add ax, (payload.end -$$+0 +15) >> 4
+
+	jmp ms7_entry.continue2
+
+.error_badchain:
+	jmp error_badchain
 
 
 %assign num 2046-($-$$)
