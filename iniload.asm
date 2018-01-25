@@ -167,8 +167,7 @@ ms6_entry:
 	push dx
 	inc bp		; undo signature instructions
 
-	push cs
-	pop cx
+	mov cx, cs
 	cmp cx, 60h
 	je freedos_entry
 
@@ -801,8 +800,7 @@ finish_load:
 	cmp bx, ax
 	jae loaded_all		; (for FreeDOS entrypoint) already loaded -->
 
-	mov ax, cs
-	mov word [bp + ldLoadingSeg], ax
+	mov word [bp + ldLoadingSeg], cs
 
 	mov ax, [bp + lsvFirstCluster]
 	mov dx, [bp + lsvFirstCluster + 2]
