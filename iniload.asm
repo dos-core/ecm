@@ -1190,9 +1190,9 @@ ldos_entry:
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
-	dec ax		; one less to allow relocator
-	cmp ax, 60h
+	cmp ax, 60h + 1
 	jb .error_outofmemory2
+	dec ax		; one less to allow relocator
 	mov es, ax
 
 	jmp finish_relocation
