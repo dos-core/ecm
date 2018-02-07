@@ -55,6 +55,26 @@ bpbnVolumeLabel:	resb 11	; 07h 20h 2Bh 3Ch 47h
 bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	endstruc		; 1Ah 33h 3Eh 4Fh 5Ah
 
+	struc LOADSTACKVARS, -10h
+lsvFirstCluster:	resd 1
+lsvFATSector:		resd 1
+lsvFATSeg:		resw 1
+lsvLoadSeg:		resw 1
+lsvDataStart:		resd 1
+	endstruc
+
+	struc LOADDATA, LOADSTACKVARS - 10h
+ldMemoryTop:	resw 1
+ldLoadTop:	resw 1
+ldSectorSeg:	resw 1
+ldFATType:	resb 1
+ldHasLBA:	resb 1
+ldClusterSize:	resw 1
+ldParaPerSector:resw 1
+ldLoadingSeg:	resw 1
+ldLoadUntilSeg:	resw 1
+	endstruc
+
 
 %ifndef _MAP
 %elifstr _MAP
@@ -86,27 +106,6 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
 %endif
-
-
-	struc LOADSTACKVARS, -10h
-lsvFirstCluster:	resd 1
-lsvFATSector:		resd 1
-lsvFATSeg:		resw 1
-lsvLoadSeg:		resw 1
-lsvDataStart:		resd 1
-	endstruc
-
-	struc LOADDATA, LOADSTACKVARS - 10h
-ldMemoryTop:	resw 1
-ldLoadTop:	resw 1
-ldSectorSeg:	resw 1
-ldFATType:	resb 1
-ldHasLBA:	resb 1
-ldClusterSize:	resw 1
-ldParaPerSector:resw 1
-ldLoadingSeg:	resw 1
-ldLoadUntilSeg:	resw 1
-	endstruc
 
 
 	cpu 8086
