@@ -25,6 +25,9 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	cpu 8086
 	org 0
 payload:
+		; S0 +28
+	pushf	; +26
+
 	cmp word [cs:signature], 2638h
 	je .sig1_valid
 .sig_invalid:
@@ -81,7 +84,7 @@ disp_al:
 
 sig_valid:
 		; S0 +28
-	pushf	; +26
+;	pushf	; +26
 	sti
 	cld
 	push ax	; +24
@@ -160,7 +163,7 @@ disp_al_lownibble_hex:
 		retn
 
 
-	align 2
+	align 4
 table:
 	dw  +0, "SS"
 	dw +12, "BP"
