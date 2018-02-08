@@ -1185,10 +1185,10 @@ found_it:
 		loop @B
 			; dl:ax:bx = size in paragraphs
 		or al, dl
-		mov dx, 0FFFFh
-		test ax, ax		; > 0FFFFh
-		jz @F			; take 0FFFFh
 		mov dx, bx		; size in paragraphs
+		test ax, ax		; > 0FFFFh ?
+		jz @F			; no, take actual size -->
+		mov dx, 0FFFFh		; clamp to 0FFFFh
 @@:
 		mov word [VAR(paras_left)], dx
 
