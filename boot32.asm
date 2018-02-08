@@ -1173,10 +1173,12 @@ found_it:
 		shr dh, 1
 		or dl, dh		; dl:ax:bx = file size
 		mov cx, [VAR(bytes_per_sector)]
-		dec cx
+		dec cx			; BpS - 1
 		add bx, cx
 		adc ax, 0
 		adc dl, 0		; round up to next sector
+		not cx			; ~ (BpS - 1)
+		and bx, cx		; mask to limit to rounded-up sector
 		mov cx, 4
 @@:
 		shr dl, 1
