@@ -773,6 +773,11 @@ read_sector:
 	xor ax, ax
 	int 13h
 	jc .lba_error
+
+		; have to reset the LBAPACKET's lpCount, as the handler may
+		;  set it to "the number of blocks successfully transferred".
+		; (in any case, the high byte is still zero.)
+	mov byte [si + 2], 1
 %endif
 
 	mov ah, 42h
