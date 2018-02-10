@@ -477,10 +477,14 @@ read_sector:
 	retn
 
 
-%if _LBA_RETRY || _CHS_RETRY
+%if (_LBA && _LBA_RETRY) || (_CHS && _CHS_RETRY)
 .int13_retry:
 	push ax
+%if _LBA
+	call .int13_preserve_lpcount
+%else
 	int 13h		; first try
+%endif
 	jnc @F		; NC, success on first attempt -->
 
 ; reset drive
@@ -490,13 +494,31 @@ read_sector:
 
 ; try read again
 	pop ax		; restore function number
+%if _LBA
+	call .int13_preserve_lpcount
+%else
 	int 13h		; retry, CF error status, ah error number
+%endif
 	retn
 
 @@:			; NC or CY, stack has function number
 	inc sp
 	inc sp		; discard word on stack, preserve CF
 	retn
+
+%if _LBA
+		; have to reset the LBAPACKET's lpCount, as the handler may
+		;  set it to "the number of blocks successfully transferred".
+
+		; hack: si points into unclaimed stack space
+		;  when this is called from the CHS handler.
+		;  this should not cause any issues however.
+.int13_preserve_lpcount:
+	push word [si + lpCount]
+	int 13h
+	pop word [si + lpCount]
+	retn
+%endif
 %endif
 
 .sectorseg_helper:
