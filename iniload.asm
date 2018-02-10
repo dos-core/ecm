@@ -321,13 +321,13 @@ read_sector:
 	push cx
 	push cx
 	push dx
-	push ax		; qword sector number
+	push ax		; qword sector number (lpSector)
 	push bx
-	push cx		; bx:0 -> buffer
+	push cx		; bx:0 -> buffer (lpBuffer)
 	inc cx
-	push cx		; word number of sectors to read
+	push cx		; word number of sectors to read (lpCount)
 	mov cl, 10h
-	push cx		; word size of disk address packet
+	push cx		; word size of disk address packet (lpSize)
 	mov si, sp	; ds:si -> disk address packet (on stack)
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
