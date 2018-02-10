@@ -1002,7 +1002,6 @@ read_sector:
 
 	xor ax, ax
 	int 13h
-	jc .lba_error
 %endif
 
 	mov ah, 42h
@@ -1086,7 +1085,6 @@ read_sector:
 ; reset drive
 			xor ax, ax
 			int 13h
-			jc .err
 %endif
 ; try read again
 			mov ax, 0201h
