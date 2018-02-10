@@ -75,6 +75,13 @@ ldLoadingSeg:	resw 1
 ldLoadUntilSeg:	resw 1
 	endstruc
 
+	struc LBAPACKET
+lpSize:		resw 1
+lpCount:	resw 1
+lpBuffer:	resd 1
+lpSector:	resq 1
+	endstruc
+
 
 %ifndef _MAP
 %elifstr _MAP
