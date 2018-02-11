@@ -340,7 +340,7 @@ read_sector:
 %if _LBA_RETRY
 	call .int13_retry
 %else
-	int 13h
+	call .int13_preserve_lpcount
 %endif
 	jnc .lba_done
 
@@ -362,6 +362,7 @@ read_sector:
 	call .int13_retry
 %else
 	int 13h
+		; (don't need .int13_preserve_lpcount as no further call)
 %endif
 	jc .lba_error
 
@@ -505,6 +506,7 @@ read_sector:
 	inc sp
 	inc sp		; discard word on stack, preserve CF
 	retn
+%endif
 
 %if _LBA
 		; have to reset the LBAPACKET's lpCount, as the handler may
@@ -518,7 +520,6 @@ read_sector:
 	int 13h
 	pop word [si + lpCount]
 	retn
-%endif
 %endif
 
 .sectorseg_helper:
