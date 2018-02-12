@@ -868,7 +868,7 @@ skip_next_sect:
 end_of_chain:
 	inc ax
 	inc ax
-	test ax, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
+	test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 			;  clear in 0, 1, and 0FFF_FFF7h
 	jz error_badchain
 	mov bx, [bp + ldLoadingSeg]

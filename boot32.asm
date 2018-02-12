@@ -1250,7 +1250,7 @@ next_load_cluster:
 		jnc next_load_cluster
 		inc ax
 		inc ax
-		test ax, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
+		test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 				;  clear in 0, 1, and 0FFF_FFF7h
 		jz fsiboot_error_badchain
 		db __TEST_IMM16
