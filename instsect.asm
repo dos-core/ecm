@@ -264,6 +264,99 @@ restorestate:
 	retn
 
 
+disp_msg:
+	 push ds
+	 push ax
+	push cs
+	pop ds
+	mov ah, 09h
+	int 21h
+	 pop ax
+	 pop ds
+	retn
+
+
+disp_al_hex:
+		push cx
+		mov cl, 4
+		ror al, cl
+		call .nibble
+		ror al, cl
+		pop cx
+.nibble:
+		push ax
+		and al, 0Fh
+		add al, '0'
+		cmp al, '9'
+		jbe .isdigit
+		add al, 'A'-('9'+1)
+.isdigit:
+		xchg dl, al
+		mov ah, 02h
+		int 21h
+		pop ax
+		retn
+
+
+	; Following call: Display number in ax decimal
+	; all registers preserved except dx
+disp_ax_dec:			; ax (no leading zeros)
+	; In: number in ax
+	; Out: displayed
+		push bx
+		xor bx, bx
+.pushax:
+		push ax
+.pushend:
+		or bl, bl
+		jz .nobl
+		sub bl, 5
+		neg bl
+.nobl:
+		push cx
+		mov cx, 10000
+		call .divide_out
+		mov cx, 1000
+		call .divide_out
+		mov cx, 100
+		call .divide_out
+		mov cl, 10
+		call .divide_out
+							; (Divisor 1 is useless)
+		add al, '0'
+		xchg dl, al
+		mov ah, 02h
+		int 21h
+		pop cx
+		pop ax
+		pop bx					; Caller's register
+		retn
+
+.divide_out:
+	; In: ax = number
+	;     cx = divisor
+	; Out: ax = remainder of operation
+	;      result displayed
+		push dx
+		xor dx, dx
+		div cx				; 0:ax / cx
+		push dx				; remainder
+		dec bl
+		jnz .nobl2
+		or bh, 1
+.nobl2:
+		or bh, al
+		jz .leadingzero
+		add al, '0'
+		xchg dl, al
+		mov ah, 02h
+		int 21h				; display result
+ .leadingzero:
+		pop ax				; remainder
+		pop dx
+		retn
+
+
 	align 4
 internalflags:	dd 0
 oldpacket	equ	  1	; Int25/Int26 packet method available (L, W)
