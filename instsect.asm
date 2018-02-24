@@ -207,21 +207,61 @@ ptExtendedLinux:	equ 85h
 %idefine xoropt _opt ,xor,
 
 
+	[map all instsect.map]
+
 	cpu 8086
 	org 256
 start:
+			; This is a simple MS-DOS 1.x detection (8 Byte).
+	mov ah, 4Dh		; the only function I found that doesn't need much setup or cleanup
+	stc			; but that uses MS-DOS 2.x error reporting. clears CF (Int21.30 does not)
+	int 21h
+	jnc .dosgood		; it is MS-DOS 2.x+ or compatible -->
+	retn			; it isn't so simply terminate
+.dosgood:
+	cld
 	call initialise
 
-		; Release the registered VDD.
+	mov dx, i23
+	mov ax, 2523h
+	int 21h			; set Int23 so that we restore link/strategy on Ctrl-C as well
+	mov dx, i24
+	mov ax, 2524h
+	int 21h			; set Int24 so all hard errors are changed to the soft error
+
+; ...
+
+	call restorestate
+	mov ax, 4C00h
+	int 21h
+
+
+i24:
+	mov al, 3			; always return fail, to handle the error as a soft one
+	iret
+
+i23:
+	mov word [ cs:$ ], (__JMP_REL8|__REL16__(.return)<<8)	; don't reenter
+	call restorestate
+.return:
+	stc				; always abort program (what default DOS handler also does)
+	retf
+
+		; Restore modified DOS data
+		;
+		; CHG:	-
+restorestate:
+	push ax
 %if _VDD
+		; Release the registered VDD.
 	testopt [internalflags], ntpacket
 	jz .novdd
 	mov ax, word [hVdd]
 	UnRegisterModule
 .novdd:
 %endif
-	mov ax, 4C00h
-	int 21h
+	pop ax
+	retn
 
 
 	align 4
