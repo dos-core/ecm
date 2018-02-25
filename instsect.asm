@@ -264,15 +264,25 @@ restorestate:
 	retn
 
 
-disp_msg:
-	 push ds
-	 push ax
-	push cs
-	pop ds
-	mov ah, 09h
+		; INP: es:dx = ds:dx -> 0-terminated message
+disp_msg_asciz:
+	push ax
+	push bx
+	push cx
+	push di
+	mov bx, 1
+	mov ax, 4000h
+	mov di, dx
+	mov cx, -1
+	repne scasb	; -> after nul
+	dec di		; -> at nul
+	sub di, dx	; size
+	mov cx, di
 	int 21h
-	 pop ax
-	 pop ds
+	pop di
+	pop cx
+	pop bx
+	pop ax
 	retn
 
 
@@ -357,6 +367,225 @@ disp_ax_dec:			; ax (no leading zeros)
 		retn
 
 
+		; INP:	dx:ax = sector to write
+		;	cl = drive to write to (0 = A:)
+		;	ds:bx -> buffer
+		; STT:	ds = ss
+		; OUT:	CY if failure, error message displayed to stdout
+		;	NC if success
+		;	dx:ax = incremented
+		;	ds:bx -> behind buffer
+		;	(bx += word[bytespersector]
+write_sector:
+	push ax
+	push dx
+	push bx
+	push cx
+	push si
+.plw1:
+	push cx
+	add cl, 'A'
+	mov byte [driveno], cl
+	pop cx
+	testopt [internalflags], oldpacket| newpacket| ntpacket
+	jnz .plw3		; if using a packet -->
+	test dx, dx
+	jz .error_sector_not_found
+	xchg ax, dx		; dx = sector to write
+	xchg ax, cx		; al = drive number
+	mov cx, 1
+.oldint:
+	int 26h
+	inc sp
+	inc sp
+	jmp .done
+
+		; disk I/O packet for Int25/Int26, Int21.7305, VDD
+.plw3:
+	push bx
+	mov bx, packet
+	mov word [bx+0], ax	; LoWord sector number
+	mov word [bx+2], dx	; HiWord sector number
+	mov word [bx+4], 1	; number of sectors
+	mov al, cl
+	pop word [bx+6]		; transfer address ofs
+	mov word [bx+8], ds	; transfer address seg
+	mov cx, -1
+
+	testopt [ss:internalflags], newpacket| ntpacket
+	jz .oldint
+	mov dl, al		; A: = 0, ...
+	mov si, 0001h		; write, assume "unknown data"
+%if _VDD
+	testopt [internalflags], ntpacket
+	jnz .vdd
+%endif
+	inc dl			; A: = 1, ...
+	call lockdrive
+	mov ax, 7305h		; ds:(e)bx-> packet
+	stc
+	int 21h
+	pushf
+	call unlockdrive
+	popf
+	jmp short .done
+%if _VDD
+.vdd:
+	mov ax, word [hVdd]
+	mov cx, 5
+	DispatchCall
+	jmp short .done
+%endif
+.error_sector_not_found:
+	mov al, 8		; "sector not found"
+.done:
+	mov dx, writing
+.ww1:
+	jnc .ww3		; if no error
+	cmp al, 0Ch
+	jbe .ww2		; if in range
+	mov al, 0Ch
+.ww2:
+	cbw			; ah = 0
+	mov bx, dskerrs		; -> byte table
+	xlatb			; get offset from dskerrs
+	add ax, bx		; -> message
+	xchg ax, dx		; dx-> diskerrs message
+	call disp_msg_asciz
+	xchg ax, dx		; dx-> writing/reading
+	call disp_msg_asciz
+	mov dx, drive		; dx-> "ing drive _"
+	call disp_msg_asciz
+	stc
+.ww3:
+	pop si
+	pop cx
+	pop bx
+	pop dx
+	pop ax
+	 pushf
+	inc ax
+	jnz @F
+	inc dx
+@@:
+	add bx, word [bytespersector]
+	 popf
+	retn
+
+
+		; INP:	dx:ax = sector to read
+		;	cl = drive to read from (0 = A:)
+		;	ds:bx -> buffer
+		; STT:	ds = ss
+		; OUT:	CY if failure, error message displayed to stdout
+		;	NC if success
+		;	dx:ax = incremented
+		;	ds:bx -> behind buffer
+		;	(bx += word[bytespersector]
+read_sector:
+	push ax
+	push dx
+	push bx
+	push cx
+	push si
+.plw1:
+	push cx
+	add cl, 'A'
+	mov byte [driveno], cl
+	pop cx
+	testopt [internalflags], oldpacket| newpacket| ntpacket
+	jnz .plw3		; if using a packet -->
+	test dx, dx
+	jz .error_sector_not_found
+	xchg ax, dx		; dx = sector to read
+	xchg ax, cx		; al = drive number
+	mov cx, 1
+.oldint:
+	int 25h
+	inc sp
+	inc sp
+	jmp .done
+
+		; disk I/O packet for Int25/Int26, Int21.7305, VDD
+.plw3:
+	push bx
+	mov bx, packet
+	mov word [bx+0], ax	; LoWord sector number
+	mov word [bx+2], dx	; HiWord sector number
+	mov word [bx+4], 1	; number of sectors
+	mov al, cl
+	pop word [bx+6]		; transfer address ofs
+	mov word [bx+8], ds	; transfer address seg
+	mov cx, -1
+
+	testopt [ss:internalflags], newpacket| ntpacket
+	jz .oldint
+	mov dl, al		; A: = 0, ...
+	mov si, 0000h		; read, assume "unknown data"
+%if _VDD
+	testopt [internalflags], ntpacket
+	jnz .vdd
+%endif
+	inc dl			; A: = 1, ...
+	call lockdrive
+	mov ax, 7305h		; ds:(e)bx-> packet
+	stc
+	int 21h
+	pushf
+	call unlockdrive
+	popf
+	jmp short .done
+%if _VDD
+.vdd:
+	mov ax, word [hVdd]
+	mov cx, 5
+	DispatchCall
+	jmp short .done
+%endif
+.error_sector_not_found:
+	mov al, 8		; "sector not found"
+.done:
+	mov dx, reading
+	jmp write_sector.ww1
+
+
+lockdrive:
+	push ax
+	push bx
+	push cx
+	push dx
+	mov bl, al
+	inc bl
+	mov bh, 0
+	mov cx, 084Ah
+	mov dx, 0001h
+	mov ax, 440Dh
+	int 21h
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	retn
+
+unlockdrive:
+	push ax
+	push bx
+	push cx
+	push dx
+	mov bl, al
+	inc bl
+	mov bh, 0
+	mov cx, 086Ah
+	mov dx, 0001h
+	mov ax, 440Dh
+	int 21h
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	retn
+
+
 	align 4
 internalflags:	dd 0
 oldpacket	equ	  1	; Int25/Int26 packet method available (L, W)
@@ -364,6 +593,37 @@ newpacket	equ	  2	; Int21.7305 packet method available (L, W)
 ntpacket	equ	  4	; VDD registered and usable (L, W)
 runningnt	equ   20000h	; running in NTVDM
 hVdd:		dw 0
+bytespersector:	dw 0
+
+	align 4
+packet:	dd 0		; sector number
+	dw 0		; number of sectors to read
+	dd 0		; transfer address Segm:OOOO
+
+
+dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
+		db dskerr2-dskerrs,dskerr3-dskerrs
+		db dskerr4-dskerrs,dskerr9-dskerrs
+		db dskerr6-dskerrs,dskerr7-dskerrs
+		db dskerr8-dskerrs,dskerr9-dskerrs
+		db dskerra-dskerrs,dskerrb-dskerrs
+		db dskerrc-dskerrs
+dskerr0:	asciz "Write protect error"
+dskerr1:	asciz "Unknown unit error"
+dskerr2:	asciz "Drive not ready"
+dskerr3:	asciz "Unknown command"
+dskerr4:	asciz "Data error (CRC)"
+dskerr6:	asciz "Seek error"
+dskerr7:	asciz "Unknown media type"
+dskerr8:	asciz "Sector not found"
+dskerr9:	asciz "Unknown error"
+dskerra:	asciz "Write fault"
+dskerrb:	asciz "Read fault"
+dskerrc:	asciz "General failure"
+reading:	asciz " read"
+writing:	asciz " writ"
+drive:		db "ing drive "
+driveno:	asciz "_",13,10
 
 
 imsg:
