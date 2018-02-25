@@ -229,16 +229,58 @@ start:
 	int 21h
 
 .stackgood:
-
-	call initialise
-	jc exit_error
-
 	mov dx, i23
 	mov ax, 2523h
-	int 21h			; set Int23 so that we restore link/strategy on Ctrl-C as well
+	int 21h			; set Int23 so that we restore on Ctrl-C as well
 	mov dx, i24
 	mov ax, 2524h
 	int 21h			; set Int24 so all hard errors are changed to the soft error
+
+	mov byte [drivenumber], -1
+
+	mov si, 81h
+.loop:
+	lodsb
+	cmp al, 9
+	je .loop
+	cmp al, 32
+	je .loop
+	jb .end
+
+	cmp al, '-'
+	je .switch
+	cmp al, '/'
+	je .switch
+
+	cmp byte [si], ':'
+	jne .error
+	call uppercase
+	sub al, 'A'
+	cmp al, 32
+	jae .error
+	mov byte [drivenumber], al
+	inc si
+	jmp .loop
+
+.switch:
+	mov dx, msg.switch_not_supported
+.disp_error:
+	call disp_msg_asciz
+	jmp exit_error
+
+.error:
+	mov dx, msg.invalid_argument
+	jmp .disp_error
+
+.end:
+	cmp byte [drivenumber], -1
+	jne @F
+	mov dx, msg.no_drive_specified
+	jmp .disp_error
+
+@@:
+	call initialise
+	jc exit_error
 
 ; ...
 
@@ -251,6 +293,16 @@ exit_error:
 	call restorestate
 	mov ax, 4C01h
 	int 21h
+
+
+uppercase:
+	cmp al, 'a'
+	jb @F
+	cmp al, 'z'
+	ja @F
+	and al, ~20h
+@@:
+	retn
 
 
 i24:
@@ -626,6 +678,9 @@ msg:
 .boot_sector_too_small:	asciz "Sector size too large (> 8192 bytes).", 13,10
 .boot_sector_not_power:	asciz "Sector size not a power of two.", 13,10
 .out_of_memory:		asciz "Out of memory.",13,10
+.switch_not_supported:	asciz "Switch not supported.",13,10
+.invalid_argument:	asciz "Invalid argument.",13,10
+.no_drive_specified:	asciz "No drive specified.",13,10
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
