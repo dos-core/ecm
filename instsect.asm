@@ -258,6 +258,8 @@ start:
 	sub al, 'A'
 	cmp al, 32
 	jae .error
+	cmp byte [drivenumber], -1
+	jne .error_multiple_drives
 	mov byte [drivenumber], al
 	inc si
 	jmp .loop
@@ -267,6 +269,10 @@ start:
 .disp_error:
 	call disp_msg_asciz
 	jmp exit_error
+
+.error_multiple_drives:
+	mov dx, msg.error_multiple_drives
+	jmp .disp_error
 
 .error:
 	mov dx, msg.invalid_argument
@@ -681,6 +687,7 @@ msg:
 .switch_not_supported:	asciz "Switch not supported.",13,10
 .invalid_argument:	asciz "Invalid argument.",13,10
 .no_drive_specified:	asciz "No drive specified.",13,10
+.error_multiple_drives:	asciz "Multiple drives specified.",13,10
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
