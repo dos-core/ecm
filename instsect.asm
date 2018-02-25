@@ -517,9 +517,12 @@ error_badchain: equ $
 	rep movsb
 	mov si, second_sector_buffer + 510
 	mov di, sector_buffer + 510
+	movsw
 	mov cx, word [bp + ldBytesPerSector]
-	sub cx, 510
+	sub cx, 512
+	jbe @F
 	rep movsb
+@@:
 
 	mov bx, sector_buffer
 	xor ax, ax
