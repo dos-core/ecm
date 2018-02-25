@@ -326,6 +326,7 @@ detect_fat_type:
 	pop bx
 	xor ax, ax
 	xor dx, dx
+	mov cl, [drivenumber]
 	call read_ae_512_bytes		; load partition boot sector
 
 	mov dx, msg.bootfail_sig
@@ -485,6 +486,14 @@ error_badchain: equ $
 	mov byte [bp + ldFATType], 12
 .gotfattype:
 
+	mov dx, msg.is_fat16
+	cmp byte [bp + ldFATType], 16
+	je @F
+	mov dx, msg.is_fat12
+	jb @F
+	mov dx, msg.is_fat32
+@@:
+	call disp_msg_asciz
 
 ; ...
 
@@ -930,6 +939,9 @@ msg:
 		asciz "BPB BpS differs from actual sector size.",13,10
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
 .boot_badchain:		asciz "Bad cluster chain.",13,10
+.is_fat12:	asciz "Detected FAT12 FS.",13,10
+.is_fat16:	asciz "Detected FAT16 FS.",13,10
+.is_fat32:	asciz "Detected FAT32 FS.",13,10
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
@@ -1160,11 +1172,11 @@ initialise:
 .novdd:
 %endif
 
+	xor ax, ax
 	mov bx, sector_buffer		; ds:bx -> sector buffer
 	mov di, bx			; es:di -> sector buffer
 	mov cx, (8192 + 2) >> 1
 	rep stosw			; fill buffer, di -> behind (sector_buffer+8192+2)
-	xor ax, ax
 	xor dx, dx
 	mov cl, [drivenumber]
 	push bx
@@ -1263,6 +1275,7 @@ AAAAAAAA00FFF
 .sector_not_power:
 	mov dx, msg.boot_sector_not_power
 .error_common_j:
+	call disp_msg_asciz
 	stc
 	retn
 
