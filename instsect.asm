@@ -218,9 +218,20 @@ start:
 	int 21h
 	jnc .dosgood		; it is MS-DOS 2.x+ or compatible -->
 	retn			; it isn't so simply terminate
+
 .dosgood:
 	cld
+	cmp sp, sector_buffer + 8192 + 2 + 4096
+	jae .stackgood
+	mov dx, msg.out_of_memory
+	call disp_msg_asciz
+	mov ax, 4CFFh
+	int 21h
+
+.stackgood:
+
 	call initialise
+	jc exit_error
 
 	mov dx, i23
 	mov ax, 2523h
@@ -231,8 +242,14 @@ start:
 
 ; ...
 
+exit_normal:
 	call restorestate
 	mov ax, 4C00h
+	int 21h
+
+exit_error:
+	call restorestate
+	mov ax, 4C01h
 	int 21h
 
 
@@ -593,13 +610,22 @@ newpacket	equ	  2	; Int21.7305 packet method available (L, W)
 ntpacket	equ	  4	; VDD registered and usable (L, W)
 runningnt	equ   20000h	; running in NTVDM
 hVdd:		dw 0
-bytespersector:	dw 0
+bytespersector:		dw 0
+paraspersector:		dw 0
+entriespersector:	dw 0
+drivenumber:		db 0
 
 	align 4
 packet:	dd 0		; sector number
 	dw 0		; number of sectors to read
 	dd 0		; transfer address Segm:OOOO
 
+msg:
+.boot_access_error:	asciz "Access error.", 13,10
+.boot_sector_too_large:	asciz "Sector size too small (< 32 bytes).", 13,10
+.boot_sector_too_small:	asciz "Sector size too large (> 8192 bytes).", 13,10
+.boot_sector_not_power:	asciz "Sector size not a power of two.", 13,10
+.out_of_memory:		asciz "Out of memory.",13,10
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
@@ -827,5 +853,115 @@ initialise:
 	setopt [internalflags], ntpacket| oldpacket	; assume old packet method also available
 .novdd:
 %endif
+
+	mov bx, sector_buffer		; ds:bx -> sector buffer
+	mov di, bx			; es:di -> sector buffer
+	mov cx, (8192 + 2) >> 1
+	rep stosw			; fill buffer, di -> behind (sector_buffer+8192+2)
+	xor ax, ax
+	xor dx, dx
+	mov cl, [drivenumber]
+	push bx
+	call read_sector
+	pop bx
+	jc .access_error
+
+	std
+	mov word [es:bx - 2], 5E5Eh
+	scasw				; -> sector_buffer+8192 (at last word to sca)
+	mov cx, (8192 + 2) >> 1
+	xor ax, ax
+	repe scasw
+	add di, 4			; di -> first differing byte (from top)
+	cld
+	 push di
+
+	mov di, bx
+	mov cx, (8192 + 2) >> 1
+	dec ax				; = FFFFh
+	rep stosw
+
+	xor ax, ax
+	xor dx, dx
+	mov cl, [drivenumber]
+	push bx
+	call read_sector
+	pop bx
+	 pop dx
+	jc .access_error
+
+	std
+	scasw				; di -> sector_buffer+8192 (last word to sca)
+	mov ax, -1
+	mov cx, (8192 + 2) >> 1
+	repe scasw
+%if 0
+AAAB
+   ^
+	sca B, match
+  ^
+	sca B, mismatch
+ ^
+	stop
+%endif
+	add di, 4			; di -> first differing byte (from top)
+	cld
+
+%if 0	
+0000000000000
+AAAAAAAA00000
+	^
+FFFFFFFFFFFFF
+AAAAAAAA00FFF
+	  ^
+%endif
+	cmp dx, di			; choose the higher one
+	jae @F
+	mov dx, di
+@@:
+	sub dx, bx			; dx = sector size
+
+	cmp dx, 8192 + 2
+	jae .sector_too_large
+	mov ax, 32
+	cmp dx, ax
+	jb .sector_too_small
+@@:
+	cmp dx, ax
+	je .got_match
+	cmp ax, 8192
+	jae .sector_not_power
+	shl ax, 1
+	jmp @B
+
+.got_match:
+	mov word [bytespersector], ax
+	mov cl, 4
+	shr ax, cl
+	mov word [paraspersector], ax
+	shr ax, 1
+	mov word [entriespersector], ax
+	clc
 	retn
+
+
+.access_error:
+	mov dx, msg.boot_access_error
+	jmp .error_common_j
+.sector_too_large:
+	mov dx, msg.boot_sector_too_large
+	jmp .error_common_j
+.sector_too_small:
+	mov dx, msg.boot_sector_too_small
+	jmp .error_common_j
+.sector_not_power:
+	mov dx, msg.boot_sector_not_power
+.error_common_j:
+	stc
+	retn
+
+
+	dw 0
+	align 16
+sector_buffer:
 
