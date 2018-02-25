@@ -328,6 +328,7 @@ detect_fat_type:
 	xor dx, dx
 	mov cl, [drivenumber]
 	call read_ae_512_bytes		; load partition boot sector
+	jc exit_error
 
 	mov dx, msg.bootfail_sig
 	cmp word [bp + 510], 0AA55h
@@ -487,15 +488,45 @@ error_badchain: equ $
 .gotfattype:
 
 	mov dx, msg.is_fat16
+	mov si, fat16_payload
 	cmp byte [bp + ldFATType], 16
 	je @F
 	mov dx, msg.is_fat12
+	mov si, fat12_payload
 	jb @F
 	mov dx, msg.is_fat32
+	mov si, 0
 @@:
 	call disp_msg_asciz
 
-; ...
+	test si, si
+	jnz @F
+	mov dx, .msg_not_yet
+	jmp disp_error
+.msg_not_yet:	asciz "FAT32 not yet supported.",13,10
+@@:
+	mov cx, 512
+	mov di, sector_buffer
+	rep movsb
+	mov si, second_sector_buffer + bsBPB
+	mov di, sector_buffer + bsBPB
+	mov cx, bpbNew
+	rep movsb
+	add si, ebpbNew - bpbNew
+	mov cx, BPBN_size
+	rep movsb
+	mov si, second_sector_buffer + 510
+	mov di, sector_buffer + 510
+	mov cx, word [bp + ldBytesPerSector]
+	sub cx, 510
+	rep movsb
+
+	mov bx, sector_buffer
+	xor ax, ax
+	xor dx, dx
+	mov cl, [drivenumber]
+	call write_ae_512_bytes
+	jc exit_error
 
 exit_normal:
 	call restorestate
@@ -1279,6 +1310,18 @@ AAAAAAAA00FFF
 	stc
 	retn
 
+
+	align 16
+fat12_payload:		incbin "boot12.bin"
+.end:
+%if (fat12_payload.end - fat12_payload) != 512
+ %error FAT12 payload isn't 512 bytes sized."
+%endif
+fat16_payload:		incbin "boot16.bin"
+.end:
+%if (fat16_payload.end - fat16_payload) != 512
+ %error FAT16 payload isn't 512 bytes sized."
+%endif
 
 	dw 0
 	align 16
