@@ -64,6 +64,35 @@ bpbnVolumeLabel:	resb 11	; 07h 20h 2Bh 3Ch 47h
 bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	endstruc		; 1Ah 33h 3Eh 4Fh 5Ah
 
+	struc LOADSTACKVARS, -10h
+lsvFirstCluster:	resd 1
+lsvFATSector:		resd 1
+lsvFATSeg:		resw 1
+lsvLoadSeg:		resw 1
+lsvDataStart:		resd 1
+	endstruc
+
+	struc LOADDATA, LOADSTACKVARS - 10h
+ldMemoryTop:	resw 1
+ldLoadTop:	resw 1
+ldSectorSeg:	resw 1
+ldFATType:	resb 1
+ldHasLBA:	resb 1
+ldClusterSize:	resw 1
+ldParaPerSector:resw 1
+ldLoadingSeg:	resw 1
+ldLoadUntilSeg:	resw 1
+	endstruc
+
+	struc LOADDATA2, LOADDATA - 10h
+ldRootSector:		resd 1
+ldEntriesPerSector:	resw 1
+ldLastAvailableSector:	resw 1
+ldParasLeft:		resw 1
+ldParasDone:		resw 1
+ldBytesPerSector:	resw 1
+	endstruc
+
 	struc DIRENTRY
 deName:		resb 8
 deExt:		resb 3
@@ -221,7 +250,7 @@ start:
 
 .dosgood:
 	cld
-	cmp sp, sector_buffer + 8192 + 2 + 4096
+	cmp sp, stack_end
 	jae .stackgood
 	mov dx, msg.out_of_memory
 	call disp_msg_asciz
@@ -266,27 +295,196 @@ start:
 
 .switch:
 	mov dx, msg.switch_not_supported
-.disp_error:
+disp_error: equ $
 	call disp_msg_asciz
 	jmp exit_error
 
 .error_multiple_drives:
 	mov dx, msg.error_multiple_drives
-	jmp .disp_error
+	jmp disp_error
 
 .error:
 	mov dx, msg.invalid_argument
-	jmp .disp_error
+	jmp disp_error
 
 .end:
 	cmp byte [drivenumber], -1
 	jne @F
 	mov dx, msg.no_drive_specified
-	jmp .disp_error
+	jmp disp_error
 
 @@:
+
+detect_fat_type:
+	mov bx, second_sector_buffer
+	mov bp, bx
+	push bx
+
 	call initialise
 	jc exit_error
+
+	pop bx
+	xor ax, ax
+	xor dx, dx
+	call read_ae_512_bytes		; load partition boot sector
+
+	mov dx, msg.bootfail_sig
+	cmp word [bp + 510], 0AA55h
+	jne disp_error
+
+	mov bx, [bp + ldBytesPerSector]
+	cmp bx, [bp + bsBPB + bpbBytesPerSector]
+	mov dx, msg.bootfail_secsizediffer
+	jne disp_error
+
+	xor ax, ax
+	cmp word [bp + bsBPB + bpbSectorsPerFAT], ax
+	je @F					; is FAT32 -->
+	mov si, second_sector_buffer + bsBPB + bpbNew
+	mov di, second_sector_buffer + bsBPB + ebpbNew
+	mov cx, BPBN_size
+	rep movsb				; clone the FAT16 / FAT12 BPBN
+						; to where the FAT32 BPBN lives
+@@:
+
+; (boot.asm code starts here)
+
+	xor ax, ax
+; calculate some values that we need:
+; adjusted sectors per cluster (store in a word,
+;  and decode EDR-DOS's special value 0 meaning 256)
+	mov al, [bp + bsBPB + bpbSectorsPerCluster]
+	dec al
+	inc ax
+	mov [bp + ldClusterSize], ax
+
+	mov ax, [bp + ldEntriesPerSector]
+
+; number of sectors used for root directory (store in CX)
+	xor dx, dx
+	mov bx, ax
+	dec ax				; rounding up
+	add ax, [bp + bsBPB + bpbNumRootDirEnts]	; (0 iff FAT32)
+	adc dx, dx			; account for overflow (dx was zero)
+	div bx				; get number of root sectors
+	xchg ax, cx			; cx = number of root secs
+
+
+; (iniload.asm code starts here)
+
+	push cx				; number of root secs
+	xor ax, ax
+; first sector of root directory
+	mov al, [bp + bsBPB + bpbNumFATs]	; ! ah = 0, hence ax = number of FATs
+	mov cx, word [bp + bsBPB + bpbSectorsPerFAT]
+	xor di, di			; di:cx = sectors per FAT
+					;  iff FAT12, FAT16
+	test cx, cx			; is FAT32 ?
+	jnz @F				; no -->
+	mov cx, word [bp + bsBPB + ebpbSectorsPerFATLarge]
+	mov di, word [bp + bsBPB + ebpbSectorsPerFATLarge + 2]	; for FAT32
+@@:
+	push ax
+	mul cx
+		; ax = low word SpF*nF
+		; dx = high word
+	xchg bx, ax
+	xchg cx, dx
+		; cx:bx = first mul
+	pop ax
+	mul di
+		; ax = high word adjust
+		; dx = third word
+	test dx, dx
+	jz @F
+error_badchain: equ $
+	mov dx, msg.boot_badchain
+	jmp disp_error
+
+@@:
+	xchg dx, ax
+		; dx = high word adjust
+	add dx, cx
+		; dx:bx = result
+	xchg ax, bx
+		; dx:ax = result
+	jc error_badchain
+
+	add ax, [bp + bsBPB + bpbReservedSectors]
+	adc dx, byte 0
+	jc error_badchain
+
+	pop cx				; number of root sectors
+	xor di, di
+
+; first sector of disk data area:
+	add cx, ax
+	adc di, dx
+	jc error_badchain
+	mov [bp + lsvDataStart], cx
+	mov [bp + lsvDataStart + 2], di
+
+	mov [bp + ldRootSector], ax
+	mov [bp + ldRootSector + 2], dx
+
+; total sectors
+	xor dx, dx
+	mov ax, [bp + bsBPB + bpbTotalSectors]
+	test ax, ax
+	jnz @F
+	mov dx, [bp + bsBPB + bpbTotalSectorsLarge + 2]
+	mov ax, [bp + bsBPB + bpbTotalSectorsLarge]
+
+		; fall through and let it overwrite the field with the
+		; already current contents. saves a jump.
+@@:
+	mov [bp + bsBPB + bpbTotalSectorsLarge + 2], dx
+	mov [bp + bsBPB + bpbTotalSectorsLarge], ax
+
+	; dx:ax = total sectors
+
+	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
+	mov byte [bp + ldFATType], 32
+	test bx, bx
+	jz .gotfattype
+
+	xor cx, cx
+
+	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
+	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
+	mov word [bp + bsBPB + ebpbFSFlags], cx
+	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
+	;  uninitialised here (initialised by loaded_all later)
+
+	; dx:ax = total amount of sectors
+	sub ax, word [bp + lsvDataStart]
+	sbb dx, word [bp + lsvDataStart + 2]
+
+	; dx:ax = total amount of data sectors
+	mov bx, ax
+	xchg ax, dx
+	xor dx, dx
+	div word [bp + ldClusterSize]
+	xchg bx, ax
+	div word [bp + ldClusterSize]
+	; bx:ax = quotient, dx = remainder
+	; bx:ax = number of clusters
+	test bx, bx
+	jz @F
+.badclusters:
+	mov dx, msg.boot_badclusters
+	jmp disp_error
+
+@@:
+	cmp ax, 0FFF7h - 2
+	ja .badclusters
+	mov byte [bp + ldFATType], 16
+	cmp ax, 0FF7h - 2
+	ja .gotfattype
+
+	mov byte [bp + ldFATType], 12
+.gotfattype:
+
 
 ; ...
 
@@ -450,7 +648,7 @@ disp_ax_dec:			; ax (no leading zeros)
 		;	NC if success
 		;	dx:ax = incremented
 		;	ds:bx -> behind buffer
-		;	(bx += word[bytespersector]
+		;	(bx += word[bp + ldBytesPerSector]
 write_sector:
 	push ax
 	push dx
@@ -543,7 +741,7 @@ write_sector:
 	jnz @F
 	inc dx
 @@:
-	add bx, word [bytespersector]
+	add bx, word [bp + ldBytesPerSector]
 	 popf
 	retn
 
@@ -556,7 +754,7 @@ write_sector:
 		;	NC if success
 		;	dx:ax = incremented
 		;	ds:bx -> behind buffer
-		;	(bx += word[bytespersector]
+		;	(bx += word[bp + ldBytesPerSector]
 read_sector:
 	push ax
 	push dx
@@ -624,6 +822,48 @@ read_sector:
 	jmp write_sector.ww1
 
 
+
+		; INP:	dx:ax = first sector
+		;	ds:bx -> buffer
+		;	cl = drive number
+		; OUT:	dx:ax = sector number after last written
+		;	ds:bx -> buffer after last read
+		; CHG:	-
+		; STT:	ds = ss
+write_ae_512_bytes:
+	push di
+	mov di, 512
+.loop:
+	call write_sector
+	jc .error
+	sub di, word [bp + ldBytesPerSector]
+	ja .loop
+	clc
+.error:
+	pop di
+	retn
+
+		; INP:	dx:ax = first sector
+		;	ds:bx -> buffer
+		;	cl = drive number
+		; OUT:	dx:ax = sector number after last read
+		;	ds:bx -> buffer after last written
+		; CHG:	-
+		; STT:	ds = ss
+read_ae_512_bytes:
+	push di
+	mov di, 512
+.loop:
+	call read_sector
+	jc .error
+	sub di, word [bp + ldBytesPerSector]
+	ja .loop
+	clc
+.error:
+	pop di
+	retn
+
+
 lockdrive:
 	push ax
 	push bx
@@ -668,10 +908,7 @@ newpacket	equ	  2	; Int21.7305 packet method available (L, W)
 ntpacket	equ	  4	; VDD registered and usable (L, W)
 runningnt	equ   20000h	; running in NTVDM
 hVdd:		dw 0
-bytespersector:		dw 0
-paraspersector:		dw 0
-entriespersector:	dw 0
-drivenumber:		db 0
+drivenumber:	db 0
 
 	align 4
 packet:	dd 0		; sector number
@@ -688,6 +925,11 @@ msg:
 .invalid_argument:	asciz "Invalid argument.",13,10
 .no_drive_specified:	asciz "No drive specified.",13,10
 .error_multiple_drives:	asciz "Multiple drives specified.",13,10
+.bootfail_sig:	asciz "Boot sector signature missing (is not AA55h).",13,10
+.bootfail_secsizediffer:
+		asciz "BPB BpS differs from actual sector size.",13,10
+.boot_badclusters:	asciz "Bad amount of clusters.",13,10
+.boot_badchain:		asciz "Bad cluster chain.",13,10
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
@@ -870,7 +1112,9 @@ findstring:
 initialise:
 		; Check DOS version
 %if _VDD
+	push bp
 	call isnt		; NTVDM ?
+	pop bp
 	jc .isnotnt		; no -->
 	setopt [internalflags], runningnt
 .isnotnt:
@@ -997,12 +1241,12 @@ AAAAAAAA00FFF
 	jmp @B
 
 .got_match:
-	mov word [bytespersector], ax
+	mov word [bp + ldBytesPerSector], ax
 	mov cl, 4
 	shr ax, cl
-	mov word [paraspersector], ax
+	mov word [bp + ldParaPerSector], ax
 	shr ax, 1
-	mov word [entriespersector], ax
+	mov word [bp + ldEntriesPerSector], ax
 	clc
 	retn
 
@@ -1026,4 +1270,8 @@ AAAAAAAA00FFF
 	dw 0
 	align 16
 sector_buffer:
+second_sector_buffer:	equ sector_buffer - LOADDATA2 + 16 + 8192
+end:			equ second_sector_buffer+8192
+stack_start:		equ end
+stack_end:		equ stack_start + 4096
 
