@@ -706,7 +706,7 @@ write_sector:
 	testopt [internalflags], oldpacket| newpacket| ntpacket
 	jnz .plw3		; if using a packet -->
 	test dx, dx
-	jz .error_sector_not_found
+	jnz .error_sector_not_found
 	xchg ax, dx		; dx = sector to write
 	xchg ax, cx		; al = drive number
 	mov cx, 1
@@ -812,7 +812,7 @@ read_sector:
 	testopt [internalflags], oldpacket| newpacket| ntpacket
 	jnz .plw3		; if using a packet -->
 	test dx, dx
-	jz .error_sector_not_found
+	jnz .error_sector_not_found
 	xchg ax, dx		; dx = sector to read
 	xchg ax, cx		; al = drive number
 	mov cx, 1
