@@ -535,21 +535,26 @@ listnames:
 	mov dx, [bx]
 	call disp_msg_asciz
 	 sahf
-	 jc @F
+	 jc @F		; skip quote if no name -->
 	 mov dx, msg.name_quote
 	 call disp_msg_asciz
 @@:
 	mov dx, msg.foundname
 	call disp_msg_asciz
 	 sahf
-	 jc @F
+	 jc @F		; skip quote if no name -->
 	 mov dx, msg.name_quote
 	 call disp_msg_asciz
 @@:
 	mov dx, msg.name_after
 	call disp_msg_asciz
-	inc bx
-	inc bx
+	 sahf
+	 mov ax, 0
+	 jc @F		; set to zero if no name -->
+	 lea ax, [si - 11]	; -> name in buffer
+@@:
+	 mov word [bx + 2], ax	; -> name in buffer, or 0
+	add bx, 4
 	cmp word [bx], 0
 	jne .nextname
 
@@ -1150,10 +1155,10 @@ msg:
 .foundname_none_size: equ $ - .foundname_none
 	align 2
 .names:
-	dw .name_first
-	dw .name_second
-	dw .name_third
-	dw .name_fourth
+	dw .name_first, 0
+	dw .name_second, 0
+	dw .name_third, 0
+	dw .name_fourth, 0
 	dw 0
 .name_first:	asciz "1st name: "
 .name_second:	asciz "2nd name: "
