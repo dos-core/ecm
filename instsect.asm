@@ -294,10 +294,50 @@ start:
 	jmp .loop
 
 .switch:
+	lodsb
+	call uppercase
+	cmp al, 'F'
+	je .switch_f
+
 	mov dx, msg.switch_not_supported
 disp_error: equ $
 	call disp_msg_asciz
 	jmp exit_error
+
+.switch_f:
+
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+	cmp al, '1'
+	jb .error
+	cmp al, '4'
+	ja .error
+	cmp byte [si], ':'
+	jne .error
+	sub al, '1'		; 0 to 3 inclusive
+	mov ah, 12
+	mul ah			; 0, 12, 24, 36
+	add ax, msg.name_replacements	; -> name replacement buffer
+	xchg ax, di		; -> buffer
+	inc si			; -> behind the colon
+	call boot_parse_fn	; parse
+	jc .error		; error out -->
+	cmp al, '/'
+	je .error
+	cmp al, '\'
+	je .error		; invalid -->
+	dec si
+	push si
+	mov si, load_kernel_name
+	mov cx, 12 >> 1
+	rep movsw		; write to buffer
+	pop si
+	jmp .loop
+
 
 .error_multiple_drives:
 	mov dx, msg.error_multiple_drives
@@ -709,6 +749,91 @@ findname:
 	stc
 	retn
 
+
+		; INP:	ds:si-> first letter of name
+		;	es:load_kernel_name-> 12-byte buffer (for fn + 0)
+		; CHG:	ax, cx, di
+		; OUT:	NC if valid name,
+		;	 al = first character after name (EOL, blank, or slash)
+		;	 si -> next character
+		;	CY else
+		; STT:	es = ds
+boot_parse_fn:
+	mov al, 32
+	mov di, load_kernel_name
+	mov cx, 11
+	rep stosb		; initialise to empty
+
+	mov di, load_kernel_name
+	mov cx, 9
+.loop_name:
+	lodsb
+	call uppercase
+	call iseol?
+	je .loop_name_done
+	cmp al, 32
+	je .loop_name_done
+	cmp al, 9
+	je .loop_name_done
+	cmp al, '/'
+	je .loop_name_done
+	cmp al, '\'
+	je .loop_name_done
+	cmp al, '.'
+	je .loop_name_ext
+	stosb
+	loop .loop_name
+.invalid:
+	stc
+	retn
+
+.loop_name_ext:
+	cmp cx, 9
+	je .invalid
+	mov cx, 4
+	mov di, load_kernel_name + 8
+.loop_ext:
+	lodsb
+	call uppercase
+	call iseol?
+	je .loop_ext_done
+	cmp al, 32
+	je .loop_ext_done
+	cmp al, 9
+	je .loop_ext_done
+	cmp al, '/'
+	je .loop_ext_done
+	cmp al, '\'
+	je .loop_ext_done
+	cmp al, '.'
+	je .invalid
+	stosb
+	loop .loop_ext
+	jmp .invalid
+
+.loop_ext_done:
+	cmp cx, 4
+	je .invalid
+.loop_name_done:
+	cmp cx, 9
+	je .invalid
+	mov byte [load_kernel_name + 11], 0
+	cmp byte [load_kernel_name], 0E5h
+	jne @F
+	mov byte [load_kernel_name], 05h
+@@:
+	clc
+	retn
+
+
+iseol?:
+	cmp al, 13
+	je .ret
+;	cmp al, ';'
+;	je .ret
+	cmp al, 0
+.ret:
+	retn
 
 uppercase:
 	cmp al, 'a'
@@ -1145,6 +1270,13 @@ msg:
 .is_fat16:	asciz "Detected FAT16 FS.",13,10
 .is_fat32:	asciz "Detected FAT32 FS.",13,10
 
+	align 4
+load_kernel_name: equ $
+	times 12 db 0
+		; buffer for base name (8) + ext (3) + NUL (1) = 12
+.name_replacements:
+	times 12 * 4 db 0
+		; name replacement buffers, 4 times same as load_kernel_name
 	align 4
 .foundname:
 	times 8+1+3+1 db 0
