@@ -306,6 +306,8 @@ disp_error: equ $
 
 .switch_f:
 
+NUM_REPLACEMENTS equ 4
+
 @@:
 	lodsb
 	cmp al, 32
@@ -314,7 +316,7 @@ disp_error: equ $
 	je @B
 	cmp al, '1'
 	jb .error
-	cmp al, '4'
+	cmp al, '1' - 1 + NUM_REPLACEMENTS	; '4'
 	ja .error
 	cmp byte [si], ':'
 	jne .error
@@ -576,6 +578,8 @@ listnames:
 	 lahf
 	mov dx, [bx]
 	call disp_msg_asciz
+	mov dx, msg.name_before
+	call disp_msg_asciz
 	 sahf
 	 jc @F		; skip quote if no name -->
 	 mov dx, msg.name_quote
@@ -599,6 +603,52 @@ listnames:
 	add bx, 4
 	cmp word [bx], 0
 	jne .nextname
+
+	mov si, msg.name_replacements
+	mov bx, msg.names
+	mov cx, NUM_REPLACEMENTS
+.loop:
+	cmp byte [si], 0
+	je .next
+	mov di, word [bx + 2]
+	test di, di
+	jnz .replace
+	mov dx, msg.no_name_found_before
+	call disp_msg_asciz
+	mov dx, [bx]
+	call disp_msg_asciz
+	mov dx, msg.no_name_found_after
+	call disp_msg_asciz
+	jmp exit_error
+
+.replace:
+	mov dx, msg.replacing_before
+	call disp_msg_asciz
+	mov dx, [bx]
+	call disp_msg_asciz
+	mov dx, msg.replacing_between
+	call disp_msg_asciz
+	push cx
+	push si
+	 push si
+	 push di
+	call convert_name_to_asciz
+	 pop di
+	 pop si
+	mov dx, msg.foundname
+	call disp_msg_asciz
+	mov dx, msg.replacing_after
+	call disp_msg_asciz
+	mov cx, 11
+	rep movsb
+	pop si
+	pop cx
+
+.next:
+	add bx, 4
+	add si, 12
+	cmp word [bx], 0
+	loopnz .loop
 
 	mov bx, sector_buffer
 	xor ax, ax
@@ -701,12 +751,38 @@ findname:
 	pop ax			; (discard si)
 	sub si, 11		; -> at name
 
+	call convert_name_to_asciz
+				; si -> behind name
+	pop cx
+	sub cx, 11		; lessen the counter
+	clc
+	retn
+
+.none:
+	 add si, cx
 	mov di, msg.foundname
-	mov cl, 8
+	 push si
+	mov si, msg.foundname_none
+	mov cx, (msg.foundname_none_size + 1) >> 1
+	rep movsw
+	 pop si
+	 xor cx, cx
+	stc
+	retn
+
+
+		; INP:	si -> 11-byte blank-padded name
+		;	msg.foundname -> (8+1+3+1)-byte buffer
+		; OUT:	si -> behind 11-byte blank-padded name
+		;	msg.foundname filled
+		; CHG:	cx, di, ax
+convert_name_to_asciz:
+	mov di, msg.foundname
+	mov cx, 8
 	rep movsb		; copy over base name, si -> extension
-;	cmp byte [di - 8], 05h	; is it 05h ?
-;	jne @F			; no -->
-;	mov byte [di - 8], 0E5h	; yes, convert to 0E5h
+	cmp byte [di - 8], 05h	; is it 05h ?
+	jne @F			; no -->
+	mov byte [di - 8], 0E5h	; yes, convert to 0E5h
 @@:
 
 	db __TEST_IMM8		; (skip dec)
@@ -732,23 +808,6 @@ findname:
 @@:
 	mov al, 0
 	stosb			; store filename terminator
-
-				; si -> behind name
-	pop cx
-	sub cx, 11		; lessen the counter
-	clc
-	retn
-
-.none:
-	 add si, cx
-	mov di, msg.foundname
-	 push si
-	mov si, msg.foundname_none
-	mov cx, (msg.foundname_none_size + 1) >> 1
-	rep movsw
-	 pop si
-	 xor cx, cx
-	stc
 	retn
 
 
@@ -1277,7 +1336,7 @@ load_kernel_name: equ $
 	times 12 db 0
 		; buffer for base name (8) + ext (3) + NUL (1) = 12
 .name_replacements:
-	times 12 * 4 db 0
+	times 12 * NUM_REPLACEMENTS db 0
 		; name replacement buffers, 4 times same as load_kernel_name
 	align 4
 .foundname:
@@ -1294,12 +1353,20 @@ load_kernel_name: equ $
 	dw .name_third, 0
 	dw .name_fourth, 0
 	dw 0
-.name_first:	asciz "1st name: "
-.name_second:	asciz "2nd name: "
-.name_third:	asciz "3rd name: "
-.name_fourth:	asciz "4th name: "
+.name_first:	asciz "1st name"
+.name_second:	asciz "2nd name"
+.name_third:	asciz "3rd name"
+.name_fourth:	asciz "4th name"
+.name_before:	asciz ": "
 .name_quote:	asciz '"'
 .name_after:	asciz 13,10
+
+.no_name_found_before:	asciz "No "
+.no_name_found_after:	asciz " for replacement found!",13,10
+
+.replacing_before:	asciz "Replacing "
+.replacing_between:	asciz " with ",'"'
+.replacing_after:	asciz '"',13,10
 
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
