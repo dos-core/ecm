@@ -583,30 +583,22 @@ findname:
 	push si
 	mov cx, 11
 	lodsb
+	mov ah, al		; check for same char in all 11 places
 	cmp al, 32		; first character must not be blank
 	je .check_fail		; if it is -->
 ;	cmp al, 5		; first character may be 05h to indicate 0E5h
 ;	je .check_pass
 	db __TEST_IMM8		; (skip lodsb)
-.check_loop:
+.check_loop_same:
 	lodsb
-	cmp al, 32
-	jb .check_fail
-	cmp al, 127
-;	je .check_fail
-	jae .check_fail
-		; note: with all characters >= 128 allowed,
-		;  we get false positives in our sectors.
-	cmp al, '.'
-	je .check_fail
-	cmp al, '/'
-	je .check_fail
-	cmp al, '\'
-	je .check_fail
-	cmp al, 'a'
-	jb .check_pass
-	cmp al, 'z'
-	ja .check_pass
+	cmp ah, al
+	jne .check_loop_differs
+	call .check_character
+	jc .check_fail
+	loop .check_loop_same
+		; if we arrive here, all characters (while valid) are the
+		;  same character repeated 11 times. we disallow this in case
+		;  that the padding character is an allowed one (eg '&' 26h).
 .check_fail:
 	pop si
 	pop cx
@@ -614,6 +606,37 @@ findname:
 	inc si			; -> next position to check
 	jmp .
 
+.check_character:
+	cmp al, 32
+	jb .check_character_fail
+	cmp al, 127
+;	je .check_character_fail
+	jae .check_character_fail
+		; note: with all characters >= 128 allowed,
+		;  we get false positives in our sectors.
+	cmp al, '.'
+	je .check_character_fail
+	cmp al, '/'
+	je .check_character_fail
+	cmp al, '\'
+	je .check_character_fail
+	cmp al, 'a'
+	jb .check_character_pass
+	cmp al, 'z'
+	ja .check_character_pass
+.check_character_fail:
+	stc
+	retn
+
+.check_character_pass:
+	clc
+	retn
+
+.check_loop:
+	lodsb
+.check_loop_differs:
+	call .check_character
+	jc .check_fail
 .check_pass:
 	loop .check_loop
 
