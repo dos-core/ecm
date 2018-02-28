@@ -324,7 +324,9 @@ disp_error: equ $
 	add ax, msg.name_replacements	; -> name replacement buffer
 	xchg ax, di		; -> buffer
 	inc si			; -> behind the colon
+	push di
 	call boot_parse_fn	; parse
+	pop di
 	jc .error		; error out -->
 	cmp al, '/'
 	je .error
