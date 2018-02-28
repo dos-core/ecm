@@ -524,6 +524,24 @@ error_badchain: equ $
 	rep movsb
 @@:
 
+listnames:
+	mov bx, msg.names
+	mov si, sector_buffer + bsBPB + bpbNew + BPBN_size
+	mov cx, 512 - (bsBPB + bpbNew + BPBN_size) - 2
+						; -2 = AA55h sig
+.nextname:
+	call findname
+	mov dx, [bx]
+	call disp_msg_asciz
+	mov dx, msg.foundname
+	call disp_msg_asciz
+	mov dx, msg.name_after
+	call disp_msg_asciz
+	inc bx
+	inc bx
+	cmp word [bx], 0
+	jne .nextname
+
 	mov bx, sector_buffer
 	xor ax, ax
 	xor dx, dx
@@ -540,6 +558,114 @@ exit_error:
 	call restorestate
 	mov ax, 4C01h
 	int 21h
+
+
+		; INP:	ds:si -> first byte to check for name
+		;	cx = number of bytes left
+		; OUT:	(8+1+3+1)bytes[msg.foundname] = found name,
+		;	 converted to 8.3 ASCIZ format,
+		;	 "(None)" if none
+		;	CY if no filename found,
+		;	 si = INP:si + INP:cx
+		;	 cx = 0
+		;	NC if filename found,
+		;	 si -> byte behind the name, thus (si-11)-> name
+		;	 cx = number of bytes left
+		; CHG:	di, ax
+		; STT:	ds = es
+findname:
+.:
+	cmp cx, 11		; enough for another name ?
+	jb .none		; no -->
+				; (cx == 0 jumps here too)
+.check:
+	push cx
+	push si
+	mov cx, 11
+	lodsb
+	cmp al, 32		; first character must not be blank
+	je .check_fail		; if it is -->
+	cmp al, 5		; first character may be 05h to indicate 0E5h
+	je .check_pass
+	db __TEST_IMM8		; (skip lodsb)
+.check_loop:
+	lodsb
+	cmp al, 32
+	jb .check_fail
+	cmp al, 127
+	je .check_fail
+	cmp al, '.'
+	je .check_fail
+	cmp al, '/'
+	je .check_fail
+	cmp al, '\'
+	je .check_fail
+	cmp al, 'a'
+	jb .check_pass
+	cmp al, 'z'
+	ja .check_pass
+.check_fail:
+	pop si
+	pop cx
+	dec cx			; lessen the counter
+	inc si			; -> next position to check
+	jmp .
+
+.check_pass:
+	loop .check_loop
+
+	pop ax			; (discard si)
+	sub si, 11		; -> at name
+
+	mov di, msg.foundname
+	mov cl, 8
+	rep movsb		; copy over base name, si -> extension
+	cmp byte [di - 8], 05h	; is it 05h ?
+	jne @F			; no -->
+	mov byte [di - 8], 0E5h	; yes, convert to 0E5h
+@@:
+
+	db __TEST_IMM8		; (skip dec)
+@@:
+	dec di			; decrement -> at previous trailing blank
+	cmp byte [di - 1], 32	; trailing blank ?
+	je @B			; yes -->
+
+	mov al, '.'
+	stosb			; store dot (if needed)
+	mov cl, 3
+	rep movsb		; copy over extension, si -> behind name
+
+	db __TEST_IMM8		; (skip dec)
+@@:
+	dec di			; decrement -> at previous trailing blank
+	cmp byte [di - 1], 32	; trailing blank ?
+	je @B			; yes -->
+
+	cmp byte [di - 1], '.'	; trailing dot ? (only occurs if all-blank ext)
+	jne @F			; no -->
+	dec di			; -> at the dot
+@@:
+	mov al, 0
+	stosb			; store filename terminator
+
+				; si -> behind name
+	pop cx
+	sub cx, 11		; lessen the counter
+	clc
+	retn
+
+.none:
+	 add si, cx
+	mov di, msg.foundname
+	 push si
+	mov si, msg.foundname_none
+	mov cx, (msg.foundname_none_size + 1) >> 1
+	rep movsw
+	 pop si
+	 xor cx, cx
+	stc
+	retn
 
 
 uppercase:
@@ -976,6 +1102,28 @@ msg:
 .is_fat12:	asciz "Detected FAT12 FS.",13,10
 .is_fat16:	asciz "Detected FAT16 FS.",13,10
 .is_fat32:	asciz "Detected FAT32 FS.",13,10
+
+	align 4
+.foundname:
+	times 8+1+3+1 db 0
+		; buffer for base name (8) + dot (1) + ext (3) + NUL (1)
+	align 2
+.foundname_none:
+	asciz "(None)"
+.foundname_none_size: equ $ - .foundname_none
+	align 2
+.names:
+	dw .name_first
+	dw .name_second
+	dw .name_third
+	dw .name_fourth
+	dw 0
+.name_first:	asciz "1st name: ",'"'
+.name_second:	asciz "2nd name: ",'"'
+.name_third:	asciz "3rd name: ",'"'
+.name_fourth:	asciz "4th name: ",'"'
+.name_after:	asciz '"',13,10
+
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
