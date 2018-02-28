@@ -585,15 +585,18 @@ findname:
 	lodsb
 	cmp al, 32		; first character must not be blank
 	je .check_fail		; if it is -->
-	cmp al, 5		; first character may be 05h to indicate 0E5h
-	je .check_pass
+;	cmp al, 5		; first character may be 05h to indicate 0E5h
+;	je .check_pass
 	db __TEST_IMM8		; (skip lodsb)
 .check_loop:
 	lodsb
 	cmp al, 32
 	jb .check_fail
 	cmp al, 127
-	je .check_fail
+;	je .check_fail
+	jae .check_fail
+		; note: with all characters >= 128 allowed,
+		;  we get false positives in our sectors.
 	cmp al, '.'
 	je .check_fail
 	cmp al, '/'
@@ -620,9 +623,9 @@ findname:
 	mov di, msg.foundname
 	mov cl, 8
 	rep movsb		; copy over base name, si -> extension
-	cmp byte [di - 8], 05h	; is it 05h ?
-	jne @F			; no -->
-	mov byte [di - 8], 0E5h	; yes, convert to 0E5h
+;	cmp byte [di - 8], 05h	; is it 05h ?
+;	jne @F			; no -->
+;	mov byte [di - 8], 0E5h	; yes, convert to 0E5h
 @@:
 
 	db __TEST_IMM8		; (skip dec)
