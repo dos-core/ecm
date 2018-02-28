@@ -531,10 +531,21 @@ listnames:
 						; -2 = AA55h sig
 .nextname:
 	call findname
+	 lahf
 	mov dx, [bx]
 	call disp_msg_asciz
+	 sahf
+	 jc @F
+	 mov dx, msg.name_quote
+	 call disp_msg_asciz
+@@:
 	mov dx, msg.foundname
 	call disp_msg_asciz
+	 sahf
+	 jc @F
+	 mov dx, msg.name_quote
+	 call disp_msg_asciz
+@@:
 	mov dx, msg.name_after
 	call disp_msg_asciz
 	inc bx
@@ -1144,11 +1155,12 @@ msg:
 	dw .name_third
 	dw .name_fourth
 	dw 0
-.name_first:	asciz "1st name: ",'"'
-.name_second:	asciz "2nd name: ",'"'
-.name_third:	asciz "3rd name: ",'"'
-.name_fourth:	asciz "4th name: ",'"'
-.name_after:	asciz '"',13,10
+.name_first:	asciz "1st name: "
+.name_second:	asciz "2nd name: "
+.name_third:	asciz "3rd name: "
+.name_fourth:	asciz "4th name: "
+.name_quote:	asciz '"'
+.name_after:	asciz 13,10
 
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
