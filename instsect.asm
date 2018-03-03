@@ -697,6 +697,90 @@ listnames:
 	cmp word [bx], 0
 	loopnz .loop
 
+set_unit:
+	mov bx, [load_unit]
+	mov dx, msg.using_auto_unit
+	cmp bh, 0FFh
+	je .auto
+
+	mov si, sector_buffer
+	lodsb
+	cmp al, 0E9h
+	je .nearjmp
+	cmp al, 0EBh
+	je .shortjmp
+
+.notfound:
+	mov dx, msg.unit_not_found
+	jmp disp_error
+
+.nearjmp:
+	lodsw
+	db __TEST_IMM16		; (skip lodsb, cbw)
+.shortjmp:
+	lodsb
+	cbw
+	add si, ax
+
+	mov dx, 16
+	mov di, unit_search_strings.mov
+	mov cx, unit_search_strings.mov_length
+@@:
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	je .found_mov
+	inc si
+	dec dx
+	jnz @B
+
+	jmp .notfound
+
+.found_mov:
+	add si, cx
+
+	mov dx, 16
+	mov di, unit_search_strings.set_bpbn
+	mov cx, unit_search_strings.set_bpbn_length
+@@:
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	je .found_set
+	inc si
+	dec dx
+	jnz @B
+
+	jmp .notfound
+
+.found_set:
+	mov byte [sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
+
+	mov di, unit_search_strings.set_dl
+	mov cx, unit_search_strings.set_dl_length
+
+	xchg si, di
+	rep movsb		; write .set_dl to there
+
+	mov dx, msg.using_fix_unit
+	call disp_msg_asciz
+
+	mov al, bl
+	call disp_al_hex
+
+	mov dx, msg.using_fix_unit_after
+.auto:
+	call disp_msg_asciz
+
+write:
 	mov bx, sector_buffer
 	xor ax, ax
 	xor dx, dx
@@ -713,6 +797,18 @@ exit_error:
 	call restorestate
 	mov ax, 4C01h
 	int 21h
+
+
+unit_search_strings:
+.mov:	mov bp, 7C00h
+.mov_length: equ $ - .mov
+.set_bpbn:	mov byte [bp + bsBPB + bpbNew + bpbnBootUnit], dl
+.set_bpbn_length: equ $ - .set_bpbn
+.set_dl:	mov dl, byte [bp + bsBPB + bpbNew + bpbnBootUnit]
+.set_dl_length:	equ $ - .set_dl
+%if .set_bpbn_length != .set_dl_length
+ %error Unit fixing replacement string not same length!
+%endif
 
 
 		; INP:	ds:si -> first byte to check for name
@@ -1611,6 +1707,10 @@ load_kernel_name: equ $
 .replacing_after:	asciz '".',13,10
 .auto:			asciz "AUTO"
 .error_invalid_number:	asciz "Invalid number.",13,10
+.using_fix_unit:	asciz "Using fixed unit of "
+.using_fix_unit_after:	asciz "h.",13,10
+.unit_not_found:	asciz "Unit fixing code not found in sector.",13,10
+.using_auto_unit:	asciz "Using auto unit.",13,10
 
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
