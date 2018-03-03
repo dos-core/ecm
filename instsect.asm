@@ -298,6 +298,8 @@ start:
 	call uppercase
 	cmp al, 'F'
 	je .switch_f
+	cmp al, 'U'
+	je .switch_u
 
 	mov dx, msg.switch_not_supported
 disp_error: equ $
@@ -359,6 +361,32 @@ NUM_REPLACEMENTS equ 4
 
 @@:
 	mov byte [di], 0	; delete replacement name
+	jmp .loop
+
+
+.switch_u:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	mov dx, msg.auto
+	dec si
+	call isstring?
+	mov ax, 0FF00h
+	je @F
+	lodsb
+	call get_hexadecimal_literal
+	test bx, bx
+	jnz .error
+	cmp dx, 256
+	jae .error
+	mov ax, dx
+	dec si
+@@:
+	mov word [load_unit], ax
 	jmp .loop
 
 
@@ -915,6 +943,57 @@ iseol?:
 .ret:
 	retn
 
+
+		; Check for given string (cap-insensitive)
+		;
+		; INP:	si-> input string to check (either cap),
+		;	 terminated by CR (13), space, tab, comma
+		;	dx-> ASCIZ string to check (all-caps)
+		; OUT:	Iff string matches,
+		;	 si-> at separator that terminates the keyword
+		;	else,
+		;	 si = input si
+		; STT:	ds = es = ss
+		; CHG:	dx, ax
+isstring?:
+	push si
+	xchg dx, di
+.loop:
+	lodsb
+	call uppercase
+	scasb
+	jne .mismatch
+	test al, al
+	jne .loop
+	jmp .matched_zr
+
+.mismatch:
+	call iseol?
+	je .checkend
+	cmp al, 32
+	je .checkend
+	cmp al, 9
+	je .checkend
+	cmp al, ','
+	je .checkend
+	cmp al, '='
+	je .checkend
+.ret_nz:
+		; NZ
+	pop si
+.ret:
+	xchg dx, di
+	retn
+
+.checkend:
+	cmp byte [es:di - 1], 0
+	jne .ret_nz
+.matched_zr:	; ZR
+	pop ax			; (discard)
+	lea si, [si - 1]	; -> separator
+	jmp .ret
+
+
 uppercase:
 	cmp al, 'a'
 	jb @F
@@ -923,6 +1002,149 @@ uppercase:
 	and al, ~20h
 @@:
 	retn
+
+
+		; INP:	al = first character
+		;	si -> next
+		; OUT:	doesn't return if error
+		;	bx:dx = number read
+		;	al = character after the number
+		;	si -> next
+		; CHG:	cx, ax, di
+get_decimal_literal:
+	mov dx, 10		; set base: decimal
+%if 1
+	mov cx, '9' | (('A'-10-1 + 10) << 8)
+%else
+	mov cl, dl
+	add cl, '0'-1
+	cmp cl, '9'
+	jbe .lit_basebelow11
+	mov cl, '9'
+.lit_basebelow11:		; cl = highest decimal digit for base ('1'..'9')
+	mov ch, dl
+	add ch, 'A'-10-1	; ch = highest letter for base ('A'-x..'Z')
+%endif
+	jmp @F
+
+
+get_hexadecimal_literal:
+	mov dx, 16		; set base: hexadecimal
+%if 1
+	mov cx, '9' | (('A'-10-1 + 16) << 8)
+%else
+	mov cl, dl
+	add cl, '0'-1
+	cmp cl, '9'
+	jbe .lit_basebelow11
+	mov cl, '9'
+.lit_basebelow11:		; cl = highest decimal digit for base ('1'..'9')
+	mov ch, dl
+	add ch, 'A'-10-1	; ch = highest letter for base ('A'-x..'Z')
+%endif
+
+@@:
+	mov ah, 0
+	xor bx, bx
+	mov di, dx		; di = base
+
+	call getexpression.lit_isdigit?	; first character must be a digit
+	jc .err2
+	xor dx, dx		; initialize value
+.lit_loopdigit:
+	cmp al, '_'
+	je .lit_skip
+	call getexpression.lit_isdigit?	; was last character ?
+	jc .lit_end		; yes -->
+	call uppercase
+	sub al, '0'
+	cmp al, 9		; was decimal digit ?
+	jbe .lit_decimaldigit	; yes -->
+	sub al, 'A'-('9'+1)	; else adjust for hexadecimal digit
+.lit_decimaldigit:
+	push ax
+	mov ax, dx
+	push bx
+	mul di			; multiply low word with base
+	mov bx, dx
+	mov dx, ax
+	pop ax
+	push dx
+	mul di			; multiply high word with base
+	test dx, dx
+	pop dx
+	jnz .err2		; overflow -->
+	add bx, ax		; add them
+	pop ax
+	jc .err2		; overflow -->
+	add dl, al		; add in the new digit
+	adc dh, 0
+	adc bx, byte 0
+.lit_skip:
+	lodsb
+	jmp short .lit_loopdigit
+
+.lit_end:
+	call isseparator?	; after the number, there must be a separator
+	jne .err2		; none here -->
+	retn
+
+.err2:
+	mov dx, msg.error_invalid_number
+	jmp disp_error
+
+
+getexpression.lit_ishexdigit?:
+	mov cx, "9F"
+getexpression.lit_isdigit?:
+	cmp al, '0'
+	jb .no
+	cmp al, cl
+	jbe .yes
+	push ax
+	call uppercase
+	cmp al, ch
+	ja .no_p
+	cmp al, 'A'
+	jb .no_p
+	pop ax
+.yes:
+	clc
+	retn
+
+.no_p:
+	pop ax
+.no:
+	stc
+	retn
+
+
+		; INP:	al = character
+		; OUT:	al = capitalised character
+		;	ZR, NC if a separator
+		;	NZ if no separator
+isseparator?:
+	call uppercase
+	push cx
+%if 0	; _EXPRESSIONS
+	call isoperator?	; normal operators are separators (also handles equality sign)
+	je .yes			; if match --> (ZR, NC)
+%endif
+	push di
+	mov di, separators
+	mov cx, word [di]
+	scasw
+	repne scasb		; ZR, NC on match, NZ else
+	pop di
+.yes:
+	pop cx
+	retn
+
+%if 0	; _EXPRESSIONS
+separators:	countedw 32,9,13,",L;]:)",0
+%else
+separators:	countedw 32,9,13,",L;]:",0
+%endif
 
 
 i24:
@@ -1324,6 +1546,7 @@ newpacket	equ	  2	; Int21.7305 packet method available (L, W)
 ntpacket	equ	  4	; VDD registered and usable (L, W)
 runningnt	equ   20000h	; running in NTVDM
 hVdd:		dw 0
+load_unit:	dw 0FF00h
 drivenumber:	db 0
 
 	align 4
@@ -1385,7 +1608,9 @@ load_kernel_name: equ $
 
 .replacing_before:	asciz "Replacing "
 .replacing_between:	asciz " with ",'"'
-.replacing_after:	asciz '"',13,10
+.replacing_after:	asciz '".',13,10
+.auto:			asciz "AUTO"
+.error_invalid_number:	asciz "Invalid number.",13,10
 
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
