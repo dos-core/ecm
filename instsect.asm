@@ -314,18 +314,23 @@ NUM_REPLACEMENTS equ 4
 	je @B
 	cmp al, 9
 	je @B
+	 cmp al, ':'
+	 je @F
 	cmp al, '1'
 	jb .error
 	cmp al, '1' - 1 + NUM_REPLACEMENTS	; '4'
 	ja .error
 	cmp byte [si], ':'
 	jne .error
+	inc si			; -> behind the colon
 	sub al, '1'		; 0 to 3 inclusive
 	mov ah, 12
 	mul ah			; 0, 12, 24, 36
+	db __TEST_IMM16		; (skip xor)
+@@:
+	 xor ax, ax		; if empty number field (al was colon)
 	add ax, msg.name_replacements	; -> name replacement buffer
 	xchg ax, di		; -> buffer
-	inc si			; -> behind the colon
 	push di
 	call boot_parse_fn	; parse
 	pop di
