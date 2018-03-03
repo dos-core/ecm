@@ -331,6 +331,16 @@ NUM_REPLACEMENTS equ 4
 	 xor ax, ax		; if empty number field (al was colon)
 	add ax, msg.name_replacements	; -> name replacement buffer
 	xchg ax, di		; -> buffer
+
+	lodsb
+	dec si
+	cmp al, 32
+	je @F
+	cmp al, 9
+	je @F
+	call iseol?
+	je @F
+
 	push di
 	call boot_parse_fn	; parse
 	pop di
@@ -345,6 +355,10 @@ NUM_REPLACEMENTS equ 4
 	mov cx, 12 >> 1
 	rep movsw		; write to buffer
 	pop si
+	jmp .loop
+
+@@:
+	mov byte [di], 0	; delete replacement name
 	jmp .loop
 
 
