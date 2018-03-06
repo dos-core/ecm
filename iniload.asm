@@ -618,12 +618,13 @@ clust_to_first_sector:
 	jnz error_badchain
 	xchg dx, ax
 	add dx, cx
+.cy_error_badchain:
 	jc error_badchain
 	xchg ax, bx
 
 	add ax, [bp + lsvDataStart]
 	adc dx, [bp + lsvDataStart + 2]
-	jc error_badchain
+	jc .cy_error_badchain
 				; dx:ax = first sector in cluster
 	pop bx
 	pop cx			; cx:bx = cluster
