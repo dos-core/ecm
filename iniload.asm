@@ -553,13 +553,13 @@ error_shortfile:
 	call error
 	db "File is too short.", 0
 
-error_badchain:
-	call error
-	db "Bad cluster chain.", 0
-
 error_outofmemory:
 	call error
 	db "Out of memory.", 0
+
+error_badchain:
+	call error
+	db "Bad cluster chain.", 0
 
 
 %assign num 512-($-$$)
