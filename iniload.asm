@@ -317,6 +317,11 @@ read_sector:
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
+ %if !_LBA_SKIP_CHECK
+	test byte [bp + ldHasLBA], 1
+	jz .no_lba_checked
+ %endif
+
 	xor cx, cx
 	push cx
 	push cx
@@ -331,11 +336,6 @@ read_sector:
 	mov si, sp	; ds:si -> disk address packet (on stack)
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
-%if !_LBA_SKIP_CHECK
-	test byte [bp + ldHasLBA], 1
-	jz .no_lba
-%endif
-
 	mov ah, 42h	; 13.42 extensions read
 %if _LBA_RETRY
 	call .int13_retry
@@ -346,7 +346,7 @@ read_sector:
 
 %if _LBA_SKIP_CHECK
 	cmp ah, 1	; invalid function?
-	je .no_lba	; try CHS instead -->
+	je .no_lba_skip	; try CHS instead -->
 %endif
 	cmp ah, 9	; data boundary error?
 	jne .lba_error
@@ -378,14 +378,20 @@ read_sector:
 .lba_error: equ .err
 
  %if !_CHS
-.no_lba: equ .err
- %else
-.no_lba:
+.no_lba_skip: equ .err
+.no_lba_checked: equ .err
+ %elif _LBA_SKIP_CHECK
+.no_lba_skip:
+		; si == sp
 	add sp, 8
 	pop ax
 	pop dx
 	pop cx
 	pop cx
+		; si == sp - 16
+ %else
+.no_lba_checked:
+	mov si, sp	; si == sp
  %endif
 %endif	
 
@@ -515,6 +521,8 @@ read_sector:
 		; hack: si points into unclaimed stack space
 		;  when this is called from the CHS handler.
 		;  this should not cause any issues however.
+		; actually, if !_LBA_SKIP_CHECK, then si is set
+		;  to point to claimed stack space. also legal.
 .int13_preserve_lpcount:
 	push word [si + lpCount]
 	int 13h
