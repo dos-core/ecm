@@ -226,9 +226,10 @@ disp_error:
 	jz .ret
 	mov ah, 0Eh
 	mov bx, 7
-	push bp
+	; push bp
+		; (call may change bp, but it is not used here any longer.)
 	int 10h
-	pop bp
+	; pop bp
 	jmp short .
 
 msg:
