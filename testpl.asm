@@ -135,7 +135,7 @@ loop_table:
 	int3
 	xor ax, ax
 	int 16h
-	int 19h	
+	int 19h
 
 
 disp_ax_hex:			; ax

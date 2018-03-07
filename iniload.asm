@@ -104,7 +104,7 @@ lpSector:	resq 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
-	
+
 	numdef IMAGE_EXE,	0
 	numdef IMAGE_EXE_IP,	64
 	numdef SECOND_PAYLOAD_EXE,	0
@@ -393,7 +393,7 @@ read_sector:
 .no_lba_checked:
 	mov si, sp	; si == sp
  %endif
-%endif	
+%endif
 
 %if _CHS		; +70 bytes
 ; DX:AX=LBA sector number
@@ -817,7 +817,7 @@ relocate_to:
 	rep movsw	; relocate next chunk
 	test ax, ax	; another round needed?
 	jnz @BB		; yes -->
-	
+
 	pop ax
 	sub word [bp + lsvLoadSeg], ax
 
