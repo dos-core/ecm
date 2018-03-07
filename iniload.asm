@@ -1067,8 +1067,7 @@ ldos_entry:
 	mov word [bp + ldLoadTop], cx
 	mov word [bp + ldSectorSeg], ax
 
-	mov ax, word [bp + lsvFATSeg]
-	mov ds, ax
+	mov ds, word [bp + lsvFATSeg]
 	xor si, si	; ds:si -> FAT buffer
 	mov es, bx
 	xor di, di	; es:di -> where to move
@@ -1076,7 +1075,7 @@ ldos_entry:
 	rep movsw
 	mov word [bp + lsvFATSeg], bx
 
-	push ax		; to check for word [lsvFATSeg] == zero later on
+	push ds		; to check for word [lsvFATSeg] == zero later on
 
 	push ss
 	pop es
