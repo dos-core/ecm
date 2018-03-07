@@ -672,8 +672,7 @@ clust_next:
 		and cl, 4	; = 4 iff CY after shift, else 0
 		shr ax, cl	; shift down iff odd entry, else unchanged
 		and ax, 0FFFh	; insure it's only 12 bits
-		xor dx, dx
-	jmp short .gotvalue
+	jmp short .gotvalue_zero_dx
 
 .fat32:
 		; * 4 = byte offset into FAT (0--4000_0000h)
@@ -712,14 +711,14 @@ clust_next:
 	pop bx
 @@:
 	mov es, [bp + lsvFATSeg]
-	xor dx, dx
-	mov ax, [es:bx]
-
-	cmp byte [bp + ldFATType], 16
-	je @F
 	mov dx, [es:bx + 2]
+	mov ax, [es:bx]		; dx:ax = FAT32 entry
+
+	cmp byte [bp + ldFATType], 16	; is it FAT32 ?
+	jne @F			; yes -->
+.gotvalue_zero_dx:
+	xor dx, dx		; no, clear high word
 @@:
-.gotvalue:
 	pop es
 
 		; INP:	dx:ax = cluster value, 2-based
