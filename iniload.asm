@@ -664,7 +664,7 @@ clust_next:
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
 		mov es, [bp + lsvFATSeg]
-		mov bx, ax		; -> 16-bit word in FAT to load
+		xchg bx, ax		; bx -> 16-bit word in FAT to load
 
 ; get 16 bits from FAT
 		mov ax, [es:bx]
@@ -688,7 +688,7 @@ clust_next:
 	xchg ax, dx
 	xor dx, dx		; dx:ax = high word
 	div word [bp + bsBPB + bpbBytesPerSector]
-	mov bx, ax
+	xchg bx, ax		; bx = high word / divisor
 	 pop ax			; dx = remainder, ax = low word
 	div word [bp + bsBPB + bpbBytesPerSector]
 	xchg dx, bx		; dx:ax = result, bx = remainder
@@ -809,7 +809,7 @@ relocate_to:
 	shl ax, 1
 	shl ax, 1
 	shl ax, 1	; convert paragraphs to words
-	mov cx, ax	; that many words
+	xchg cx, ax	; cx = that many words
 	xor ax, ax	; no more to relocate after this round
 
 @@:
