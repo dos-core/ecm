@@ -863,8 +863,10 @@ skip_next_sect:
 	add cx, [bp + ldParaPerSector]
 	cmp cx, [bp + lsvLoadSeg]
 	ja skipped_all
-	add ax, 1		; emulate read_sector:
-	adc dx, 0		; dx:ax += 1
+	inc ax			; emulate read_sector:
+	jnz @F
+	inc dx			; dx:ax += 1
+@@:
 	mov bx, cx		; bx += paras per sector
 	mov [bp + ldLoadingSeg], bx
 
