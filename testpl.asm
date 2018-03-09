@@ -189,17 +189,16 @@ disp_al_lownibble_hex:
 
 		; INP:	ds:si -> first byte to check for name
 		;	cx = number of bytes left
-		; OUT:	(8+1+3+1)bytes[msg.foundname] = found name,
+		; OUT:	(8+1+3+1)bytes[es:msg.foundname] = found name,
 		;	 converted to 8.3 ASCIZ format,
 		;	 "(None)" if none
 		;	CY if no filename found,
 		;	 si = INP:si + INP:cx
 		;	 cx = 0
 		;	NC if filename found,
-		;	 si -> byte behind the name, thus (si-11)-> name
+		;	 ds:si -> byte behind the name, thus ds:(si-11)-> name
 		;	 cx = number of bytes left
 		; CHG:	di, ax
-		; STT:	ds = es
 findname:
 .:
 	cmp cx, 11		; enough for another name ?
@@ -281,33 +280,37 @@ findname:
 	 add si, cx
 	mov di, msg.foundname
 	 push si
+	 push ds
+	push cs
+	pop ds
 	mov si, msg.foundname_none
 	mov cx, (msg.foundname_none_size + 1) >> 1
 	rep movsw
+	 pop ds
 	 pop si
 	 xor cx, cx
 	stc
 	retn
 
 
-		; INP:	si -> 11-byte blank-padded name
-		;	msg.foundname -> (8+1+3+1)-byte buffer
-		; OUT:	si -> behind 11-byte blank-padded name
-		;	msg.foundname filled
+		; INP:	ds:si -> 11-byte blank-padded name
+		;	es:msg.foundname -> (8+1+3+1)-byte buffer
+		; OUT:	ds:si -> behind 11-byte blank-padded name
+		;	es:msg.foundname filled
 		; CHG:	cx, di, ax
 convert_name_to_asciz:
 	mov di, msg.foundname
 	mov cx, 8
 	rep movsb		; copy over base name, si -> extension
-	cmp byte [di - 8], 05h	; is it 05h ?
+	cmp byte [es:di - 8], 05h	; is it 05h ?
 	jne @F			; no -->
-	mov byte [di - 8], 0E5h	; yes, convert to 0E5h
+	mov byte [es:di - 8], 0E5h	; yes, convert to 0E5h
 @@:
 
 	db __TEST_IMM8		; (skip dec)
 @@:
 	dec di			; decrement -> at previous trailing blank
-	cmp byte [di - 1], 32	; trailing blank ?
+	cmp byte [es:di - 1], 32	; trailing blank ?
 	je @B			; yes -->
 
 	mov al, '.'
@@ -318,10 +321,10 @@ convert_name_to_asciz:
 	db __TEST_IMM8		; (skip dec)
 @@:
 	dec di			; decrement -> at previous trailing blank
-	cmp byte [di - 1], 32	; trailing blank ?
+	cmp byte [es:di - 1], 32	; trailing blank ?
 	je @B			; yes -->
 
-	cmp byte [di - 1], '.'	; trailing dot ? (only occurs if all-blank ext)
+	cmp byte [es:di - 1], '.'	; trailing dot ? (only occurs if all-blank ext)
 	jne @F			; no -->
 	dec di			; -> at the dot
 @@:
