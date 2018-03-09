@@ -1369,6 +1369,7 @@ freedos_entry:
 	mov si, [bp + bsBPB + bpbNumRootDirEnts]	; (0 iff FAT32)
 	mov bx, ax
 	dec ax				; rounding up
+	js .error_badchain		; if >= 8000h (ie, 0FFFFh while bx = 0)
 	add ax, si			; from BPB
 	adc dx, dx			; account for overflow (dx was zero)
 	div bx				; get number of root sectors
