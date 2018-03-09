@@ -989,8 +989,8 @@ ldos_entry:
 	dec ax
 	dec ax
 	mov cx, ax
-	sub ax, (8192) >> 4
-	dec cx		; => last paragraph of higher buffer
+	sub ax, (8192 + 16) >> 4
+	dec cx		; => last paragraph of higher buffer (16-byte trailer)
 	mov dx, ax	; => first paragraph of higher buffer
 	mov bx, cx
 	and dx, 0F000h	; 64 KiB chunk of first paragraph of higher buffer
@@ -998,8 +998,10 @@ ldos_entry:
 	cmp bx, dx	; in same chunk?
 	je .gotsectorseg	; yes, use higher buffer as sector buffer ->
 	mov bx, ax	; use higher buffer as FAT buffer
+	inc bx		; => 8 KiB buffer (no 16-byte trailer)
 	sub ax, (8192 + 32) >> 4
-			; leave space for higher buffer MCB + header
+			; 32 = leave space for higher buffer MCB + header
+			; +16 from the above calcs for 16-byte trailer
 	mov cx, ax	; use lower buffer as sector buffer
 	jmp short .gotsegs
 
@@ -1007,7 +1009,7 @@ ldos_entry:
 			; ax = use higher buffer as sector buffer
 	mov bx, ax
 	sub bx, (8192 + 32) >> 4	; use lower buffer as FAT buffer
-			; leave space for higher buffer MCB + header
+			; 32 = leave space for higher buffer MCB + header
 	mov cx, bx
 		; ax = sector seg
 		; bx = FAT seg
