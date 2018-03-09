@@ -915,10 +915,14 @@ skipped_all:
 ms6_continue1:
 	mov dx, word [es:500h + 26]
 	mov cx, word [es:500h + 20]
-
 	mov word [bp + lsvFirstCluster + 0], dx
 	mov word [bp + lsvFirstCluster + 2], cx
-	jmp ms6_continue2
+
+	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
+	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
+	mov word [bp + lsvDataStart + 0], bx
+	mov word [bp + lsvDataStart + 2], ax
+	jmp ms7_entry.ms6_common
 
 
 %assign num 1024-($-$$)
@@ -1240,14 +1244,6 @@ ldos_entry:
 
 .error_outofmemory2:
 	jmp error_outofmemory
-
-
-ms6_continue2:
-	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
-	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
-	mov word [bp + lsvDataStart + 0], bx
-	mov word [bp + lsvDataStart + 2], ax
-	jmp ms7_entry.ms6_common
 
 
 %assign num 1024+512-($-$$)
