@@ -1019,7 +1019,11 @@ ldos_entry:
 		; bx = FAT seg
 		; cx = the lower of the two
 .gotsegs:
-	sub cx, (+512 -LOADDATA + bsBPB + EBPB_size + BPBN_size + 32 + 15) >> 4
+	sub cx, (+512 -LOADDATA + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
+			; +512 = stack space
+			; -LOADDATA = load data + lsv space
+			; 512 = boot sector (allows finding filename)
+			; (ebpbNew - bpbNew) = additional space for BPBN moving
 			; 32 = leave space for lower buffer MCB + header
 		; cx = stack seg
 
@@ -1033,7 +1037,7 @@ ldos_entry:
 	push ax
 	mov dx, ss
 	mov ax, bp
-	add ax, bsBPB + EBPB_size + BPBN_size + 15
+	add ax, 512 + 15
 	shr ax, 1
 	shr ax, 1
 	shr ax, 1
@@ -1041,6 +1045,7 @@ ldos_entry:
 	add dx, ax
 	cmp dx, cx
 	ja .error_outofmemory
+
 		; note that the next conditional doesn't jump for lsvFATSeg = 0
 	mov dx, word [bp + lsvFATSeg]
 	add dx, (8192) >> 4
@@ -1056,8 +1061,13 @@ ldos_entry:
 	mov es, cx
 	mov di, 512 - LOADDATA + LOADSTACKVARS	; es:di -> where to place lsv
 	push cx		; top of memory below buffers
-	mov cx, (- LOADSTACKVARS + bsBPB + EBPB_size + BPBN_size + 1) >> 1
+	mov cx, (- LOADSTACKVARS + 512 + 1) >> 1
 	rep movsw
+	push ax
+	xor ax, ax
+	mov cx, ((ebpbNew - bpbNew + 15) & ~15) >> 1
+	rep stosw	; initialise area behind sector (left so for FAT32)
+	pop ax
 	pop cx
 	mov ss, cx
 	mov sp, 512	; -> above end of stack space
@@ -1123,10 +1133,13 @@ ldos_entry:
 	test bx, bx
 	jz .got_fat_type
 
-	lea si, [bp + bsBPB + bpbNew]
-	lea di, [bp + bsBPB + ebpbNew]
-	mov cx, (BPBN_size + 1) >> 1
+	lea si, [bp + 510]			; -> last source word
+	lea di, [bp + 510 + (ebpbNew - bpbNew)]	; -> last dest word
+	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
+			; move sector up, except common BPB start part
+	std
 	rep movsw
+	cld
 
 	mov word [bp + lsvFirstCluster + 2], cx
 	mov word [bp + lsvFATSector + 2], cx
