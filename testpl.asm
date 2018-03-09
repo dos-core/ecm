@@ -15,6 +15,46 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %include "lmacros2.mac"
 
+	struc BS
+bsJump:	resb 3
+bsOEM:	resb 8
+bsBPB:
+	endstruc
+
+	struc EBPB		;        BPB sec
+bpbBytesPerSector:	resw 1	; offset 00h 0Bh
+bpbSectorsPerCluster:	resb 1	; offset 02h 0Dh
+bpbReservedSectors:	resw 1	; offset 03h 0Eh
+bpbNumFATs:		resb 1	; offset 05h 10h
+bpbNumRootDirEnts:	resw 1	; offset 06h 11h -- 0 for FAT32
+bpbTotalSectors:	resw 1	; offset 08h 13h
+bpbMediaID:		resb 1	; offset 0Ah 15h
+bpbSectorsPerFAT:	resw 1	; offset 0Bh 16h -- 0 for FAT32
+bpbCHSSectors:		resw 1	; offset 0Dh 18h
+bpbCHSHeads:		resw 1	; offset 0Fh 1Ah
+bpbHiddenSectors:	resd 1	; offset 11h 1Ch
+bpbTotalSectorsLarge:	resd 1	; offset 15h 20h
+bpbNew:				; offset 19h 24h
+
+ebpbSectorsPerFATLarge:	resd 1	; offset 19h 24h
+ebpbFSFlags:		resw 1	; offset 1Dh 28h
+ebpbFSVersion:		resw 1	; offset 1Fh 2Ah
+ebpbRootCluster:	resd 1	; offset 21h 2Ch
+ebpbFSINFOSector:	resw 1	; offset 25h 30h
+ebpbBackupSector:	resw 1	; offset 27h 32h
+ebpbReserved:		resb 12	; offset 29h 34h
+ebpbNew:			; offset 35h 40h
+	endstruc
+
+	struc BPBN		; ofs B16 S16 B32 S32
+bpbnBootUnit:		resb 1	; 00h 19h 24h 35h 40h
+			resb 1	; 01h 1Ah 25h 36h 41h
+bpbnExtBPBSignature:	resb 1	; 02h 1Bh 26h 37h 42h -- 29h for valid BPBN
+bpbnSerialNumber:	resd 1	; 03h 1Ch 27h 38h 43h
+bpbnVolumeLabel:	resb 11	; 07h 20h 2Bh 3Ch 47h
+bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
+	endstruc		; 1Ah 33h 3Eh 4Fh 5Ah
+
 %ifndef _MAP
 %elifstr _MAP
 %elifempty _MAP
@@ -85,6 +125,19 @@ error:
 	int 16h
 	int 19h
 
+disp_msg_asciz:
+	push ds
+	push si
+	push ax
+	 push cs
+	 pop ds
+	mov si, dx
+	call disp_msg
+	pop ax
+	pop si
+	pop ds
+	retn
+
 disp_msg:
 @@:
 	lodsb
@@ -151,6 +204,49 @@ loop_table:
 	add di, 4
 	cmp di, table.end
 	jb loop_table
+
+listnames:
+	mov bx, msg.names
+	push ss
+	pop ds
+	lea si, [bp + bsBPB + ebpbNew + BPBN_size]
+	mov cx, (512 - (bsBPB + ebpbNew + BPBN_size)) - 2
+						; -2 = AA55h sig
+	cmp word [bp + bsBPB + bpbSectorsPerFAT], 0
+	je @F
+	mov cx, (512 + (ebpbNew - bpbNew) - (bsBPB + ebpbNew + BPBN_size)) - 2
+@@:
+.nextname:
+	call findname
+	 lahf
+	mov dx, [cs:bx]
+	call disp_msg_asciz
+	mov dx, msg.name_before
+	call disp_msg_asciz
+	 sahf
+	 jc @F		; skip quote if no name -->
+	 mov dx, msg.name_quote
+	 call disp_msg_asciz
+@@:
+	mov dx, msg.foundname
+	call disp_msg_asciz
+	 sahf
+	 jc @F		; skip quote if no name -->
+	 mov dx, msg.name_quote
+	 call disp_msg_asciz
+@@:
+	mov dx, msg.name_after
+	call disp_msg_asciz
+	 sahf
+	 mov ax, 0
+	 jc @F		; set to zero if no name -->
+	 lea ax, [si - 11]	; -> name in buffer
+@@:
+	 mov word [cs:bx + 2], ax	; -> name in buffer, or 0
+	add bx, 4
+	cmp word [cs:bx], 0
+	jne .nextname
+
 
 	push cs
 	pop ds
@@ -371,6 +467,7 @@ table:
 	dw +58, "SF"
 	db -1, -1, 13,10
 .end:
+
 
 signature:
 	dw 2638h
