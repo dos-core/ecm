@@ -155,16 +155,17 @@ relocator:
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 	mov bl, dl
 
+	 push ss
+	 pop ds
 	cmp word [bp + bsBPB + bpbSectorsPerFAT], ax
 	je @F
-	push ss
-	pop ds
-	push ss
-	pop es
+	 push ss
+	 pop es
 	lea si, [bp + bsBPB + ebpbNew]
 	lea di, [bp + bsBPB + bpbNew]
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 	rep movsw
+@@:
 
 	mov ax, 60h + ((payload.end - payload) >> 4)
 	mov es, ax
@@ -174,7 +175,7 @@ relocator:
 	rep movsb
 	mov ss, ax
 	mov sp, bp
-@@:
+
 	jmp 60h:0
 .end:
 
