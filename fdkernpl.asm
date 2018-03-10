@@ -93,8 +93,6 @@ start:
 
 	xor cx, cx
 	mov ax, 60h
-	push ax
-	push cx		; stack: 60h:0
 	 push cs
 	 pop ds
 	mov si, relocator
@@ -168,8 +166,18 @@ relocator:
 	lea di, [bp + bsBPB + bpbNew]
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 	rep movsw
+
+	mov ax, 60h
+	add ax, (payload.end - payload) >> 4
+	mov es, ax
+	xor di, di
+	xor si, si
+	lea cx, [ bp + 512 ]
+	rep movsb
+	mov ss, ax
+	mov sp, bp
 @@:
-	retf
+	jmp 60h:0
 .end:
 
 	align 16
