@@ -92,11 +92,10 @@ ldLoadUntilSeg:	resw 1
 start:
 
 	xor cx, cx
-	mov ax, 60h
 	 push cs
 	 pop ds
 	mov si, relocator
-	sub ax, (relocator.end - relocator + 15) >> 4
+	mov ax, 60h - ((relocator.end - relocator + 15) >> 4)
 	mov es, ax
 	xor di, di
 	push ax
@@ -167,8 +166,7 @@ relocator:
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 	rep movsw
 
-	mov ax, 60h
-	add ax, (payload.end - payload) >> 4
+	mov ax, 60h + ((payload.end - payload) >> 4)
 	mov es, ax
 	xor di, di
 	xor si, si
