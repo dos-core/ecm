@@ -153,9 +153,22 @@ relocator:
 	rep movsw	; relocate next chunk
 	test ax, ax	; another round needed?
 	jnz @BB		; yes -->
+			; ax = 0
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 	mov bl, dl
+
+	cmp word [bp + bsBPB + bpbSectorsPerFAT], ax
+	je @F
+	push ss
+	pop ds
+	push ss
+	pop es
+	lea si, [bp + bsBPB + ebpbNew]
+	lea di, [bp + bsBPB + bpbNew]
+	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
+	rep movsw
+@@:
 	retf
 .end:
 
