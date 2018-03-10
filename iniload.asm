@@ -1038,6 +1038,10 @@ ldos_entry:
 	mov dx, ss
 	mov ax, bp
 	add ax, 512 + 15
+	jnc @F
+	mov ax, 1_0000h >> 1
+	db __TEST_IMM16	; (skip one shr)
+@@:
 	shr ax, 1
 	shr ax, 1
 	shr ax, 1
