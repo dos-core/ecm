@@ -100,7 +100,7 @@ lpSector:	resq 1
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
-	numdef STACKSIZE,	512
+	numdef STACKSIZE,	2048
 %if _STACKSIZE < 256
  %error Too small stack size
 %elif _STACKSIZE > 3 * 1024
