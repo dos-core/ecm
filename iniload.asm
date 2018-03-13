@@ -100,6 +100,18 @@ lpSector:	resq 1
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
+	numdef STACKSIZE,	512
+%if _STACKSIZE < 256
+ %error Too small stack size
+%elif _STACKSIZE > 3 * 1024
+		; Note that we use 8 KiB for SectorSeg, 8 KiB for FATSeg,
+		; 512 bytes + (ebpbNew - bpbNew) for the boot sector,
+		; and a few paragraphs left for MCBs and headers. As the
+		; protocol is implemented with a 20 KiB reserved area (below
+		; EBDA / RPL / end of low memory), this results in a maximum
+		; stack size around 3 KiB (substantially below 4 KiB).
+ %error Too large stack size
+%endif
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
 	numdef EXEC_OFFSET,	0
@@ -1019,8 +1031,8 @@ ldos_entry:
 		; bx = FAT seg
 		; cx = the lower of the two
 .gotsegs:
-	sub cx, (+512 -LOADDATA + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
-			; +512 = stack space
+	sub cx, (+_STACKSIZE -LOADDATA + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
+			; +_STACKSIZE = stack space
 			; -LOADDATA = load data + lsv space
 			; 512 = boot sector (allows finding filename)
 			; (ebpbNew - bpbNew) = additional space for BPBN moving
@@ -1063,7 +1075,7 @@ ldos_entry:
 	pop ds
 	lea si, [bp + LOADSTACKVARS]	; ds:si -> lsv + BPB
 	mov es, cx
-	mov di, 512 - LOADDATA + LOADSTACKVARS	; es:di -> where to place lsv
+	mov di, _STACKSIZE - LOADDATA + LOADSTACKVARS	; es:di -> where to place lsv
 	push cx		; top of memory below buffers
 	mov cx, (- LOADSTACKVARS + 512 + 1) >> 1
 	rep movsw
@@ -1074,8 +1086,8 @@ ldos_entry:
 	pop ax
 	pop cx
 	mov ss, cx
-	mov sp, 512	; -> above end of stack space
-	mov bp, 512 - LOADDATA	; -> BPB, above end of lsv
+	mov sp, _STACKSIZE	; -> above end of stack space
+	mov bp, _STACKSIZE - LOADDATA	; -> BPB, above end of lsv
 	dec cx		; => space for stack + BPB buffer MCB
 	sti
 
