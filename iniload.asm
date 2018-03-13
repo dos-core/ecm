@@ -118,9 +118,11 @@ lpSector:	resq 1
 	numdef EXEC_SEGMENT,	0
 
 	numdef IMAGE_EXE,	0
-	numdef IMAGE_EXE_IP,	64
+	numdef IMAGE_EXE_CS,	-16
+	numdef IMAGE_EXE_IP,	256 + 64
 	numdef SECOND_PAYLOAD_EXE,	0
-	numdef SECOND_PAYLOAD_EXE_IP,	64
+	numdef SECOND_PAYLOAD_EXE_CS,	-16
+	numdef SECOND_PAYLOAD_EXE_IP,	256 + 64
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
@@ -143,7 +145,7 @@ start:
 	dw -1		; exeMaxAlloc
 	dw -16, 0	; exeInitSS, exeInitSP
 	dw 0		; exeChecksum
-	dw 256 + _IMAGE_EXE_IP, -16; exeInitCSIP
+	dw _IMAGE_EXE_IP, _IMAGE_EXE_CS	; exeInitCSIP
 	dw 0		; exeRelocTable
 %elif _SECOND_PAYLOAD_EXE
 		; for now hardcoded to carry a .COM-like executable
@@ -154,7 +156,7 @@ start:
 	dw -1		; exeMaxAlloc
 	dw -16, 0	; exeInitSS, exeInitSP
 	dw 0		; exeChecksum
-	dw 256 + _SECOND_PAYLOAD_EXE_IP, -16; exeInitCSIP
+	dw _SECOND_PAYLOAD_EXE_IP, _SECOND_PAYLOAD_EXE_CS	; exeInitCSIP
 	dw 0		; exeRelocTable
 %else
 	dw -1		; exePages
