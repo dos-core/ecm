@@ -1373,14 +1373,10 @@ freedos_entry:
 		;  first data sector (including root directory size)
 		;  here to complete the LOADSTACKVARS.
 
-; 16-byte paragraphs per sector
-	mov ax, [bp + bsBPB + bpbBytesPerSector]
-	mov cl, 4			; ! ch = 0
-	shr ax, cl
-	mov [bp + ldParaPerSector], ax
-
 ; 32-byte FAT directory entries per sector
-	shr ax, 1			; /2 = 32-byte entries per sector
+	mov ax, [bp + bsBPB + bpbBytesPerSector]
+	mov cl, 5			; ! ch = 0
+	shr ax, cl
 
 ; number of sectors used for root directory (store in CX)
 	xor dx, dx
