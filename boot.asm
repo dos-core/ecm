@@ -1014,11 +1014,7 @@ read_sector:
 	mov ah, 42h
 	int 13h
  %if _LBA_SKIP_CHECK
-	jnc .lba_done
-	cmp ah, 1	; invalid function?
-	je .no_lba	; try CHS instead -->
-.cy_err:
-	jmp .lba_error
+	jc .lba_check_error_1
  %else
 .cy_err:
 	jc .lba_error
@@ -1032,9 +1028,20 @@ read_sector:
 	pop bx
 	jmp short .chs_done
 
+ %if _LBA_SKIP_CHECK
+.lba_check_error_1:
+	cmp ah, 1	; invalid function?
+	jne .lba_error	; no, other error -->
+			; try CHS instead
+.cy_err: equ .err
+ %endif
+
 .lba_error: equ .err
 
  %if !_CHS
+  %if _LBA_SKIP_CHECK
+	jmp .no_lba
+  %endif
 .no_lba: equ .err
  %else
 .no_lba:
@@ -1085,6 +1092,7 @@ read_sector:
 	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
 			 or bl, ah	; collect set bits from ah
 			mov dl,[VAR(boot_unit)] ; dl = drive
+.nz_err:
 			 jnz .err	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
 
@@ -1102,7 +1110,12 @@ read_sector:
 ; try read again
 			mov ax, 0201h
 			int 13h
+%if _LBA_SKIP_CHECK
+			inc bx
+			jc .nz_err
+%else
 			jc .cy_err
+%endif
 
 .done:
 ; increment segment
