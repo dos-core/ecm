@@ -27,10 +27,10 @@ Public domain by C. Masloch, 2012
 	strdef DEFAULT_LABEL,	"lDOS"
 
 	strdef LOAD_NAME,	"LDOS"
-	strdef LOAD_EXT,	"BIN"	; name of file to load
-	numdef LOAD_ADR,	00610h	; where to load
+	strdef LOAD_EXT,	"COM"	; name of file to load
+	numdef LOAD_ADR,	00700h	; where to load
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
-	numdef EXEC_OFS,	0	; what value ip will be
+	numdef EXEC_OFS,	400h	; what value ip will be
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
@@ -43,7 +43,7 @@ Public domain by C. Masloch, 2012
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
 	numdef SET_DSSI_DPT,	0	; if to pass DPT address in ds:si
 	numdef PUSH_DPT,	0	; if to push DPT address
-	numdef MEMORY_CONTINUE,	0	; if to just execute when memory full
+	numdef MEMORY_CONTINUE,	1	; if to just execute when memory full
 	numdef SET_DI_CLUSTER,	0	; if to pass first load file cluster in di
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef DIR_ENTRY_500,	0	; if to copy directory entry to 0:500h
@@ -51,9 +51,9 @@ Public domain by C. Masloch, 2012
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
-	numdef SET_LOAD_SEG,	0	; if to set load_seg (word [ss:bp - 6])
-	numdef SET_FAT_SEG,	0	; if to set fat_seg (word [ss:bp - 8])
-	numdef SET_CLUSTER,	0	; if to set first_cluster (word [ss:bp - 16])
+	numdef SET_LOAD_SEG,	1	; if to set load_seg (word [ss:bp - 6])
+	numdef SET_FAT_SEG,	1	; if to set fat_seg (word [ss:bp - 8])
+	numdef SET_CLUSTER,	1	; if to set first_cluster (word [ss:bp - 16])
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
