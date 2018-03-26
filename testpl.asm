@@ -56,9 +56,8 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	endstruc		; 1Ah 33h 3Eh 4Fh 5Ah
 
 %ifndef _MAP
-%elifstr _MAP
 %elifempty _MAP
-%else	; defined non-empty non-str
+%else	; defined non-empty, str or non-str
 	[map all _MAP]
 %endif
 

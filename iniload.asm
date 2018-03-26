@@ -84,9 +84,8 @@ lpSector:	resq 1
 
 
 %ifndef _MAP
-%elifstr _MAP
 %elifempty _MAP
-%else	; defined non-empty non-str
+%else	; defined non-empty, str or non-str
 	[map all _MAP]
 %endif
 

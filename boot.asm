@@ -14,9 +14,8 @@ Public domain by C. Masloch, 2012
 %include "lmacros2.mac"
 
 %ifndef _MAP
-%elifstr _MAP
 %elifempty _MAP
-%else	; defined non-empty non-str
+%else	; defined non-empty, str or non-str
 	[map all _MAP]
 %endif
 
