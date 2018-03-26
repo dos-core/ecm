@@ -61,7 +61,7 @@ Public domain by C. Masloch, 2012
 	numdef FIX_CLUSTER_SIZE_SKIP_CHECK,	0	; don't check cluster size
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
-	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
+	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 
