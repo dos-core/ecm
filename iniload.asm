@@ -118,11 +118,17 @@ lpSector:	resq 1
 	numdef EXEC_SEGMENT,	0
 
 	numdef IMAGE_EXE,	0
-	numdef IMAGE_EXE_CS,	-16
-	numdef IMAGE_EXE_IP,	256 + 64
+	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
+	numdef IMAGE_EXE_IP,	256 +64	; value for IP
+	numdef IMAGE_EXE_SS,	-16	; relative-segment for SS
+	numdef IMAGE_EXE_SP,	0	; value for SP (0 underflows)
+	numdef IMAGE_EXE_MIN,	65536	; how much to allocate for the process
 	numdef SECOND_PAYLOAD_EXE,	0
 	numdef SECOND_PAYLOAD_EXE_CS,	-16
-	numdef SECOND_PAYLOAD_EXE_IP,	256 + 64
+	numdef SECOND_PAYLOAD_EXE_IP,	256 +64
+	numdef SECOND_PAYLOAD_EXE_SS,	-16
+	numdef SECOND_PAYLOAD_EXE_SP,	0
+	numdef SECOND_PAYLOAD_EXE_MIN,	65536
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
@@ -141,9 +147,11 @@ start:
 	dw (payload.end - $$ + 511) / 512	; exePages
 	dw 0		; exeRelocItems
 	dw (payload -$$+0) >> 4	; exeHeaderSize
-	dw (65536 - (payload.end - payload) + 512 + 15) >> 4	; exeMinAlloc
+	dw (_IMAGE_EXE_MIN - (payload.end - payload) \
+		+ 512 + 15) >> 4	; exeMinAlloc
 	dw -1		; exeMaxAlloc
-	dw -16, 0	; exeInitSS, exeInitSP
+	dw _IMAGE_EXE_SS	; exeInitSS
+	dw _IMAGE_EXE_SP	; exeInitSP
 	dw 0		; exeChecksum
 	dw _IMAGE_EXE_IP, _IMAGE_EXE_CS	; exeInitCSIP
 	dw 0		; exeRelocTable
@@ -152,9 +160,11 @@ start:
 	dw (second_payload.end - $$ + 511) / 512	; exePages
 	dw 0		; exeRelocItems
 	dw (second_payload -$$+0) >> 4	; exeHeaderSize
-	dw (65536 - (second_payload.end - second_payload) + 512 + 15) >> 4	; exeMinAlloc
+	dw (_SECOND_PAYLOAD_EXE_MIN - (second_payload.end - second_payload) \
+		+ 512 + 15) >> 4	; exeMinAlloc
 	dw -1		; exeMaxAlloc
-	dw -16, 0	; exeInitSS, exeInitSP
+	dw _SECOND_PAYLOAD_EXE_SS	; exeInitSS
+	dw _SECOND_PAYLOAD_EXE_SP	; exeInitSP
 	dw 0		; exeChecksum
 	dw _SECOND_PAYLOAD_EXE_IP, _SECOND_PAYLOAD_EXE_CS	; exeInitCSIP
 	dw 0		; exeRelocTable
