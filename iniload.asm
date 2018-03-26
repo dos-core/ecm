@@ -1152,7 +1152,7 @@ ldos_entry:
 	jz .got_fat_type
 
 	lea si, [bp + 510]			; -> last source word
-	lea di, [bp + 510 + (ebpbNew - bpbNew)]	; -> last dest word
+	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 			; move sector up, except common BPB start part
 	std
