@@ -585,26 +585,7 @@ next_ent:
 				;  ie all root entries checked unsuccessfully
 
 	mov al,'F'	; File not 'F'ound
-
-%ifn _MEMORY_CONTINUE
-	db __TEST_IMM16	; (skip mov)
-error_filetoobig:
-	mov al,'M'	; Not enough 'M'emory
-%endif
-
-error:
-	mov bh, [462h]
-	mov bl, 7
-	mov ah, 0Eh
-	int 10h		; display character
-	mov al, 07h
-	int 10h		; beep!
-
-	xor ax, ax	; await key pressed
-	int 16h
-
-	int 19h		; re-start the boot process
-
+	jmp error
 
 found_it:
 %if _DIR_ENTRY_500	; +24 bytes, probably
@@ -928,6 +909,28 @@ next_cluster:
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
 
+read_sector.err:
+	mov al, 'R'	; Disk 'R'ead error
+%ifn _MEMORY_CONTINUE
+	db __TEST_IMM16	; (skip mov)
+error_filetoobig:
+	mov al,'M'	; Not enough 'M'emory
+%endif
+
+error:
+	mov bh, [462h]
+	mov bl, 7
+	mov ah, 0Eh
+	int 10h		; display character
+	mov al, 07h
+	int 10h		; beep!
+
+	xor ax, ax	; await key pressed
+	int 16h
+
+	int 19h		; re-start the boot process
+
+
 		; INP:	dx:ax = sector
 		; OUT:	only if successful
 		;	dx:ax = incremented
@@ -1014,8 +1017,10 @@ read_sector:
 	jnc .lba_done
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
+.cy_err:
 	jmp .lba_error
  %else
+.cy_err:
 	jc .lba_error
  %endif
 
@@ -1040,6 +1045,10 @@ read_sector:
 	pop cx
  %endif
 %endif	
+
+%if !_LBA
+.cy_err:	equ .err
+%endif
 
 %if _CHS		; +70 bytes
 ; DX:AX=LBA sector number
@@ -1093,7 +1102,7 @@ read_sector:
 ; try read again
 			mov ax, 0201h
 			int 13h
-			jc .err
+			jc .cy_err
 
 .done:
 ; increment segment
@@ -1119,10 +1128,6 @@ read_sector:
 @@:
 
 	retn
-
-.err:
-	mov al, 'R'	; Disk 'R'ead error
-	jmp error
 
 
 %if !_NO_LIMIT
