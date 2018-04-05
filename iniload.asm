@@ -587,7 +587,7 @@ error_badchain:
 
 
 %assign num 512-($-$$)
-%warning iniload: num bytes in front of ms7_entry
+%warning num bytes in front of ms7_entry
 	_fill 512,38,start
 ms7_entry:
 		; This is the MS-DOS 7 compatible entry point.
@@ -949,7 +949,7 @@ ms6_continue1:
 
 
 %assign num 1024-($-$$)
-%warning iniload: num bytes in front of ldos_entry
+%warning num bytes in front of ldos_entry
 	_fill 1024,38,start
 ldos_entry:
 	cli
@@ -1287,7 +1287,7 @@ ldos_entry:
 
 
 %assign num 1024+512-($-$$)
-%warning iniload: num bytes in front of end
+%warning num bytes in front of end
 	_fill 1024+512,38,start
 	align 16, db 38
 end:
@@ -1453,7 +1453,7 @@ freedos_entry:
 
 
 %assign num 2046-($-$$)
-%warning iniload: num bytes in front of end2
+%warning num bytes in front of end2
 	_fill 2046,38,start
 	dw "MS"			; signature of MS-DOS 7 load
 	align 16, db 38
