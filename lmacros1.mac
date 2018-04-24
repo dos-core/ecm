@@ -748,12 +748,12 @@ __SECT__
 	%imacro _fill 3.nolist
 %if %1 < 0				; hu?
  %error _fill: size is negative
-%elif $-%3 < 0				; should generate a phase error anyway. however
+%elif $-(%3) < 0			; should generate a phase error anyway. however
  %error _fill: start label must not be behind filling
-%elif %1-$+%3 < 0			; times would also throw an error then ("TIMES value x is negative")
+%elif (%1)-$+(%3) < 0			; times would also throw an error then ("TIMES value x is negative")
  %error _fill: data too large, exceeds size	; but showing a more specific message won't hurt
 %endif
-		times %1-$+%3 db %2	; Fill with fill byte to given size
+		times (%1)-$+(%3) db %2	; Fill with fill byte to given size
 	%endmacro
 
 
