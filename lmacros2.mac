@@ -202,6 +202,9 @@ Intended for 86 Mode programs.
 		; Defines %$lsizeparameters to be the even number of bytes
 		;  all parameters take up, and %$lsizevariables to be the
 		;  even number of bytes all variables take up.
+		; The code created by this does not change any flags, as it
+		;  uses either (one or two) "push ax" or "lea sp, [bp - x]"
+		;  or "enter x, 0" to reserve the stack space.
 %imacro lenter 0.nolist
 %ifnctx LFRAME
  %fatal Must use lframe first
@@ -232,7 +235,7 @@ Intended for 86 Mode programs.
 	push ax
 	push ax
    %else
-	sub sp, %$lsizevariables
+	lea sp, [bp - %$lsizevariables]
    %endif
   %endif
  %endif
@@ -256,6 +259,8 @@ __lenter_parse_parlist %$parlist
 		; This restores bp if it was altered to access variables or
 		;  parameters. It also restores sp from bp if sp was altered
 		;  to allocate space to variables.
+		; The code created by this does not change any flags, as it
+		;  uses only "mov sp, bp" and "pop bp", or "leave".
 		; This undefines all labels that were defined for variables
 		;  and parameters in this stack frame, to prevent accidental
 		;  usage of these labels later.
