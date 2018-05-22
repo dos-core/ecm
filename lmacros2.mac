@@ -671,7 +671,7 @@ __@@_next 4
 	%endmacro
 
 
-	%imacro _struc_at 2-3.nolist
+	%imacro _struc_at 2-3+.nolist
 %if %1
  %if (%2 - ($ - %$strucname)) != 0
   %if %1 == 1
