@@ -44,18 +44,39 @@ Intended for 86 Mode programs.
  %fatal Still inside lenter, must end previous with lleave
 %endif
 %push LFRAME
+
+%assign %$bits __BITS__
+%if %$bits == 16
+ %assign %$base_size	2
+ %assign %$near_offset	2
+ %assign %$far_offset	4
+ %assign %$int_offset	6
+%elif %$bits == 32
+ %assign %$base_size	4
+ %assign %$near_offset	4
+ %assign %$far_offset	8
+ %assign %$int_offset	12
+%elif %$bits == 64
+ %assign %$base_size	8
+ %assign %$near_offset	8
+ %assign %$far_offset	16
+ %assign %$int_offset	24
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+
 %define %$autoret
 %ifidni %1,none
 %elifidni %1,-
 %elifidni %1,near
  %define %$autoret near
- %assign %$parofs 2
+ %assign %$parofs %$near_offset
 %elifidni %1,far
  %define %$autoret far
- %assign %$parofs 4
+ %assign %$parofs %$far_offset
 %elifidni %1,int
  %define %$autoret int
- %assign %$parofs 6
+ %assign %$parofs %$int_offset
 %elifnum %1
  %if %1 < 0
   %fatal Invalid frame type specified (negative): %1
@@ -133,6 +154,8 @@ Intended for 86 Mode programs.
  %assign %$varsize 2
 %elifidni %1,dword
  %assign %$varsize 4
+%elifidni %1,qword
+ %assign %$varsize 8
 %elifnum %1
  %assign %$varsize %1
 %else
@@ -171,6 +194,8 @@ Intended for 86 Mode programs.
  %assign %$varsize 2
 %elifidni %1,dword
  %assign %$varsize 4
+%elifidni %1,qword
+ %assign %$varsize 8
 %elifnum %1
  %assign %$varsize %1
 %else
@@ -250,6 +275,10 @@ Intended for 86 Mode programs.
  %if %$186 && %$ofs
 	enter %$lsizevariables, 0
  %else
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$bits == 16
 	push bp
 	mov bp, sp
   %if %$ofs
@@ -262,6 +291,38 @@ Intended for 86 Mode programs.
 	lea sp, [bp - %$lsizevariables]
    %endif
   %endif
+%elif %$bits == 32
+	push ebp
+	mov ebp, esp
+  %if %$ofs
+   %if %$lsizevariables == 2
+	push ax
+   %elif %$lsizevariables == 4
+	push eax
+   %elif %$lsizevariables == 8
+	push eax
+	push eax
+   %else
+	lea esp, [ebp - %$lsizevariables]
+   %endif
+  %endif
+%elif %$bits == 64
+	push rbp
+	mov rbp, rsp
+  %if %$ofs
+   %if %$lsizevariables == 2
+	push ax
+   %elif %$lsizevariables == 4
+	push eax
+   %elif %$lsizevariables == 8
+	push rax
+   %else
+	lea rsp, [rbp - %$lsizevariables]
+   %endif
+  %endif
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
  %endif
 %endif
 %assign %$lsizeparameters (%$pars_size+1)&~1
@@ -274,7 +335,7 @@ __lenter_parse_parlist %$parlist
 %endif
 %rep %0 >> 1
 %assign %$pars_size %$pars_size - %1
-%assign ?%2 (%$pars_size + %$parofs + 2)
+%assign ?%2 (%$pars_size + %$parofs + %$base_size)
 %rotate 2
 %endrep
 %endmacro
@@ -348,12 +409,33 @@ __lenter_parse_parlist %$parlist
  %if %$186
 	leave
  %else
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$bits == 16
   %if %$ofs
 	mov sp, bp
   %elifidni %2,forcerestoresp
  	mov sp, bp
   %endif
 	pop bp
+%elif %$bits == 32
+  %if %$ofs
+	mov esp, ebp
+  %elifidni %2,forcerestoresp
+ 	mov esp, ebp
+  %endif
+	pop ebp
+%elif %$bits == 64
+  %if %$ofs
+	mov rsp, rbp
+  %elifidni %2,forcerestoresp
+ 	mov rsp, rbp
+  %endif
+	pop rbp
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
  %endif
 %else
  %if %$ofs
