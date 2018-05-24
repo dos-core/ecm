@@ -68,6 +68,7 @@ Intended for 86 Mode programs.
  %fatal Invalid frame type specified: %1
 %endif
 %assign %$pars_size 0
+%assign %$pars_return_size 0
 %define %$parlist
 %define %$labellist
 %assign %$ofs 0
@@ -186,6 +187,29 @@ Intended for 86 Mode programs.
 %else
  %xdefine %$parlist %$parlist,%$varsize,%2
 %endif
+%assign %$req 1
+%endmacro
+
+		; Note to return all prior defined stack frame parameters.
+		;  This simply subtracts the current length of parameters
+		;  from the length that is to be popped off the stack by lret.
+		;
+		; This is sort of a hack. May incorrectly handle cases of
+		;  byte (or otherwise odd-sized) parameters.
+%imacro lpar_return 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifndef %$parofs
+ %fatal Specified no frame type with lframe
+%endif
+%ifempty %$labellist
+ %fatal Specified no parameters with lpar
+%endif
+%ifn %$pars_size
+ %fatal Specified no parameters with lpar
+%endif
+%assign %$pars_return_size %$pars_size
 %assign %$req 1
 %endmacro
 
@@ -344,7 +368,7 @@ __lenter_parse_parlist %$parlist
 %endif
 	%endif
 %ifdef %$parofs
- %assign lsizeparameters %$lsizeparameters
+ %assign lsizeparameters %$lsizeparameters - %$pars_return_size
 %endif
 %xdefine __lframe__autoret %$autoret
 	%ifnidni %1,code
