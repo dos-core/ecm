@@ -395,8 +395,10 @@ depack:
 	mov word [bp + ?src_avail], ax
 	mov word [bp + ?src_avail + 2], dx
 
+	mov byte [cs:errorword + 1], 8
 	add ax, BRIEFLZHEADER_size
 	adc dx, 0
+	jc .error
 
 	mov byte [cs:errorword + 1], 4
 	cmp dx, word [bp + ?length_of_source + 2]
