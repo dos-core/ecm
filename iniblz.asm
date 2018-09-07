@@ -61,7 +61,7 @@ ldLoadUntilSeg:	resw 1
 
 	defaulting
 
-	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
+	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 
