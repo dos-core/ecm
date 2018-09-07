@@ -521,6 +521,8 @@ blz_getbit_safe:
 		;	NC if success,
 		;	 dx:ax = gamma
 blz_getgamma_safe:
+	push bx
+
 	xor dx, dx
 	mov bx, 1
 
@@ -547,6 +549,7 @@ blz_getgamma_safe:
 
 	mov ax, bx
 .ret:
+	pop bx
 	retn
 
 
