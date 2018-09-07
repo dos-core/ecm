@@ -30,3 +30,40 @@
 
 %endif
 
+%include "lmacros2.mac"
+
+	struc LOADSTACKVARS, -10h
+lsvFirstCluster:	resd 1
+lsvFATSector:		resd 1
+lsvFATSeg:		resw 1
+lsvLoadSeg:		resw 1
+lsvDataStart:		resd 1
+	endstruc
+
+	struc LOADDATA, LOADSTACKVARS - 10h
+ldMemoryTop:	resw 1
+ldLoadTop:	resw 1
+ldSectorSeg:	resw 1
+ldFATType:	resb 1
+ldHasLBA:	resb 1
+ldClusterSize:	resw 1
+ldParaPerSector:resw 1
+ldLoadingSeg:	resw 1
+ldLoadUntilSeg:	resw 1
+	endstruc
+
+
+%ifndef _MAP
+%elifempty _MAP
+%else	; defined non-empty, str or non-str
+	[map all _MAP]
+%endif
+
+	defaulting
+
+	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
+	numdef EXEC_OFFSET,	0
+	numdef EXEC_SEGMENT,	0
+
+	cpu 8086
+
