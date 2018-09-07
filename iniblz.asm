@@ -207,5 +207,6 @@ init1_start:
 	push bx
 	retf	
 
+	align 16
 init1_end:
 
