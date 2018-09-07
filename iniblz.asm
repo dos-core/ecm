@@ -484,10 +484,15 @@ blz_getbit_safe:
 	jne .from_tag
 
 	mov byte [cs:errorword], 1
+	cmp word [bp + ?src_avail + 2], 0
+	ja @F
+	; jb .ret
 	cmp word [bp + ?src_avail], 2
 	jb .ret				; (CY)
+@@:
 
 	sub word [bp + ?src_avail], 2
+	sbb word [bp + ?src_avail + 2], 0
 
 	push bx
 	mov bx, .lodsw
