@@ -1,32 +1,17 @@
 
- %if 0
+%if 0
 
- BriefLZ - small fast Lempel-Ziv
+lDOS iniload packed payload
+ by C. Masloch, 2018
 
- 8086 Assembly lDOS iniload payload depacker
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
 
- Based on: BriefLZ C safe depacker
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
- Copyright (c) 2002-2016 Joergen Ibsen
 
- This software is provided 'as-is', without any express or implied
- warranty. In no event will the authors be held liable for any damages
- arising from the use of this software.
-
- Permission is granted to anyone to use this software for any purpose,
- including commercial applications, and to alter it and redistribute it
- freely, subject to the following restrictions:
-
-   1. The origin of this software must not be misrepresented; you must
-      not claim that you wrote the original software. If you use this
-      software in a product, an acknowledgment in the product
-      documentation would be appreciated but is not required.
-
-   2. Altered source versions must be plainly marked as such, and must
-      not be misrepresented as being the original software.
-
-   3. This notice may not be removed or altered from any source
-      distribution.
+Contains BriefLZ depacker, which is under separate usage conditions.
 
 %endif
 
@@ -190,22 +175,74 @@ payload_end:
 
 	section INIT1 align=16 follows=PAYLOAD vstart=0
 init1_start:
-	; TODO: add decompression
-	; INP:	ss:bp -> LOADDATA and LOADSTACKVARS
-	;	ss:sp -> valid stack above [bp + ldLoadTop]
-	;	cs = INIT1
-	;	cs - (payload_end - payload) >> 4 => source data
-	;	60h => destination
-	; CHG:	ax, bx, cx, dx, es, ds, si, di
+		; INP:	ss:bp -> LOADDATA and LOADSTACKVARS
+		;	ss:sp -> valid stack above [bp + ldLoadTop]
+		;	cs = INIT1
+		;	cs - (payload_end - payload) >> 4 => source data
+		;	60h => destination
+		; CHG:	ax, bx, cx, dx, es, ds, si, di
 
 	mov ax, cs
-	sub ax, (( \
+	sub ax, ( \
 		+ (payload_end - payload) \
-		) >> 4) - _EXEC_SEGMENT
+		) >> 4
+	mov ds, ax
+	xor si, si		; -> source
+
+	mov cx, (payload_end - payload) & 0FFFFh
+	mov dx, (payload_end - payload) >> 16	; = length of source
+
+	mov ax, 60h
+	mov es, ax
+	xor di, di		; -> destination
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		; Note:	The destination reaches up to below the source.
+	call depack
+
+	mov ax, 60h + _EXEC_SEGMENT
 	mov bx, _EXEC_OFFSET
 	push ax
 	push bx
 	retf	
+
+
+%if 0
+
+ BriefLZ - small fast Lempel-Ziv
+
+ 8086 Assembly lDOS iniload payload depacker
+
+ Based on: BriefLZ C safe depacker
+
+ Copyright (c) 2002-2016 Joergen Ibsen
+
+ This software is provided 'as-is', without any express or implied
+ warranty. In no event will the authors be held liable for any damages
+ arising from the use of this software.
+
+ Permission is granted to anyone to use this software for any purpose,
+ including commercial applications, and to alter it and redistribute it
+ freely, subject to the following restrictions:
+
+   1. The origin of this software must not be misrepresented; you must
+      not claim that you wrote the original software. If you use this
+      software in a product, an acknowledgment in the product
+      documentation would be appreciated but is not required.
+
+   2. Altered source versions must be plainly marked as such, and must
+      not be misrepresented as being the original software.
+
+   3. This notice may not be removed or altered from any source
+      distribution.
+
+%endif
+
+depack:
+	retn
+
 
 	align 16
 init1_end:
