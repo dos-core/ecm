@@ -187,6 +187,7 @@ init1_start:
 		;	60h => destination
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
 
+	cld
 	mov ax, cs
 	sub ax, ( \
 		+ (payload_end - payload) \
