@@ -46,10 +46,10 @@ ldLoadUntilSeg:	resw 1
 
 	defaulting
 
-	numdef DEBUG0
-	numdef DEBUG1
-	numdef DEBUG2
-	numdef DEBUG3
+	numdef DEBUG0		; use errordata to generate an error code
+	numdef DEBUG1		; dump_stack_frame after an error occurred
+	numdef DEBUG2		; dump_stack_frame before blz_depack_safe call
+	numdef DEBUG3		; dump_stack_frame at start of blz_depack_safe
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
