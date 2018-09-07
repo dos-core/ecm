@@ -241,7 +241,11 @@ init1_start:
 %endif
 
 depack:
-	retn
+	lframe near
+	lenter
+
+	lleave
+	lret
 
 
 	align 16
