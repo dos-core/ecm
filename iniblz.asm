@@ -201,12 +201,37 @@ init1_start:
 		;	es:di -> destination (below source)
 		; Note:	The destination reaches up to below the source.
 	call depack
+	jc error
 
 	mov ax, 60h + _EXEC_SEGMENT
 	mov bx, _EXEC_OFFSET
 	push ax
 	push bx
-	retf	
+	retf
+
+error:
+	push cs
+	pop ds
+	mov si, msg.error
+.:
+	lodsb
+	test al, al
+	jz .end
+	mov ah, 0Eh
+	mov bx, 7
+	; push bp
+		; (call may change bp, but it is not used here any longer.)
+	int 10h
+	; pop bp
+	jmp short .
+
+.end:
+	xor ax, ax
+	int 16h
+	int 19h
+
+msg:
+.error:	db "Load error: Decompression failure.", 0
 
 
 %if 0
