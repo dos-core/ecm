@@ -49,6 +49,7 @@ ldLoadUntilSeg:	resw 1
 	numdef DEBUG0
 	numdef DEBUG1
 	numdef DEBUG2
+	numdef DEBUG3
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
@@ -239,7 +240,7 @@ disp_error:
 	call disp_al
 	jmp short .
 
-%if _DEBUG0 || _DEBUG1
+%if _DEBUG0 || _DEBUG1 || _DEBUG2 || _DEBUG3
 disp_ax_hex:			; ax
 		xchg al,ah
 		call disp_al_hex		; display former ah
@@ -286,7 +287,7 @@ msg:
 %else
 .error:		db "Load error: Decompression failure.",13,10,0
 %endif
-%if _DEBUG1
+%if  _DEBUG1 || _DEBUG2 || _DEBUG3
 .dstavaileq:	asciz "iniblz: dst_avail="
 .dstsizeeq:	asciz "h dst_size="
 .srcavaileq:	asciz "h src_avail="
@@ -512,7 +513,7 @@ depack:
 	lret
 
 
-%if _DEBUG1 || _DEBUG2
+%if _DEBUG1 || _DEBUG2 || _DEBUG3
 
 %define ERROR_DISPLAY empty,empty,empty,empty
 
@@ -744,6 +745,9 @@ blz_depack_safe:
 	or ax, dx
 	jz .ret				; (NC)
 
+%if _DEBUG3
+	call dump_stack_frame
+%endif
 	xor cx, cx
 %if _DEBUG0
 	mov byte [cs:errordata], 5
