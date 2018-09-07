@@ -66,13 +66,131 @@ ldLoadUntilSeg:	resw 1
 	numdef EXEC_SEGMENT,	0
 
 	cpu 8086
-	org 0
+	section INIT0 start=0 vstart=0
+init0_start:
+	cld
+	mov ax, cs
+	add ax, (init0_end - init0_start) >> 4
+	mov cx, ( (payload_end - payload) \
+		+ (init1_end - init1_start) \
+		) >> 4
+	mov dx, word [ bp + ldLoadTop ]
+	sub dx, cx
+	call init0_movp
 
-start:
+	mov ax, dx
+	add ax, ( \
+		+ (payload_end - payload) \
+		) >> 4
+	xor bx, bx
+	push ax
+	push bx
+	retf
 
-	align 16, db 38
+
+		; Move paragraphs
+		;
+		; INP:	ax:0-> source
+		;	dx:0-> destination
+		;	cx = number of paragraphs
+		; CHG:	-
+		; OUT:	NC
+		; Note:	Doesn't work correctly on HMA; doesn't always wrap to LMA either.
+		;	Do not provide a wrapped/HMA source or destination!
+init0_movp:
+	push cx
+	push ds
+	push si
+	push es
+	push di
+
+	cmp ax, dx		; source below destination ?
+	jb .down		; yes, move from top down -->
+	je .return		; same, no need to move --> (NC)
+
+	push ax
+	push dx
+.uploop:
+	mov ds, ax
+	mov es, dx
+	xor di, di
+	xor si, si		; -> start of segment
+	sub cx, 1000h		; 64 KiB left ?
+	jbe .uplast		; no -->
+	push cx
+	mov cx, 10000h /2
+	rep movsw		; move 64 KiB
+	pop cx
+	add ax, 1000h
+	add dx, 1000h		; -> next segment
+	jmp short .uploop	; proceed for more -->
+.uplast:
+	add cx, 1000h		; restore counter
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1		; *8, paragraphs to words (NC)
+	rep movsw		; move last part
+	pop dx
+	pop ax
+	jmp short .return
+
+.down:
+	std
+.dnloop:
+	sub cx, 1000h		; 64 KiB left ?
+	jbe .dnlast		; no -->
+	push ax
+	push dx
+	add ax, cx
+	add dx, cx
+	mov ds, ax		; -> 64 KiB not yet moved
+	mov es, dx
+	pop dx
+	pop ax
+	mov di, -2
+	mov si, di		; moved from last word down
+	push cx
+	mov cx, 10000h /2
+	rep movsw		; move 64 KiB
+	pop cx
+	jmp short .dnloop	; proceed for more -->
+.dnlast:
+	add cx, 1000h		; restore counter
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1		; *8, paragraphs to words
+	mov di, cx
+	dec di
+	shl di, 1		; words to offset, -> last word (NC)
+	mov si, di
+	mov ds, ax
+	mov es, dx		; first segment correct
+	rep movsw		; move first part
+	cld
+.return:
+	pop di
+	pop es
+	pop si
+	pop ds
+	pop cx
+	retn
+
+
+	align 16
+init0_end:
+
+
+	section PAYLOAD align=16 follows=INIT0
 payload:
 	incbin _PAYLOAD_FILE
 .end:
 	align 16, db 38
+payload_end:
+
+
+	section INIT1 align=16 follows=PAYLOAD vstart=0
+init1_start:
+
+
+init1_end:
 
