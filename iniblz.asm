@@ -47,6 +47,7 @@ ldLoadUntilSeg:	resw 1
 	defaulting
 
 	numdef DEBUG0
+	numdef DEBUG1
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
@@ -237,7 +238,7 @@ disp_error:
 	call disp_al
 	jmp short .
 
-%if _DEBUG0
+%if _DEBUG0 || _DEBUG1
 disp_ax_hex:			; ax
 		xchg al,ah
 		call disp_al_hex		; display former ah
@@ -283,6 +284,22 @@ msg:
 .error_end:	db "h.",13,10,0
 %else
 .error:		db "Load error: Decompression failure.",13,10,0
+%endif
+%if _DEBUG1
+.dstavaileq:	asciz "iniblz: dst_avail="
+.dstsizeeq:	asciz "h dst_size="
+.srcavaileq:	asciz "h src_avail="
+.depackedsizeeq:asciz "h",13,10,"iniblz: depacked_size="
+.len_of_dst_eq:	asciz "h length_of_destination="
+.leneq:		asciz "h",13,10,"iniblz: len="
+.offeq:		asciz "h off="
+.ppeq:		asciz "h pp="
+.tageq:		asciz "h",13,10,"iniblz: tag="
+.bits_left_eq:	asciz "h bits_left="
+.src_eq:	asciz "h src="
+.dst_eq:	asciz "h",13,10,"iniblz: dst="
+.len_of_src_eq:	asciz "h length_of_source="
+.end:		asciz "h",13,10
 %endif
 
 
@@ -471,10 +488,107 @@ depack:
 
 	jmp .loop
 
+%if _DEBUG1
+.end:
+	clc
+	jmp .ret
+
+.error:
+
+%define ERROR_DISPLAY empty,empty,empty,empty
+
+	%macro add_error_display_dword 2-3.nolist _
+%xdefine ERROR_DISPLAY ERROR_DISPLAY,%1,%2 + 2,%2,%3
+	%endmacro
+
+	%macro add_error_display_word 2.nolist
+%xdefine ERROR_DISPLAY ERROR_DISPLAY,%1,%2,,-
+	%endmacro
+
+add_error_display_dword dstavaileq,	bp + ?dst_avail
+add_error_display_dword dstsizeeq,	bp + ?dst_size
+add_error_display_dword srcavaileq,	bp + ?src_avail
+add_error_display_dword depackedsizeeq,	bp + ?depacked_size
+add_error_display_dword len_of_dst_eq,	bp + ?length_of_destination
+add_error_display_dword leneq,		bp + ?len
+add_error_display_dword offeq,		bp + ?off
+add_error_display_dword ppeq,		bp + ?pp, :
+add_error_display_word tageq,		bp + ?tag
+add_error_display_word bits_left_eq,	bp + ?bits_left
+add_error_display_dword src_eq,		bp + ?src, :
+add_error_display_dword dst_eq,		bp + ?dst, :
+add_error_display_dword len_of_src_eq,	bp + ?length_of_source
+
+	%macro error_display_code 4-*.nolist
+%if %0 < 4
+ %error Expected at least 4 arguments
+%endif
+%if %0 % 4
+ %error Expected amount of arguments that is a multiple of 4
+%endif
+%rep (%0 / 4) - 1
+%rotate 4
+	mov si, msg.%1
+	call disp_error
+	mov ax, word [%2]
+	call disp_ax_hex
+ %ifnempty %3
+  %ifidni %4, :
+	mov al, ':'
+	call disp_al
+  %elifidni %4, _
+	mov al, '_'
+	call disp_al
+  %endif
+	mov ax, word [%3]
+	call disp_ax_hex
+ %endif
+%endrep
+	%endmacro
+
+	push cs
+	pop ds
+
+	numdef TESTERRORDISPLAYMACRO
+%if _TESTERRORDISPLAYMACRO == 0
+error_display_code ERROR_DISPLAY
+%else
+	%macro testmacro 4-*
+	numdef TESTROTATE, 4
+%rotate _TESTROTATE
+; %fatal 1 = %1, 2 = %2, 3 = %3, 4 = %4
+	mov si, msg.%1
+	call disp_error
+	mov ax, word [%2]
+	call disp_ax_hex
+ %ifnempty %3
+  %ifidni %4, :
+	mov al, ':'
+	call disp_al
+  %elifidni %4, _
+	mov al, '_'
+	call disp_al
+  %endif
+	mov ax, word [%3]
+	call disp_ax_hex
+ %endif
+	%endmacro
+
+; testmacro end,bp + ?dst_avail + 2,bp + ?dst_avail,_
+testmacro ERROR_DISPLAY
+%endif
+
+	mov si, msg.end
+	call disp_error
+
+	stc
+.ret:
+%else
 .end:
 	db __TEST_IMM16			; (NC)
 .error:
 	stc
+%endif
 
 	lleave code
 	lret
