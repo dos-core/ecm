@@ -781,10 +781,10 @@ blz_depack_safe:
 	mov ax, word [bp + ?dst_size]
 	mov dx, word [bp + ?dst_size + 2]
 
-	cmp dx, word [bp + ?dst_avail + 2]
+	cmp dx, word [bp + ?depacked_size + 2]
 	ja .end
 	jb @F
-	cmp ax, word [bp + ?dst_avail]
+	cmp ax, word [bp + ?depacked_size]
 	jae .end
 @@:
 
