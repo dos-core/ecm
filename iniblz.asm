@@ -46,6 +46,8 @@ ldLoadUntilSeg:	resw 1
 
 	defaulting
 
+	numdef DEBUG0
+
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -213,11 +215,15 @@ init1_start:
 error:
 	push cs
 	pop ds
+%if _DEBUG0
 	mov si, msg.error_begin
 	call disp_error
 	mov ax, word [cs:errordata]
 	call disp_ax_hex
 	mov si, msg.error_end
+%else
+	mov si, msg.error
+%endif
 	call disp_error
 	xor ax, ax
 	int 16h
@@ -231,6 +237,7 @@ disp_error:
 	call disp_al
 	jmp short .
 
+%if _DEBUG0
 disp_ax_hex:			; ax
 		xchg al,ah
 		call disp_al_hex		; display former ah
@@ -253,8 +260,8 @@ disp_al_lownibble_hex:
  .decimalnum:
 		call disp_al
 		pop ax
-disp_error.ret:
 		retn
+%endif
 
 disp_al:
 	push ax
@@ -266,16 +273,23 @@ disp_al:
 	pop bp
 	pop bx
 	pop ax
+disp_error.ret:
 	retn
 
 
 msg:
+%if _DEBUG0
 .error_begin:	db "Load error: Decompression failure, code ",0
 .error_end:	db "h.",13,10,0
+%else
+.error:		db "Load error: Decompression failure.",13,10,0
+%endif
 
 
+%if _DEBUG0
 	align 16
 errordata:	dw 0
+%endif
 
 
 %if 0
@@ -367,7 +381,9 @@ depack:
 	cmp word [bp + ?length_of_source], BRIEFLZHEADER_size
 	jae @F
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 1
+%endif
 	cmp word [bp + ?length_of_source], 15
 	ja .error
 	jmp .end
@@ -376,7 +392,9 @@ depack:
 
 	call read_be32_src		; signature
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 2
+%endif
 	cmp ax, 7A1Ah
 	jne .error
 	cmp dx, 626Ch
@@ -384,7 +402,9 @@ depack:
 
 	call read_be32_src		; version
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 3
+%endif
 	cmp ax, 1
 	jne .error
 	test dx, dx
@@ -395,12 +415,16 @@ depack:
 	mov word [bp + ?src_avail], ax
 	mov word [bp + ?src_avail + 2], dx
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 8
+%endif
 	add ax, BRIEFLZHEADER_size
 	adc dx, 0
 	jc .error
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 4
+%endif
 	cmp dx, word [bp + ?length_of_source + 2]
 	ja .error
 	jb @F
@@ -414,7 +438,9 @@ depack:
 
 	call read_be32_src		; decompressed size
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 5
+%endif
 	cmp dx, word [bp + ?length_of_destination + 2]
 	ja .error
 	jb @F
@@ -430,10 +456,14 @@ depack:
 	call read_be32_src		; decompressed crc
 
 	call blz_depack_safe
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 6
+%endif
 	jc .error
 
+%if _DEBUG0
 	mov byte [cs:errordata + 1], 7
+%endif
 	cmp word [bp + ?depacked_size], ax
 	jne .error
 	cmp word [bp + ?depacked_size + 2], dx
@@ -483,7 +513,9 @@ blz_getbit_safe:
 	cmp word [bp + ?bits_left], 0
 	jne .from_tag
 
+%if _DEBUG0
 	mov byte [cs:errordata], 1
+%endif
 	cmp word [bp + ?src_avail + 2], 0
 	ja @F
 	; jb .ret
@@ -528,11 +560,15 @@ blz_getgamma_safe:
 
 .loop:
 	call blz_getbit_safe
+%if _DEBUG0
 	mov byte [cs:errordata], 2
+%endif
 	jc .ret				; (CY)
 	test dh, 80h
 	stc
+%if _DEBUG0
 	mov byte [cs:errordata], 3
+%endif
 	jnz .ret			; (CY)
 
 	shl bx, 1
@@ -541,7 +577,9 @@ blz_getgamma_safe:
 	or bx, ax
 
 	call blz_getbit_safe
+%if _DEBUG0
 	mov byte [cs:errordata], 4
+%endif
 	jc .ret				; (CY)
 
 	test ax, ax			; (NC)
@@ -575,14 +613,18 @@ blz_depack_safe:
 	jz .ret				; (NC)
 
 	xor cx, cx
+%if _DEBUG0
 	mov byte [cs:errordata], 5
+%endif
 	cmp word [bp + ?dst_avail + 2], cx
 	jne @F
 	cmp word [bp + ?dst_avail], cx
 	je .ret_CY
 @@:
 
+%if _DEBUG0
 	mov byte [cs:errordata], 6
+%endif
 	cmp word [bp + ?src_avail + 2], cx
 	jne @F
 	cmp word [bp + ?src_avail], cx
@@ -610,20 +652,26 @@ blz_depack_safe:
 @@:
 
 	call blz_getbit_safe
+%if _DEBUG0
 	mov byte [cs:errordata], 7
+%endif
 	jc .ret_CY
 
 	test ax, ax
 	jz .literal
 
 	call blz_getgamma_safe
+%if _DEBUG0
 	mov byte [cs:errordata], 8
+%endif
 	jc .ret_CY
 	mov cx, ax
 	mov bx, dx			; bx:cx = len
 
 	call blz_getgamma_safe
+%if _DEBUG0
 	mov byte [cs:errordata], 9
+%endif
 	jc .ret_CY			; dx:ax = off
 
 	add cx, 2
@@ -632,7 +680,9 @@ blz_depack_safe:
 	sub ax, 2
 	sbb dx, 0			; off -= 2
 
+%if _DEBUG0
 	mov byte [cs:errordata], 10
+%endif
 	cmp dx, 00FFh
 	ja .ret_CY
 	jb @F
@@ -640,7 +690,9 @@ blz_depack_safe:
 	jae .ret_CY			; return error if so
 @@:
 
+%if _DEBUG0
 	mov byte [cs:errordata], 11
+%endif
 	cmp word [bp + ?src_avail + 2], 0
 	jne @F
 	cmp word [bp + ?src_avail], 0	; src_avail != 0 ?
@@ -675,7 +727,9 @@ blz_depack_safe:
 	sub ax, word [bp + ?dst_avail]
 	sbb dx, word [bp + ?dst_avail + 2]
 
+%if _DEBUG0
 	mov byte [cs:errordata], 12
+%endif
 	cmp word [bp + ?off + 2], dx
 	ja .ret_CY
 	jb @F
@@ -686,7 +740,9 @@ blz_depack_safe:
 	mov ax, word [bp + ?len]
 	mov dx, word [bp + ?len + 2]
 
+%if _DEBUG0
 	mov byte [cs:errordata], 13
+%endif
 	cmp dx, word [bp + ?dst_avail + 2]
 	ja .ret_CY
 	jb @F
@@ -766,7 +822,9 @@ blz_depack_safe:
 
 
 .literal:
+%if _DEBUG0
 	mov byte [cs:errordata], 14
+%endif
 	xor cx, cx
 	cmp word [bp + ?dst_avail + 2], cx
 	jne @F
@@ -774,7 +832,9 @@ blz_depack_safe:
 	je .ret_CY
 @@:
 
+%if _DEBUG0
 	mov byte [cs:errordata], 15
+%endif
 	cmp word [bp + ?src_avail + 2], cx
 	jne @F
 	cmp word [bp + ?src_avail], cx
