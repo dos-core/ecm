@@ -209,29 +209,73 @@ init1_start:
 	push bx
 	retf
 
+
 error:
 	push cs
 	pop ds
-	mov si, msg.error
-.:
-	lodsb
-	test al, al
-	jz .end
-	mov ah, 0Eh
-	mov bx, 7
-	; push bp
-		; (call may change bp, but it is not used here any longer.)
-	int 10h
-	; pop bp
-	jmp short .
-
-.end:
+	mov si, msg.error_begin
+	call disp_error
+	mov ax, word [cs:errorword]
+	call disp_ax_hex
+	mov si, msg.error_end
+	call disp_error
 	xor ax, ax
 	int 16h
 	int 19h
 
+disp_error:
+.:
+	lodsb
+	test al, al
+	jz .ret
+	call disp_al
+	jmp short .
+
+disp_ax_hex:			; ax
+		xchg al,ah
+		call disp_al_hex		; display former ah
+		xchg al,ah			;  and fall trough for al
+disp_al_hex:			; al
+		push cx
+		mov cl,4
+		ror al,cl
+		call disp_al_lownibble_hex	; display former high-nibble
+		rol al,cl
+		pop cx
+						;  and fall trough for low-nibble
+disp_al_lownibble_hex:
+		push ax			 ; save ax for call return
+		and al,00001111b		; high nibble must be zero
+		add al,'0'			; if number is 0-9, now it's the correct character
+		cmp al,'9'
+		jna .decimalnum		 ; if we get decimal number with this, ok -->
+		add al,7			;  otherwise, add 7 and we are inside our alphabet
+ .decimalnum:
+		call disp_al
+		pop ax
+disp_error.ret:
+		retn
+
+disp_al:
+	push ax
+	push bx
+	push bp
+	mov ah, 0Eh
+	mov bx, 7
+	int 10h
+	pop bp
+	pop bx
+	pop ax
+	retn
+
+
 msg:
-.error:	db "Load error: Decompression failure.", 0
+.error_begin:	db "Load error: Decompression failure, code ",0
+.error_end:	db "h.",13,10,0
+
+
+	align 2
+errorword:	dw 0
 
 
 %if 0
