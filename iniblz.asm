@@ -54,6 +54,11 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
+	numdef IMAGE_EXE,	0
+%if _IMAGE_EXE
+ %error iniload _IMAGE_EXE option is not supported yet.
+%endif
+
 
 	cpu 8086
 	section INIT0 start=0 vstart=0
