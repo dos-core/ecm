@@ -66,4 +66,13 @@ ldLoadUntilSeg:	resw 1
 	numdef EXEC_SEGMENT,	0
 
 	cpu 8086
+	org 0
+
+start:
+
+	align 16, db 38
+payload:
+	incbin _PAYLOAD_FILE
+.end:
+	align 16, db 38
 
