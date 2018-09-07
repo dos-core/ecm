@@ -189,8 +189,8 @@ init1_start:
 	mov ds, ax
 	xor si, si		; -> source
 
-	mov cx, (payload_end - payload) & 0FFFFh
-	mov dx, (payload_end - payload) >> 16	; = length of source
+	mov cx, (payload.end - payload) & 0FFFFh
+	mov dx, (payload.end - payload) >> 16	; = length of source
 
 	mov ax, 60h
 	mov es, ax
