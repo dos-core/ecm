@@ -48,6 +48,7 @@ ldLoadUntilSeg:	resw 1
 
 	numdef DEBUG0
 	numdef DEBUG1
+	numdef DEBUG2
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
@@ -472,6 +473,9 @@ depack:
 
 	call read_be32_src		; decompressed crc
 
+%if _DEBUG2
+	call dump_stack_frame
+%endif
 	call blz_depack_safe
 %if _DEBUG0
 	mov byte [cs:errordata + 1], 6
@@ -494,6 +498,21 @@ depack:
 	jmp .ret
 
 .error:
+	call dump_stack_frame
+	stc
+.ret:
+%else
+.end:
+	db __TEST_IMM16			; (NC)
+.error:
+	stc
+%endif
+
+	lleave code
+	lret
+
+
+%if _DEBUG1 || _DEBUG2
 
 %define ERROR_DISPLAY empty,empty,empty,empty
 
@@ -546,6 +565,11 @@ add_error_display_dword len_of_src_eq,	bp + ?length_of_source
 %endrep
 	%endmacro
 
+dump_stack_frame:
+	push ax
+	push ds
+	push si
+
 	push cs
 	pop ds
 
@@ -581,17 +605,11 @@ testmacro ERROR_DISPLAY
 	mov si, msg.end
 	call disp_error
 
-	stc
-.ret:
-%else
-.end:
-	db __TEST_IMM16			; (NC)
-.error:
-	stc
+	pop si
+	pop ds
+	pop ax
+	retn
 %endif
-
-	lleave code
-	lret
 
 
 read_be32_src:
