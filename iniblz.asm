@@ -265,9 +265,607 @@ msg:
 
 %endif
 
+	struc BRIEFLZHEADER
+blzhSignature:		resd 1	; 626C7A1Ah, big-endian ("blz\x1A")
+blzhVersion:		resd 1	; 1, big-endian
+blzhCompressedSize:	resd 1	; compressed data size (without header)
+blzhCompressedCRC:	resd 1
+blzhDecompressedSize:	resd 1	; decompressed size
+blzhDecompressedCRC:	resd 1
+	endstruc
+
+
 depack:
 	lframe near
+	lvar dword,	dst_avail
+	lvar dword,	dst_size
+	lvar dword,	src_avail
+	lvar dword,	depacked_size
+	lvar dword,	length_of_destination
+	lvar dword,	len
+	lvar dword,	off
+	lvar dword,	pp
+	lvar word,	tag
+	lvar word,	bits_left
 	lenter
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	dst
+	 push es
+	 push di
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+
+
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+
+	mov word [bp + ?length_of_destination], cx
+	mov word [bp + ?length_of_destination + 2], bx
+
+
+.loop:
+	cmp word [bp + ?length_of_source + 2], 0
+	ja @F
+	cmp word [bp + ?length_of_source], BRIEFLZHEADER_size
+	jae @F
+
+	cmp word [bp + ?length_of_source], 15
+	ja .error
+	jmp .end
+
+@@:
+
+	call read_be32_src		; signature
+
+	cmp ax, 7A1Ah
+	jne .error
+	cmp dx, 626Ch
+	jne .error
+
+	call read_be32_src		; version
+
+	cmp ax, 1
+	jne .error
+	test dx, dx
+	jnz .error
+
+	call read_be32_src		; compressed size
+
+	mov word [bp + ?src_avail], ax
+	mov word [bp + ?src_avail + 2], dx
+
+	add ax, BRIEFLZHEADER_size
+	adc dx, 0
+
+	cmp dx, word [bp + ?length_of_source + 2]
+	ja .error
+	jb @F
+	cmp ax, word [bp + ?length_of_source]
+	ja .error
+@@:
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], dx
+
+	call read_be32_src		; compressed crc
+
+	call read_be32_src		; decompressed size
+
+	cmp dx, word [bp + ?length_of_destination + 2]
+	ja .error
+	jb @F
+	cmp ax, word [bp + ?length_of_destination]
+	ja .error
+@@:
+	sub word [bp + ?length_of_destination], ax
+	sbb word [bp + ?length_of_destination + 2], dx
+
+	mov word [bp + ?depacked_size], ax
+	mov word [bp + ?depacked_size + 2], dx
+
+	call read_be32_src		; decompressed crc
+
+	call blz_depack_safe
+
+	cmp word [bp + ?depacked_size], ax
+	jne .error
+	cmp word [bp + ?depacked_size + 2], dx
+	jne .error
+
+	jmp .loop
+
+.end:
+	db __TEST_IMM16			; (NC)
+.error:
+	stc
+
+	lleave code
+	lret
+
+
+read_be32_src:
+	lds si, [bp + ?src]
+
+	call read_be32
+
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+	retn
+
+
+		; INP:	ds:si -> data, with big-endian 32 bit word
+		; OUT:	dx:ax = CPU equivalent
+		;	ds:si incremented
+read_be32:
+	lodsw
+	xchg ax, dx		; dx = high word (first)
+	lodsw			; ax = low word (second)
+	xchg al, ah
+	xchg dl, dh		; fix order
+	retn
+
+
+		; INP:	ss:bp -> stack frame (with blz_state equivalents)
+		; OUT:	CY if error
+		;	NC if success,
+		;	 ax = bit
+blz_getbit_safe:
+	cmp word [bp + ?bits_left], 0
+	jne .from_tag
+
+	cmp word [bp + ?src_avail], 2
+	jb .ret				; (CY)
+
+	sub word [bp + ?src_avail], 2
+
+	push bx
+	mov bx, .lodsw
+	call func_bx_with_normalised_pointers
+	pop bx
+
+	mov word [bp + ?bits_left], 16
+	mov word [bp + ?tag], ax
+
+.from_tag:
+	dec word [bp + ?bits_left]
+	xor ax, ax
+	shl word [bp + ?tag], 1
+	rcl ax, 1			; (NC)
+.ret:
+	retn
+
+
+.lodsw:
+	lodsw
+	retn
+
+
+		; INP:	ss:bp -> stack frame (with blz_state equivalents)
+		; OUT:	CY if error
+		;	NC if success,
+		;	 dx:ax = gamma
+blz_getgamma_safe:
+	xor dx, dx
+	mov bx, 1
+
+.loop:
+	call blz_getbit_safe
+	jc .ret				; (CY)
+	test dh, 80h
+	stc
+	jnz .ret			; (CY)
+
+	shl bx, 1
+	rcl dx, 1
+
+	or bx, ax
+
+	call blz_getbit_safe
+	jc .ret				; (CY)
+
+	test ax, ax			; (NC)
+	jnz .loop
+
+	mov ax, bx
+.ret:
+	retn
+
+
+		; INP:	ss:bp -> stack frame (with blz_state equivalents)
+		;	?depacked_size set
+		;	?src_avail set
+		;	?src set
+		;	?dst set
+		; OUT:	CY if error
+		;	NC if success
+blz_depack_safe:
+	mov word [bp + ?dst_size], 1
+	mov word [bp + ?dst_size + 2], 0
+	mov word [bp + ?bits_left], 0
+
+	mov ax, word [bp + ?depacked_size]
+	mov dx, word [bp + ?depacked_size + 2]
+
+	mov word [bp + ?dst_avail], ax
+	mov word [bp + ?dst_avail + 2], dx
+
+	or ax, dx
+	jz .ret				; (NC)
+
+	xor cx, cx
+	cmp word [bp + ?dst_avail + 2], cx
+	jne @F
+	cmp word [bp + ?dst_avail], cx
+	je .ret_CY
+@@:
+
+	cmp word [bp + ?src_avail + 2], cx
+	jne @F
+	cmp word [bp + ?src_avail], cx
+	je .ret_CY
+@@:
+
+	sub word [bp + ?dst_avail], 1
+	sbb word [bp + ?dst_avail + 2], cx
+
+	sub word [bp + ?src_avail], 1
+	sbb word [bp + ?src_avail + 2], cx
+
+	mov bx, .movsb
+	call func_bx_with_normalised_pointers
+
+.loop:
+	mov ax, word [bp + ?dst_size]
+	mov dx, word [bp + ?dst_size + 2]
+
+	cmp dx, word [bp + ?dst_avail + 2]
+	ja .end
+	jb @F
+	cmp ax, word [bp + ?dst_avail]
+	jae .end
+@@:
+
+	call blz_getbit_safe
+	jc .ret_CY
+
+	test ax, ax
+	jz .literal
+
+	call blz_getgamma_safe
+	jc .ret_CY
+	mov cx, ax
+	mov bx, dx			; bx:cx = len
+
+	call blz_getgamma_safe
+	jc .ret_CY			; dx:ax = off
+
+	add cx, 2
+	adc bx, 0			; len += 2
+
+	sub ax, 2
+	sbb dx, 0			; off -= 2
+
+	cmp dx, 00FFh
+	ja .ret_CY
+	jb @F
+	cmp ax, 0FFFFh			; off >= 00FF_FFFFh ?
+	jae .ret_CY			; return error if so
+@@:
+
+	cmp word [bp + ?src_avail + 2], 0
+	jne @F
+	cmp word [bp + ?src_avail], 0	; src_avail != 0 ?
+	je .ret_CY			; return error if == 0
+@@:
+
+	sub word [bp + ?src_avail], 1
+	sbb word [bp + ?src_avail + 2], 0	; src_avail--
+
+%rep 8
+	shl ax, 1
+	rcl dx, 1			; off <<= 8
+%endrep
+
+	mov word [bp + ?off], ax
+	mov word [bp + ?off + 2], dx
+
+	mov word [bp + ?len], cx
+	mov word [bp + ?len + 2], bx
+
+	xor ax, ax
+	mov bx, .lodsb
+	call func_bx_with_normalised_pointers
+
+	inc ax				; *src + 1
+	add word [bp + ?off], ax
+	adc word [bp + ?off + 2], 0	; + off
+
+	mov ax, word [bp + ?depacked_size]
+	mov dx, word [bp + ?depacked_size + 2]
+
+	sub ax, word [bp + ?dst_avail]
+	sbb dx, word [bp + ?dst_avail + 2]
+
+	cmp word [bp + ?off + 2], dx
+	ja .ret_CY
+	jb @F
+	cmp word [bp + ?off], ax	; off > depacked_size - dst_avail ?
+	ja .ret_CY			; return error if so
+@@:
+
+	mov ax, word [bp + ?len]
+	mov dx, word [bp + ?len + 2]
+
+	cmp dx, word [bp + ?dst_avail + 2]
+	ja .ret_CY
+	jb @F
+	cmp ax, word [bp + ?dst_avail]	; len > dst_avail ?
+	ja .ret_CY			; return error if so
+@@:
+
+	sub word [bp + ?dst_avail], ax
+	sbb word [bp + ?dst_avail + 2], dx	; dst_avail -= len
+
+
+	add word [bp + ?dst_size], ax
+	adc word [bp + ?dst_size + 2], dx	; dst_size += len
+
+
+	lds si, [bp + ?dst]		; pp = dst
+
+	mov bx, word [bp + ?off + 2]
+	mov cx, word [bp + ?off]
+
+        neg bx
+        neg cx
+        sbb bx, byte 0          	; neg bx:cx
+
+	 push ds
+	 push si
+	call normalise_pointer_with_displacement_bxcx
+	 pop word [bp + ?pp]
+	 pop word [bp + ?pp + 2]	; pp = dst - off
+
+
+.loop_copy_match:
+	mov cx, 64 * 1024 - 16		; block size
+
+	test dx, dx			; >= 1_0000h ?
+	jnz @F				; yes, full block -->
+
+	test ax, ax			; == 0 ?
+	jz .end_copy_match		; yes, done -->
+
+	cmp ax, cx			; can move in one (last) block ?
+	jbe .last_copy_match		; yes -->
+@@:
+					; no, move one block and continue
+	sub ax, cx
+	sbb dx, 0			; left over remaining
+
+	jmp .copy_match
+
+.last_copy_match:
+	xchg cx, ax			; cx = remaining len
+	xor ax, ax			; no more remaining
+
+.copy_match:
+
+	les di, [bp + ?dst]
+	lds si, [bp + ?pp]
+
+	rep movsb			; move one block (full or partial)
+
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?pp]
+	 pop word [bp + ?pp + 2]
+
+	 push es
+	 push di
+	call normalise_pointer
+	 pop word [bp + ?dst]
+	 pop word [bp + ?dst + 2]
+
+	jmp .loop_copy_match
+
+
+.end_copy_match: equ .loop
+
+
+.literal:
+	xor cx, cx
+	cmp word [bp + ?dst_avail + 2], cx
+	jne @F
+	cmp word [bp + ?dst_avail], cx
+	je .ret_CY
+@@:
+
+	cmp word [bp + ?src_avail + 2], cx
+	jne @F
+	cmp word [bp + ?src_avail], cx
+	je .ret_CY
+@@:
+
+	sub word [bp + ?dst_avail], 1
+	sbb word [bp + ?dst_avail + 2], cx
+
+	sub word [bp + ?src_avail], 1
+	sbb word [bp + ?src_avail + 2], cx
+
+	mov bx, .movsb
+	call func_bx_with_normalised_pointers
+
+	add word [bp + ?dst_size], 1
+	adc word [bp + ?dst_size + 2], 0
+
+	jmp .loop
+
+.end:
+	mov ax, word [bp + ?dst_size]
+	mov dx, word [bp + ?dst_size + 2]
+	clc
+	retn
+
+.ret_CY:
+	stc
+.ret:
+	retn
+
+
+.lodsb:
+	lodsb
+	retn
+
+.movsb:
+	movsb
+	retn
+
+
+func_bx_with_normalised_pointers:
+	push es
+	push di
+	push ds
+	push si
+
+	les di, [bp + ?dst]
+	lds si, [bp + ?src]
+
+	call bx
+
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+
+	 push es
+	 push di
+	call normalise_pointer
+	 pop word [bp + ?dst]
+	 pop word [bp + ?dst + 2]
+
+	pop si
+	pop ds
+	pop di
+	pop es
+	retn
+
+
+	lleave ctx
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+normalise_pointer:
+	lframe near
+	lpar word,	segment
+	lpar word,	offset
+	lpar_return
+	lenter
+	push ax
+	push dx
+
+	 push word [bp + ?segment]
+	 push word [bp + ?offset]
+	call pointer_to_linear
+
+	push ax
+	and ax, 15
+	mov word [bp + ?offset], ax
+	pop ax
+
+%rep 4
+	shr dx, 1
+	rcr ax, 1
+%endrep
+
+	mov word [bp + ?segment], ax
+
+	pop dx
+	pop ax
+	lleave
+	lret
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+		;	bx:cx = add/sub displacement
+normalise_pointer_with_displacement_bxcx:
+	lframe near
+	lpar word,	segment
+	lpar word,	offset
+	lpar_return
+	lenter
+	push ax
+	push dx
+
+	 push word [bp + ?segment]
+	 push word [bp + ?offset]
+	call pointer_to_linear
+
+	; push bx
+	; 				; sign-extend cx into bx:cx
+	; cmp cx, 8000h			; CY if < 8000h (NC if negative)
+	; cmc				; NC if positive
+	; sbb bx, bx			; 0 if was NC, -1 if was CY
+
+	add ax, cx
+	adc dx, bx			; dx:ax += bx:cx
+	; pop bx
+
+	push ax
+	and ax, 15
+	mov word [bp + ?offset], ax
+	pop ax
+
+%rep 4
+	shr dx, 1
+	rcr ax, 1
+%endrep
+	mov word [bp + ?segment], ax
+
+	pop dx
+	pop ax
+	lleave
+	lret
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+		; OUT:	dx:ax = linear address
+pointer_to_linear:
+	lframe near
+	lpar word,	segment
+	lpar word,	offset
+	lenter
+
+	mov ax, word [bp + ?segment]
+	xor dx, dx
+%rep 4
+	shl ax, 1
+	rcl dx, 1
+%endrep
+
+	add ax, word [bp + ?offset]
+	adc dx, 0
 
 	lleave
 	lret
