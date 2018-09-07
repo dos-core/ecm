@@ -367,7 +367,7 @@ depack:
 	cmp word [bp + ?length_of_source], BRIEFLZHEADER_size
 	jae @F
 
-	mov byte [cs:errorword], 1
+	mov byte [cs:errorword + 1], 1
 	cmp word [bp + ?length_of_source], 15
 	ja .error
 	jmp .end
@@ -376,7 +376,7 @@ depack:
 
 	call read_be32_src		; signature
 
-	mov byte [cs:errorword], 2
+	mov byte [cs:errorword + 1], 2
 	cmp ax, 7A1Ah
 	jne .error
 	cmp dx, 626Ch
@@ -384,7 +384,7 @@ depack:
 
 	call read_be32_src		; version
 
-	mov byte [cs:errorword], 3
+	mov byte [cs:errorword + 1], 3
 	cmp ax, 1
 	jne .error
 	test dx, dx
@@ -398,7 +398,7 @@ depack:
 	add ax, BRIEFLZHEADER_size
 	adc dx, 0
 
-	mov byte [cs:errorword], 4
+	mov byte [cs:errorword + 1], 4
 	cmp dx, word [bp + ?length_of_source + 2]
 	ja .error
 	jb @F
@@ -412,7 +412,7 @@ depack:
 
 	call read_be32_src		; decompressed size
 
-	mov byte [cs:errorword], 5
+	mov byte [cs:errorword + 1], 5
 	cmp dx, word [bp + ?length_of_destination + 2]
 	ja .error
 	jb @F
@@ -428,10 +428,10 @@ depack:
 	call read_be32_src		; decompressed crc
 
 	call blz_depack_safe
-	mov byte [cs:errorword], 6
+	mov byte [cs:errorword + 1], 6
 	jc .error
 
-	mov byte [cs:errorword], 7
+	mov byte [cs:errorword + 1], 7
 	cmp word [bp + ?depacked_size], ax
 	jne .error
 	cmp word [bp + ?depacked_size + 2], dx
@@ -481,7 +481,7 @@ blz_getbit_safe:
 	cmp word [bp + ?bits_left], 0
 	jne .from_tag
 
-	mov byte [cs:errorword + 1], 1
+	mov byte [cs:errorword], 1
 	cmp word [bp + ?src_avail], 2
 	jb .ret				; (CY)
 
@@ -519,11 +519,11 @@ blz_getgamma_safe:
 
 .loop:
 	call blz_getbit_safe
-	mov byte [cs:errorword + 1], 2
+	mov byte [cs:errorword], 2
 	jc .ret				; (CY)
 	test dh, 80h
 	stc
-	mov byte [cs:errorword + 1], 3
+	mov byte [cs:errorword], 3
 	jnz .ret			; (CY)
 
 	shl bx, 1
@@ -532,7 +532,7 @@ blz_getgamma_safe:
 	or bx, ax
 
 	call blz_getbit_safe
-	mov byte [cs:errorword + 1], 4
+	mov byte [cs:errorword], 4
 	jc .ret				; (CY)
 
 	test ax, ax			; (NC)
@@ -565,14 +565,14 @@ blz_depack_safe:
 	jz .ret				; (NC)
 
 	xor cx, cx
-	mov byte [cs:errorword + 1], 5
+	mov byte [cs:errorword], 5
 	cmp word [bp + ?dst_avail + 2], cx
 	jne @F
 	cmp word [bp + ?dst_avail], cx
 	je .ret_CY
 @@:
 
-	mov byte [cs:errorword + 1], 6
+	mov byte [cs:errorword], 6
 	cmp word [bp + ?src_avail + 2], cx
 	jne @F
 	cmp word [bp + ?src_avail], cx
@@ -600,20 +600,20 @@ blz_depack_safe:
 @@:
 
 	call blz_getbit_safe
-	mov byte [cs:errorword + 1], 7
+	mov byte [cs:errorword], 7
 	jc .ret_CY
 
 	test ax, ax
 	jz .literal
 
 	call blz_getgamma_safe
-	mov byte [cs:errorword + 1], 8
+	mov byte [cs:errorword], 8
 	jc .ret_CY
 	mov cx, ax
 	mov bx, dx			; bx:cx = len
 
 	call blz_getgamma_safe
-	mov byte [cs:errorword + 1], 9
+	mov byte [cs:errorword], 9
 	jc .ret_CY			; dx:ax = off
 
 	add cx, 2
@@ -622,7 +622,7 @@ blz_depack_safe:
 	sub ax, 2
 	sbb dx, 0			; off -= 2
 
-	mov byte [cs:errorword + 1], 10
+	mov byte [cs:errorword], 10
 	cmp dx, 00FFh
 	ja .ret_CY
 	jb @F
@@ -630,7 +630,7 @@ blz_depack_safe:
 	jae .ret_CY			; return error if so
 @@:
 
-	mov byte [cs:errorword + 1], 11
+	mov byte [cs:errorword], 11
 	cmp word [bp + ?src_avail + 2], 0
 	jne @F
 	cmp word [bp + ?src_avail], 0	; src_avail != 0 ?
@@ -665,7 +665,7 @@ blz_depack_safe:
 	sub ax, word [bp + ?dst_avail]
 	sbb dx, word [bp + ?dst_avail + 2]
 
-	mov byte [cs:errorword + 1], 12
+	mov byte [cs:errorword], 12
 	cmp word [bp + ?off + 2], dx
 	ja .ret_CY
 	jb @F
@@ -676,7 +676,7 @@ blz_depack_safe:
 	mov ax, word [bp + ?len]
 	mov dx, word [bp + ?len + 2]
 
-	mov byte [cs:errorword + 1], 13
+	mov byte [cs:errorword], 13
 	cmp dx, word [bp + ?dst_avail + 2]
 	ja .ret_CY
 	jb @F
@@ -756,7 +756,7 @@ blz_depack_safe:
 
 
 .literal:
-	mov byte [cs:errorword + 1], 14
+	mov byte [cs:errorword], 14
 	xor cx, cx
 	cmp word [bp + ?dst_avail + 2], cx
 	jne @F
@@ -764,7 +764,7 @@ blz_depack_safe:
 	je .ret_CY
 @@:
 
-	mov byte [cs:errorword + 1], 15
+	mov byte [cs:errorword], 15
 	cmp word [bp + ?src_avail + 2], cx
 	jne @F
 	cmp word [bp + ?src_avail], cx
