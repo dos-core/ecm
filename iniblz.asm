@@ -190,7 +190,22 @@ payload_end:
 
 	section INIT1 align=16 follows=PAYLOAD vstart=0
 init1_start:
+	; TODO: add decompression
+	; INP:	ss:bp -> LOADDATA and LOADSTACKVARS
+	;	ss:sp -> valid stack above [bp + ldLoadTop]
+	;	cs = INIT1
+	;	cs - (payload_end - payload) >> 4 => source data
+	;	60h => destination
+	; CHG:	ax, bx, cx, dx, es, ds, si, di
 
+	mov ax, cs
+	sub ax, (( \
+		+ (payload_end - payload) \
+		) >> 4) - _EXEC_SEGMENT
+	mov bx, _EXEC_OFFSET
+	push ax
+	push bx
+	retf	
 
 init1_end:
 
