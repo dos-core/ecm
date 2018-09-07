@@ -428,8 +428,10 @@ depack:
 	call read_be32_src		; decompressed crc
 
 	call blz_depack_safe
-
 	mov byte [cs:errorword], 6
+	jc .error
+
+	mov byte [cs:errorword], 7
 	cmp word [bp + ?depacked_size], ax
 	jne .error
 	cmp word [bp + ?depacked_size + 2], dx
