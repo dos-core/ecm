@@ -773,7 +773,7 @@ blz_getgamma_safe:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 dx:ax = ?dst_size
-		; CHG:	ds, si, es, di, (bx), (dx), (ax), cx
+		; CHG:	ds, si, es, di, bx, (dx), (ax), cx
 blz_depack_safe:
 	and word [bp + ?dst_size], 0
 	and word [bp + ?dst_size + 2], 0
