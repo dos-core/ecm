@@ -411,6 +411,9 @@ depack:
 		;  calling check_pointers_not_overlapping. This is done after
 		;  every change of ?dst to verify that the write pointer stays
 		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
 %endif
 
 	sub cx, ax
