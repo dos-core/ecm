@@ -22,6 +22,8 @@ Currently, the system must have enough memory to hold all of the following:
 * The depacker's INIT1 section, which contains the actual BriefLZ depacker
   and a bit of handling around it. This is directly below the "load top",
   which gives the segment of the lowest buffer at the LMA top.
+  (INIT0 and INIT1 together are smaller than 2 KiB currently. As iniload's
+  loader is 2 KiB, this means the uncompressed part is less than 4 KiB.)
 
 * The compressed image.
 
