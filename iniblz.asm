@@ -301,7 +301,6 @@ msg:
 .len_of_dst_eq:	asciz "h length_of_destination="
 .leneq:		asciz "h",13,10,"iniblz: len="
 .offeq:		asciz "h off="
-.ppeq:		asciz "h pp="
 .tageq:		asciz "h",13,10,"iniblz: tag="
 .bits_left_eq:	asciz "h bits_left="
 .src_eq:	asciz "h src="
@@ -361,7 +360,6 @@ depack:
 	lvar dword,	length_of_destination
 	lvar dword,	len
 	lvar dword,	off
-	lvar dword,	pp
 	lvar word,	tag
 	lvar word,	bits_left
 %if _DEBUG0
@@ -539,7 +537,6 @@ add_error_display_dword depackedsizeeq,	bp + ?depacked_size
 add_error_display_dword len_of_dst_eq,	bp + ?length_of_destination
 add_error_display_dword leneq,		bp + ?len
 add_error_display_dword offeq,		bp + ?off
-add_error_display_dword ppeq,		bp + ?pp, :
 add_error_display_word tageq,		bp + ?tag
 add_error_display_word bits_left_eq,	bp + ?bits_left
 add_error_display_dword src_eq,		bp + ?src, :
