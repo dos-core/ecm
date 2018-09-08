@@ -101,8 +101,9 @@ init0_movp:
 	je .return		; same, no need to move --> (NC)
 
 %if _OPTIMISE_MOVP_DN_ONLY
+@@:
 	int3
-	jmp $
+	jmp @B
 %else
 	push ax
 	push dx
