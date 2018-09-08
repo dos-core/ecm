@@ -1129,3 +1129,7 @@ pointer_to_linear:
 	align 16
 init1_end:
 
+%assign num (init1_end - init1_start) + (init0_end - init0_start)
+%warning iniblz: num bytes used for depacker
+
+
