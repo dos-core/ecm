@@ -256,6 +256,7 @@ Intended for 86 Mode programs.
 		;  uses either (one or two) "push ax" or "lea sp, [bp - x]"
 		;  or "enter x, 0" to reserve the stack space.
 %imacro lenter 0.nolist
+._%$lenter:
 %ifnctx LFRAME
  %fatal Must use lframe first
 %endif
@@ -456,6 +457,7 @@ __lenter_parse_parlist %$parlist
 %endif
 %xdefine __lframe__autoret %$autoret
 	%ifnidni %1,code
+._%$lleave:
 __lleave_undefine_labels %$labellist
 %pop
 	%endif
