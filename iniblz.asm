@@ -1033,27 +1033,19 @@ normalise_pointer:
 	lpar word,	offset
 	lpar_return
 	lenter
-	push ax
-	push dx
+	push bx
+	push cx
 
+	xor bx, bx
+	xor cx, cx
 	 push word [bp + ?segment]
 	 push word [bp + ?offset]
-	call pointer_to_linear
+	call normalise_pointer_with_displacement_bxcx
+	 pop word [bp + ?offset]
+	 pop word [bp + ?segment]
 
-	push ax
-	and ax, 15
-	mov word [bp + ?offset], ax
-	pop ax
-
-%rep 4
-	shr dx, 1
-	rcr ax, 1
-%endrep
-
-	mov word [bp + ?segment], ax
-
-	pop dx
-	pop ax
+	pop cx
+	pop bx
 	lleave
 	lret
 
