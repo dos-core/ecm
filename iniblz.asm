@@ -917,9 +917,10 @@ blz_depack_safe:
 	 push ds
 	 push si
 	call normalise_pointer_with_displacement_bxcx
-	 pop word [bp + ?pp]
-	 pop word [bp + ?pp + 2]	; pp = dst - off
+	 pop si
+	 pop ds				; ds:si = pp = dst - off
 
+	les di, [bp + ?dst]		; es:di = dst
 
 .loop_copy_match:
 	mov cx, 64 * 1024 - 16		; block size
@@ -945,27 +946,28 @@ blz_depack_safe:
 
 .copy_match:
 
-	les di, [bp + ?dst]
-	lds si, [bp + ?pp]
-
 	rep movsb			; move one block (full or partial)
 
 	 push ds
 	 push si
 	call normalise_pointer
-	 pop word [bp + ?pp]
-	 pop word [bp + ?pp + 2]
+	 pop si
+	 pop ds
 
 	 push es
 	 push di
 	call normalise_pointer
-	 pop word [bp + ?dst]
-	 pop word [bp + ?dst + 2]
+	 pop di
+	 pop es
 
 	jmp .loop_copy_match
 
 
-.end_copy_match: equ .loop
+.end_copy_match:
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es
+
+	jmp .loop
 
 
 .end:
