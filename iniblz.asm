@@ -739,9 +739,9 @@ blz_getgamma_safe:
 		; OUT:	CY if error
 		;	NC if success
 blz_depack_safe:
-	mov word [bp + ?dst_size], 1
-	mov word [bp + ?dst_size + 2], 0
-	mov word [bp + ?bits_left], 0
+	and word [bp + ?dst_size], 0
+	and word [bp + ?dst_size + 2], 0
+	and word [bp + ?bits_left], 0
 
 	mov ax, word [bp + ?depacked_size]
 	mov dx, word [bp + ?depacked_size + 2]
@@ -755,10 +755,13 @@ blz_depack_safe:
 %if _DEBUG3
 	call dump_stack_frame
 %endif
-	xor cx, cx
+
+		; Note:	Before the first iteration of .loop, move a literal.
+.literal:
 %if _DEBUG0
-	mov byte [bp + ?errordata], 5
+	mov byte [bp + ?errordata], 14
 %endif
+	xor cx, cx
 	cmp word [bp + ?dst_avail + 2], cx
 	jne @F
 	cmp word [bp + ?dst_avail], cx
@@ -766,7 +769,7 @@ blz_depack_safe:
 @@:
 
 %if _DEBUG0
-	mov byte [bp + ?errordata], 6
+	mov byte [bp + ?errordata], 15
 %endif
 	cmp word [bp + ?src_avail + 2], cx
 	jne @F
@@ -782,6 +785,9 @@ blz_depack_safe:
 
 	mov bx, .movsb
 	call func_bx_with_normalised_pointers
+
+	add word [bp + ?dst_size], 1
+	adc word [bp + ?dst_size + 2], 0
 
 .loop:
 	mov ax, word [bp + ?dst_size]
@@ -963,40 +969,6 @@ blz_depack_safe:
 
 .end_copy_match: equ .loop
 
-
-.literal:
-%if _DEBUG0
-	mov byte [bp + ?errordata], 14
-%endif
-	xor cx, cx
-	cmp word [bp + ?dst_avail + 2], cx
-	jne @F
-	cmp word [bp + ?dst_avail], cx
-	je .ret_CY
-@@:
-
-%if _DEBUG0
-	mov byte [bp + ?errordata], 15
-%endif
-	cmp word [bp + ?src_avail + 2], cx
-	jne @F
-	cmp word [bp + ?src_avail], cx
-	je .ret_CY
-@@:
-
-	sub word [bp + ?dst_avail], 1
-	sbb word [bp + ?dst_avail + 2], cx
-
-	sub word [bp + ?src_avail], 1
-	sbb word [bp + ?src_avail + 2], cx
-
-	mov bx, .movsb
-	call func_bx_with_normalised_pointers
-
-	add word [bp + ?dst_size], 1
-	adc word [bp + ?dst_size + 2], 0
-
-	jmp .loop
 
 .end:
 	mov ax, word [bp + ?dst_size]
