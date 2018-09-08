@@ -1025,6 +1025,9 @@ func_bx_with_normalised_pointers:
 
 		; INP:	word [ss:sp + 2] = segment
 		;	word [ss:sp] = offset
+		;
+		; Note:	Does not work correctly with pointers that point to
+		;	 a HMA location. Do not use then!
 normalise_pointer:
 	lframe near
 	lpar word,	segment
