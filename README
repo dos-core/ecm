@@ -31,14 +31,16 @@ Currently, the system must have enough memory to hold all of the following:
 Possibilities:
 
 * init0_movp can always move DN because the payload-and-INIT1 destination is
-  always above-or-equal the source of that move.
+  always above-or-equal the source of that move. (done: _OPTIMISE_MOVP_DN_ONLY)
 
 * The depacker follows the C source rather closely, which is not necessary.
+  (somewhat done)
 
 * The depacker could support overlapping source and destination buffers,
   in which case it should check that the destination write pointer stays
   below the source read pointer. As the kernel is typically below 128 KiB
   in size, this is only needed for systems with 256 KiB or less of LMA.
+  (done: _ALLOW_OVERLAPPING)
 
 * The safe C depacker was used as base. The additional checks could be dropped.
 
