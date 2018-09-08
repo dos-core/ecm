@@ -90,17 +90,11 @@ init0_start:
 		; INP:	ax:0-> source
 		;	dx:0-> destination
 		;	cx = number of paragraphs
-		; CHG:	-
-		; OUT:	NC
+		; CHG:	cx, ds, si, es, di
+		; OUT:	NC, ax and dx unchanged
 		; Note:	Doesn't work correctly on HMA; doesn't always wrap to LMA either.
 		;	Do not provide a wrapped/HMA source or destination!
 init0_movp:
-	push cx
-	push ds
-	push si
-	push es
-	push di
-
 	cmp ax, dx		; source below destination ?
 	jb .down		; yes, move from top down -->
 	je .return		; same, no need to move --> (NC)
@@ -170,11 +164,6 @@ init0_movp:
 	rep movsw		; move first part
 	cld
 .return:
-	pop di
-	pop es
-	pop si
-	pop ds
-	pop cx
 	retn
 
 
