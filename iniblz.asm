@@ -643,6 +643,7 @@ read_be32_src:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 ax = bit
+		; CHG:	ds, si, es, di
 blz_getbit_safe:
 	cmp word [bp + ?bits_left], 0
 	jne .from_tag
@@ -686,6 +687,7 @@ blz_getbit_safe:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 dx:ax = gamma
+		; CHG:	ds, si, es, di
 blz_getgamma_safe:
 	push bx
 
@@ -732,6 +734,7 @@ blz_getgamma_safe:
 		;	?dst set
 		; OUT:	CY if error
 		;	NC if success
+		; CHG:	ds, si, es, di, (bx), cx
 blz_depack_safe:
 	and word [bp + ?dst_size], 0
 	and word [bp + ?dst_size + 2], 0
@@ -988,12 +991,13 @@ blz_depack_safe:
 	retn
 
 
+		; INP:	?dst -> destination
+		;	?src -> source
+		;	bx = function to call with pointers
+		; CHG:	ds, si, es, di
+		; OUT:	function called,
+		;	?dst and ?src advanced (if function changed the regs)
 func_bx_with_normalised_pointers:
-	push es
-	push di
-	push ds
-	push si
-
 	les di, [bp + ?dst]
 	lds si, [bp + ?src]
 
@@ -1011,10 +1015,6 @@ func_bx_with_normalised_pointers:
 	 pop word [bp + ?dst]
 	 pop word [bp + ?dst + 2]
 
-	pop si
-	pop ds
-	pop di
-	pop es
 	retn
 
 
