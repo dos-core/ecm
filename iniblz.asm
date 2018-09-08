@@ -82,7 +82,7 @@ init0_start:
 	xor bx, bx
 	push ax
 	push bx
-	retf
+	retf			; jump to relocated INIT1:init1_start
 
 
 		; Move paragraphs
