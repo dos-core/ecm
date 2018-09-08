@@ -52,6 +52,7 @@ ldLoadUntilSeg:	resw 1
 	numdef DEBUG3		; dump_stack_frame at start of blz_depack_safe
 
 	numdef OPTIMISE_MOVP_DN_ONLY,	1	; init0_movp always moves DN
+	numdef ALLOW_OVERLAPPING,	1	; allow overlapping src and dst
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
@@ -399,6 +400,19 @@ depack:
 	 push di
 	call pointer_to_linear
 
+%if _ALLOW_OVERLAPPING
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+%endif
+
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
 
@@ -680,6 +694,12 @@ blz_getbit_safe:
 	mov bx, .lodsw
 	call func_bx_with_normalised_pointers
 	pop bx
+%if _ALLOW_OVERLAPPING
+%if _DEBUG0
+	mov byte [bp + ?errordata], 17
+%endif
+	jc .ret				; (CY)
+%endif
 
 	mov word [bp + ?bits_left], 16
 	mov word [bp + ?tag], ax
@@ -798,6 +818,12 @@ blz_depack_safe:
 
 	mov bx, .movsb
 	call func_bx_with_normalised_pointers
+%if _ALLOW_OVERLAPPING
+%if _DEBUG0
+	mov byte [bp + ?errordata], 18
+%endif
+	jc .ret_CY
+%endif
 
 	add word [bp + ?dst_size], 1
 	adc word [bp + ?dst_size + 2], 0
@@ -879,6 +905,12 @@ blz_depack_safe:
 	xor ax, ax
 	mov bx, .lodsb
 	call func_bx_with_normalised_pointers
+%if _ALLOW_OVERLAPPING
+%if _DEBUG0
+	mov byte [bp + ?errordata], 19
+%endif
+	jc .ret_CY
+%endif
 
 	inc ax				; *src + 1
 	add word [bp + ?off], ax
@@ -983,6 +1015,13 @@ blz_depack_safe:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
 
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+%if _DEBUG0
+	mov byte [bp + ?errordata], 16
+%endif
+	jc .ret_CY
+%endif
 	jmp .loop
 
 
@@ -1007,12 +1046,42 @@ blz_depack_safe:
 	retn
 
 
+%if _ALLOW_OVERLAPPING
+		; INP:	?src, ?dst
+		; OUT:	CY if error
+		;	NC if success
+		; CHG:	ax, bx, cx, dx
+check_pointers_not_overlapping:
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx			; bx:cx = linear ?dst after write
+
+	 push word [bp + ?src + 2]
+	 push word [bp + ?src]
+	call pointer_to_linear		; dx:ax = linear ?src before next read
+
+	cmp dx, bx			; ?src >= ?dst ?
+	ja @F
+	jb .ret				; (CY)
+	cmp ax, cx
+	; jb .ret			; (CY)
+					; (NC) yes, no error
+@@:
+.ret:
+	retn
+%endif
+
+
 		; INP:	?dst -> destination
 		;	?src -> source
 		;	bx = function to call with pointers
 		; CHG:	ds, si, es, di
 		; OUT:	function called,
 		;	?dst and ?src advanced (if function changed the regs)
+		;	(if _ALLOW_OVERLAPPING) CY if error, NC if success
 func_bx_with_normalised_pointers:
 	les di, [bp + ?dst]
 	lds si, [bp + ?src]
@@ -1031,6 +1100,17 @@ func_bx_with_normalised_pointers:
 	 pop word [bp + ?dst]
 	 pop word [bp + ?dst + 2]
 
+%if _ALLOW_OVERLAPPING
+	push ax
+	push bx
+	push cx
+	push dx
+	call check_pointers_not_overlapping
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+%endif
 	retn
 
 
