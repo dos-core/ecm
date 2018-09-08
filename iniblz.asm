@@ -351,6 +351,20 @@ blzhDecompressedCRC:	resd 1
 	endstruc
 
 
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The pointers have to be already normalised.
+		;	 Normalised means that the offset part is below 16.
+		;	 Actually, offsets of up to 0FFFBh may work, but
+		;	 notionally the pointer should be already normalised.
 depack:
 	lframe near
 	lvar dword,	dst_avail
