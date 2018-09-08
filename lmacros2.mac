@@ -168,6 +168,7 @@ Intended for 86 Mode programs.
 %endif
 %assign %$ofs %$ofs-%$varsize
 %assign ?%2 %$ofs
+%%lframe_?%2: equ %$ofs
 %assign %$req 1
 %endmacro
 
@@ -336,6 +337,7 @@ __lenter_parse_parlist %$parlist
 %rep %0 >> 1
 %assign %$pars_size %$pars_size - %1
 %assign ?%2 (%$pars_size + %$parofs + %$base_size)
+%%lframe_?%2: equ (%$pars_size + %$parofs + %$base_size)
 %rotate 2
 %endrep
 %endmacro
