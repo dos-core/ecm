@@ -623,25 +623,22 @@ testmacro ERROR_DISPLAY
 read_be32_src:
 	lds si, [bp + ?src]
 
-	call read_be32
+		; start of read_be32
+		; INP:	ds:si -> data, with big-endian 32 bit word
+		; OUT:	dx:ax = CPU equivalent
+		;	ds:si incremented
+	lodsw
+	xchg ax, dx		; dx = high word (first)
+	lodsw			; ax = low word (second)
+	xchg al, ah
+	xchg dl, dh		; fix order
+		; end of read_be32
 
 	 push ds
 	 push si
 	call normalise_pointer
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]
-	retn
-
-
-		; INP:	ds:si -> data, with big-endian 32 bit word
-		; OUT:	dx:ax = CPU equivalent
-		;	ds:si incremented
-read_be32:
-	lodsw
-	xchg ax, dx		; dx = high word (first)
-	lodsw			; ax = low word (second)
-	xchg al, ah
-	xchg dl, dh		; fix order
 	retn
 
 
