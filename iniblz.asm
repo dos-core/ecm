@@ -628,6 +628,10 @@ testmacro ERROR_DISPLAY
 %endif
 
 
+		; INP:	?src -> source data
+		; OUT:	dx:ax = 32-bit value read as big-endian dword
+		;	?src incremented
+		; CHG:	ds, si
 read_be32_src:
 	lds si, [bp + ?src]
 
