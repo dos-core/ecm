@@ -851,16 +851,17 @@ blz_depack_safe:
 	sub word [bp + ?src_avail], 1
 	sbb word [bp + ?src_avail + 2], 0	; src_avail--
 
-%rep 8
+	mov word [bp + ?len], cx
+	mov word [bp + ?len + 2], bx
+
+	mov cx, 8
+@@:
 	shl ax, 1
 	rcl dx, 1			; off <<= 8
-%endrep
+	loop @B
 
 	mov word [bp + ?off], ax
 	mov word [bp + ?off + 2], dx
-
-	mov word [bp + ?len], cx
-	mov word [bp + ?len + 2], bx
 
 	xor ax, ax
 	mov bx, .lodsb
