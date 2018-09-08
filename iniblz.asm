@@ -51,6 +51,8 @@ ldLoadUntilSeg:	resw 1
 	numdef DEBUG2		; dump_stack_frame before blz_depack_safe call
 	numdef DEBUG3		; dump_stack_frame at start of blz_depack_safe
 
+	numdef OPTIMISE_MOVP_DN_ONLY,	1	; init0_movp always moves DN
+
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -103,6 +105,10 @@ init0_movp:
 	jb .down		; yes, move from top down -->
 	je .return		; same, no need to move --> (NC)
 
+%if _OPTIMISE_MOVP_DN_ONLY
+	int3
+	jmp $
+%else
 	push ax
 	push dx
 .uploop:
@@ -128,6 +134,7 @@ init0_movp:
 	pop dx
 	pop ax
 	jmp short .return
+%endif
 
 .down:
 	std
