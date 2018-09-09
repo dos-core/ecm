@@ -197,7 +197,11 @@ init1_start:
 	xor si, si		; -> source
 
 	mov cx, (payload.end - payload) & 0FFFFh
+%if (payload.end - payload) >> 16
 	mov dx, (payload.end - payload) >> 16	; = length of source
+%else
+	xor dx, dx
+%endif
 
 	mov ax, 60h
 	mov es, ax
