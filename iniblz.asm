@@ -76,11 +76,12 @@ init0_start:
 	sub dx, cx
 	call init0_movp
 
-	add dx, ( \
+	mov ax, dx
+	add ax, ( \
 		+ (payload_end - payload) \
 		) >> 4
 	xor bx, bx
-	push dx
+	push ax
 	push bx
 	retf			; jump to relocated INIT1:init1_start
 
@@ -184,15 +185,12 @@ payload_end:
 init1_start:
 		; INP:	ss:bp -> LOADDATA and LOADSTACKVARS
 		;	ss:sp -> valid stack above [bp + ldLoadTop]
-		;	dx = cs = INIT1
-		;	cs - (payload_end - payload) >> 4 => source data
+		;	ax = cs = INIT1
+		;	dx = cs - (payload_end - payload) >> 4 => source data
 		;	60h => destination
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
 
 	cld
-	sub dx, ( \
-		+ (payload_end - payload) \
-		) >> 4
 	mov ds, dx
 	xor si, si		; -> source
 
