@@ -212,11 +212,7 @@ init1_start:
 	call depack
 	jc error
 
-	mov ax, 60h + _EXEC_SEGMENT
-	mov bx, _EXEC_OFFSET
-	push ax
-	push bx
-	retf
+	jmp 60h + _EXEC_SEGMENT:_EXEC_OFFSET
 
 
 error:
