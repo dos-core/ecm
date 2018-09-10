@@ -703,12 +703,8 @@ blz_getbit_safe:
 	mov bx, .lodsw
 	call func_bx_with_normalised_pointers
 	pop bx
-%if _ALLOW_OVERLAPPING
-%if _DEBUG0
-	mov byte [bp + ?errordata], 17
-%endif
-	jc .ret				; (CY)
-%endif
+		; Note:	As the write pointer isn't changed here, it here isn't
+		;	 necessary to re-check for overlap-corrupted source.
 
 	mov word [bp + ?bits_left], 16
 	mov word [bp + ?tag], ax
@@ -794,6 +790,19 @@ blz_depack_safe:
 	or ax, dx
 	jz .ret				; (NC)
 
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving a literal byte.
+%if _DEBUG0
+	mov byte [bp + ?errordata], 19
+%endif
+	jc .ret_CY
+%endif
+
 %if _DEBUG3
 	call dump_stack_frame
 %endif
@@ -827,12 +836,11 @@ blz_depack_safe:
 
 	mov bx, .movsb
 	call func_bx_with_normalised_pointers
-%if _ALLOW_OVERLAPPING
-%if _DEBUG0
-	mov byte [bp + ?errordata], 18
-%endif
-	jc .ret_CY
-%endif
+		; Note:	Because we verified that the write pointer was
+		;	 below the read pointer prior, a literal byte
+		;	 that both reads from the source and writes to
+		;	 the destination cannot corrupt the remaining
+		;	 needed part of the source data.
 
 	add word [bp + ?dst_size], 1
 	adc word [bp + ?dst_size + 2], 0
@@ -914,12 +922,8 @@ blz_depack_safe:
 	xor ax, ax
 	mov bx, .lodsb
 	call func_bx_with_normalised_pointers
-%if _ALLOW_OVERLAPPING
-%if _DEBUG0
-	mov byte [bp + ?errordata], 19
-%endif
-	jc .ret_CY
-%endif
+		; Note:	As the write pointer isn't changed here, it here isn't
+		;	 necessary to re-check for overlap-corrupted source.
 
 	inc ax				; *src + 1
 	add word [bp + ?off], ax
@@ -1090,7 +1094,6 @@ check_pointers_not_overlapping:
 		; CHG:	ds, si, es, di
 		; OUT:	function called,
 		;	?dst and ?src advanced (if function changed the regs)
-		;	(if _ALLOW_OVERLAPPING) CY if error, NC if success
 func_bx_with_normalised_pointers:
 	les di, [bp + ?dst]
 	lds si, [bp + ?src]
@@ -1109,17 +1112,6 @@ func_bx_with_normalised_pointers:
 	 pop word [bp + ?dst]
 	 pop word [bp + ?dst + 2]
 
-%if _ALLOW_OVERLAPPING
-	push ax
-	push bx
-	push cx
-	push dx
-	call check_pointers_not_overlapping
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-%endif
 	retn
 
 
