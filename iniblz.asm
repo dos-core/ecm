@@ -460,6 +460,9 @@ depack:
 	mov word [bp + ?src_avail], ax
 	mov word [bp + ?src_avail + 2], dx
 
+	mov bx, dx
+	mov cx, ax			; bx:cx = compressed size, used later
+
 %if _DEBUG0
 	mov byte [bp + ?errordata + 1], 8
 %endif
@@ -499,11 +502,17 @@ depack:
 	mov word [bp + ?depacked_size + 2], dx
 
 	call read_be32_src		; decompressed crc
-
+					; leaves ds:si = ?src
+	 push ds
+	 push si
+	call normalise_pointer_with_displacement_bxcx
+					; bx:cx = compressed size used here
 %if _DEBUG2
 	call dump_stack_frame
 %endif
 	call blz_depack_safe
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
 %if _DEBUG0
 	mov byte [bp + ?errordata + 1], 6
 %endif
