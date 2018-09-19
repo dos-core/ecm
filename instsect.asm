@@ -246,12 +246,12 @@ ptExtendedLinux:	equ 85h
 fat12_payload:		incbin "boot12.bin"
 .end:
 %if (fat12_payload.end - fat12_payload) != 512
- %error FAT12 payload isn't 512 bytes sized."
+ %error "FAT12 payload isn't 512 bytes sized."
 %endif
 fat16_payload:		incbin "boot16.bin"
 .end:
 %if (fat16_payload.end - fat16_payload) != 512
- %error FAT16 payload isn't 512 bytes sized."
+ %error "FAT16 payload isn't 512 bytes sized."
 %endif
 fat32_payload:		incbin "boot32.bin"
 .end:
@@ -261,7 +261,7 @@ fat32_payload:		incbin "boot32.bin"
 %elif fat32_payload.size == 1024
  %assign fat32_two_sectors 1
 %else
- %error FAT32 payload isn't 512 or 1024 bytes sized."
+ %error "FAT32 payload isn't 512 or 1024 bytes sized."
 %endif
 
 
