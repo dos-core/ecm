@@ -516,6 +516,9 @@ skip_bpb:
 	mov word [VAR(entries_per_sector)], ax
 
 load_fsiboot:
+	cmp word [VAR(bytes_per_sector)], 1024
+	jae .loaded		; already loaded as part of the boot sector -->
+
 	mov ax, [VAR(fsinfo_sector)]
 ;	inc ax
 ;	jz error_fsiboot	; was FFFFh, invalid -->
@@ -533,6 +536,7 @@ load_fsiboot:
 	sub cx, [VAR(bytes_per_sector)]
 	ja @B			; read 512 bytes -->
 
+.loaded:
 	push ds
 	pop es
 	mov si, signatures
