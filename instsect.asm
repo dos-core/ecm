@@ -633,6 +633,7 @@ error_badchain: equ $
 @@:
 	call disp_msg_asciz
 
+	mov byte [bp + ldHasLBA], 0	; 2 clear: not FSINFO
 %if fat32_two_sectors
 	cmp si, fat32_payload
 	jne .not_fat32
@@ -641,12 +642,41 @@ error_badchain: equ $
 		; Because we checked that the sector size is a power of two,
 		;  we can assume here that sectors are 512 bytes or less.
 
-	mov dx, .msg_not_yet
+	cmp word [si + 512 + FSINFO.signature1], "RR"
+	jne .not_fsinfo
+	cmp word [si + 512 + FSINFO.signature1 + 2], "aA"
+	jne .not_fsinfo
+
+	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
+	xor dx, dx
+
+	or byte [bp + ldHasLBA], 2	; 2 set: FSINFO
+
+	test ax, ax
+	jz .invalid_fsinfo
+	cmp ax, word [bp + bsBPB + bpbReservedSectors]
+	jae .invalid_fsinfo
+
+	mov bx, second_sector_buffer + 512
+	mov cl, [drivenumber]
+	call read_ae_512_bytes		; load FSINFO sector
+	jc exit_error
+
+	jmp .fat32_fsinfo_setup_done
+
+.invalid_fsinfo:
+	mov dx, msg.no_fsinfo
 	jmp disp_error
-.msg_not_yet:	asciz "FAT32 with two sectors not yet supported.",13,10
+
+.not_fsinfo:
+	mov dx, .msg_not_yet_non_fsinfo
+	jmp disp_error
+.msg_not_yet_non_fsinfo:
+	asciz "FAT32 with two sectors and not FSINFO not yet supported.",13,10
 
 .not_fat32:
 .fat32_larger_sector:
+.fat32_fsinfo_setup_done:
 %endif
 		; Copy over two sectors into the sector_buffer,
 		;  for the case of FAT32 with fat32_two_sectors
@@ -668,6 +698,16 @@ error_badchain: equ $
 @@:
 	mov cx, BPBN_size
 	rep movsb
+
+	test byte [bp + ldHasLBA], 2
+	jz .no_fsinfo
+
+	mov si, second_sector_buffer + FSINFO.signature2
+	mov di, sector_buffer + FSINFO.signature2
+	mov cx, (FSINFO_size - FSINFO.signature2) >> 1
+	rep movsw				; copy over FSINFO
+
+.no_fsinfo:
 	mov si, second_sector_buffer + 510
 	mov di, sector_buffer + 510
 	movsw
@@ -691,6 +731,12 @@ listnames:
 	mov si, sector_buffer + bsBPB + bpbNew + BPBN_size
 	mov cx, 512 - (bsBPB + bpbNew + BPBN_size) - 2
 						; -2 = AA55h sig
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov si, sector_buffer + bsBPB + ebpbNew + BPBN_size
+	mov cx, 512 - (bsBPB + ebpbNew + BPBN_size) - 2
+@@:
+
 .nextname:
 	call findname
 	 lahf
@@ -861,10 +907,24 @@ set_unit:
 	call disp_msg_asciz
 
 write:
+		; If the sector size is <= 512 bytes and there is a second
+		;  FAT32 sector which is an FSINFO sector, write it here.
+	test byte [bp + ldHasLBA], 2
+	jz .no_fsinfo
+	mov bx, sector_buffer + 512
+	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
+	xor dx, dx
+	mov cl, [drivenumber]
+	call write_ae_512_bytes
+	jc exit_error
+.no_fsinfo:
+
 	mov bx, sector_buffer
 	xor ax, ax
 	xor dx, dx
 	mov cl, [drivenumber]
+		; If sector size is >= 1 KiB, this writes both sectors for
+		;  the FAT32 two-sector case.
 	call write_ae_512_bytes
 	jc exit_error
 
@@ -1753,6 +1813,7 @@ msg:
 		asciz "BPB BpS differs from actual sector size.",13,10
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
 .boot_badchain:		asciz "Bad cluster chain.",13,10
+.no_fsinfo:	asciz "No FSINFO sector found.",13,10
 .is_fat12:	asciz "Detected FAT12 FS.",13,10
 .is_fat16:	asciz "Detected FAT16 FS.",13,10
 .is_fat32:	asciz "Detected FAT32 FS.",13,10
