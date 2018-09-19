@@ -239,7 +239,7 @@ ptExtendedLinux:	equ 85h
 	[map all instsect.map]
 
 	cpu 8086
-	org 256
+	section PROGRAM start=0 vstart=100h align=16
 start:
 			; This is a simple MS-DOS 1.x detection (8 Byte).
 	mov ah, 4Dh		; the only function I found that doesn't need much setup or cleanup
@@ -2067,6 +2067,8 @@ AAAAAAAA00FFF
 	stc
 	retn
 
+	align 16
+	section BUFFERS follows=PROGRAM vfollows=PROGRAM align=16 valign=16
 
 	align 16
 fat12_payload:		incbin "boot12.bin"
