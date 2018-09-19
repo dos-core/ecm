@@ -140,6 +140,22 @@ ptExtended:		equ 0Fh
 ptLinux:		equ 83h
 ptExtendedLinux:	equ 85h
 
+	struc FSINFO	; FAT32 FSINFO sector layout
+.signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
+.reserved1:			; former unused, initialized to zero by FORMAT
+.fsiboot:	resb 480	; now used for FSIBOOT
+.signature2:	resd 1		; 61417272h ("rrAa") for valid FSINFO
+.numberfree:	resd 1		; FSINFO: number of free clusters or -1
+.nextfree:	resd 1		; FSINFO: first free cluster or -1
+.reserved2:	resd 3		; unused, initialized to zero by FORMAT
+.signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
+	endstruc
+
+	struc FSIBOOTG	; FSIBOOT general layout
+.signature:	resq 1		; 8 byte that identify the FSIBOOT type
+.fsicode:	resb 472	; 472 byte FSIBOOT type specific data or code
+	endstruc
+
 %if _VDD
 ; standard BOPs for communication with DEBXXVDD on NT platforms
 %macro RegisterModule 0.nolist
