@@ -1702,7 +1702,7 @@ load_kernel_name: equ $
 .foundname_none:
 	asciz "(None)"
 .foundname_none_size: equ $ - .foundname_none
-	align 2
+	align 4
 .names:
 	dw .name_first, 0
 	dw .name_second, 0
