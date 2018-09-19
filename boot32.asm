@@ -21,7 +21,6 @@ Public domain by C. Masloch, 2012
 
 	defaulting
 
-	numdef FAT16,		0	; 0 = FAT12, 1 = FAT16
 	strdef OEM_NAME,	"    lDOS"
 	strdef DEFAULT_LABEL,	"lDOS"
 
