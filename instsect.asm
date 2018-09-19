@@ -240,6 +240,22 @@ ptExtendedLinux:	equ 85h
 
 	cpu 8086
 	section PROGRAM start=0 vstart=100h align=16
+	section BUFFERS follows=PROGRAM vfollows=PROGRAM align=16 valign=16
+
+	align 16
+fat12_payload:		incbin "boot12.bin"
+.end:
+%if (fat12_payload.end - fat12_payload) != 512
+ %error FAT12 payload isn't 512 bytes sized."
+%endif
+fat16_payload:		incbin "boot16.bin"
+.end:
+%if (fat16_payload.end - fat16_payload) != 512
+ %error FAT16 payload isn't 512 bytes sized."
+%endif
+
+
+	section PROGRAM
 start:
 			; This is a simple MS-DOS 1.x detection (8 Byte).
 	mov ah, 4Dh		; the only function I found that doesn't need much setup or cleanup
@@ -2068,19 +2084,7 @@ AAAAAAAA00FFF
 	retn
 
 	align 16
-	section BUFFERS follows=PROGRAM vfollows=PROGRAM align=16 valign=16
-
-	align 16
-fat12_payload:		incbin "boot12.bin"
-.end:
-%if (fat12_payload.end - fat12_payload) != 512
- %error FAT12 payload isn't 512 bytes sized."
-%endif
-fat16_payload:		incbin "boot16.bin"
-.end:
-%if (fat16_payload.end - fat16_payload) != 512
- %error FAT16 payload isn't 512 bytes sized."
-%endif
+	section BUFFERS
 
 	dw 0		; insure there's an unused word in front of this (1)
 	align 16
