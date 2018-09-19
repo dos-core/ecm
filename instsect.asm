@@ -651,6 +651,7 @@ error_badchain: equ $
 	mov di, sector_buffer + 510
 	movsw
 	mov cx, word [bp + ldBytesPerSector]
+%if fat32_two_sectors
 	 cmp byte [bp + ldFATType], 16
 	 jbe @F
 	add si, 512				; -> second_sector_buffer +1024
@@ -658,6 +659,7 @@ error_badchain: equ $
 	sub cx, 512
 	jbe @FF
 @@:
+%endif
 	sub cx, 512
 	jbe @F
 	rep movsb
