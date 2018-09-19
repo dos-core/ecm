@@ -745,8 +745,8 @@ set_unit:
 	add si, cx
 
 	mov dx, 16
-	mov di, unit_search_strings.set_bpbn
-	mov cx, unit_search_strings.set_bpbn_length
+	mov di, unit_search_strings.1612_set_bpbn
+	mov cx, unit_search_strings.1612_set_bpbn_length
 @@:
 	push si
 	push di
@@ -765,11 +765,11 @@ set_unit:
 .found_set:
 	mov byte [sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
 
-	mov di, unit_search_strings.set_dl
-	mov cx, unit_search_strings.set_dl_length
+	mov di, unit_search_strings.1612_set_dl
+	mov cx, unit_search_strings.1612_set_dl_length
 
 	xchg si, di
-	rep movsb		; write .set_dl to there
+	rep movsb		; write .1612_set_dl to there
 
 	mov dx, msg.using_fix_unit
 	call disp_msg_asciz
@@ -803,11 +803,19 @@ exit_error:
 unit_search_strings:
 .mov:	mov bp, 7C00h
 .mov_length: equ $ - .mov
-.set_bpbn:	mov byte [bp + bsBPB + bpbNew + bpbnBootUnit], dl
-.set_bpbn_length: equ $ - .set_bpbn
-.set_dl:	mov dl, byte [bp + bsBPB + bpbNew + bpbnBootUnit]
-.set_dl_length:	equ $ - .set_dl
-%if .set_bpbn_length != .set_dl_length
+.1612_set_bpbn:		mov byte [bp + bsBPB + bpbNew + bpbnBootUnit], dl
+.1612_set_bpbn_length:	equ $ - .1612_set_bpbn
+.1612_set_dl:		mov dl, byte [bp + bsBPB + bpbNew + bpbnBootUnit]
+.1612_set_dl_length:	equ $ - .1612_set_dl
+%if .1612_set_bpbn_length != .1612_set_dl_length
+ %error Unit fixing replacement string not same length!
+%endif
+
+.32_set_bpbn:		mov byte [bp + bsBPB + ebpbNew + bpbnBootUnit], dl
+.32_set_bpbn_length:	equ $ - .32_set_bpbn
+.32_set_dl:		mov dl, byte [bp + bsBPB + ebpbNew + bpbnBootUnit]
+.32_set_dl_length:	equ $ - .32_set_dl
+%if .32_set_bpbn_length != .32_set_dl_length
  %error Unit fixing replacement string not same length!
 %endif
 
