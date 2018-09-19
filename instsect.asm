@@ -630,9 +630,9 @@ error_badchain: equ $
 		; Copy over two sectors into the sector_buffer,
 		;  for the case of FAT32 with fat32_two_sectors
 		;  and a sector size >= 1 KiB.
-	mov cx, 1024
+	mov cx, 1024 >> 1
 	mov di, sector_buffer
-	rep movsb
+	rep movsw
 	mov si, second_sector_buffer + bsBPB
 	mov di, sector_buffer + bsBPB
 	cmp byte [bp + ldFATType], 16
