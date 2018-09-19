@@ -620,12 +620,17 @@ error_badchain: equ $
 %if fat32_two_sectors
 	cmp si, fat32_payload
 	jne @F
+	cmp word [bp + ldBytesPerSector], 1024
+	jae @F
 	mov dx, .msg_not_yet
 	jmp disp_error
 .msg_not_yet:	asciz "FAT32 with two sectors not yet supported.",13,10
-%endif
 @@:
-	mov cx, 512
+%endif
+		; Copy over two sectors into the sector_buffer,
+		;  for the case of FAT32 with fat32_two_sectors
+		;  and a sector size >= 1 KiB.
+	mov cx, 1024
 	mov di, sector_buffer
 	rep movsb
 	mov si, second_sector_buffer + bsBPB
@@ -646,6 +651,13 @@ error_badchain: equ $
 	mov di, sector_buffer + 510
 	movsw
 	mov cx, word [bp + ldBytesPerSector]
+	 cmp byte [bp + ldFATType], 16
+	 jbe @F
+	add si, 512				; -> second_sector_buffer +1024
+	add di, 512				; -> behind buffer for FSIBOOT
+	sub cx, 512
+	jbe @FF
+@@:
 	sub cx, 512
 	jbe @F
 	rep movsb
