@@ -499,6 +499,7 @@ error_badchain: equ $
 		; dx = high word adjust
 	add dx, cx
 		; dx:bx = result
+	jc error_badchain
 	xchg ax, bx
 		; dx:ax = result
 	jc error_badchain
