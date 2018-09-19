@@ -619,13 +619,18 @@ error_badchain: equ $
 
 %if fat32_two_sectors
 	cmp si, fat32_payload
-	jne @F
+	jne .not_fat32
 	cmp word [bp + ldBytesPerSector], 1024
-	jae @F
+	jae .fat32_larger_sector
+		; Because we checked that the sector size is a power of two,
+		;  we can assume here that sectors are 512 bytes or less.
+
 	mov dx, .msg_not_yet
 	jmp disp_error
 .msg_not_yet:	asciz "FAT32 with two sectors not yet supported.",13,10
-@@:
+
+.not_fat32:
+.fat32_larger_sector:
 %endif
 		; Copy over two sectors into the sector_buffer,
 		;  for the case of FAT32 with fat32_two_sectors
