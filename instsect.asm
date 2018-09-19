@@ -1973,7 +1973,7 @@ initialise:
 	jc .access_error
 
 	std
-	mov word [es:bx - 2], 5E5Eh
+	mov word [es:bx - 2], 5E5Eh	; writes to unused word (1)
 	scasw				; -> sector_buffer+8192 (at last word to sca)
 	mov cx, (8192 + 2) >> 1
 	xor ax, ax
@@ -2080,7 +2080,7 @@ fat16_payload:		incbin "boot16.bin"
  %error FAT16 payload isn't 512 bytes sized."
 %endif
 
-	dw 0
+	dw 0		; insure there's an unused word in front of this (1)
 	align 16
 sector_buffer:
 second_sector_buffer:	equ sector_buffer - LOADDATA2 + 16 + 8192
