@@ -747,6 +747,10 @@ set_unit:
 	mov dx, 16
 	mov di, unit_search_strings.1612_set_bpbn
 	mov cx, unit_search_strings.1612_set_bpbn_length
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov di, unit_search_strings.32_set_bpbn
+	mov cx, unit_search_strings.32_set_bpbn_length
 @@:
 	push si
 	push di
@@ -767,9 +771,14 @@ set_unit:
 
 	mov di, unit_search_strings.1612_set_dl
 	mov cx, unit_search_strings.1612_set_dl_length
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov di, unit_search_strings.32_set_dl
+	mov cx, unit_search_strings.32_set_dl_length
+@@:
 
 	xchg si, di
-	rep movsb		; write .1612_set_dl to there
+	rep movsb		; write .32_set_dl or .1612_set_dl to there
 
 	mov dx, msg.using_fix_unit
 	call disp_msg_asciz
