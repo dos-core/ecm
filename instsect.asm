@@ -703,8 +703,8 @@ error_badchain: equ $
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
-	mov si, second_sector_buffer + FSINFO.signature2
-	mov di, sector_buffer + FSINFO.signature2
+	mov si, second_sector_buffer + 512 + FSINFO.signature2
+	mov di, sector_buffer + 512 + FSINFO.signature2
 	mov cx, (FSINFO_size - FSINFO.signature2) >> 1
 	rep movsw				; copy over FSINFO
 .no_fsinfo:
