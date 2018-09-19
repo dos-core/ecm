@@ -253,6 +253,16 @@ fat16_payload:		incbin "boot16.bin"
 %if (fat16_payload.end - fat16_payload) != 512
  %error FAT16 payload isn't 512 bytes sized."
 %endif
+fat32_payload:		incbin "boot32.bin"
+.end:
+%assign fat32_payload.size (fat32_payload.end - fat32_payload)
+%assign fat32_two_sectors 0
+%if fat32_payload.size == 512
+%elif fat32_payload.size == 1024
+ %assign fat32_two_sectors 1
+%else
+ %error FAT32 payload isn't 512 or 1024 bytes sized."
+%endif
 
 
 	section PROGRAM
