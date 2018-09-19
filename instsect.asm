@@ -613,24 +613,33 @@ error_badchain: equ $
 	mov si, fat12_payload
 	jb @F
 	mov dx, msg.is_fat32
-	mov si, 0
+	mov si, fat32_payload
 @@:
 	call disp_msg_asciz
 
-	test si, si
-	jnz @F
+%if fat32_two_sectors
+	cmp si, fat32_payload
+	jne @F
 	mov dx, .msg_not_yet
 	jmp disp_error
-.msg_not_yet:	asciz "FAT32 not yet supported.",13,10
+.msg_not_yet:	asciz "FAT32 with two sectors not yet supported.",13,10
+%endif
 @@:
 	mov cx, 512
 	mov di, sector_buffer
 	rep movsb
 	mov si, second_sector_buffer + bsBPB
 	mov di, sector_buffer + bsBPB
-	mov cx, bpbNew
+	cmp byte [bp + ldFATType], 16
+	jbe @F					; if FAT12/FAT16 -->
+	mov cx, ebpbNew
+	rep movsb				; move EBPB (minus BPBN)
+	jmp @FF					; si -> BPBN
+@@:
+	mov cx, bpbNew				; move BPB
 	rep movsb
-	add si, ebpbNew - bpbNew
+	add si, ebpbNew - bpbNew		; si -> BPBN
+@@:
 	mov cx, BPBN_size
 	rep movsb
 	mov si, second_sector_buffer + 510
