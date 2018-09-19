@@ -699,6 +699,7 @@ error_badchain: equ $
 	mov cx, BPBN_size
 	rep movsb
 
+%if fat32_two_sectors
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
@@ -706,8 +707,9 @@ error_badchain: equ $
 	mov di, sector_buffer + FSINFO.signature2
 	mov cx, (FSINFO_size - FSINFO.signature2) >> 1
 	rep movsw				; copy over FSINFO
-
 .no_fsinfo:
+%endif
+
 	mov si, second_sector_buffer + 510
 	mov di, sector_buffer + 510
 	movsw
@@ -907,6 +909,8 @@ set_unit:
 	call disp_msg_asciz
 
 write:
+
+%if fat32_two_sectors
 		; If the sector size is <= 512 bytes and there is a second
 		;  FAT32 sector which is an FSINFO sector, write it here.
 	test byte [bp + ldHasLBA], 2
@@ -918,6 +922,7 @@ write:
 	call write_ae_512_bytes
 	jc exit_error
 .no_fsinfo:
+%endif
 
 	mov bx, sector_buffer
 	xor ax, ax
