@@ -1157,7 +1157,7 @@ signatures:
 %if _FAT16
  %assign fatbits 16
 %endif
-%warning FAT fatbits: num bytes still available.
+%warning FAT%[fatbits]: num bytes still available.
 %endif
 
 end:

@@ -923,7 +923,7 @@ signatures:
 	dw 0AA55h
 
 %assign num signatures-available
-%warning FAT 32: num bytes still available.
+%warning FAT32: num bytes still available.
 %else	; for testing
 	align 4
 signatures:
