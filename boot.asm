@@ -700,7 +700,7 @@ found_it:
 @@:					; one of the limits reached; FAT read
 %endif
 
-		mov bx, _LOAD_ADR>>4	; :0-> load address
+		mov bx, _LOAD_ADR>>4	; => load address
 %if _FAT16
 		mov di, -1		; = no FAT sector read yet
  %if _SET_FAT_SEG
@@ -935,7 +935,7 @@ error:
 		; INP:	dx:ax = sector
 		; OUT:	only if successful
 		;	dx:ax = incremented
-		;	bx:0-> behind read sector
+		;	bx => behind read sector
 		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
 		; CHG:	-
 %if ADR_DIRBUF == ADR_FATBUF
@@ -947,13 +947,13 @@ read_sector_fatbuf:
 		; Read a sector using Int13.02 or Int13.42
 		;
 		; INP:	dx:ax = sector number within partition
-		;	bx:0-> buffer
+		;	bx => buffer
 		;	(_LBA) ds = ss
 		; OUT:	If unable to read,
 		;	 ! jumps to error instead of returning
 		;	If sector has been read,
 		;	 dx:ax = next sector number (has been incremented)
-		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
+		;	 bx => next buffer (bx = es+word[para_per_sector])
 		;	 es = input bx
 		; CHG:	-
 read_sector:
@@ -976,7 +976,7 @@ read_sector:
 	push dx
 	push ax		; qword sector number
 	push bx
-	push cx		; bx:0 -> buffer
+	push cx		; bx => buffer
 	inc cx
 	push cx		; word number of sectors to read
 	mov cl, 10h

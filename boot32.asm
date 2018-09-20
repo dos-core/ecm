@@ -461,8 +461,8 @@ fsinfo_table:		; this table is used by the FSIBOOT0 stage
 %endif
 .read_sector:	dw read_sector
 			; INP: dx:ax = sector number within partition,
-			; bx:0-> buffer, (_LBA) ds = ss
-			; OUT: dx:ax incremented, bx:0-> incremented,
+			; bx => buffer, (_LBA) ds = ss
+			; OUT: dx:ax incremented, bx => incremented,
 			; es = input bx
 			; CHG: none
 .load_name:	dw load_name
@@ -618,7 +618,7 @@ load_fsiboot:
 	sub ax, word [VAR(para_per_sector)]
 	mov word [VAR(last_available_sector)], ax
 
-	mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
+	mov word [VAR(load_seg)], _LOAD_ADR>>4	; => load address
 %if _SET_FAT_SEG
 	mov word [VAR(fat_seg)], ADR_FATBUF>>4
 	mov word [VAR(fat_sector + 0)], -1
@@ -728,13 +728,13 @@ load_finish:
 		; Read a sector using Int13.02 or Int13.42
 		;
 		; INP:	dx:ax = sector number within partition
-		;	bx:0-> buffer
+		;	bx => buffer
 		;	(_LBA) ds = ss
 		; OUT:	If unable to read,
 		;	 ! jumps to error instead of returning
 		;	If sector has been read,
 		;	 dx:ax = next sector number (has been incremented)
-		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
+		;	 bx => next buffer (bx = es+word[para_per_sector])
 		;	 es = input bx
 		; CHG:	-
 read_sector:
@@ -757,7 +757,7 @@ read_sector:
 	push dx
 	push ax		; qword sector number
 	push bx
-	push cx		; bx:0 -> buffer
+	push cx		; bx => buffer
 	inc cx
 	push cx		; word number of sectors to read
 	mov cl, 10h
