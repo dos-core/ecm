@@ -631,10 +631,6 @@ load_fsiboot:
 error_fsiboot:
 	mov al,'I'
 
-	db __TEST_IMM16	; (skip mov)
-error_badchain:
-	mov al,'B'
-
 %if !_MEMORY_CONTINUE
 	db __TEST_IMM16	; (skip mov)
 error_filetoobig:
