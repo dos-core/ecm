@@ -857,7 +857,7 @@ next_cluster:
 ; Set-up registers for and jump to loaded file
 ; Already: ss:bp-> boot sector containing BPB
 %if _SET_DL_UNIT
-		mov dl, [VAR(boot_unit)]	; set dl to unit
+		mov dl, [VAR(boot_unit)]; set dl to unit
 %endif
 %if _SET_DI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
 		pop cx
@@ -872,7 +872,7 @@ next_cluster:
  %if _SET_DL_UNIT
 		mov bl, dl		; set bl to unit, too
  %else
-		mov bl, [VAR(boot_unit)]	; set bl to unit
+		mov bl, [VAR(boot_unit)]; set bl to unit
  %endif
 %endif
 %if _SET_AXBX_DATA
@@ -905,7 +905,6 @@ next_cluster:
 		pop di
  %endif
 %endif
-			; dl = BIOS unit
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 

@@ -36,6 +36,7 @@ Public domain by C. Masloch, 2012
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 
+	numdef SET_DL_UNIT,	0	; if to pass unit in dl
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
 	numdef SET_DSSI_DPT,	0	; if to pass DPT address in ds:si
@@ -91,6 +92,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+ %assign _SET_DL_UNIT		1
  %assign _MEMORY_CONTINUE	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
@@ -110,6 +112,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
+ %assign _SET_DL_UNIT		1
  %assign _SET_DSSI_DPT		0
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
@@ -126,6 +129,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
+ %assign _SET_DL_UNIT		0
  %assign _SET_CLUSTER		1
  %assign _SET_FAT_SEG		1
  %assign _SET_LOAD_SEG		1
@@ -712,11 +716,14 @@ load_finish:
 		pop si
  %endif
 %endif
-		mov dl, [VAR(boot_unit)]	; set dl to unit
-%if _SET_BL_UNIT
+%if _SET_DL_UNIT
+		mov dl, [VAR(boot_unit)]; set dl to unit
+ %if _SET_BL_UNIT
 		mov bl, dl		; set bl to unit, too
+ %endif
+%elif _SET_BL_UNIT
+		mov bl, [VAR(boot_unit)]; set bl to unit
 %endif
-			; dl = BIOS unit
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
