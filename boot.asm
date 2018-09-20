@@ -81,6 +81,7 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
  %assign _SET_BL_UNIT		1
+ %assign _MEMORY_CONTINUE	0
 	; The FreeDOS load protocol mandates that the entire file be loaded.
 %endif
 
