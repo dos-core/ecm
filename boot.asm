@@ -1,7 +1,7 @@
 
 %if 0
 
-File system boot sector loader code for FAT12
+File system boot sector loader code for FAT12 or FAT16
 
 Adapted from 2002-11-26 fatboot.zip/fat12.asm,
  released as public domain by Chris Giese
