@@ -789,7 +789,6 @@ read_sector:
 
 	xor ax, ax
 	int 13h
-	jc .lba_error
 
 		; have to reset the LBAPACKET's lpCount, as the handler may
 		;  set it to "the number of blocks successfully transferred".
@@ -878,7 +877,6 @@ read_sector:
 ; reset drive
 			xor ax, ax
 			int 13h
-			jc .err
 %endif
 ; try read again
 			mov ax, 0201h
