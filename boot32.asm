@@ -443,12 +443,43 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 
 ; Initialised data
 
+	align 2
+fsinfo_table:		; this table is used by the FSIBOOT0 stage
+.error:		dw error
+			; nothing
+.success:	dw load_finish
+			; stack: (for _SET_SIDI_CLUSTER) first cluster dword
+%if _MEMORY_CONTINUE
+.memory_full:	dw load_finish_mc
+			; stack: next cluster number dword,
+			; (for _SET_SIDI_CLUSTER) first cluster dword
+			; Note: The first cluster dword is always filled in
+			;  by FSIBOOT; the option only affects usage in the
+			;  primary loader.
+%else
+.memory_full:	dw error_filetoobig
+%endif
+.read_sector:	dw read_sector
+			; INP: dx:ax = sector number within partition,
+			; bx:0-> buffer, (_LBA) ds = ss
+			; OUT: dx:ax incremented, bx:0-> incremented,
+			; es = input bx
+			; CHG: none
+.load_name:	dw load_name
+			; -> 11-byte blank-padded filename
+.fatbuf:	dw ADR_FATBUF>>4
+			; => FAT sector buffer (one sector)
+.dirbuf:	dw ADR_DIRBUF>>4
+			; => directory sector buffer (one sector)
+			;  These two must not overlap! However, the directory
+			;  sector can overlap with the load file's buffer.
+
 load_name:
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
 
 fsiboot_name:
-	db "FSIBOOT",0
+	db "FSIBOOT0"
 
 
 ; Code
@@ -587,11 +618,6 @@ load_fsiboot:
 	sub ax, word [VAR(para_per_sector)]
 	mov word [VAR(last_available_sector)], ax
 
-	mov si, fsinfo_table
-	mov di, ADR_FSIBOOT + FSINFO.reserved1 + 8
-	mov cx, (fsinfo_table.end - fsinfo_table) >> 1
-	rep movsw
-
 	mov word [VAR(load_seg)], _LOAD_ADR>>4	; :0-> load address
 %if _SET_FAT_SEG
 	mov word [VAR(fat_seg)], ADR_FATBUF>>4
@@ -599,22 +625,7 @@ load_fsiboot:
 	mov word [VAR(fat_sector + 2)], -1
 %endif
 
-	jmp ADR_FSIBOOT + FSINFO.reserved1 + 8 + (fsinfo_table.end - fsinfo_table)
-
-	align 2
-fsinfo_table:
-.error:		dw error
-.success:	dw load_finish
-%if _MEMORY_CONTINUE
-.memory_full:	dw load_finish_mc
-%else
-.memory_full:	dw error_filetoobig
-%endif
-.read_sector:	dw read_sector
-.load_name:	dw load_name
-.fatbuf:	dw ADR_FATBUF>>4
-.dirbuf:	dw ADR_DIRBUF>>4
-.end:
+	jmp ADR_FSIBOOT + FSINFO.reserved1 + 8
 
 
 error_fsiboot:
@@ -925,27 +936,7 @@ end:
 
 fsiboot:
 	dd "RRaA"
-	db "FSIBOOT", 0
-
-.table:		; these are to be initialised by the loader
-.error:		dw 0	; nothing
-.success:	dw 0	; stack: (for _SET_SIDI_CLUSTER) first cluster dword
-.memory_full:	dw 0	; stack: next cluster number dword,
-			; (for _SET_SIDI_CLUSTER) first cluster dword
-			; Note: The first cluster dword is always filled in
-			;  by FSIBOOT; the option only affects usage in the
-			;  primary loader.
-.read_sector:	dw 0	; INP: dx:ax = sector number within partition,
-			; bx:0-> buffer, (_LBA) ds = ss
-			; OUT: dx:ax incremented, bx:0-> incremented,
-			; es = input bx
-			; CHG: none
-.load_name:	dw 0	; -> 11-byte blank-padded filename
-.fatbuf:	dw 0	; => FAT sector buffer (one sector)
-.dirbuf:	dw 0	; => directory sector buffer (one sector)
-			;  These two must not overlap! However, the directory
-			;  sector can overlap with the load file's buffer.
-
+	db "FSIBOOT0"
 
 .start:
 		; INP:	ss:bp -> boot sector, with EBPB
@@ -960,8 +951,8 @@ fsiboot:
 		;	wo [ss:bp - 24] = last_available_sector
 		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
-		; OUT:	jumps to fsiboot.error, fsiboot.success, or
-		;	 fsiboot.memory_full (for interfaces refer to table)
+		; OUT:	jumps to fsinfo_table.error, fsinfo_table.success, or
+		;	 fsinfo_table.memory_full (for interfaces refer to table)
 		;	data_start (within partition) initialised
 		;	adj_sectors_per_cluster initialised
 		;	paras_left initialised
@@ -1027,8 +1018,8 @@ next_root_sect:
 
 ; Scan root directory for file. We don't bother to check for deleted
 ;  entries (E5h) or entries that mark the end of the directory (00h).
-	mov bx, [fsiboot.dirbuf]
-	call near word [fsiboot.read_sector]
+	mov bx, [fsinfo_table.dirbuf]
+	call near word [fsinfo_table.read_sector]
 
 	push di
 	xor di, di		; es:di-> first entry in this sector
@@ -1036,7 +1027,7 @@ next_ent:
 	push si
 	push di
 	push cx
-	mov si, [fsiboot.load_name]	; ds:si-> name to match
+	mov si, [fsinfo_table.load_name]	; ds:si-> name to match
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
 	pop cx
@@ -1059,7 +1050,7 @@ file_not_found:
 fsiboot_error_badchain:
 	mov al, 'B'
 
-	jmp near word [fsiboot.error]
+	jmp near word [fsinfo_table.error]
 
 
 
@@ -1132,11 +1123,11 @@ clust_next:
 	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
-	mov bx, [fsiboot.fatbuf]
-	call near word [fsiboot.read_sector]
+	mov bx, [fsinfo_table.fatbuf]
+	call near word [fsinfo_table.read_sector]
 	pop bx
 @@:
-	mov es, [fsiboot.fatbuf]
+	mov es, [fsinfo_table.fatbuf]
 	mov ax, [es:bx]
 	mov dx, [es:bx + 2]
 
@@ -1231,11 +1222,11 @@ next_load_cluster:
 @@:
 		cmp bx, [VAR(last_available_sector)]
 		jbe @F
-		jmp near word [fsiboot.memory_full]
+		jmp near word [fsinfo_table.memory_full]
 
 @@:
 		push es		; (must preserve ADR_FATBUF reference)
-		call near word [fsiboot.read_sector]
+		call near word [fsinfo_table.read_sector]
 		pop es
 		mov [VAR(load_seg)], bx	; => after last read data
 
@@ -1260,7 +1251,7 @@ next_load_cluster:
 @@:
 		pop bx
 		pop cx
-		jmp near word [fsiboot.success]
+		jmp near word [fsinfo_table.success]
 
 
 fsinfo_available:
