@@ -1018,8 +1018,8 @@ next_root_sect:
 
 ; Scan root directory for file. We don't bother to check for deleted
 ;  entries (E5h) or entries that mark the end of the directory (00h).
-	mov bx, [fsinfo_table.dirbuf]
-	call near word [fsinfo_table.read_sector]
+	mov bx, [VAR(fsinfo_table.dirbuf)]
+	call near word [VAR(fsinfo_table.read_sector)]
 
 	push di
 	xor di, di		; es:di-> first entry in this sector
@@ -1027,7 +1027,7 @@ next_ent:
 	push si
 	push di
 	push cx
-	mov si, [fsinfo_table.load_name]	; ds:si-> name to match
+	mov si, [VAR(fsinfo_table.load_name)]	; ds:si-> name to match
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
 	pop cx
@@ -1050,7 +1050,7 @@ file_not_found:
 fsiboot_error_badchain:
 	mov al, 'B'
 
-	jmp near word [fsinfo_table.error]
+	jmp near word [VAR(fsinfo_table.error)]
 
 
 
@@ -1123,11 +1123,11 @@ clust_next:
 	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
-	mov bx, [fsinfo_table.fatbuf]
-	call near word [fsinfo_table.read_sector]
+	mov bx, [VAR(fsinfo_table.fatbuf)]
+	call near word [VAR(fsinfo_table.read_sector)]
 	pop bx
 @@:
-	mov es, [fsinfo_table.fatbuf]
+	mov es, [VAR(fsinfo_table.fatbuf)]
 	mov ax, [es:bx]
 	mov dx, [es:bx + 2]
 
@@ -1222,11 +1222,11 @@ next_load_cluster:
 @@:
 		cmp bx, [VAR(last_available_sector)]
 		jbe @F
-		jmp near word [fsinfo_table.memory_full]
+		jmp near word [VAR(fsinfo_table.memory_full)]
 
 @@:
 		push es		; (must preserve ADR_FATBUF reference)
-		call near word [fsinfo_table.read_sector]
+		call near word [VAR(fsinfo_table.read_sector)]
 		pop es
 		mov [VAR(load_seg)], bx	; => after last read data
 
@@ -1251,7 +1251,7 @@ next_load_cluster:
 @@:
 		pop bx
 		pop cx
-		jmp near word [fsinfo_table.success]
+		jmp near word [VAR(fsinfo_table.success)]
 
 
 fsinfo_available:
