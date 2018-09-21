@@ -678,7 +678,8 @@ load_fsiboot:
 	push bx
 	retf				; jump to relocated FSIBOOT
  %else
-	sub ax, (20 * 1024) / 16
+	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
+	jc error_fsiboot
 		; Do a jmp far here to ensure that cs is zero.
 	jmp 0:fsiboot.start
  %endif
