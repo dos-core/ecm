@@ -885,14 +885,18 @@ set_unit:
 	jmp .notfound
 
 .found_set:
-	mov byte [sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
-
-	mov di, unit_search_strings.1612_set_dl
-	mov cx, unit_search_strings.1612_set_dl_length
 	cmp byte [bp + ldFATType], 16
-	jbe @F
+	jbe .1612
+.32:
+	mov byte [sector_buffer + bsBPB + ebpbNew + bpbnBootUnit], bl
 	mov di, unit_search_strings.32_set_dl
 	mov cx, unit_search_strings.32_set_dl_length
+	jmp @F
+
+.1612:
+	mov byte [sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
+	mov di, unit_search_strings.1612_set_dl
+	mov cx, unit_search_strings.1612_set_dl_length
 @@:
 
 	xchg si, di
