@@ -1011,7 +1011,7 @@ fsiboot:
 		; INP:	ax => after last segment to be used for loading
 		;	ss:bp -> boot sector, with EBPB
 		;	dwo [ss:bp -  4] = data_start (uninit)
-		;	wo [ss:bp -  6] = load_seg
+		;	wo [ss:bp -  6] = load_seg (uninit)
 		;	wo [ss:bp -  8] = fat_seg (uninit)
 		;	dwo [ss:bp - 12] = fat_sector (uninit)
 		;	dwo [ss:bp - 16] = first_cluster (uninit)
