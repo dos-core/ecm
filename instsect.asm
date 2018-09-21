@@ -295,6 +295,8 @@ fat32_payload:		incbin _PAYLOAD_FAT32
 %else
  %error "FAT32 payload isn't 512 or 1024 bytes sized."
 %endif
+%else
+ %assign fat32_two_sectors 0
 %endif
 
 
