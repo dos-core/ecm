@@ -659,7 +659,7 @@ load_fsiboot:
 ;  so this is like calculating the following for its value:
 ;  ((LMA_top - 20 KiB - 8 KiB - 1 KiB - 7C00h) + (1 KiB + 7C00h))>>4
 ;  == (LMA_top - 20 KiB - 8 KiB)>>4
-	add word [fsiboot_table.fatbuf], ax
+	add word [VAR(fsiboot_table.fatbuf)], ax
 
 	cmp ax, _LOAD_ADR>>4
 	jbe error_fsiboot
