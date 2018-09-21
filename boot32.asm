@@ -54,7 +54,7 @@ Public domain by C. Masloch, 2012
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
 	numdef SET_LOAD_SEG,	1	; if to set load_seg (word [ss:bp - 6])
 	numdef SET_FAT_SEG,	1	; if to set fat_seg (word [ss:bp - 8])
-	numdef SET_CLUSTER,	1	; if to set first_cluster (word [ss:bp - 16])
+	numdef SET_CLUSTER,	1	; if to set first_cluster (dword [ss:bp - 16])
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
