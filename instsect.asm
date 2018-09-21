@@ -258,21 +258,29 @@ ptExtendedLinux:	equ 85h
 	section PROGRAM start=0 vstart=100h align=16
 	section BUFFERS follows=PROGRAM vfollows=PROGRAM align=16 valign=16
 
+	numdef FAT12,		1
+	numdef FAT16,		1
+	numdef FAT32,		1
 	strdef PAYLOAD_FAT12,	"boot12.bin"
 	strdef PAYLOAD_FAT16,	"boot16.bin"
 	strdef PAYLOAD_FAT32,	"boot32.bin"
 
 	align 16
+%if _FAT12
 fat12_payload:		incbin _PAYLOAD_FAT12
 .end:
 %if (fat12_payload.end - fat12_payload) != 512
  %error "FAT12 payload isn't 512 bytes sized."
 %endif
+%endif
+%if _FAT16
 fat16_payload:		incbin _PAYLOAD_FAT16
 .end:
 %if (fat16_payload.end - fat16_payload) != 512
  %error "FAT16 payload isn't 512 bytes sized."
 %endif
+%endif
+%if _FAT32
 fat32_payload:		incbin _PAYLOAD_FAT32
 .end:
 %assign fat32_payload.size (fat32_payload.end - fat32_payload)
@@ -282,6 +290,7 @@ fat32_payload:		incbin _PAYLOAD_FAT32
  %assign fat32_two_sectors 1
 %else
  %error "FAT32 payload isn't 512 or 1024 bytes sized."
+%endif
 %endif
 
 
@@ -626,16 +635,38 @@ error_badchain: equ $
 .gotfattype:
 
 	mov dx, msg.is_fat16
+%if _FAT16
 	mov si, fat16_payload
+%else
+	mov si, 0			; (preserve flags)
+%endif
 	cmp byte [bp + ldFATType], 16
 	je @F
 	mov dx, msg.is_fat12
+%if _FAT12
 	mov si, fat12_payload
+%else
+	mov si, 0			; (preserve flags)
+%endif
 	jb @F
 	mov dx, msg.is_fat32
+%if _FAT32
 	mov si, fat32_payload
+%else
+	mov si, 0			; (preserve flags)
+%endif
 @@:
 	call disp_msg_asciz
+
+%if !_FAT32 || !_FAT16 || !_FAT12
+	test si, si
+	jnz @F
+
+	mov dx, msg.not_supported_fat_type
+	jmp disp_error
+
+@@:
+%endif
 
 	mov byte [bp + ldHasLBA], 0	; 2 clear: not FSINFO
 %if fat32_two_sectors
@@ -1849,6 +1880,10 @@ msg:
 .is_fat12:	asciz "Detected FAT12 FS.",13,10
 .is_fat16:	asciz "Detected FAT16 FS.",13,10
 .is_fat32:	asciz "Detected FAT32 FS.",13,10
+%if !_FAT32 || !_FAT16 || !_FAT12
+.not_supported_fat_type:
+		asciz "This FAT type is not supported in this build.",13,10
+%endif
 
 	align 4
 load_kernel_name: equ $
