@@ -488,6 +488,7 @@ fsiboot_name:
 
 ; Code
 
+		; Note that this may be entered with cs:ip = 07C0h:0 !
 skip_bpb:
 	cli
 	cld
@@ -629,7 +630,8 @@ load_fsiboot:
 	mov word [VAR(fat_sector + 2)], -1
 %endif
 
-	jmp ADR_FSIBOOT + FSINFO.reserved1 + 8
+		; Do a jmp far here to ensure that cs is zero.
+	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
 
 
 error_fsiboot:
