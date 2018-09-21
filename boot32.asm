@@ -144,7 +144,7 @@ Public domain by C. Masloch, 2012
 Notes about partial load compatibilities
 
 * FreeDOS:
- * Does not relocate to 27A00h (1FE0h:7C00h), so the kernel doesn't fit
+ * Relocates to an address other than 27A00h (1FE0h:7C00h)
 * IBMDOS:
  * Does not search for IBMDOS file, only IBMBIO
  * Does not actually relocate DPT, just provide its address
