@@ -658,6 +658,10 @@ load_fsiboot:
 		;  with bp at 7C00h, and insuring this subtraction doesn't
 		;  underflow, makes sure that we do not overwrite the IVT or
 		;  BDA. (However, we assume that ax is at least 60h or so.)
+		;
+		; The FAT buffer segment is masked so that the actual buffer
+		;  is stored on an 8 KiB boundary. This is to ensure that
+		;  the buffer doesn't possibly cross the 64 KiB DMA boundary.
 	jc error_fsiboot
 ; fsiboot_table.fatbuf is pre-initialised to the value
 ;  ((8192 - 16) + 1024 + 7C00h)>>4
