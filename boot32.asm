@@ -1061,7 +1061,7 @@ next_ent:
 	pop cx
 	pop di
 	pop si
-	lea di, [di + 32]	; bytes/dirent
+	lea di, [di + DIRENTRY_size]
 	je found_it		; found entry -->
 
 	loop next_ent		; count down sector's entries (jumps iff cx >0)
@@ -1191,9 +1191,11 @@ found_it:
 	 pop ds
 	xchg si, di	; es:di -> behind (second) directory entry
 
-		mov bx, [es:di + 28 - 64]
-		mov ax, [es:di + 30 - 64]	; ax:bx = file size
-		mov dl, [es:di + 12 - 64]	; dl = FAT+ size bits
+		mov bx, [es:di + deSize - 2 * DIRENTRY_size]
+		mov ax, [es:di + deSize + 2 - 2 * DIRENTRY_size]
+					; ax:bx = file size
+		mov dl, [es:di + 12 - 2 * DIRENTRY_size]
+					; dl = FAT+ size bits
 		mov dh, dl
 		and dx, 0E007h		; obtain bits 7-5 and 2-0
 		shr dh, 1
@@ -1222,8 +1224,9 @@ found_it:
 		mov word [VAR(paras_left)], dx
 
 ; get starting cluster of file
-		mov ax, [es:di + 26 - 64]
-		mov dx, [es:di + 20 - 64]	; dx:ax = first cluster
+		mov ax, [es:di + deClusterLow - 2 * DIRENTRY_size]
+		mov dx, [es:di + deClusterHigh - 2 * DIRENTRY_size]
+					; dx:ax = first cluster
 
 		pop di			; restore si:di = loaded FAT sector
 

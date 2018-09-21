@@ -597,7 +597,7 @@ next_ent:
 	pop cx
 	pop di
 	pop si
-	lea di, [di + 32]	; bytes/dirent
+	lea di, [di + DIRENTRY_size]
 	je found_it		; found entry -->
 
 	dec si			; count down entire root's entries
@@ -675,7 +675,8 @@ found_it:
 %endif
 
 ; get starting cluster of file
-		mov si,[es:di + 26 - 32 - (32 * !!_DIR_ENTRY_520)]
+		mov si,[es:di + deClusterLow - DIRENTRY_size \
+			- (DIRENTRY_size * !!_DIR_ENTRY_520)]
 %if _SET_CLUSTER
 		mov word [VAR(first_cluster)], si
 %endif
