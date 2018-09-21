@@ -629,7 +629,6 @@ load_fsiboot:
 		mov cl, 6
 		shl ax, cl
  %if _RPL		; +33 bytes
-	push si
 	xchg dx, ax
 	lds si, [4 * 2Fh]
 	add si, 3
@@ -648,7 +647,6 @@ load_fsiboot:
 	push ss
 	pop ds
 	xchg ax, dx
-	pop si
  %endif
  %if _RELOCATE
 	sub ax, (20 * 1024 + 8192 + 1024 + 7C00h) >> 4
