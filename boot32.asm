@@ -1029,10 +1029,13 @@ fsiboot:
 		;	load_seg => behind last loaded data
 
 	sub ax, word [VAR(para_per_sector)]
+	jc .CY_fsiboot_error_badchain
 	mov word [VAR(last_available_sector)], ax
 
-	push word [VAR(fsinfo_table.loadseg)]
-	pop word [VAR(load_seg)]	; initialise => load address
+	mov bx, word [VAR(fsinfo_table.loadseg)]
+	mov word [VAR(load_seg)], bx	; initialise => load address
+	cmp ax, bx
+	jb .CY_fsiboot_error_badchain
 
 	push word [VAR(fsinfo_table.fatbuf)]
 	pop word [VAR(fat_seg)]		; initialise => FAT buffer
@@ -1067,6 +1070,7 @@ fsiboot:
 		; dx:bx = result
 	xchg ax, bx
 		; dx:ax = result
+.CY_fsiboot_error_badchain:
 	jc fsiboot_error_badchain
 
 	add ax,[VAR(num_reserved_sectors)]
