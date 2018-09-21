@@ -950,7 +950,7 @@ fsiboot:
 		;	dwo [ss:bp -  4] = data_start (uninit)
 		;	wo [ss:bp -  6] = load_seg
 		;	wo [ss:bp -  8] = fat_seg
-		;	dwo [ss:bp - 12] = fat_sector (init to -1)
+		;	dwo [ss:bp - 12] = fat_sector (uninit)
 		;	dwo [ss:bp - 16] = first_cluster (uninit)
 		;	wo [ss:bp - 18] = adj_sectors_per_cluster (uninit)
 		;	wo [ss:bp - 20] = para_per_sector
@@ -1011,6 +1011,8 @@ fsiboot:
 	mov dx, [VAR(root_cluster + 2)]
 	mov di, -1
 	mov si, di
+	mov word [VAR(fat_sector + 2)], si
+	mov word [VAR(fat_sector + 0)], di
 	call check_clust
 	jc file_not_found
 
