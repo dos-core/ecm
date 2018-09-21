@@ -485,7 +485,7 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 ; Initialised data
 
 	align 2
-fsinfo_table:		; this table is used by the FSIBOOT1 stage
+fsiboot_table:		; this table is used by the FSIBOOT1 stage
 .error:		dw error
 			; nothing
 .success:	dw load_finish
@@ -655,11 +655,11 @@ load_fsiboot:
 		; 1 KiB: sector + FSIBOOT
 		; 7C00h: stack and to allow addressing with 7C00h in bp
 	jc error_fsiboot
-; fsinfo_table.fatbuf is pre-initialised to the value (1024 + 7C00h)>>4
+; fsiboot_table.fatbuf is pre-initialised to the value (1024 + 7C00h)>>4
 ;  so this is like calculating the following for its value:
 ;  ((LMA_top - 20 KiB - 8 KiB - 1 KiB - 7C00h) + (1 KiB + 7C00h))>>4
 ;  == (LMA_top - 20 KiB - 8 KiB)>>4
-	add word [fsinfo_table.fatbuf], ax
+	add word [fsiboot_table.fatbuf], ax
 
 	cmp ax, _LOAD_ADR>>4
 	jbe error_fsiboot
@@ -1021,8 +1021,8 @@ fsiboot:
 		;	wo [ss:bp - 24] = last_available_sector (uninit)
 		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
-		; OUT:	jumps to fsinfo_table.error, fsinfo_table.success, or
-		;	 fsinfo_table.memory_full (for interfaces refer to table)
+		; OUT:	jumps to fsiboot_table.error, fsiboot_table.success, or
+		;	 fsiboot_table.memory_full (for interfaces refer to table)
 		;	data_start (within partition) initialised
 		;	adj_sectors_per_cluster initialised
 		;	paras_left initialised
@@ -1032,12 +1032,12 @@ fsiboot:
 	jc .CY_fsiboot_error_badchain
 	mov word [VAR(last_available_sector)], ax
 
-	mov bx, word [VAR(fsinfo_table.loadseg)]
+	mov bx, word [VAR(fsiboot_table.loadseg)]
 	mov word [VAR(load_seg)], bx	; initialise => load address
 	cmp ax, bx
 	jb .CY_fsiboot_error_badchain
 
-	push word [VAR(fsinfo_table.fatbuf)]
+	push word [VAR(fsiboot_table.fatbuf)]
 	pop word [VAR(fat_seg)]		; initialise => FAT buffer
 
 ; adjusted sectors per cluster (store in a word,
@@ -1103,8 +1103,8 @@ next_root_sect:
 
 ; Scan root directory for file. We don't bother to check for deleted
 ;  entries (E5h) or entries that mark the end of the directory (00h).
-	mov bx, [VAR(fsinfo_table.dirbuf)]
-	call near word [VAR(fsinfo_table.read_sector)]
+	mov bx, [VAR(fsiboot_table.dirbuf)]
+	call near word [VAR(fsiboot_table.read_sector)]
 
 	push di
 	xor di, di		; es:di-> first entry in this sector
@@ -1114,7 +1114,7 @@ next_ent:
 	push si
 	push di
 	push cx
-	lea si, [VAR(fsinfo_table.load_name)]	; ds:si-> name to match
+	lea si, [VAR(fsiboot_table.load_name)]	; ds:si-> name to match
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
 	pop cx
@@ -1138,7 +1138,7 @@ file_not_found:
 fsiboot_error_badchain:
 	mov al, 'B'
 
-	jmp near word [VAR(fsinfo_table.error)]
+	jmp near word [VAR(fsiboot_table.error)]
 
 
 
@@ -1212,7 +1212,7 @@ clust_next:
 	add ax, [VAR(fat_start)]
 	adc dx, 0
 	mov bx, [VAR(fat_seg)]
-	call near word [VAR(fsinfo_table.read_sector)]
+	call near word [VAR(fsiboot_table.read_sector)]
 	pop bx
 @@:
 	mov es, [VAR(fat_seg)]
@@ -1313,10 +1313,10 @@ next_load_cluster:
 @@:
 		cmp bx, [VAR(last_available_sector)]
 		jbe @F
-		jmp near word [VAR(fsinfo_table.memory_full)]
+		jmp near word [VAR(fsiboot_table.memory_full)]
 
 @@:
-		call near word [VAR(fsinfo_table.read_sector)]
+		call near word [VAR(fsiboot_table.read_sector)]
 		mov [VAR(load_seg)], bx	; => after last read data
 
 		push ax
@@ -1340,7 +1340,7 @@ next_load_cluster:
 @@:
 		pop bx
 		pop cx
-		jmp near word [VAR(fsinfo_table.success)]
+		jmp near word [VAR(fsiboot_table.success)]
 
 
 fsinfo_available:
