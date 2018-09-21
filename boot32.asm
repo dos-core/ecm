@@ -657,79 +657,6 @@ error:
 	int 19h		; re-start the boot process
 
 
-%if _MEMORY_CONTINUE
-load_finish_mc:
-		pop bx
-		pop cx
-%endif
-load_finish:
-
-%if _TURN_OFF_FLOPPY
-; turn off floppy motor
-		mov dx,3F2h
-		mov al,0
-		out dx,al
-%endif
-
-; Set-up registers for and jump to loaded file
-; Already: ss:bp-> boot sector containing BPB
-%if _SET_SIDI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
-		pop cx
-		pop dx
-%endif
-%if _DATASTART_HIDDEN
-		mov bx, [VAR(hidden_sectors + 0)]
-		mov ax, [VAR(hidden_sectors + 2)]
-		add word [VAR(data_start + 0)], bx
-		adc word [VAR(data_start + 2)], ax
-%endif
-%if _SET_AXBX_DATA
-		mov bx, [VAR(data_start)]
-		mov ax, [VAR(data_start+2)]
-%endif
-%if _PUSH_DPT || _SET_DSSI_DPT
- %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
-		mov di, 1Eh*4
-		les si, [di]		; -> original (also current) DPT
-		push es
-		push si			; original (also current) DPT address
-		push ss
-		push di			; 0000h:0078h (address of 1Eh IVT entry)
- %else
-		mov di, 1Eh*4
-		lds si, [di]		; -> original (also current) DPT
-  %if _PUSH_DPT
-		push ds
-		push si			; original (also current) DPT address
-		push ss
-		push di			; 0000h:0078h (address of 1Eh IVT entry)
-  %endif
- %endif
-%endif
-%if _SET_SIDI_CLUSTER
- %if _SET_DSSI_DPT
-  %error Cannot select both of these.
- %endif
- %if _PUSH_DPT || _SET_DSSI_DPT
-		mov di, cx
-		mov si, dx
- %else
-		pop di
-		pop si
- %endif
-%endif
-%if _SET_DL_UNIT
-		mov dl, [VAR(boot_unit)]; set dl to unit
- %if _SET_BL_UNIT
-		mov bl, dl		; set bl to unit, too
- %endif
-%elif _SET_BL_UNIT
-		mov bl, [VAR(boot_unit)]; set bl to unit
-%endif
-			; ss:bp-> boot sector with BPB
-		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
-
-
 		; Read a sector using Int13.02 or Int13.42
 		;
 		; INP:	dx:ax = sector number within partition
@@ -913,6 +840,79 @@ read_sector:
 .err:
 	mov al, 'R'	; Disk 'R'ead error
 	jmp error
+
+
+%if _MEMORY_CONTINUE
+load_finish_mc:
+		pop bx
+		pop cx
+%endif
+load_finish:
+
+%if _TURN_OFF_FLOPPY
+; turn off floppy motor
+		mov dx,3F2h
+		mov al,0
+		out dx,al
+%endif
+
+; Set-up registers for and jump to loaded file
+; Already: ss:bp-> boot sector containing BPB
+%if _SET_SIDI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
+		pop cx
+		pop dx
+%endif
+%if _DATASTART_HIDDEN
+		mov bx, [VAR(hidden_sectors + 0)]
+		mov ax, [VAR(hidden_sectors + 2)]
+		add word [VAR(data_start + 0)], bx
+		adc word [VAR(data_start + 2)], ax
+%endif
+%if _SET_AXBX_DATA
+		mov bx, [VAR(data_start)]
+		mov ax, [VAR(data_start+2)]
+%endif
+%if _PUSH_DPT || _SET_DSSI_DPT
+ %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
+		mov di, 1Eh*4
+		les si, [di]		; -> original (also current) DPT
+		push es
+		push si			; original (also current) DPT address
+		push ss
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+ %else
+		mov di, 1Eh*4
+		lds si, [di]		; -> original (also current) DPT
+  %if _PUSH_DPT
+		push ds
+		push si			; original (also current) DPT address
+		push ss
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %endif
+ %endif
+%endif
+%if _SET_SIDI_CLUSTER
+ %if _SET_DSSI_DPT
+  %error Cannot select both of these.
+ %endif
+ %if _PUSH_DPT || _SET_DSSI_DPT
+		mov di, cx
+		mov si, dx
+ %else
+		pop di
+		pop si
+ %endif
+%endif
+%if _SET_DL_UNIT
+		mov dl, [VAR(boot_unit)]; set dl to unit
+ %if _SET_BL_UNIT
+		mov bl, dl		; set bl to unit, too
+ %endif
+%elif _SET_BL_UNIT
+		mov bl, [VAR(boot_unit)]; set bl to unit
+%endif
+			; ss:bp-> boot sector with BPB
+		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
 
 %if !_NO_LIMIT
