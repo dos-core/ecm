@@ -467,7 +467,7 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 ; Initialised data
 
 	align 2
-fsinfo_table:		; this table is used by the FSIBOOT0 stage
+fsinfo_table:		; this table is used by the FSIBOOT1 stage
 .error:		dw error
 			; nothing
 .success:	dw load_finish
@@ -488,22 +488,21 @@ fsinfo_table:		; this table is used by the FSIBOOT0 stage
 			; OUT: dx:ax incremented, bx => incremented,
 			; es = input bx
 			; CHG: none
-.load_name:	dw load_name
-			; -> 11-byte blank-padded filename
 .fatbuf:	dw ADR_FATBUF>>4
 			; => FAT sector buffer (one sector)
-			; (now unused, fat_seg used instead)
 .dirbuf:	dw ADR_DIRBUF>>4
 			; => directory sector buffer (one sector)
 			;  These two must not overlap! However, the directory
 			;  sector can overlap with the load file's buffer.
+.loadseg:	dw _LOAD_ADR>>4
+			; => where to load
 
-load_name:
+.load_name:
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
 
 fsiboot_name:
-	db "FSIBOOT0"
+	db "FSIBOOT1"
 
 
 ; Code
@@ -635,13 +634,6 @@ load_fsiboot:
 %else
  %error Load address within used memory
 %endif
-	sub ax, word [VAR(para_per_sector)]
-	mov word [VAR(last_available_sector)], ax
-
-	mov word [VAR(load_seg)], _LOAD_ADR>>4	; => load address
-	mov word [VAR(fat_seg)], ADR_FATBUF>>4
-	or word [VAR(fat_sector + 0)], byte -1
-	or word [VAR(fat_sector + 2)], byte -1
 
 		; Do a jmp far here to ensure that cs is zero.
 	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
@@ -957,19 +949,20 @@ end:
 
 fsiboot:
 	dd "RRaA"
-	db "FSIBOOT0"
+	db "FSIBOOT1"
 
 .start:
-		; INP:	ss:bp -> boot sector, with EBPB
+		; INP:	ax => after last segment to be used for loading
+		;	ss:bp -> boot sector, with EBPB
 		;	dwo [ss:bp -  4] = data_start (uninit)
 		;	wo [ss:bp -  6] = load_seg
-		;	wo [ss:bp -  8] = fat_seg
+		;	wo [ss:bp -  8] = fat_seg (uninit)
 		;	dwo [ss:bp - 12] = fat_sector (uninit)
 		;	dwo [ss:bp - 16] = first_cluster (uninit)
 		;	wo [ss:bp - 18] = adj_sectors_per_cluster (uninit)
 		;	wo [ss:bp - 20] = para_per_sector
 		;	wo [ss:bp - 22] = entries_per_sector
-		;	wo [ss:bp - 24] = last_available_sector
+		;	wo [ss:bp - 24] = last_available_sector (uninit)
 		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
 		; OUT:	jumps to fsinfo_table.error, fsinfo_table.success, or
@@ -978,6 +971,15 @@ fsiboot:
 		;	adj_sectors_per_cluster initialised
 		;	paras_left initialised
 		;	load_seg => behind last loaded data
+
+	sub ax, word [VAR(para_per_sector)]
+	mov word [VAR(last_available_sector)], ax
+
+	push word [VAR(fsinfo_table.loadseg)]
+	pop word [VAR(load_seg)]	; initialise => load address
+
+	push word [VAR(fsinfo_table.fatbuf)]
+	pop word [VAR(fat_seg)]		; initialise => FAT buffer
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
@@ -1052,7 +1054,7 @@ next_ent:
 	push si
 	push di
 	push cx
-	mov si, [VAR(fsinfo_table.load_name)]	; ds:si-> name to match
+	lea si, [VAR(fsinfo_table.load_name)]	; ds:si-> name to match
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
 	pop cx
