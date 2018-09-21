@@ -36,6 +36,7 @@ Public domain by C. Masloch, 2012
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 
+	numdef RELOCATE,	0	; relocate the loader to top of memory
 	numdef SET_DL_UNIT,	0	; if to pass unit in dl
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
@@ -83,6 +84,7 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_OFS,	0
  %assign _SET_BL_UNIT		1
  %assign _MEMORY_CONTINUE	0
+ %assign _RELOCATE		1
 	; The FreeDOS load protocol mandates that the entire file be loaded.
 %endif
 
@@ -196,8 +198,11 @@ Notes about partial load compatibilities
  %error Load address must be in LMA
 %elif _LOAD_ADR < 00500h
  %error Load address must not overlap IVT or BDA
-%elif _LOAD_ADR > (POSITION-256) && _LOAD_ADR < (POSITION+512)
- %error Load address must not overlap loader
+%endif
+%if ! _RELOCATE
+ %if _LOAD_ADR > (POSITION-256) && _LOAD_ADR < (POSITION+512)
+  %error Load address must not overlap loader
+ %endif
 %endif
 
 %if ((_EXEC_SEG_ADJ<<4)+_EXEC_OFS) < 0
@@ -286,32 +291,45 @@ ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
 ADR_FSIBOOT	equ	end -start+7C00h	; 07E00h
 
-ADR_FATBUF	equ	(ADR_FSIBOOT + 512)	; 08000h
+%define _AFTER (ADR_FSIBOOT + 512)
+%if ! _RELOCATE
+ADR_FATBUF	equ	_AFTER			; 08000h
+%define _AFTER (ADR_FATBUF + 8192)
+%endif
 
 %if _DIRBUF_500
  ADR_DIRBUF	equ	500h
  ; start of unused memory:
- ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0A000h
+ ADR_FREE	equ	_AFTER			; 0A000h
+%elif _RELOCATE
+ ADR_DIRBUF	equ	_LOAD_ADR		; 0A000h
+ ; start of unused memory:
+ ADR_FREE	equ	_AFTER			; 0C000h
 %else
  ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
- ADR_DIRBUF	equ	(ADR_FATBUF + 8192)	; 0A000h
+ ADR_DIRBUF	equ	_AFTER			; 0A000h
+%define _AFTER (ADR_DIRBUF + 8192)
  ; start of unused memory:
- ADR_FREE	equ	(ADR_DIRBUF + 8192)	; 0C000h
+ ADR_FREE	equ	_AFTER			; 0C000h
 %endif
 
-%if (ADR_FATBUF + 8192) > 1_0000h && ADR_FATBUF < 1_0000h
- %warning Possibly crossing 64 KiB boundary while reading
+%if ! _RELOCATE
+ %if (ADR_FATBUF + 8192) > 1_0000h && ADR_FATBUF < 1_0000h
+  %warning Possibly crossing 64 KiB boundary while reading FAT
+ %endif
+%else
+ %warning Possibly crossing 64 KiB boundary while reading FAT
 %endif
 
 %if (ADR_DIRBUF + 8192) > 1_0000h && ADR_DIRBUF < 1_0000h
- %warning Possibly crossing 64 KiB boundary while reading
+ %warning Possibly crossing 64 KiB boundary while reading directory
 %endif
 
 
-%if _LOAD_ADR >= ADR_FREE
+%if _LOAD_ADR >= ADR_FREE || _RELOCATE
 	; if reading on a 8 KiB boundary, no crossing can occur.
  %if _LOAD_ADR & (8192 - 1)
-  %warning Possibly crossing 64 KiB boundary while reading
+  %warning Possibly crossing 64 KiB boundary while reading file
  %endif
 %else
 	; if loading below the boot sector, address 1_0000h is never reached.
@@ -488,7 +506,11 @@ fsinfo_table:		; this table is used by the FSIBOOT1 stage
 			; OUT: dx:ax incremented, bx => incremented,
 			; es = input bx
 			; CHG: none
+%if _RELOCATE
+.fatbuf:	dw (1024 + 7C00h)>>4
+%else
 .fatbuf:	dw ADR_FATBUF>>4
+%endif
 			; => FAT sector buffer (one sector)
 .dirbuf:	dw ADR_DIRBUF>>4
 			; => directory sector buffer (one sector)
@@ -601,7 +623,7 @@ load_fsiboot:
 	repe cmpsw
 	jne error_fsiboot
 
-%if _LOAD_ADR >= ADR_FREE
+%if _LOAD_ADR >= ADR_FREE || _RELOCATE
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
@@ -628,15 +650,47 @@ load_fsiboot:
 	xchg ax, dx
 	pop si
  %endif
+ %if _RELOCATE
+	sub ax, (20 * 1024 + 8192 + 1024 + 7C00h) >> 4
+		; 20 KiB:	reserved for iniload
+		; 8 KiB:	FAT buffer
+		; 1 KiB: sector + FSIBOOT
+		; 7C00h: stack and to allow addressing with 7C00h in bp
+	jc error_fsiboot
+; fsinfo_table.fatbuf is pre-initialised to the value (1024 + 7C00h)>>4
+;  so this is like calculating the following for its value:
+;  ((LMA_top - 20 KiB - 8 KiB - 1 KiB - 7C00h) + (1 KiB + 7C00h))>>4
+;  == (LMA_top - 20 KiB - 8 KiB)>>4
+	add word [fsinfo_table.fatbuf], ax
+
+	cmp ax, _LOAD_ADR>>4
+	jbe error_fsiboot
+	mov es, ax			; => destination
+
+	mov si, ADR_STACK_LOW		; ds:si -> stack low
+	mov di, si			; es:di -> destination for stack low
+	mov cx, (end_after_fsiboot -start+7C00h - ADR_STACK_LOW) >> 1
+	rep movsw			; relocate stack, sector, and FSIBOOT
+	mov ss, ax
+	mov ds, ax			; relocate these
+	add ax, (ADR_STACK_LOW) >> 4	; (rounding down) => behind available
+
+	mov bx, ADR_FSIBOOT + FSINFO.reserved1 + 8
+	push es
+	push bx
+	retf				; jump to relocated FSIBOOT
+ %else
 	sub ax, (20 * 1024) / 16
+		; Do a jmp far here to ensure that cs is zero.
+	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
+ %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
 	mov ax, (ADR_STACK_LOW >> 4)
+		; Do a jmp far here to ensure that cs is zero.
+	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
 %else
  %error Load address within used memory
 %endif
-
-		; Do a jmp far here to ensure that cs is zero.
-	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
 
 
 error_fsiboot:
@@ -653,6 +707,10 @@ error_filetoobig:
 %endif
 
 error:
+%if _RELOCATE
+	xor ax, ax
+	mov ds, ax
+%endif
 	mov bh, [462h]
 	mov bl, 7
 	mov ah, 0Eh
@@ -1296,3 +1354,6 @@ fsinfo_available:
 	dd -1		; first free cluster
 	times 3 dd 0	; FSINFO.reserved2
 	dd 0_AA55_0000h	; FSINFO.signature3
+
+end_after_fsiboot:
+
