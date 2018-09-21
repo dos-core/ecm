@@ -673,19 +673,19 @@ load_fsiboot:
 	mov ds, ax			; relocate these
 	add ax, (ADR_STACK_LOW) >> 4	; (rounding down) => behind available
 
-	mov bx, ADR_FSIBOOT + FSINFO.reserved1 + 8
+	mov bx, fsiboot.start
 	push es
 	push bx
 	retf				; jump to relocated FSIBOOT
  %else
 	sub ax, (20 * 1024) / 16
 		; Do a jmp far here to ensure that cs is zero.
-	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
+	jmp 0:fsiboot.start
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
 	mov ax, (ADR_STACK_LOW >> 4)
 		; Do a jmp far here to ensure that cs is zero.
-	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
+	jmp 0:fsiboot.start
 %else
  %error Load address within used memory
 %endif
