@@ -629,6 +629,7 @@ load_fsiboot:
 	xchg ax, dx
 	pop si
  %endif
+	sub ax, (20 * 1024) / 16
 %elif _LOAD_ADR < ADR_STACK_LOW
 	mov ax, (ADR_STACK_LOW >> 4)
 %else
