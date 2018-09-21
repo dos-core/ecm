@@ -473,6 +473,7 @@ fsinfo_table:		; this table is used by the FSIBOOT0 stage
 			; -> 11-byte blank-padded filename
 .fatbuf:	dw ADR_FATBUF>>4
 			; => FAT sector buffer (one sector)
+			; (now unused, fat_seg used instead)
 .dirbuf:	dw ADR_DIRBUF>>4
 			; => directory sector buffer (one sector)
 			;  These two must not overlap! However, the directory
@@ -624,11 +625,9 @@ load_fsiboot:
 	mov word [VAR(last_available_sector)], ax
 
 	mov word [VAR(load_seg)], _LOAD_ADR>>4	; => load address
-%if _SET_FAT_SEG
 	mov word [VAR(fat_seg)], ADR_FATBUF>>4
 	or word [VAR(fat_sector + 0)], byte -1
 	or word [VAR(fat_sector + 2)], byte -1
-%endif
 
 		; Do a jmp far here to ensure that cs is zero.
 	jmp 0:ADR_FSIBOOT + FSINFO.reserved1 + 8
@@ -950,7 +949,7 @@ fsiboot:
 		; INP:	ss:bp -> boot sector, with EBPB
 		;	dwo [ss:bp -  4] = data_start (uninit)
 		;	wo [ss:bp -  6] = load_seg
-		;	wo [ss:bp -  8] = fat_seg (not used by FSIBOOT)
+		;	wo [ss:bp -  8] = fat_seg
 		;	dwo [ss:bp - 12] = fat_sector (init to -1)
 		;	dwo [ss:bp - 16] = first_cluster (uninit)
 		;	wo [ss:bp - 18] = adj_sectors_per_cluster (uninit)
@@ -1131,11 +1130,11 @@ clust_next:
 	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
-	mov bx, [VAR(fsinfo_table.fatbuf)]
+	mov bx, [VAR(fat_seg)]
 	call near word [VAR(fsinfo_table.read_sector)]
 	pop bx
 @@:
-	mov es, [VAR(fsinfo_table.fatbuf)]
+	mov es, [VAR(fat_seg)]
 	mov ax, [es:bx]
 	mov dx, [es:bx + 2]
 
