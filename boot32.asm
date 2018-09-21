@@ -735,8 +735,10 @@ read_sector:
 	jnc .lba_done
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
+.err_CY:
 	jmp .lba_error
  %else
+.err_CY:
 	jc .lba_error
  %endif
 
@@ -814,7 +816,10 @@ read_sector:
 ; try read again
 			mov ax, 0201h
 			int 13h
-			jc .err
+			jc .err_CY
+%if ! _LBA
+.err_CY:	equ .err
+%endif
 
 .done:
 ; increment segment
