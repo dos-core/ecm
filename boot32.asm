@@ -663,6 +663,13 @@ load_fsiboot:
 		;  is stored on an 8 KiB boundary. This is to ensure that
 		;  the buffer doesn't possibly cross the 64 KiB DMA boundary.
 	jc error_fsiboot
+	cmp ax, (end_after_fsiboot -start+7C00h - ADR_STACK_LOW + 15) >> 4
+		; This check is to ensure that the start of the destination
+		;  for the relocation (stack, sector, FSIBOOT) is
+		;  above-or-equal the end of the source for the relocation.
+		;  That is, to avoid overwriting any of the source with the
+		;  string move instruction (which for simplicity is always UP).
+	jb error_fsiboot
 ; fsiboot_table.fatbuf is pre-initialised to the value
 ;  ((8192 - 16) + 1024 + 7C00h)>>4
 ;  so this is like calculating the following for its value:
