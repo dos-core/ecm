@@ -626,8 +626,8 @@ load_fsiboot:
 	mov word [VAR(load_seg)], _LOAD_ADR>>4	; => load address
 %if _SET_FAT_SEG
 	mov word [VAR(fat_seg)], ADR_FATBUF>>4
-	mov word [VAR(fat_sector + 0)], -1
-	mov word [VAR(fat_sector + 2)], -1
+	or word [VAR(fat_sector + 0)], byte -1
+	or word [VAR(fat_sector + 2)], byte -1
 %endif
 
 		; Do a jmp far here to ensure that cs is zero.
