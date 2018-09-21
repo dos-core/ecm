@@ -937,6 +937,23 @@ write:
 	call write_ae_512_bytes
 	jnc exit_normal
 
+%if fat32_two_sectors
+		; If the boot sector failed to write after FSINFO was
+		;  already written, try to restore FSINFO.
+	test byte [bp + ldHasLBA], 2
+	jz @F
+	mov bx, second_sector_buffer + 512
+	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
+	xor dx, dx
+	mov cl, [drivenumber]
+	call write_ae_512_bytes
+	jnc @F
+
+	mov dx, msg.critical_fail_fsinfo_changed
+	call disp_msg_asciz
+@@:
+%endif
+
 exit_error:
 	call restorestate
 	mov ax, 4C01h
@@ -1823,6 +1840,8 @@ msg:
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
 .boot_badchain:		asciz "Bad cluster chain.",13,10
 .no_fsinfo:	asciz "No FSINFO sector found.",13,10
+.critical_fail_fsinfo_changed:
+		asciz "Failure to write back original FSINFO!",13,10
 .is_fat12:	asciz "Detected FAT12 FS.",13,10
 .is_fat16:	asciz "Detected FAT16 FS.",13,10
 .is_fat32:	asciz "Detected FAT32 FS.",13,10
