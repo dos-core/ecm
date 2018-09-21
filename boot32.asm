@@ -596,12 +596,6 @@ load_fsiboot:
 .loaded:
 	push ds
 	pop es
-	mov si, signatures
-	mov di, ADR_FSIBOOT + FSINFO.signature3
-	cmpsw
-	jne error_fsiboot
-	cmpsw
-	jne error_fsiboot
 	mov di, ADR_FSIBOOT + FSINFO.reserved1
 	mov si, fsiboot_name
 	mov cx, 4
