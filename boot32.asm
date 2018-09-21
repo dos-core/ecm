@@ -116,7 +116,7 @@ Public domain by C. Masloch, 2012
  %assign _SET_DSSI_DPT		0
  %assign _PUSH_DPT		1
  %assign _MEMORY_CONTINUE	1
-	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
+	; 4 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
  %assign _SET_SIDI_CLUSTER	1
  %assign _DATASTART_HIDDEN	1
