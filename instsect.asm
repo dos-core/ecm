@@ -288,15 +288,15 @@ fat16_payload:		incbin _PAYLOAD_FAT16
 fat32_payload:		incbin _PAYLOAD_FAT32
 .end:
 %assign fat32_payload.size (fat32_payload.end - fat32_payload)
-%assign fat32_two_sectors 0
+%assign _FAT32_TWO_SECTORS 0
 %if fat32_payload.size == 512
 %elif fat32_payload.size == 1024
- %assign fat32_two_sectors 1
+ %assign _FAT32_TWO_SECTORS 1
 %else
  %error "FAT32 payload isn't 512 or 1024 bytes sized."
 %endif
 %else
- %assign fat32_two_sectors 0
+ %assign _FAT32_TWO_SECTORS 0
 %endif
 
 
@@ -675,7 +675,7 @@ error_badchain: equ $
 %endif
 
 	mov byte [bp + ldHasLBA], 0	; 2 clear: not FSINFO
-%if fat32_two_sectors
+%if _FAT32_TWO_SECTORS
 	cmp si, fat32_payload
 	jne .not_fat32
 	cmp word [bp + ldBytesPerSector], 1024
@@ -720,7 +720,7 @@ error_badchain: equ $
 .fat32_fsinfo_setup_done:
 %endif
 		; Copy over two sectors into the sector_buffer,
-		;  for the case of FAT32 with fat32_two_sectors
+		;  for the case of FAT32 with _FAT32_TWO_SECTORS
 		;  and a sector size >= 1 KiB.
 	mov cx, 1024 >> 1
 	mov di, sector_buffer
@@ -740,7 +740,7 @@ error_badchain: equ $
 	mov cx, BPBN_size
 	rep movsb
 
-%if fat32_two_sectors
+%if _FAT32_TWO_SECTORS
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
@@ -755,7 +755,7 @@ error_badchain: equ $
 	mov di, sector_buffer + 510
 	movsw
 	mov cx, word [bp + ldBytesPerSector]
-%if fat32_two_sectors
+%if _FAT32_TWO_SECTORS
 	 cmp byte [bp + ldFATType], 16
 	 jbe @F
 	add si, 512				; -> second_sector_buffer +1024
@@ -955,7 +955,7 @@ set_unit:
 
 write:
 
-%if fat32_two_sectors
+%if _FAT32_TWO_SECTORS
 		; If the sector size is <= 512 bytes and there is a second
 		;  FAT32 sector which is an FSINFO sector, write it here.
 	test byte [bp + ldHasLBA], 2
@@ -978,7 +978,7 @@ write:
 	call write_ae_512_bytes
 	jnc exit_normal
 
-%if fat32_two_sectors
+%if _FAT32_TWO_SECTORS
 		; If the boot sector failed to write after FSINFO was
 		;  already written, try to restore FSINFO.
 	test byte [bp + ldHasLBA], 2
