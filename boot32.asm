@@ -637,6 +637,10 @@ load_fsiboot:
 error_fsiboot:
 	mov al,'I'
 
+	db __TEST_IMM16	; (skip mov)
+read_sector.err:
+	mov al, 'R'	; Disk 'R'ead error
+
 %if !_MEMORY_CONTINUE
 	db __TEST_IMM16	; (skip mov)
 error_filetoobig:
@@ -836,10 +840,6 @@ read_sector:
 @@:
 
 	retn
-
-.err:
-	mov al, 'R'	; Disk 'R'ead error
-	jmp error
 
 
 %if _MEMORY_CONTINUE
