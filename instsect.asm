@@ -935,16 +935,16 @@ write:
 		; If sector size is >= 1 KiB, this writes both sectors for
 		;  the FAT32 two-sector case.
 	call write_ae_512_bytes
-	jc exit_error
-
-exit_normal:
-	call restorestate
-	mov ax, 4C00h
-	int 21h
+	jnc exit_normal
 
 exit_error:
 	call restorestate
 	mov ax, 4C01h
+	int 21h
+
+exit_normal:
+	call restorestate
+	mov ax, 4C00h
 	int 21h
 
 
