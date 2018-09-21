@@ -1312,9 +1312,7 @@ next_load_cluster:
 		jmp near word [VAR(fsinfo_table.memory_full)]
 
 @@:
-		push es		; (must preserve ADR_FATBUF reference)
 		call near word [VAR(fsinfo_table.read_sector)]
-		pop es
 		mov [VAR(load_seg)], bx	; => after last read data
 
 		push ax
