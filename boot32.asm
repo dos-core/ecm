@@ -317,8 +317,6 @@ ADR_FATBUF	equ	_AFTER			; 08000h
  %if (ADR_FATBUF + 8192) > 1_0000h && ADR_FATBUF < 1_0000h
   %warning Possibly crossing 64 KiB boundary while reading FAT
  %endif
-%else
- %warning Possibly crossing 64 KiB boundary while reading FAT
 %endif
 
 %if (ADR_DIRBUF + 8192) > 1_0000h && ADR_DIRBUF < 1_0000h
@@ -507,7 +505,7 @@ fsiboot_table:		; this table is used by the FSIBOOT1 stage
 			; es = input bx
 			; CHG: none
 %if _RELOCATE
-.fatbuf:	dw (1024 + 7C00h)>>4
+.fatbuf:	dw ((8192 - 16) + 1024 + 7C00h)>>4
 %else
 .fatbuf:	dw ADR_FATBUF>>4
 %endif
@@ -649,17 +647,26 @@ load_fsiboot:
 	xchg ax, dx
  %endif
  %if _RELOCATE
-	sub ax, (20 * 1024 + 8192 + 1024 + 7C00h) >> 4
+	sub ax, (20 * 1024 + 8192 + (8192-16) + 1024 + 7C00h) >> 4
 		; 20 KiB:	reserved for iniload
 		; 8 KiB:	FAT buffer
-		; 1 KiB: sector + FSIBOOT
-		; 7C00h: stack and to allow addressing with 7C00h in bp
+		; 8 KiB - 16 B:	to allow rounding down FAT buffer position
+		; 1 KiB:	sector + FSIBOOT
+		; 7C00h:	stack and to allow addressing with 7C00h in bp
+		;
+		; Note also that by addressing the stack and sector and FSIBOOT
+		;  with bp at 7C00h, and insuring this subtraction doesn't
+		;  underflow, makes sure that we do not overwrite the IVT or
+		;  BDA. (However, we assume that ax is at least 60h or so.)
 	jc error_fsiboot
-; fsiboot_table.fatbuf is pre-initialised to the value (1024 + 7C00h)>>4
+; fsiboot_table.fatbuf is pre-initialised to the value
+;  ((8192 - 16) + 1024 + 7C00h)>>4
 ;  so this is like calculating the following for its value:
-;  ((LMA_top - 20 KiB - 8 KiB - 1 KiB - 7C00h) + (1 KiB + 7C00h))>>4
+;  ((LMA_top - 20 KiB - 8 KiB - (8 KiB - 16 B) - 1 KiB - 7C00h) + \
+;	((8 KiB - 16 B) + 1 KiB + 7C00h))>>4
 ;  == (LMA_top - 20 KiB - 8 KiB)>>4
 	add word [VAR(fsiboot_table.fatbuf)], ax
+	and word [VAR(fsiboot_table.fatbuf)], ~ ((8192>>4) - 1)
 
 	mov es, ax			; => destination
 	mov si, ADR_STACK_LOW		; ds:si -> stack low
