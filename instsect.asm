@@ -252,7 +252,11 @@ ptExtendedLinux:	equ 85h
 %idefine xoropt _opt ,xor,
 
 
-	[map all instsect.map]
+%ifndef _MAP
+%elifempty _MAP
+%else	; defined non-empty, str or non-str
+	[map all _MAP]
+%endif
 
 	cpu 8086
 	section PROGRAM start=0 vstart=100h align=16
