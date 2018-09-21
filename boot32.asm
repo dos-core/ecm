@@ -1052,6 +1052,8 @@ next_root_sect:
 	push di
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
+	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
+	jnz @F			; directory, label, or LFN entry --> (NZ)
 	push si
 	push di
 	push cx
@@ -1061,6 +1063,7 @@ next_ent:
 	pop cx
 	pop di
 	pop si
+@@:				; ZR = match, NZ = mismatch
 	lea di, [di + DIRENTRY_size]
 	je found_it		; found entry -->
 
