@@ -661,10 +661,7 @@ load_fsiboot:
 ;  == (LMA_top - 20 KiB - 8 KiB)>>4
 	add word [VAR(fsiboot_table.fatbuf)], ax
 
-	cmp ax, _LOAD_ADR>>4
-	jbe error_fsiboot
 	mov es, ax			; => destination
-
 	mov si, ADR_STACK_LOW		; ds:si -> stack low
 	mov di, si			; es:di -> destination for stack low
 	mov cx, (end_after_fsiboot -start+7C00h - ADR_STACK_LOW) >> 1
