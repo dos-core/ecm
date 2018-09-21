@@ -706,8 +706,8 @@ error_filetoobig:
 
 error:
 %if _RELOCATE
-	xor ax, ax
-	mov ds, ax
+	xor bx, bx
+	mov ds, bx
 %endif
 	mov bh, [462h]
 	mov bl, 7
