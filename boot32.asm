@@ -333,6 +333,25 @@ ADR_FATBUF	equ	(ADR_FSIBOOT + 512)	; 08000h
 .fsicode:	resb 472	; 472 byte FSIBOOT type specific data or code
 	endstruc
 
+	struc DIRENTRY
+deName:		resb 8
+deExt:		resb 3
+deAttrib:	resb 1
+		resb 8
+deClusterHigh:	resw 1
+deTime:		resw 1
+deDate:		resw 1
+deClusterLow:	resw 1
+deSize:		resd 1
+	endstruc
+
+ATTR_READONLY	equ 1
+ATTR_HIDDEN	equ 2
+ATTR_SYSTEM	equ 4
+ATTR_VOLLABEL	equ 8
+ATTR_DIRECTORY	equ 10h
+ATTR_ARCHIVE	equ 20h
+
 
 ; use byte-offset addressing from BP for smaller code
 %define	VAR(x)	((x) - start) + bp
