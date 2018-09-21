@@ -258,18 +258,22 @@ ptExtendedLinux:	equ 85h
 	section PROGRAM start=0 vstart=100h align=16
 	section BUFFERS follows=PROGRAM vfollows=PROGRAM align=16 valign=16
 
+	strdef PAYLOAD_FAT12,	"boot12.bin"
+	strdef PAYLOAD_FAT16,	"boot16.bin"
+	strdef PAYLOAD_FAT32,	"boot32.bin"
+
 	align 16
-fat12_payload:		incbin "boot12.bin"
+fat12_payload:		incbin _PAYLOAD_FAT12
 .end:
 %if (fat12_payload.end - fat12_payload) != 512
  %error "FAT12 payload isn't 512 bytes sized."
 %endif
-fat16_payload:		incbin "boot16.bin"
+fat16_payload:		incbin _PAYLOAD_FAT16
 .end:
 %if (fat16_payload.end - fat16_payload) != 512
  %error "FAT16 payload isn't 512 bytes sized."
 %endif
-fat32_payload:		incbin "boot32.bin"
+fat32_payload:		incbin _PAYLOAD_FAT32
 .end:
 %assign fat32_payload.size (fat32_payload.end - fat32_payload)
 %assign fat32_two_sectors 0
