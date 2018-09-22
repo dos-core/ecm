@@ -66,7 +66,7 @@ Public domain by C. Masloch, 2012
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
-	numdef CHS_RETRY_REPEAT,0	; retry CHS reads multiple times
+	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
