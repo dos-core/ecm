@@ -66,6 +66,8 @@ Public domain by C. Masloch, 2012
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
+	numdef CHS_RETRY_REPEAT,0	; retry CHS reads multiple times
+					; (value of the def is used as count)
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -882,18 +884,32 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 			pop es
-%if _CHS_RETRY
+%if _CHS_RETRY_REPEAT
+			mov si, _CHS_RETRY_REPEAT
+			db __TEST_IMM16	; (skip int)
+.loop_chs_retry_repeat:
+			int 13h
+			mov ax, 0201h
+			int 13h		; read one sector
+			jnc .done
+			mov ax, bx	; in next iteration, reset disk (= 0)
+			dec si		; another attempt ?
+			jnz .loop_chs_retry_repeat	; yes -->
+			jmp .err_CY	; (CY)
+%else
+ %if _CHS_RETRY
 			mov ax, 0201h
 			int 13h		; read one sector
 			jnc .done
 ; reset drive
 			xor ax, ax
 			int 13h
-%endif
+ %endif
 ; try read again
 			mov ax, 0201h
 			int 13h
 			jc .err_CY
+%endif
 %if ! _LBA
 .err_CY:	equ .err
 %endif
