@@ -658,6 +658,7 @@ found_it:
 	pop ds
 	xchg ax, dx
  %endif
+	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
 %elif _LOAD_ADR < ADR_STACK_LOW
  %if !_FIX_SECTOR_SIZE
 	mov ax, ADR_STACK_LOW >> 4	; rounding *down*
