@@ -592,7 +592,7 @@ skip_bpb:
 	mov word [VAR(entries_per_sector)], ax
 
 load_fsiboot:
-	cmp word [VAR(bytes_per_sector)], 1024
+	cmp ax, 1024 >> 5
 	jae .loaded		; already loaded as part of the boot sector -->
 
 	mov ax, [VAR(fsinfo_sector)]
