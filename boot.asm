@@ -306,8 +306,7 @@ itself would disqualify our boot sector already.
 %endif
 %pop
 
-; 512-byte stack.
-ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
+; 512-byte stack (minus the variables).
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
 %if _DIRBUF_500
@@ -399,6 +398,8 @@ start:
 ; (word for FAT12/FAT16) first cluster of load file
 	nextvariable first_cluster, 4
 
+ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
+
 %ifn _FIX_CLUSTER_SIZE
 ; (word) actual sectors per cluster
 	nextvariable adj_sectors_per_cluster, 2
@@ -483,7 +484,7 @@ skip_bpb:
 	 xor ax, ax
 	mov bp, start
 	 mov ss, ax
-	mov sp, ADR_STACK
+	mov sp, ADR_STACK_START
 	mov [VAR(boot_unit)], dl
 
 	; Note:	es is left uninitialised here until the first call to
@@ -522,7 +523,7 @@ skip_bpb:
 	mov al, [VAR(sectors_per_cluster)]
 	dec al
 	inc ax
-	mov [VAR(adj_sectors_per_cluster)], ax
+	push ax			; push into word [VAR(adj_sectors_per_cluster)]
 %endif
 
 %if _QUERY_GEOMETRY	; +27 bytes
@@ -558,7 +559,7 @@ skip_bpb:
 	mov ax,[VAR(bytes_per_sector)]
 	mov cx,4			; ! ch = 0
 	shr ax,cl
-	mov [VAR(para_per_sector)],ax
+	push ax				; push into word [VAR(para_per_sector)]
 
 ; 32-byte FAT directory entries per sector
 	shr ax, 1			; /2 = 32-byte entries per sector
@@ -687,7 +688,7 @@ found_it:
  %else
 		sub ax, [VAR(para_per_sector)]
  %endif
-		mov [VAR(last_available_sector)], ax
+		push ax		; push into word [VAR(last_available_sector)]
 %endif
 
 ; get starting cluster of file
