@@ -287,8 +287,7 @@ itself would disqualify our boot sector already.
 %endif
 %pop
 
-; 512-byte stack.
-ADR_STACK	equ	(lowest_variable-start+POSITION)&~1	;~07BF0h
+; 512-byte stack (minus the variables).
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
 ADR_FSIBOOT	equ	end -start+7C00h	; 07E00h
@@ -407,8 +406,7 @@ start:
 ; (dword for FAT32) first cluster of load file
 	nextvariable first_cluster, 4
 
-; (word) actual sectors per cluster
-	nextvariable adj_sectors_per_cluster, 2
+ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 
 ; (word) number of 16-byte paragraphs per sector
 	nextvariable para_per_sector, 2
@@ -418,6 +416,9 @@ start:
 
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
+
+; (word) actual sectors per cluster
+	nextvariable adj_sectors_per_cluster, 2
 
 ; (word) paragraphs left to read
 	nextvariable paras_left, 2
@@ -494,7 +495,7 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 ; Initialised data
 
 	align 2
-fsiboot_table:		; this table is used by the FSIBOOT1 stage
+fsiboot_table:		; this table is used by the FSIBOOT2 stage
 .error:		dw error
 			; nothing
 .success:	dw load_finish
@@ -533,7 +534,7 @@ fsiboot_table:		; this table is used by the FSIBOOT1 stage
 	fill 3,32,db _LOAD_EXT
 
 fsiboot_name:
-	db "FSIBOOT1"
+	db "FSIBOOT2"
 
 
 ; Code
@@ -545,7 +546,7 @@ skip_bpb:
 	 xor ax, ax
 	mov bp, start
 	 mov ss, ax
-	mov sp, ADR_STACK
+	mov sp, ADR_STACK_START
 	mov [VAR(boot_unit)], dl
 
 	; Note:	es is left uninitialised here until the first call to
@@ -596,11 +597,11 @@ skip_bpb:
 	mov ax, [VAR(bytes_per_sector)]
 	mov cl, 4
 	shr ax, cl
-	mov [VAR(para_per_sector)], ax
+	push ax			; push into word [VAR(para_per_sector)]
 
 ; 32-byte FAT directory entries per sector
-	shr ax, 1			; /2 = 32-byte entries per sector
-	mov word [VAR(entries_per_sector)], ax
+	shr ax, 1		; /2 = 32-byte entries per sector
+	push ax			; push into word [VAR(entries_per_sector)]
 
 load_fsiboot:
 	cmp ax, 1024 >> 5
@@ -1046,7 +1047,7 @@ end:
 
 fsiboot:
 	dd "RRaA"
-	db "FSIBOOT1"
+	db "FSIBOOT2"
 
 .start:
 		; INP:	ax => after last segment to be used for loading
@@ -1056,10 +1057,11 @@ fsiboot:
 		;	wo [ss:bp -  8] = fat_seg (uninit)
 		;	dwo [ss:bp - 12] = fat_sector (uninit)
 		;	dwo [ss:bp - 16] = first_cluster (uninit)
-		;	wo [ss:bp - 18] = adj_sectors_per_cluster (uninit)
-		;	wo [ss:bp - 20] = para_per_sector
-		;	wo [ss:bp - 22] = entries_per_sector
-		;	wo [ss:bp - 24] = last_available_sector (uninit)
+		;	wo [ss:bp - 18] = para_per_sector
+		;	wo [ss:bp - 20] = entries_per_sector
+		;	ss:sp = ss:bp - 20
+		;	wo [ss:bp - 22] = last_available_sector (uninit)
+		;	wo [ss:bp - 24] = adj_sectors_per_cluster (uninit)
 		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
 		; OUT:	jumps to fsiboot_table.error, fsiboot_table.success, or
@@ -1071,7 +1073,7 @@ fsiboot:
 
 	sub ax, word [VAR(para_per_sector)]
 	jc .CY_fsiboot_error_badchain
-	mov word [VAR(last_available_sector)], ax
+	push ax			; push into word [VAR(last_available_sector)]
 
 	mov bx, word [VAR(fsiboot_table.loadseg)]
 	mov word [VAR(load_seg)], bx	; initialise => load address
@@ -1087,7 +1089,7 @@ fsiboot:
 	mov al, [VAR(sectors_per_cluster)]
 	dec al
 	inc ax
-	mov [VAR(adj_sectors_per_cluster)], ax
+	push ax			; push into word [VAR(adj_sectors_per_cluster)]
 
 
 	xor ax, ax
@@ -1317,12 +1319,11 @@ found_it:
 		loop @B
 			; dl:ax:bx = size in paragraphs
 		or al, dl
-		mov dx, bx		; size in paragraphs
+		mov cx, bx		; cx = size in paragraphs
 		test ax, ax		; > 0FFFFh ?
 		jz @F			; no, take actual size -->
-		mov dx, 0FFFFh		; clamp to 0FFFFh
+		mov cx, 0FFFFh		; cx = clamp size to 0FFFFh
 @@:
-		mov word [VAR(paras_left)], dx
 
 ; get starting cluster of file
 		mov ax, [es:di + deClusterLow - 2 * DIRENTRY_size]
@@ -1330,6 +1331,11 @@ found_it:
 					; dx:ax = first cluster
 
 		pop di			; restore si:di = loaded FAT sector
+		pop bx			; (discard sectors per cluster counter)
+		pop bx
+		pop bx			; (discard next cluster number)
+
+		push cx			; push into word [VAR(paras_left)]
 
 		mov word [VAR(first_cluster + 0)], ax
 		mov word [VAR(first_cluster + 2)], dx
