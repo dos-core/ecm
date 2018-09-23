@@ -217,7 +217,7 @@ Notes about partial load compatibilities
  %error Execution offset must fit into 16 bits
 %endif
 
-%if (_EXEC_SEG_ADJ & ~0FFFFh)
+%if (_EXEC_SEG_ADJ > 0FFFFh || _EXEC_SEG_ADJ < -0FFFFh)
  %error Execution segment adjustment must fit into 16 bits
 %endif
 
