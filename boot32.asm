@@ -381,40 +381,49 @@ ATTR_ARCHIVE	equ 20h
 start:
 
 
+%define _LASTVARIABLE start
+	%macro nextvariable 2.nolist
+%1	equ (_LASTVARIABLE - %2)
+%define _LASTVARIABLE %1
+	%endmacro
+
 ; Variables
 
-; (dword) sector where the actual disk data starts
-data_start		EQU (start - 4)
+; (dword) sector where the first cluster's data starts
+	nextvariable data_start, 4
 
-; (word) current load segment
-load_seg		equ (data_start - 2)
+; (word) current load segment (points behind last loaded data)
+	nextvariable load_seg, 2
 
 ; (word) segment of FAT buffer
+; for FAT12 this holds the entire FAT
+; for FAT16 this holds the sector given by wo[fat_sector]
 ; for FAT32 this holds the sector given by dwo[fat_sector]
-fat_seg			equ (load_seg - 2)
+	nextvariable fat_seg, 2
 
 ; (dword for FAT32) currently loaded sector-in-FAT, -1 if none
-fat_sector		equ (fat_seg - 4)
+	nextvariable fat_sector, 4
 
 ; (dword for FAT32) first cluster of load file
-first_cluster		equ (fat_sector - 4)
+	nextvariable first_cluster, 4
 
 ; (word) actual sectors per cluster
-adj_sectors_per_cluster equ (first_cluster - 2)
+	nextvariable adj_sectors_per_cluster, 2
 
 ; (word) number of 16-byte paragraphs per sector
-para_per_sector		EQU (adj_sectors_per_cluster - 2)
+	nextvariable para_per_sector, 2
 
 ; (word) number of 32-byte directory entries per sector
-entries_per_sector	equ (para_per_sector - 2)
+	nextvariable entries_per_sector, 2
 
 ; (word) segment of last available memory for sector
-last_available_sector	equ (entries_per_sector - 2)
+	nextvariable last_available_sector, 2
 
 ; (word) paragraphs left to read
-paras_left		equ (last_available_sector - 2)
+	nextvariable paras_left, 2
 
-lowest_variable		equ paras_left
+lowest_variable		equ _LASTVARIABLE
+
 
 	jmp strict short skip_bpb
 %if !_CHS && _LBA_SET_TYPE
