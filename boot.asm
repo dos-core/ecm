@@ -399,14 +399,20 @@ start:
 ; (word for FAT12/FAT16) first cluster of load file
 	nextvariable first_cluster, 4
 
+%ifn _FIX_CLUSTER_SIZE
 ; (word) actual sectors per cluster
 	nextvariable adj_sectors_per_cluster, 2
+%endif
 
+%ifn _FIX_SECTOR_SIZE
 ; (word) number of 16-byte paragraphs per sector
 	nextvariable para_per_sector, 2
+%endif
 
+%ifn _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
+%endif
 
 lowest_variable		equ _LASTVARIABLE
 
