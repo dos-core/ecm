@@ -1,5 +1,10 @@
-syntax: glob
+syntax: regexp
+(?i)\.bin$
+(?i)\.map$
+(?i)\.lst$
+(?i)\.img$
+(?i)\.cfg$
+(?i)\.sys$
+(?i)\.com$
+(?i)\.script$
 
-*.bin
-*.map
-*.lst
