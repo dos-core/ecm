@@ -260,7 +260,6 @@ __lvar_define_var %2, %$ofs
 		;  uses either (one or two) "push ax" or "lea sp, [bp - x]"
 		;  or "enter x, 0" to reserve the stack space.
 %imacro lenter 0.nolist
-._%$lenter:
 %ifnctx LFRAME
  %fatal Must use lframe first
 %endif
@@ -370,6 +369,7 @@ __lvar_define_var frame_rfl, 24
 %else
  %fatal Unknown BITS specified: %$bits
 %endif
+._%$lenter:
 %endif
 %assign %$lsizeparameters (%$pars_size+1)&~1
 __lenter_parse_parlist %$parlist
