@@ -126,6 +126,16 @@ Intended for 86 Mode programs.
 %assign %$req 1
 %endmacro
 
+%macro __lvar_define_var 2.nolist
+%ifempty %$labellist
+ %xdefine %$labellist %1
+%else
+ %xdefine %$labellist %$labellist,%1
+%endif
+%assign ?%1 %2
+._%$lframe_?%1: equ %2
+%endmacro
+
 		; Define a stack frame variable.
 		; %1	Type or size of variable.
 		;	Accepted: byte (1), word (2), dword (4), numeric
@@ -161,14 +171,8 @@ Intended for 86 Mode programs.
 %else
  %fatal Invalid type specified: %1
 %endif
-%ifempty %$labellist
- %xdefine %$labellist %2
-%else
- %xdefine %$labellist %$labellist,%2
-%endif
 %assign %$ofs %$ofs-%$varsize
-%assign ?%2 %$ofs
-._%$lframe_?%2: equ %$ofs
+__lvar_define_var %2, %$ofs
 %assign %$req 1
 %endmacro
 
@@ -265,6 +269,7 @@ Intended for 86 Mode programs.
 %ifn %$usereq
  %assign %$req 1
 %endif
+%assign %$enter_emitted 0
 %if %$req
  %assign %$enter 1
  %assign %$186 0
@@ -276,11 +281,24 @@ Intended for 86 Mode programs.
  %endif
  %if %$186 && %$ofs
 	enter %$lsizevariables, 0
- %else
+ %assign %$enter_emitted 1
+ %endif
 %ifnidn %$bits,__BITS__
  %fatal BITS of lframe (%$bits) differs from current: __BITS__
 %endif
 %if %$bits == 16
+__lvar_define_var frame_bp, 0
+ %ifidni %$autoret, near
+__lvar_define_var frame_ip, 2
+ %elifidni %$autoret, far
+__lvar_define_var frame_ip, 2
+__lvar_define_var frame_cs, 4
+ %elifidni %$autoret, int
+__lvar_define_var frame_ip, 2
+__lvar_define_var frame_cs, 4
+__lvar_define_var frame_fl, 6
+ %endif
+ %ifn %$enter_emitted
 	push bp
 	mov bp, sp
   %if %$ofs
@@ -293,7 +311,20 @@ Intended for 86 Mode programs.
 	lea sp, [bp - %$lsizevariables]
    %endif
   %endif
+ %endif
 %elif %$bits == 32
+__lvar_define_var frame_ebp, 0
+ %ifidni %$autoret, near
+__lvar_define_var frame_eip, 4
+ %elifidni %$autoret, far
+__lvar_define_var frame_eip, 4
+__lvar_define_var frame_cs, 8
+ %elifidni %$autoret, int
+__lvar_define_var frame_eip, 4
+__lvar_define_var frame_cs, 8
+__lvar_define_var frame_efl, 12
+ %endif
+ %ifn %$enter_emitted
 	push ebp
 	mov ebp, esp
   %if %$ofs
@@ -308,7 +339,20 @@ Intended for 86 Mode programs.
 	lea esp, [ebp - %$lsizevariables]
    %endif
   %endif
+ %endif
 %elif %$bits == 64
+__lvar_define_var frame_rbp, 0
+ %ifidni %$autoret, near
+__lvar_define_var frame_rip, 8
+ %elifidni %$autoret, far
+__lvar_define_var frame_rip, 8
+__lvar_define_var frame_cs, 16
+ %elifidni %$autoret, int
+__lvar_define_var frame_rip, 8
+__lvar_define_var frame_cs, 16
+__lvar_define_var frame_rfl, 24
+ %endif
+ %ifn %$enter_emitted
 	push rbp
 	mov rbp, rsp
   %if %$ofs
@@ -322,10 +366,10 @@ Intended for 86 Mode programs.
 	lea rsp, [rbp - %$lsizevariables]
    %endif
   %endif
+ %endif
 %else
  %fatal Unknown BITS specified: %$bits
 %endif
- %endif
 %endif
 %assign %$lsizeparameters (%$pars_size+1)&~1
 __lenter_parse_parlist %$parlist
