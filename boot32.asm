@@ -741,11 +741,13 @@ error_filetoobig:
 
 error:
 %if _RELOCATE
-	xor bx, bx
+	mov bx, 7
 	mov ds, bx
-%endif
+	mov bh, [462h - 70h]
+%else
 	mov bh, [462h]
 	mov bl, 7
+%endif
 	mov ah, 0Eh
 	int 10h		; display character
 	mov al, 07h
