@@ -315,15 +315,14 @@ ADR_FATBUF	equ	_AFTER			; 08000h
 %endif
 
 %if ! _RELOCATE
- %if (ADR_FATBUF + 8192) > 1_0000h && ADR_FATBUF < 1_0000h
+ %if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
   %warning Possibly crossing 64 KiB boundary while reading FAT
  %endif
 %endif
 
-%if (ADR_DIRBUF + 8192) > 1_0000h && ADR_DIRBUF < 1_0000h
+%if ((ADR_DIRBUF + 8192 - 1) & ~0FFFFh) != (ADR_DIRBUF & ~0FFFFh)
  %warning Possibly crossing 64 KiB boundary while reading directory
 %endif
-
 
 %if _LOAD_ADR >= ADR_FREE || _RELOCATE
 	; if reading on a 8 KiB boundary, no crossing can occur.
@@ -333,6 +332,7 @@ ADR_FATBUF	equ	_AFTER			; 08000h
 %else
 	; if loading below the boot sector, address 1_0000h is never reached.
 %endif
+
 
 	struc FSINFO	; FAT32 FSINFO sector layout
 .signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
