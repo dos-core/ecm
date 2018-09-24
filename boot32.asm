@@ -699,9 +699,9 @@ load_fsiboot:
 	and word [VAR(fsiboot_table.fatbuf)], ~ ((8192>>4) - 1)
 
 	mov es, ax			; => destination
-	mov si, ADR_STACK_LOW		; ds:si -> stack low
+	mov si, sp			; ds:si = ss:entries_per_sector
 	mov di, si			; es:di -> destination for stack low
-	mov cx, (end_after_fsiboot -start+7C00h - ADR_STACK_LOW) >> 1
+	mov cx, (end_after_fsiboot - entries_per_sector) >> 1
 	rep movsw			; relocate stack, sector, and FSIBOOT
 	mov ss, ax
 	mov ds, ax			; relocate these
