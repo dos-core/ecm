@@ -302,11 +302,11 @@ ADR_FATBUF	equ	_AFTER			; 08000h
 %if _DIRBUF_500
  ADR_DIRBUF	equ	500h
  ; start of unused memory:
- ADR_FREE	equ	_AFTER			; 0A000h
+ ADR_FREE	equ	_AFTER			; 0A000h or 08000h
 %elif _RELOCATE
- ADR_DIRBUF	equ	_LOAD_ADR		; 0A000h
+ ADR_DIRBUF	equ	_LOAD_ADR		; 00600h
  ; start of unused memory:
- ADR_FREE	equ	_AFTER			; 0C000h
+ ADR_FREE	equ	_AFTER			; 08000h
 %else
  ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
  ADR_DIRBUF	equ	_AFTER			; 0A000h
