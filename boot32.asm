@@ -47,9 +47,6 @@ Public domain by C. Masloch, 2012
 	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
 	numdef DIR_ENTRY_500,	0	; if to copy directory entry to 0:500h
 	numdef DIR_ENTRY_520,	0	; if to copy next directory entry to 0:520h
-%if _DIR_ENTRY_520
- %assign _DIR_ENTRY_500		1
-%endif
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
@@ -158,6 +155,10 @@ Notes about partial load compatibilities
 
 %if _SET_BL_UNIT && _SET_AXBX_DATA
  %error Cannot select both of these options!
+%endif
+
+%if _DIR_ENTRY_520
+ %assign _DIR_ENTRY_500		1
 %endif
 
 
