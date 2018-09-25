@@ -203,7 +203,7 @@ Notes about partial load compatibilities
  %error Load address must not overlap IVT or BDA
 %endif
 %if ! _RELOCATE
- %if _LOAD_ADR > (POSITION-256) && _LOAD_ADR < (POSITION+512)
+ %if _LOAD_ADR > (POSITION-512) && _LOAD_ADR < (POSITION+1024)
   %error Load address must not overlap loader
  %endif
 %endif
