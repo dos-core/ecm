@@ -81,9 +81,10 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00600h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
- %assign _SET_BL_UNIT		1
- %assign _MEMORY_CONTINUE	0
- %assign _RELOCATE		1
+
+	numdef SET_BL_UNIT,	1
+	numdef MEMORY_CONTINUE,	0
+	numdef RELOCATE,	1
 	; The FreeDOS load protocol mandates that the entire file be loaded.
 %endif
 
@@ -93,18 +94,19 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
- %assign _SET_DL_UNIT		1
- %assign _MEMORY_CONTINUE	1
+
+	numdef SET_DL_UNIT,	1
+	numdef MEMORY_CONTINUE,	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _DIR_ENTRY_520		1
+	numdef DIR_ENTRY_520,	1
  	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
  	;  We do not check this to be the case, but the load protocol may
  	;  prescribe that these two entries are at 0:500h and 0:520h.
- %assign _SET_AXBX_DATA		1
- %assign _DATASTART_HIDDEN	1
- %assign _SET_DSSI_DPT		1
- %assign _PUSH_DPT		1
+	numdef SET_AXBX_DATA,	1
+	numdef DATASTART_HIDDEN,1
+	numdef SET_DSSI_DPT,	1
+	numdef PUSH_DPT,	1
 %endif
 
 %if _COMPAT_MS7
@@ -113,15 +115,16 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
- %assign _SET_DL_UNIT		1
- %assign _SET_DSSI_DPT		0
- %assign _PUSH_DPT		1
- %assign _MEMORY_CONTINUE	1
+
+	numdef SET_DL_UNIT,	1
+	numdef SET_DSSI_DPT,	0
+	numdef PUSH_DPT,	1
+	numdef MEMORY_CONTINUE,	1
 	; 4 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
- %assign _SET_SIDI_CLUSTER	1
- %assign _DATASTART_HIDDEN	1
- %assign _LBA_SET_TYPE		1
+	numdef SET_SIDI_CLUSTER,1
+	numdef DATASTART_HIDDEN,1
+	numdef LBA_SET_TYPE,	1
 %endif
 
 %if _COMPAT_LDOS
@@ -130,12 +133,13 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
- %assign _SET_DL_UNIT		0
- %assign _SET_CLUSTER		1
- %assign _SET_FAT_SEG		1
- %assign _SET_LOAD_SEG		1
- %assign _MEMORY_CONTINUE	1
- %assign _DATASTART_HIDDEN	0
+
+	numdef SET_DL_UNIT,	0
+	numdef SET_CLUSTER,	1
+	numdef SET_FAT_SEG,	1
+	numdef SET_LOAD_SEG,	1
+	numdef MEMORY_CONTINUE,	1
+	numdef DATASTART_HIDDEN,0
 %endif
 
 %if 0
@@ -158,7 +162,7 @@ Notes about partial load compatibilities
 %endif
 
 %if _DIR_ENTRY_520
- %assign _DIR_ENTRY_500		1
+	numdef DIR_ENTRY_500,	1
 %endif
 
 
