@@ -644,6 +644,7 @@ load_fsiboot:
 	mov cx, 4
 	repe cmpsw
 	jne error_fsiboot
+		; Note that now es:di -> fsiboot.start
 
 %if _LOAD_ADR >= ADR_FREE || _RELOCATE
 ; Get conventional memory size and store it
@@ -703,29 +704,36 @@ load_fsiboot:
 	add word [VAR(fsiboot_table.fatbuf)], ax
 	and word [VAR(fsiboot_table.fatbuf)], ~ ((8192>>4) - 1)
 
+	push ax
+	push di				; -> reloc destination of fsiboot.start
+
 	mov es, ax			; => destination
-	mov si, sp			; ds:si = ss:entries_per_sector
+	mov si, sp			; ds:si = ss:entries_per_sector - 4
 	mov di, si			; es:di -> destination for stack low
-	mov cx, (end_after_fsiboot - entries_per_sector) >> 1
+	mov cx, (end_after_fsiboot - (entries_per_sector - 4)) >> 1
+		; end_after_fsiboot is the top of used memory
+		; entries_per_sector is the lowest filled stack frame slot
+		; 4 is for the additional slots taken by the return address
 	rep movsw			; relocate stack, sector, and FSIBOOT
 	mov ss, ax
 	mov ds, ax			; relocate these
 	add ax, (ADR_STACK_LOW) >> 4	; (rounding down) => behind available
 
-	mov bx, fsiboot.start
-	push es
-	push bx
 	retf				; jump to relocated FSIBOOT
  %else
 	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
 	jc error_fsiboot
-		; Do a jmp far here to ensure that cs is zero.
-	jmp 0:fsiboot.start
+	push es
+	push di				; -> fsiboot.start
+	retf
+		; Do a far return here to ensure that cs is zero.
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
 	mov ax, (ADR_STACK_LOW >> 4)
-		; Do a jmp far here to ensure that cs is zero.
-	jmp 0:fsiboot.start
+	push es
+	push di				; -> fsiboot.start
+	retf
+		; Do a far return here to ensure that cs is zero.
 %else
  %error Load address within used memory
 %endif
