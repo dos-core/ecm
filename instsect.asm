@@ -903,7 +903,7 @@ set_unit:
 .found_mov:
 	add si, cx
 
-	mov dx, 16
+	mov dx, 48
 	mov di, unit_search_strings.1612_set_bpbn
 	mov cx, unit_search_strings.1612_set_bpbn_length
 	cmp byte [bp + ldFATType], 16
