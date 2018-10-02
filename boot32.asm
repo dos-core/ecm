@@ -502,27 +502,33 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 	align 2
 fsiboot_table:		; this table is used by the FSIBOOT2 stage
 .error:		dw error
-			; nothing
+			; INP: al = error condition letter
+			; ('B' = bad chain / FS error, 'F' = file not found,
+			;  'R' = disk read error, 'M' = not enough memory)
 .success:	dw load_finish
-			; stack: (for _SET_SIDI_CLUSTER) first cluster dword
+			; INP: dword [ss:sp] = first cluster
+			; Note: The first cluster dword is always filled in
+			;  by FSIBOOT; the option _SET_SIDI_CLUSTER only
+			;  affects usage in the primary loader.
 %if _MEMORY_CONTINUE
 .memory_full:	dw load_finish_mc
-			; stack: next cluster number dword,
-			; (for _SET_SIDI_CLUSTER) first cluster dword
-			; Note: The first cluster dword is always filled in
-			;  by FSIBOOT; the option only affects usage in the
-			;  primary loader.
+			; INP: dword [ss:sp] = next cluster number,
+			;  dword [ss:sp + 4] = first cluster, refer to .success
 %else
 .memory_full:	dw error_filetoobig
+			; refer to previous .memory_full comment
 %endif
 .read_sector:	dw read_sector
 			; INP: dx:ax = sector number within partition,
-			; bx => buffer, (_LBA) ds = ss
+			;  bx => buffer, (_LBA) ds = ss
 			; OUT: dx:ax incremented, bx => incremented,
-			; es = input bx
+			;  es = input bx, does not return if error occurred
 			; CHG: none
 %if _RELOCATE
 .fatbuf:	dw ((8192 - 16) + 1024 + 7C00h)>>4
+			; With _RELOCATE enabled, this is fixed up by the
+			;  primary loader before FSIBOOT is executed. The
+			;  initial value is used as an operand in the fixup.
 %else
 .fatbuf:	dw ADR_FATBUF>>4
 %endif
@@ -1086,12 +1092,28 @@ fsiboot:
 		;	wo [ss:bp - 24] = adj_sectors_per_cluster (uninit)
 		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
-		; OUT:	jumps to fsiboot_table.error, fsiboot_table.success, or
-		;	 fsiboot_table.memory_full (for interfaces refer to table)
+		;	ss = ds
+		;	ss:bp + ((ebpbNew + BPBN_size + 1) & ~1)
+		;	 = fsiboot_table, refer to its comments
+		;	cs set to address jump table offsets in fsiboot_table
+		; OUT:	Jumps to fsiboot_table.error if error occurs:
+		;	 al = error condition letter
+		;	Else:
 		;	data_start (within partition) initialised
-		;	adj_sectors_per_cluster initialised
-		;	paras_left initialised
 		;	load_seg => behind last loaded data
+		;	fat_seg initialised (from fsiboot_table.fatbuf)
+		;	fat_sector initialised
+		;	 (-1 initially, loaded sector-in-FAT later)
+		;	first_cluster initialised
+		;	last_available_sector initialised
+		;	 (from input ax minus word [para_per_sector])
+		;	adj_sectors_per_cluster initialised (from BPB)
+		;	paras_left initialised
+		;	Jumps to fsiboot_table.success if loaded entirely:
+		;	 dword [ss:sp] = first cluster
+		;	Jumps to fsiboot_table.memory_full if loaded partially:
+		;	 dword [ss:sp] = next cluster number
+		;	 dword [ss:sp + 4] = first cluster
 
 	sub ax, word [VAR(para_per_sector)]
 	jc .CY_fsiboot_error_badchain
