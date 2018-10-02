@@ -1318,33 +1318,31 @@ found_it:
 
 		mov bx, [es:di + deSize - 2 * DIRENTRY_size]
 		mov ax, [es:di + deSize + 2 - 2 * DIRENTRY_size]
-					; ax:bx = file size
-		mov dl, [es:di + 12 - 2 * DIRENTRY_size]
-					; dl = FAT+ size bits
-		mov dh, dl
-		and dx, 0E007h		; obtain bits 7-5 and 2-0
-		shr dh, 1
-		shr dh, 1
-		or dl, dh		; dl:ax:bx = file size
+					; ax:bx = file size (non-FAT+)
+					; next byte = FAT+ size bits
+		test byte [es:di + 12 - 2 * DIRENTRY_size], 0E7h
+					; test whether bits 7-5 and 2-0 NZ
+		jnz .large_file		; yes, clamp to maximum paras -->
+
 		mov cx, [VAR(bytes_per_sector)]
 		dec cx			; BpS - 1
 		add bx, cx
-		adc ax, 0
-		adc dl, 0		; round up to next sector
+		adc ax, 0		; large ?
+		jc .large_file		; yes, clamp to maximum paras -->
+
 		not cx			; ~ (BpS - 1)
 		and bx, cx		; mask to limit to rounded-up sector
 		mov cx, 4
 @@:
-		shr dl, 1
-		rcr ax, 1
+		shr ax, 1
 		rcr bx, 1
 		loop @B
-			; dl:ax:bx = size in paragraphs
-		or al, dl
+			; ax:bx = size in paragraphs
 		mov cx, bx		; cx = size in paragraphs
-		test ax, ax		; > 0FFFFh ?
+		test ax, ax		; > 0FFFFh paras ?
 		jz @F			; no, take actual size -->
-		mov cx, 0FFFFh		; cx = clamp size to 0FFFFh
+.large_file:
+		mov cx, 0FFFFh		; cx = clamp size to 0FFFFh paras
 @@:
 
 ; get starting cluster of file
