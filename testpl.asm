@@ -64,11 +64,24 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	cpu 8086
 	org 0
 payload:
+	align 32, nop
+
 		; S0 +28
 	pushf	; +26
+	push ax	; +24
+	push cs	; +22
+	call .push_ip
+.push_ip:
+	pop ax
+	sub ax, .push_ip
+	push ax	; +20 IP
 
 	cmp word [cs:signature], 2638h
 	je .sig1_valid
+	jmp .sig_invalid
+
+	align 64, nop
+
 .sig_invalid:
 	call error
 	db "Signature invalid.", 0
@@ -111,7 +124,6 @@ msg:
 .name_before:	asciz ": "
 .name_quote:	asciz '"'
 .name_after:	asciz 13,10
-
 
 error:
 	push cs
@@ -161,21 +173,24 @@ disp_al:
 sig_valid:
 		; S0 +28
 ;	pushf	; +26
+;	push ax	; +24
+;	push cs	; +22
+;	call .push_ip
+;.push_ip:
+;	pop ax
+;	sub ax, .push_ip
+;	push ax	; +20 IP
 	sti
 	cld
-	push ax	; +24
-	push bx	; +22
-	push cx	; +20
-	push dx	; +18
-	push si	; +16
-	push di	; +14
-	push bp	; +12
+	push bx	; +18
+	push cx	; +16
+	push dx	; +14
+	push si	; +12
+	push di	; +10
+	push bp	; +8
 	mov ax, sp
-	add ax, 16
-	push ax	; +10 SP
-	xor ax, ax
-	push ax	; +8 IP
-	push cs	; +6
+	add ax, 20
+	push ax	; +6 SP
 	push ds	; +4
 	push es	; +2
 	push ss	; +0
@@ -431,21 +446,21 @@ convert_name_to_asciz:
 	align 4
 table:
 	dw  +0, "SS"
-	dw +12, "BP"
-	dw +10, "SP"
-	dw  +6, "CS"
-	dw  +8, "IP"
+	dw  +8, "BP"
+	dw  +6, "SP"
+	dw +22, "CS"
+	dw +20, "IP"
 	dw +26, "FL"
 	db -1, -1, 13,10
 	dw  +4, "DS"
-	dw +16, "SI"
+	dw +12, "SI"
 	dw  +2, "ES"
-	dw +14, "DI"
+	dw +10, "DI"
 	db -1, -1, 13,10
 	dw +24, "AX"
-	dw +22, "BX"
-	dw +20, "CX"
-	dw +18, "DX"
+	dw +18, "BX"
+	dw +16, "CX"
+	dw +14, "DX"
 	db -1, -1, 13,10
 	dw +28, "S0"
 	dw +30, "S1"
