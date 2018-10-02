@@ -76,17 +76,38 @@ payload:
 	sub ax, .push_ip
 	push ax	; +20 IP
 
+common_entrypoint:
 	cmp word [cs:signature], 2638h
-	je .sig1_valid
-	jmp .sig_invalid
+	je sig1_valid
+	jmp sig_invalid
 
 	align 64, nop
+dos_exe_entrypoint:
 
-.sig_invalid:
+		; S0 +28
+	pushf	; +26
+	push ax	; +24
+	push cs	; +22
+	call .push_ip
+.push_ip:
+	pop ax
+	sub ax, .push_ip - dos_exe_entrypoint
+	push ax	; +20 IP
+
+	mov byte [cs:100h + loadmode], 1
+	mov ax, cs
+	add ax, 10h	; simulate kernel loading
+	push ax
+	mov ax, common_entrypoint
+	push ax
+	retf		; jump to cs + 10h : common_entrypoint
+
+
+sig_invalid:
 	call error
 	db "Signature invalid.", 0
 
-.sig1_valid:
+sig1_valid:
 	push ds
 	push bx
 	mov bx, cs
@@ -95,7 +116,7 @@ payload:
 	cmp word [(signature2 -$$+0) & 0Fh], 2638h
 	pop bx
 	pop ds
-	jne .sig_invalid
+	jne sig_invalid
 	jmp sig_valid
 
 msg:
@@ -125,6 +146,9 @@ msg:
 .name_quote:	asciz '"'
 .name_after:	asciz 13,10
 
+	align 2
+loadmode:	dw 0		; 0 = loaded as boot payload, 1 = loaded in DOS
+
 error:
 	push cs
 	pop ds
@@ -132,6 +156,13 @@ error:
 	call disp_msg
 	pop si
 	call disp_msg
+	test byte [cs:loadmode], 1
+	jz .bios
+
+	mov ax, 4C01h
+	int 21h
+
+.bios:
 	xor ax, ax
 	int 16h
 	int 19h
@@ -160,11 +191,24 @@ disp_msg:
 disp_al:
 	push ax
 	push bx
+	push dx
 	push bp
+	test byte [cs:loadmode], 1
+	jz .bios
+
+	mov dl, al
+	mov ah, 02h
+	int 21h
+	jmp .common
+
+.bios:
 	mov ah, 0Eh
 	mov bx, 7
 	int 10h
+
+.common:
 	pop bp
+	pop dx
 	pop bx
 	pop ax
 @@:
@@ -220,6 +264,9 @@ loop_table:
 	jb loop_table
 
 listnames:
+	test byte [cs:loadmode], 1
+	jnz .skip
+
 	mov bx, msg.names
 	push ss
 	pop ds
@@ -261,12 +308,21 @@ listnames:
 	cmp word [cs:bx], 0
 	jne .nextname
 
+.skip:
 
 	push cs
 	pop ds
 	mov si, msg.test
 	call disp_msg
 	int3
+
+	test byte [cs:loadmode], 1
+	jz .bios
+
+	mov ax, 4C00h
+	int 21h
+
+.bios:
 	xor ax, ax
 	int 16h
 	int 19h
