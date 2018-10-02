@@ -645,7 +645,7 @@ load_fsiboot:
 .loaded:
 	push ds
 	pop es
-	mov di, ADR_FSIBOOT + FSINFO.reserved1
+	mov di, fsiboot.signature
 	mov si, fsiboot_name
 	mov cx, 4
 	repe cmpsw
@@ -1075,6 +1075,7 @@ end:
 
 fsiboot:
 	dd "RRaA"
+.signature:
 	db "FSIBOOT2"
 
 .start:
