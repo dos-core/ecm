@@ -697,7 +697,7 @@ load_fsiboot:
 		;
 		; The FAT buffer segment is masked so that the actual buffer
 		;  is stored on an 8 KiB boundary. This is to ensure that
-		;  the buffer doesn't possibly cross the 64 KiB DMA boundary.
+		;  the buffer doesn't possibly cross a 64 KiB DMA boundary.
 	jc error_fsiboot
 	cmp ax, (end_after_fsiboot -start+7C00h - ADR_STACK_LOW + 15) >> 4
 		; This check is to ensure that the start of the destination
