@@ -103,6 +103,11 @@ Public domain by C. Masloch, 2012
  	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
  	;  We do not check this to be the case, but the load protocol may
  	;  prescribe that these two entries are at 0:500h and 0:520h.
+ 	; With the option _DIR_ENTRY_520, we copy the found directory entry
+ 	;  as well as one more directory entry to the destinations at 0:500h
+ 	;  and 0:520h. This fails either if the second entry is a volume label,
+ 	;  LFN entry, directory, deleted/empty, or file other than the wanted
+ 	;  one, or also fails if the found entry is the last one in a sector.
 	numdef SET_AXBX_DATA,	1
 	numdef DATASTART_HIDDEN,1
 	numdef SET_DSSI_DPT,	1
