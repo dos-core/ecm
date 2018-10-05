@@ -1094,6 +1094,10 @@ fsiboot:
 		;	wo [ss:bp - 18] = para_per_sector
 		;	wo [ss:bp - 20] = entries_per_sector
 		;	ss:sp = ss:bp - 20
+		;	(Note:	The following stack frame entries are currently
+		;		 only used by FSIBOOT itself, so they may be
+		;		 considered implementation detail instead of
+		;		 part of the FSIBOOT protocol.)
 		;	wo [ss:bp - 22] = last_available_sector (uninit)
 		;	wo [ss:bp - 24] = adj_sectors_per_cluster (uninit)
 		;	wo [ss:bp - 26] = paras_left (uninit)
