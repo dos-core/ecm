@@ -1005,20 +1005,44 @@ load_finish:
 %endif
 %if _PUSH_DPT || _SET_DSSI_DPT
  %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
+  %if _RELOCATE
+		xor ax, ax
+		mov es, ax		; => IVT
+		mov di, 1Eh*4
+		les si, [es:di]		; -> original (also current) DPT
+		push es
+		push si			; original (also current) DPT address
+		push ax
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %else
+			; If not _RELOCATE, ds = 0000h (=> IVT)
 		mov di, 1Eh*4
 		les si, [di]		; -> original (also current) DPT
 		push es
 		push si			; original (also current) DPT address
+			; If not _RELOCATE, ss = 0000h (=> IVT)
 		push ss
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %endif
  %else
+  %if _RELOCATE
+		xor ax, ax
+		mov ds, ax		; => IVT
+  %endif
+			; If not _RELOCATE, ds = 0000h (=> IVT)
 		mov di, 1Eh*4
 		lds si, [di]		; -> original (also current) DPT
   %if _PUSH_DPT
 		push ds
 		push si			; original (also current) DPT address
+   %if _RELOCATE
+		push ax
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+   %else
+			; If not _RELOCATE, ss = 0000h (=> IVT)
 		push ss
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
+   %endif
   %endif
  %endif
 %endif
