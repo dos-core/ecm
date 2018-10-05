@@ -1099,8 +1099,8 @@ fsiboot:
 		;	wo [ss:bp - 26] = paras_left (uninit)
 		;	Stack layout has to match!
 		;	ss = ds
-		;	ss:bp + ((ebpbNew + BPBN_size + 1) & ~1)
-		;	 = fsiboot_table, refer to its comments
+		;	ss:bp + ((11 + ebpbNew + BPBN_size + 1) & ~1)
+		;	 = ss:fsiboot_table, refer to its comments
 		;	cs set to address jump table offsets in fsiboot_table
 		; OUT:	Jumps to fsiboot_table.error if error occurs:
 		;	 al = error condition letter
