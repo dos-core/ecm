@@ -1102,6 +1102,7 @@ fsiboot:
 		;	ss:bp + ((11 + ebpbNew + BPBN_size + 1) & ~1)
 		;	 = ss:fsiboot_table, refer to its comments
 		;	cs set to address jump table offsets in fsiboot_table
+		;	ds set to address fsiboot_table.load_name
 		; OUT:	Jumps to fsiboot_table.error if error occurs:
 		;	 al = error condition letter
 		;	Else:
