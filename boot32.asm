@@ -1003,16 +1003,6 @@ load_finish:
 		pop cx
 		pop dx
 %endif
-%if _DATASTART_HIDDEN
-		mov bx, [VAR(hidden_sectors + 0)]
-		mov ax, [VAR(hidden_sectors + 2)]
-		add word [VAR(data_start + 0)], bx
-		adc word [VAR(data_start + 2)], ax
-%endif
-%if _SET_AXBX_DATA
-		mov bx, [VAR(data_start)]
-		mov ax, [VAR(data_start+2)]
-%endif
 %if _PUSH_DPT || _SET_DSSI_DPT
  %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
 		mov di, 1Eh*4
@@ -1031,6 +1021,16 @@ load_finish:
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
   %endif
  %endif
+%endif
+%if _DATASTART_HIDDEN
+		mov bx, [VAR(hidden_sectors + 0)]
+		mov ax, [VAR(hidden_sectors + 2)]
+		add word [VAR(data_start + 0)], bx
+		adc word [VAR(data_start + 2)], ax
+%endif
+%if _SET_AXBX_DATA
+		mov bx, [VAR(data_start)]
+		mov ax, [VAR(data_start+2)]
 %endif
 %if _SET_SIDI_CLUSTER
  %if _SET_DSSI_DPT
