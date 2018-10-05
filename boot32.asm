@@ -545,7 +545,7 @@ fsiboot_table:		; this table is used by the FSIBOOT2 stage
 .loadseg:	dw _LOAD_ADR>>4
 			; => where to load
 
-.load_name:
+.load_name:		; = blank-padded 11-byte filename to search for
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
 
