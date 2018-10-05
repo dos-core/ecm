@@ -184,7 +184,7 @@ Notes about partial load compatibilities
 %endif
 
 %if _DIR_ENTRY_520
-	numdef DIR_ENTRY_500,	1
+ %assign _DIR_ENTRY_500		1
 %endif
 
 
