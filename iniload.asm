@@ -120,13 +120,13 @@ lpSector:	resq 1
 	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
 	numdef IMAGE_EXE_IP,	256 +64	; value for IP
 	numdef IMAGE_EXE_SS,	-16	; relative-segment for SS
-	numdef IMAGE_EXE_SP,	0	; value for SP (0 underflows)
+	numdef IMAGE_EXE_SP,	0FFFEh	; value for SP (0 underflows)
 	numdef IMAGE_EXE_MIN,	65536	; how much to allocate for the process
 	numdef SECOND_PAYLOAD_EXE,	0
 	numdef SECOND_PAYLOAD_EXE_CS,	-16
 	numdef SECOND_PAYLOAD_EXE_IP,	256 +64
 	numdef SECOND_PAYLOAD_EXE_SS,	-16
-	numdef SECOND_PAYLOAD_EXE_SP,	0
+	numdef SECOND_PAYLOAD_EXE_SP,	0FFFEh
 	numdef SECOND_PAYLOAD_EXE_MIN,	65536
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
