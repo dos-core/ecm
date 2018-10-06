@@ -447,7 +447,9 @@ lowest_variable		equ _LASTVARIABLE
 
 ; BIOS Parameter Block (BPB)
 ;
-; Installation will use the BPB already present on your floppy disk.
+; Installation will use the BPB already present in your file system.
+; These values must be initialised when installing the loader.
+;
 ; The values shown here work only with 1440 KiB disks (CHS=80:2:18)
 
 oem_id:			; offset 03h (03) - not used by this code
