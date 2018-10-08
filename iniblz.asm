@@ -539,7 +539,7 @@ depack:
 .ret:
 %else
 .end:
-	db __TEST_IMM16			; (NC)
+	db __TEST_IMM8			; (NC)
 .error:
 	stc
 %endif
