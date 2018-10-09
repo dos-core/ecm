@@ -123,6 +123,10 @@ msg:
 .error:	db "Test payload error: ", 0
 .test:	db "Test payload loaded.", 13, 10, 0
 
+.psp_and_size_before:	asciz "PSP at "
+.psp_and_size_between:	asciz "h, size of memory block is "
+.psp_and_size_after:	asciz "h paragraphs."
+
 	align 4
 .foundname:
 	times 8+1+3+1 db 0
@@ -314,6 +318,26 @@ listnames:
 	pop ds
 	mov si, msg.test
 	call disp_msg
+
+	test byte [cs:loadmode], 1
+	jz @F
+
+	mov si, msg.psp_and_size_before
+	call disp_msg
+	mov ah, 51h
+	int 21h
+	mov ax, bx
+	call disp_ax_hex
+	mov si, msg.psp_and_size_between
+	call disp_msg
+	dec bx
+	mov es, bx
+	mov ax, word [es:3]
+	call disp_ax_hex
+	mov si, msg.psp_and_size_after
+	call disp_msg
+
+@@:
 	int3
 
 	test byte [cs:loadmode], 1
