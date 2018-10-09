@@ -119,16 +119,35 @@ lpSector:	resq 1
 	numdef IMAGE_EXE,	0
 	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
 	numdef IMAGE_EXE_IP,	256 +64	; value for IP
+		; The next two are only used if _IMAGE_EXE_AUTO_STACK is 0.
 	numdef IMAGE_EXE_SS,	-16	; relative-segment for SS
 	numdef IMAGE_EXE_SP,	0FFFEh	; value for SP (0 underflows)
+	numdef IMAGE_EXE_AUTO_STACK,	0	; allocate stack behind image
 	numdef IMAGE_EXE_MIN,	65536	; how much to allocate for the process
+%ifndef _IMAGE_EXE_MIN_CALC
+ %define _IMAGE_EXE_MIN_CALC	\
+		(((_IMAGE_EXE_MIN \
+		- ((payload.end - payload) - 512) \
+		+ _IMAGE_EXE_AUTO_STACK) + 15) & ~15)
+%endif
+	numdef IMAGE_EXE_MAX, -1
+
 	numdef SECOND_PAYLOAD_EXE,	0
 	numdef SECOND_PAYLOAD_EXE_CS,	-16
 	numdef SECOND_PAYLOAD_EXE_IP,	256 +64
 	numdef SECOND_PAYLOAD_EXE_SS,	-16
 	numdef SECOND_PAYLOAD_EXE_SP,	0FFFEh
+	numdef SECOND_PAYLOAD_EXE_AUTO_STACK,	0
 	numdef SECOND_PAYLOAD_EXE_MIN,	65536
+%ifndef _SECOND_PAYLOAD_EXE_MIN_CALC
+ %define _SECOND_PAYLOAD_EXE_MIN_CALC	\
+		(((_SECOND_PAYLOAD_EXE_MIN \
+		- ((second_payload.end - second_payload) - 512) \
+		+ _SECOND_PAYLOAD_EXE_AUTO_STACK) + 15) & ~15)
+%endif
+	numdef SECOND_PAYLOAD_EXE_MAX, -1
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
+
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
 %endif
@@ -142,28 +161,57 @@ start:
 	jmp strict short ms6_entry	; exeExtraBytes
 			; db 0EBh, 16h	; dw 16EBh
 %if _IMAGE_EXE
-		; for now hardcoded to carry a .COM-like executable
+		; For now hardcoded to carry a .COM-like executable.
+		; Note: With _SECOND_PAYLOAD_EXE_AUTO_STACK, the
+		;	 stack segment will be behind the image.
 	dw (payload.end - $$ + 511) / 512	; exePages
 	dw 0		; exeRelocItems
 	dw (payload -$$+0) >> 4	; exeHeaderSize
-	dw (_IMAGE_EXE_MIN - (payload.end - payload) \
-		+ 512 + 15) >> 4	; exeMinAlloc
-	dw -1		; exeMaxAlloc
+	dw (_IMAGE_EXE_MIN_CALC + 15) >> 4	; exeMinAlloc
+%if _IMAGE_EXE_MAX
+	dw _IMAGE_EXE_MAX	; exeMaxAlloc
+%else
+	dw (_IMAGE_EXE_MIN_CALC + 15) >> 4	; exeMaxAlloc
+%endif
+%if _IMAGE_EXE_AUTO_STACK
+	dw (((payload.end - payload) - 512) \
+		+ _IMAGE_EXE_MIN_CALC \
+		- _IMAGE_EXE_AUTO_STACK + 15) >> 4	; exeInitSS
+		; ss: payload size minus 512 (conservative, assume DOS
+		;  treats bogus exeExtraBytes as below 512 bytes.)
+		; + exeMinAlloc
+		; - auto stack size
+	dw _IMAGE_EXE_AUTO_STACK		; exeInitSP
+		; sp = auto stack size (eg 800h)
+%else
 	dw _IMAGE_EXE_SS	; exeInitSS
 	dw _IMAGE_EXE_SP	; exeInitSP
+%endif
 	dw 0		; exeChecksum
 	dw _IMAGE_EXE_IP, _IMAGE_EXE_CS	; exeInitCSIP
 	dw 0		; exeRelocTable
 %elif _SECOND_PAYLOAD_EXE
-		; for now hardcoded to carry a .COM-like executable
+		; For now hardcoded to carry a .COM-like executable.
+		; Note: With _SECOND_PAYLOAD_EXE_AUTO_STACK, the
+		;	 stack segment will be behind the image.
 	dw (second_payload.end - $$ + 511) / 512	; exePages
 	dw 0		; exeRelocItems
 	dw (second_payload -$$+0) >> 4	; exeHeaderSize
-	dw (_SECOND_PAYLOAD_EXE_MIN - (second_payload.end - second_payload) \
-		+ 512 + 15) >> 4	; exeMinAlloc
-	dw -1		; exeMaxAlloc
+	dw (_SECOND_PAYLOAD_EXE_MIN_CALC + 15) >> 4	; exeMinAlloc
+%if _SECOND_PAYLOAD_EXE_MAX
+	dw _SECOND_PAYLOAD_EXE_MAX	; exeMaxAlloc
+%else
+	dw (_SECOND_PAYLOAD_EXE_MIN_CALC + 15) >> 4	; exeMaxAlloc
+%endif
+%if _SECOND_PAYLOAD_EXE_AUTO_STACK
+	dw (((second_payload.end - second_payload) - 512) \
+		+ _SECOND_PAYLOAD_EXE_MIN_CALC \
+		- _SECOND_PAYLOAD_EXE_AUTO_STACK + 15) >> 4	; exeInitSS
+	dw _SECOND_PAYLOAD_EXE_AUTO_STACK	; exeInitSP
+%else
 	dw _SECOND_PAYLOAD_EXE_SS	; exeInitSS
 	dw _SECOND_PAYLOAD_EXE_SP	; exeInitSP
+%endif
 	dw 0		; exeChecksum
 	dw _SECOND_PAYLOAD_EXE_IP, _SECOND_PAYLOAD_EXE_CS	; exeInitCSIP
 	dw 0		; exeRelocTable
