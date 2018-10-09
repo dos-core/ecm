@@ -59,7 +59,7 @@ ldLoadUntilSeg:	resw 1
 	numdef EXEC_SEGMENT,	0
 	numdef IMAGE_EXE,	0
 %if _IMAGE_EXE
- %error iniload _IMAGE_EXE option is not supported yet.
+ %error iniload IMAGE_EXE option is not supported yet.
 %endif
 
 
