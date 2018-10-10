@@ -4,7 +4,7 @@ iniblz is a BriefLZ depacker stage for lDOS's (and RxDOS's) iniload kernel.
 For usage conditions, refer to comments in iniblz.asm
 
 
-Example usage:
+Example usage (without _IMAGE_EXE):
 
 iniblz$ blzpack /path/to/rxdos-7.2x/ldos/lDOSLOAD.BIN lDOSLOAD.BLZ
 iniblz$ ./mak.sh -I/path/to/lmacros/
@@ -12,6 +12,19 @@ rxdos-7.2x/ldos$ nasm -Ox -D_REVISIONID="'hg $(hg -R .. id -i)'" \
  -I ../lmacros/ -f bin -o ../bin/RxDOS.COM -l ../lst/RxDOS.LST \
  -D_MAP=../map/RxDOS.MAP ../ldosboot/iniload.asm \
  -D_PAYLOAD_FILE=/path/to/iniblz/iniblz.bin
+
+
+Example usage with _IMAGE_EXE payload:
+
+ldebug/source$ use_build_revision_id=1 ./make -D_BOOTLDR -D_DEBUG4 -D_DEBUG2
+iniblz$ blzpack /path/to/ldebug/bin/debug.com lDOSLOAD.BLZ
+iniblz$ ./mak.sh -I/path/to/lmacros/ -D_IMAGE_EXE -D_EXEC_OFFSET=32
+ldosboot$ nasm -D_MAP=iniload.map -l iniload.lst \
+ -I../lmacros/ -o LDEBUGPK.COM \
+ -D_PAYLOAD_FILE="'/path/to/iniblz/iniblz.bin'" \
+ -D_IMAGE_EXE_MIN_CALC="((($(stat -c %s /path/to/ldebug/bin/debug.com) + \
+  _IMAGE_EXE_AUTO_STACK) + 15) & ~15)" \
+ -D_IMAGE_EXE_AUTO_STACK=2048 -D_IMAGE_EXE=1 -D_EXEC_OFFSET=32 iniload.asm
 
 
 Currently, the system must have enough memory to hold all of the following:
@@ -52,6 +65,7 @@ Possibilities:
 
 * _IMAGE_EXE could be supported, with some adjustments to the segmentation
   to allow the same image to be entered either as kernel or as MZ executable.
+  (done: _IMAGE_EXE, though sloppily)
 
 * Optimisations are possible if the block size is decreased, however,
   I prefer it to support any block size, which it does for now.
