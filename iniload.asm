@@ -122,7 +122,7 @@ lpSector:	resq 1
 		; The next two are only used if _IMAGE_EXE_AUTO_STACK is 0.
 	numdef IMAGE_EXE_SS,	-16	; relative-segment for SS
 	numdef IMAGE_EXE_SP,	0FFFEh	; value for SP (0 underflows)
-	numdef IMAGE_EXE_AUTO_STACK,	0	; allocate stack behind image
+	numdef IMAGE_EXE_AUTO_STACK,	0, 2048	; allocate stack behind image
 	numdef IMAGE_EXE_MIN,	65536	; how much to allocate for the process
 %ifndef _IMAGE_EXE_MIN_CALC
  %define _IMAGE_EXE_MIN_CALC	\
@@ -138,7 +138,7 @@ lpSector:	resq 1
 	numdef SECOND_PAYLOAD_EXE_IP,	256 +64
 	numdef SECOND_PAYLOAD_EXE_SS,	-16
 	numdef SECOND_PAYLOAD_EXE_SP,	0FFFEh
-	numdef SECOND_PAYLOAD_EXE_AUTO_STACK,	0
+	numdef SECOND_PAYLOAD_EXE_AUTO_STACK,	0, 2048
 	numdef SECOND_PAYLOAD_EXE_MIN,	65536
 %ifndef _SECOND_PAYLOAD_EXE_MIN_CALC
  %define _SECOND_PAYLOAD_EXE_MIN_CALC	\
