@@ -128,6 +128,7 @@ lpSector:	resq 1
  %define _IMAGE_EXE_MIN_CALC	\
 		(((_IMAGE_EXE_MIN \
 		- ((payload.end - payload) - 512) \
+		- 256 \
 		+ _IMAGE_EXE_AUTO_STACK) + 15) & ~15)
 %endif
 	numdef IMAGE_EXE_MAX, -1
@@ -143,6 +144,7 @@ lpSector:	resq 1
  %define _SECOND_PAYLOAD_EXE_MIN_CALC	\
 		(((_SECOND_PAYLOAD_EXE_MIN \
 		- ((second_payload.end - second_payload) - 512) \
+		- 256 \
 		+ _SECOND_PAYLOAD_EXE_AUTO_STACK) + 15) & ~15)
 %endif
 	numdef SECOND_PAYLOAD_EXE_MAX, -1
