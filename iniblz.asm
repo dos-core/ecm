@@ -58,14 +58,59 @@ ldLoadUntilSeg:	resw 1
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	numdef IMAGE_EXE,	0
-%if _IMAGE_EXE
- %error iniload IMAGE_EXE option is not supported yet.
-%endif
+	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
+	numdef IMAGE_EXE_IP,	256 +64	; value for IP
+		; The next two are only used if _IMAGE_EXE_AUTO_STACK is 0.
+	numdef IMAGE_EXE_SS,	-16	; relative-segment for SS
+	numdef IMAGE_EXE_SP,	0FFFEh	; value for SP (0 underflows)
+	numdef IMAGE_EXE_AUTO_STACK,	0	; use stack behind image
+		; _IMAGE_EXE_AUTO_STACK here differs from iniload's def of
+		;  the same name. This one is only used as a flag; if non-zero,
+		;  keep the stack given to us by iniload; if zero, set up the
+		;  stack specified by _IMAGE_EXE_SS and _IMAGE_EXE_SP.
 
 
 	cpu 8086
 	section INIT0 start=0 vstart=0
 init0_start:
+
+%if _IMAGE_EXE
+	nop
+	align 32, nop
+init0_kernel_entry:
+	mov bx, 0		; kernel mode
+	push ax
+	mov ax, cs
+	add ax, (init0_end - init0_start) >> 4
+	mov dx, word [ bp + ldLoadTop ]	; => after end of available space
+	mov si, 60h		; => destination
+	jmp init0_common
+
+	align 64, nop
+init0_exe_entry:
+		; NOTE:	This part is called with ip = 256 + 64, cs = PSP.
+	mov bx, 1		; EXE mode
+	push ax
+	mov dx, ss		; => after end of available space
+	mov ax, cs
+	add ax, (256 + (init0_end - init0_start)) >> 4	; => source
+	mov si, cs
+	add si, 256 >> 4	; => destination
+	jmp init0_common
+
+init0_common:
+		; NOTE:	This part must be position-independent, as it is
+		;	 called either with ip = init0_common (kernel mode)
+		;	 or ip = init0_common + 256 (EXE mode).
+	cld
+	mov cx, ( (payload_end - payload) \
+		+ (init1_end - init1_start) \
+		) >> 4
+	sub dx, cx
+	push si
+	call init0_movp
+	pop si
+%else
 	cld
 	mov ax, cs
 	add ax, (init0_end - init0_start) >> 4
@@ -75,14 +120,15 @@ init0_start:
 	mov dx, word [ bp + ldLoadTop ]
 	sub dx, cx
 	call init0_movp
+%endif
 
 	mov ax, dx
 	add ax, ( \
 		+ (payload_end - payload) \
 		) >> 4
-	xor bx, bx
+	xor cx, cx
 	push ax
-	push bx
+	push cx
 	retf			; jump to relocated INIT1:init1_start
 
 
@@ -188,9 +234,35 @@ init1_start:
 		;	ax = cs = INIT1
 		;	dx = cs - (payload_end - payload) >> 4 => source data
 		;	60h => destination
+		;	if _IMAGE_EXE:
+		;	 ss:sp -> valid stack above segment dx
+		;	 bp = unset
+		;	 word [ss:sp] = value for ax
+		;	 bx = 1 if EXE mode, 0 if kernel mode
+		;	 si => destination (60h for kernel mode,
+		;				after PSP for EXE mode)
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
+%if _IMAGE_EXE
+	lframe
+	lenter
+	lvar word,	exemode		; must be bp - 2!
+	 push bx
+ %if ?exemode != -2
+  %error exemode variable must be directly below bp
+ %endif
+	push si
+%endif
 
 	cld
+
+%if _IMAGE_EXE
+	mov es, si		; es => destination
+%else
+	mov ax, 60h
+	mov es, ax		; es => destination
+%endif
+	xor di, di		; -> destination
+
 	mov ds, dx
 	xor si, si		; -> source
 
@@ -200,18 +272,61 @@ init1_start:
 %else
 	xor dx, dx
 %endif
-
-	mov ax, 60h
-	mov es, ax
-	xor di, di		; -> destination
-
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
+		;	bx = EXE mode flag
 		; Note:	The destination reaches up to below the source.
 	call depack
 	jc error
 
+%if _IMAGE_EXE
+	pop si			; si
+	pop bx			; ?exemode
+	pop bp			; bp
+	pop ax			; ax
+
+	lleave ctx
+
+	test bx, 1
+	jz .jmp_kernel_mode
+
+%if ! _IMAGE_EXE_AUTO_STACK
+	mov cx, cs
+	lea dx, [si + _IMAGE_EXE_SS]
+	push dx			; stack = relocated ss value
+	add dx, (_IMAGE_EXE_SP + 2 + 15) >> 4
+	cmp cx, dx		; INIT1 code is above intended stack ?
+	jae @F			; yes -->
+
+	lframe
+	lenter
+	lvar	word, exemode
+	push bx
+	mov bx, -1		; unimplemented, return error
+	jmp error
+	lleave ctx
+@@:
+	cli
+	pop ss			; = relocated ss value
+	mov sp, (_IMAGE_EXE_SP + 2) & 0FFFFh	; change stack
+	sti
+%endif
+
+	xor cx, cx
+	push cx			; put zero on top of stack
+
+	mov cx, _IMAGE_EXE_IP
+	lea dx, [si - 10h]	; => PSP
+	mov ds, dx
+	mov es, dx		; ds = es => PSP
+	add si, _IMAGE_EXE_CS	; = relocated cs value
+	push si
+	push cx
+	retf			; jump to EXE mode of image
+
+.jmp_kernel_mode:
+%endif
 	jmp 60h + _EXEC_SEGMENT:_EXEC_OFFSET
 
 
@@ -228,6 +343,16 @@ error:
 	mov si, msg.error
 %endif
 	call disp_error
+
+%if _IMAGE_EXE
+	test byte [bp - 2], 1
+	jz .exit_kernel_mode
+
+	mov ax, 4C7Fh
+	int 21h
+
+.exit_kernel_mode:
+%endif
 	xor ax, ax
 	int 16h
 	int 19h
@@ -270,9 +395,26 @@ disp_al:
 	push ax
 	push bx
 	push bp
+%if _IMAGE_EXE
+	push dx
+
+	test byte [bp - 2], 1
+	jz .display_kernel_mode
+
+	mov dl, al
+	mov ah, 02h
+	int 21h
+	jmp .common
+
+.display_kernel_mode:
+%endif
 	mov ah, 0Eh
 	mov bx, 7
 	int 10h
+%if _IMAGE_EXE
+.common:
+	pop dx
+%endif
 	pop bp
 	pop bx
 	pop ax
@@ -348,6 +490,8 @@ blzhDecompressedCRC:	resd 1
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
 		; OUT:	NC if success
 		;	CY if error,
 		;	 bx = ?errordata (if _DEBUG0)
@@ -362,6 +506,12 @@ blzhDecompressedCRC:	resd 1
 		;	 notionally the pointer should be already normalised.
 depack:
 	lframe near
+%if _IMAGE_EXE
+	lvar word,	exemode		; must be bp - 2!
+ %if ?exemode != -2
+  %error exemode variable must be directly below bp
+ %endif
+%endif
 	lvar dword,	dst_avail
 	lvar dword,	dst_size
 	lvar dword,	src_avail
@@ -375,6 +525,9 @@ depack:
 	lvar word,	errordata
 %endif
 	lenter
+%if _IMAGE_EXE
+	mov word [bp + ?exemode], bx
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
