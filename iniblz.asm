@@ -63,7 +63,7 @@ ldLoadUntilSeg:	resw 1
 		; The next two are only used if _IMAGE_EXE_AUTO_STACK is 0.
 	numdef IMAGE_EXE_SS,	-16	; relative-segment for SS
 	numdef IMAGE_EXE_SP,	0FFFEh	; value for SP (0 underflows)
-	numdef IMAGE_EXE_AUTO_STACK,	0	; use stack behind image
+	numdef IMAGE_EXE_AUTO_STACK,	0, 2048	; use stack behind image
 		; _IMAGE_EXE_AUTO_STACK here differs from iniload's def of
 		;  the same name. This one is only used as a flag; if non-zero,
 		;  keep the stack given to us by iniload; if zero, set up the
