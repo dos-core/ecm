@@ -259,8 +259,9 @@ ptExtendedLinux:	equ 85h
 %endif
 
 	cpu 8086
-	section PROGRAM start=0 vstart=100h align=16
-	section BUFFERS follows=PROGRAM vfollows=PROGRAM align=16 valign=16
+	org 256
+	section PROGRAM align=16
+	section BUFFERS follows=PROGRAM align=16
 
 	numdef FAT12,		1
 	numdef FAT16,		1
