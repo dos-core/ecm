@@ -220,7 +220,7 @@ start:
 %else
 	dw -1		; exePages
 	dw 0		; exeRelocItems
-	dw -1		; exeHeaderSize
+	dw 0		; exeHeaderSize
 	dw -1		; exeMinAlloc
 	dw -1		; exeMaxAlloc
 	dw -16, 0	; exeInitSS, exeInitSP
