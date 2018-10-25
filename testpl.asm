@@ -64,6 +64,19 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	cpu 8086
 	org 0
 payload:
+		; S0 +28
+	pushf	; +26
+	push ax	; +24
+	push cs	; +22
+	call .push_ip
+.push_ip:
+	pop ax
+	sub ax, .push_ip
+	push ax	; +20 IP
+
+	jmp common_entrypoint
+
+
 	nop
 	align 32, nop
 kernel_entrypoint:
@@ -79,7 +92,7 @@ kernel_entrypoint:
 	call .push_ip
 .push_ip:
 	pop ax
-	sub ax, .push_ip
+	sub ax, .push_ip - kernel_entrypoint
 	push ax	; +20 IP
 
 common_entrypoint:
