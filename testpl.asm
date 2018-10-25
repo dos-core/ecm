@@ -66,6 +66,11 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 payload:
 	nop
 	align 32, nop
+kernel_entrypoint:
+		; cs:ip = load seg : 32 here
+%if ($ - $$) != 32
+ %error Wrong kernel mode entrypoint
+%endif
 
 		; S0 +28
 	pushf	; +26
@@ -84,6 +89,12 @@ common_entrypoint:
 
 	align 64, nop
 dos_exe_entrypoint:
+		; cs:ip = PSP : 256 + 64 here
+		;
+		; Code must be position independent enough.
+%if ($ - $$) != 64
+ %error Wrong EXE mode entrypoint
+%endif
 
 		; S0 +28
 	pushf	; +26
