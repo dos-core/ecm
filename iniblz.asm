@@ -78,6 +78,10 @@ init0_start:
 	nop
 	align 32, nop
 init0_kernel_entry:
+		; cs:ip = load seg : 32 here
+%if ($ - $$) != 32
+ %error Wrong kernel mode entrypoint
+%endif
 	mov bx, 0		; kernel mode
 	push ax
 	mov ax, cs
@@ -89,6 +93,9 @@ init0_kernel_entry:
 	align 64, nop
 init0_exe_entry:
 		; NOTE:	This part is called with ip = 256 + 64, cs = PSP.
+%if ($ - $$) != 64
+ %error Wrong EXE mode entrypoint
+%endif
 	mov bx, 1		; EXE mode
 	push ax
 	mov dx, ss		; => after end of available space
