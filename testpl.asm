@@ -64,6 +64,7 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	cpu 8086
 	org 0
 payload:
+	nop
 	align 32, nop
 
 		; S0 +28
