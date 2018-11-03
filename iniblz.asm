@@ -103,7 +103,6 @@ init0_exe_entry:
 	add ax, (256 + (init0_end - init0_start)) >> 4	; => source
 	mov si, cs
 	add si, 256 >> 4	; => destination
-	jmp init0_common
 
 init0_common:
 		; NOTE:	This part must be position-independent, as it is
