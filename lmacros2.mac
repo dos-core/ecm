@@ -440,6 +440,51 @@ __lvar_define_var %2, %$ofs
 %endrep
 %endmacro
 
+		; Reserve stack space for prior lvar variables.
+		;
+		; This is used after lenter and reserves the stack space
+		;  for all yet defined variables, including those defined
+		;  after the lenter usage (which aren't reserved space for
+		;  by lenter itself).
+		;
+		; "lenter early \ lvar a \ lenter \ lvar b" is equivalent
+		;  to "lenter \ lvar a \ lreserve \ lvar b".
+		;
+		; lreserve can be used multiple times. It always uses
+		;  "lea sp, [bp - x]" to reserve space, so the space will
+		;  always be equal to the already defined variables.
+		;
+		; Warning: Using lreserve after having pushed additional
+		;  data, beyond the defined variables, will discard that
+		;  data from the stack as sp is reset.
+%imacro lreserve 0.nolist
+%ifnctx LENTER
+ %fatal Must use lenter first
+%endif
+%ifn %$enter
+ %fatal lenter did not set up stack frame
+%endif
+%assign %$lsizevariables (-%$ofs+1)&~1
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$bits == 16
+ %if %$ofs
+	lea sp, [bp - %$lsizevariables]
+ %endif
+%elif %$bits == 32
+ %if %$ofs
+	lea esp, [ebp - %$lsizevariables]
+ %endif
+%elif %$bits == 64
+ %if %$ofs
+	lea rsp, [rbp - %$lsizevariables]
+ %endif
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+%endmacro
+
 		; Remove a created stack frame.
 		; This restores bp if it was altered to access variables or
 		;  parameters. It also restores sp from bp if sp was altered
