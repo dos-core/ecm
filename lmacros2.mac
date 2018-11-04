@@ -155,6 +155,7 @@ Intended for 86 Mode programs.
  %ifn %$enter
   %fatal lenter did not set up stack frame
  %endif
+%elifctx LENTEREARLY
 %elifnctx LFRAME
  %fatal Must use lframe first
 %endif
@@ -259,11 +260,40 @@ __lvar_define_var %2, %$ofs
 		; The code created by this does not change any flags, as it
 		;  uses either (one or two) "push ax" or "lea sp, [bp - x]"
 		;  or "enter x, 0" to reserve the stack space.
-%imacro lenter 0.nolist
-%ifnctx LFRAME
+		;
+		; "lenter early" can be used to write only the initial
+		;  "push bp" \ "mov bp, sp" sequence. Then variables are
+		;  defined with lvar as usual. However, these variables
+		;  can *optionally* be initialised by pushing into them
+		;  (similarly to lvar variables defined after lenter).
+		; Finally, a "lenter" acts as the default lenter does,
+		;  and reserves stack space for all yet defined lvar
+		;  variables. This is always done using "lea sp, [bp - x]"
+		;  so it doesn't matter how many of the variables were
+		;  already initialised by pushing into them.
+%imacro lenter 0-1.nolist
+%ifctx LENTEREARLY
+%elifnctx LFRAME
  %fatal Must use lframe first
 %endif
-%repl LENTER
+%ifidni %1,early
+ %ifctx LENTEREARLY
+  %fatal Cannot use lenter early twice
+ %endif
+ %repl LENTEREARLY
+ %assign %$req 1
+ %assign %$early 1
+ %assign %$wasearly 0
+%elifempty %1
+ %assign %$wasearly 0
+ %ifctx LENTEREARLY
+  %assign %$wasearly 1
+ %endif
+ %assign %$early 0
+ %repl LENTER
+%else
+ %fatal Invalid parameter: %1
+%endif
 %assign %$lsizevariables (-%$ofs+1)&~1
 %ifn %$usereq
  %assign %$req 1
@@ -272,7 +302,8 @@ __lvar_define_var %2, %$ofs
 %if %$req
  %assign %$enter 1
  %assign %$186 0
- %if __lframe__override_force_8086
+ %if %$early || %$wasearly
+ %elif __lframe__override_force_8086
  %elif __lframe__force_186
   %assign %$186 1
  %elif __lframe__use_186_def
@@ -286,93 +317,115 @@ __lvar_define_var %2, %$ofs
  %fatal BITS of lframe (%$bits) differs from current: __BITS__
 %endif
 %if %$bits == 16
-__lvar_define_var frame_bp, 0
+%ifn %$wasearly
+ __lvar_define_var frame_bp, 0
  %ifidni %$autoret, near
-__lvar_define_var frame_ip, 2
+  __lvar_define_var frame_ip, 2
  %elifidni %$autoret, far
-__lvar_define_var frame_ip, 2
-__lvar_define_var frame_cs, 4
+  __lvar_define_var frame_ip, 2
+  __lvar_define_var frame_cs, 4
  %elifidni %$autoret, int
-__lvar_define_var frame_ip, 2
-__lvar_define_var frame_cs, 4
-__lvar_define_var frame_fl, 6
+  __lvar_define_var frame_ip, 2
+  __lvar_define_var frame_cs, 4
+  __lvar_define_var frame_fl, 6
  %endif
+%endif
  %ifn %$enter_emitted
+  %ifn %$wasearly
 	push bp
 	mov bp, sp
-  %if %$ofs
-   %if %$lsizevariables == 2
+  %endif
+  %ifn %$early
+   %if %$ofs
+    %if %$wasearly == 0 && %$lsizevariables == 2
 	push ax
-   %elif %$lsizevariables == 4
+    %elif %$wasearly == 0 && %$lsizevariables == 4
 	push ax
 	push ax
-   %else
+    %else
 	lea sp, [bp - %$lsizevariables]
+    %endif
    %endif
   %endif
  %endif
 %elif %$bits == 32
-__lvar_define_var frame_ebp, 0
+%ifn %$wasearly
+ __lvar_define_var frame_ebp, 0
  %ifidni %$autoret, near
-__lvar_define_var frame_eip, 4
+  __lvar_define_var frame_eip, 4
  %elifidni %$autoret, far
-__lvar_define_var frame_eip, 4
-__lvar_define_var frame_cs, 8
+  __lvar_define_var frame_eip, 4
+  __lvar_define_var frame_cs, 8
  %elifidni %$autoret, int
-__lvar_define_var frame_eip, 4
-__lvar_define_var frame_cs, 8
-__lvar_define_var frame_efl, 12
+  __lvar_define_var frame_eip, 4
+  __lvar_define_var frame_cs, 8
+  __lvar_define_var frame_efl, 12
  %endif
+%endif
  %ifn %$enter_emitted
+  %ifn %$wasearly
 	push ebp
 	mov ebp, esp
-  %if %$ofs
-   %if %$lsizevariables == 2
+  %endif
+  %ifn %$early
+   %if %$ofs
+    %if %$wasearly == 0 && %$lsizevariables == 2
 	push ax
-   %elif %$lsizevariables == 4
+    %elif %$wasearly == 0 && %$lsizevariables == 4
 	push eax
-   %elif %$lsizevariables == 8
+    %elif %$wasearly == 0 && %$lsizevariables == 8
 	push eax
 	push eax
-   %else
+    %else
 	lea esp, [ebp - %$lsizevariables]
+    %endif
    %endif
   %endif
  %endif
 %elif %$bits == 64
-__lvar_define_var frame_rbp, 0
+%ifn %$wasearly
+ __lvar_define_var frame_rbp, 0
  %ifidni %$autoret, near
-__lvar_define_var frame_rip, 8
+  __lvar_define_var frame_rip, 8
  %elifidni %$autoret, far
-__lvar_define_var frame_rip, 8
-__lvar_define_var frame_cs, 16
+  __lvar_define_var frame_rip, 8
+  __lvar_define_var frame_cs, 16
  %elifidni %$autoret, int
-__lvar_define_var frame_rip, 8
-__lvar_define_var frame_cs, 16
-__lvar_define_var frame_rfl, 24
+  __lvar_define_var frame_rip, 8
+  __lvar_define_var frame_cs, 16
+  __lvar_define_var frame_rfl, 24
  %endif
+%endif
  %ifn %$enter_emitted
+  %ifn %$wasearly
 	push rbp
 	mov rbp, rsp
-  %if %$ofs
-   %if %$lsizevariables == 2
+  %endif
+  %ifn %$early
+   %if %$ofs
+    %if %$wasearly == 0 && %$lsizevariables == 2
 	push ax
-   %elif %$lsizevariables == 4
+    %elif %$wasearly == 0 && %$lsizevariables == 4
 	push eax
-   %elif %$lsizevariables == 8
+    %elif %$wasearly == 0 && %$lsizevariables == 8
 	push rax
-   %else
+    %else
 	lea rsp, [rbp - %$lsizevariables]
+    %endif
    %endif
   %endif
  %endif
 %else
  %fatal Unknown BITS specified: %$bits
 %endif
-._%$lenter:
+%ifn %$wasearly
+ ._%$lenter:
 %endif
-%assign %$lsizeparameters (%$pars_size+1)&~1
-__lenter_parse_parlist %$parlist
+%endif
+%ifn %$wasearly
+ %assign %$lsizeparameters (%$pars_size+1)&~1
+ __lenter_parse_parlist %$parlist
+%endif
 %endmacro
 
 %macro __lenter_parse_parlist 0-*.nolist
