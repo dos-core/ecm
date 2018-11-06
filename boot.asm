@@ -1118,7 +1118,7 @@ read_sector:
 	pop cx
 	pop cx
  %endif
-%endif	
+%endif
 
 %if !_LBA
 .cy_err:	equ .err
