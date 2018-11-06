@@ -513,7 +513,9 @@ blzhDecompressedCRC:	resd 1
 depack:
 	lframe near
 %if _IMAGE_EXE
+	lenter early
 	lvar word,	exemode		; must be bp - 2!
+	 push bx
  %if ?exemode != -2
   %error exemode variable must be directly below bp
  %endif
@@ -531,9 +533,6 @@ depack:
 	lvar word,	errordata
 %endif
 	lenter
-%if _IMAGE_EXE
-	mov word [bp + ?exemode], bx
-%endif
 	lvar dword,	src
 	 push ds
 	 push si
