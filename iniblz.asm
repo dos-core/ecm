@@ -308,7 +308,10 @@ init1_start:
 	lframe
 	lenter
 	lvar	word, exemode
-	push bx
+	 push bx
+ %if ?exemode != -2
+  %error exemode variable must be directly below bp
+ %endif
 	mov bx, -1		; unimplemented, return error
 	jmp error
 	lleave ctx
