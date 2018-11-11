@@ -328,10 +328,16 @@ init1_start:
 	push cx			; put zero on top of stack
 
 	mov cx, _IMAGE_EXE_IP
+%if _IMAGE_EXE_CS == -16
+	add si, -16
+	mov ds, si
+	mov es, si
+%else
 	lea dx, [si - 10h]	; => PSP
 	mov ds, dx
 	mov es, dx		; ds = es => PSP
 	add si, _IMAGE_EXE_CS	; = relocated cs value
+%endif
 	push si
 	push cx
 	retf			; jump to EXE mode of image
