@@ -235,18 +235,20 @@ payload_end:
 
 	section INIT1 align=16 follows=PAYLOAD vstart=0
 init1_start:
-		; INP:	ss:bp -> LOADDATA and LOADSTACKVARS
-		;	ss:sp -> valid stack above [bp + ldLoadTop]
-		;	ax = cs = INIT1
+		; INP:	ax = cs = INIT1
 		;	dx = cs - (payload_end - payload) >> 4 => source data
+		;	if not _IMAGE_EXE, or if kernel mode:
+		;	 ss:bp -> LOADDATA and LOADSTACKVARS
+		;	 ss:sp -> valid stack above [bp + ldLoadTop]
 		;	60h => destination
-		;	if _IMAGE_EXE:
-		;	 ss:sp -> valid stack above segment dx
-		;	 bp = unset
+		;	if _IMAGE_EXE, either mode:
 		;	 word [ss:sp] = value for ax
 		;	 bx = 1 if EXE mode, 0 if kernel mode
 		;	 si => destination (60h for kernel mode,
 		;				after PSP for EXE mode)
+		;	 if EXE mode:
+		;	  ss:sp -> valid stack above INIT1
+		;	  bp = unset
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
 %if _IMAGE_EXE
 	lframe
