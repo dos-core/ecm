@@ -140,8 +140,8 @@ init0_common:
 
 		; Move paragraphs
 		;
-		; INP:	ax:0-> source
-		;	dx:0-> destination
+		; INP:	ax => source
+		;	dx => destination
 		;	cx = number of paragraphs
 		; CHG:	cx, ds, si, es, di
 		; OUT:	NC, ax and dx unchanged
