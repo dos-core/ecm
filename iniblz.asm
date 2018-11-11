@@ -240,7 +240,7 @@ init1_start:
 		;	if not _IMAGE_EXE, or if kernel mode:
 		;	 ss:bp -> LOADDATA and LOADSTACKVARS
 		;	 ss:sp -> valid stack above [bp + ldLoadTop]
-		;	60h => destination
+		;	 60h => destination
 		;	if _IMAGE_EXE, either mode:
 		;	 word [ss:sp] = value for ax
 		;	 bx = 1 if EXE mode, 0 if kernel mode
