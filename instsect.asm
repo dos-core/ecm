@@ -378,14 +378,19 @@ NUM_REPLACEMENTS equ 4
 	je @B
 	cmp al, 9
 	je @B
+	 cmp al, '='
+	 je @FF
 	 cmp al, ':'
-	 je @F
+	 je @FF
 	cmp al, '1'
 	jb .error
 	cmp al, '1' - 1 + NUM_REPLACEMENTS	; '4'
 	ja .error
+	cmp byte [si], '='
+	je @F
 	cmp byte [si], ':'
 	jne .error
+@@:
 	inc si			; -> behind the colon
 	sub al, '1'		; 0 to 3 inclusive
 	mov ah, 12
