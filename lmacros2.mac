@@ -232,7 +232,7 @@ __lvar_list_label %2
 %ifndef %$parofs
  %fatal Specified no frame type with lframe
 %endif
-%ifidn %$labellist, empty,empty,empty
+%ifempty %$parlist
  %fatal Specified no parameters with lpar
 %endif
 %ifn %$pars_size
