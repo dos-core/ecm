@@ -211,11 +211,7 @@ __lvar_define_var %2, %$ofs
 %else
  %fatal Invalid type specified: %1
 %endif
-%ifempty %$labellist
- %xdefine %$labellist %2
-%else
- %xdefine %$labellist %$labellist,%2
-%endif
+__lvar_list_label %2
 %assign %$pars_size %$pars_size+%$varsize
 %ifempty %$parlist
  %xdefine %$parlist %$varsize,%2
