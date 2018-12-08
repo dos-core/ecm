@@ -573,21 +573,21 @@ __lvar_list_label %2
   %if %$ofs
 	mov sp, bp
   %elifidni %2,forcerestoresp
- 	mov sp, bp
+	mov sp, bp
   %endif
 	pop bp
 %elif %$bits == 32
   %if %$ofs
 	mov esp, ebp
   %elifidni %2,forcerestoresp
- 	mov esp, ebp
+	mov esp, ebp
   %endif
 	pop ebp
 %elif %$bits == 64
   %if %$ofs
 	mov rsp, rbp
   %elifidni %2,forcerestoresp
- 	mov rsp, rbp
+	mov rsp, rbp
   %endif
 	pop rbp
 %else
