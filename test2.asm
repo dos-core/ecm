@@ -16,6 +16,7 @@
 	pop bx
 	call fun4
 	call fun5
+	call fun6
 
 	mov ax, 4C00h
 	int 21h
@@ -88,3 +89,24 @@ fun5:
 	lleave
 	lret
 
+fun6:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+
+	mov word [bp + ?foo], ax
+
+	lframe
+	lvar word, qux
+	lvar word, foo
+	lenter
+
+	mov word [bp + ?foo], bx
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
