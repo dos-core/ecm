@@ -126,12 +126,16 @@ Intended for 86 Mode programs.
 %assign %$req 1
 %endmacro
 
-%macro __lvar_define_var 2.nolist
+%macro __lvar_list_label 1.nolist
 %ifempty %$labellist
  %xdefine %$labellist %1
 %else
  %xdefine %$labellist %$labellist,%1
 %endif
+%endmacro
+
+%macro __lvar_define_var 2.nolist
+__lvar_list_label %1
 %assign ?%1 %2
 ._%$lframe_?%1: equ %2
 %endmacro
