@@ -124,7 +124,21 @@ Intended for 86 Mode programs.
 %assign %$req 1
 %endmacro
 
+%macro __lvar_check_duplicate_label 3-*.nolist
+%if %0 % 3
+ %fatal Expected number of parameters that is a multiple of three
+%endif
+%rep (%0 / 3) - 1
+ %ifidn %1, %$newlabel
+  %fatal Duplicate label: %1
+ %endif
+ %rotate 3
+%endrep
+%endmacro
+
 %macro __lvar_list_label 1.nolist
+%define %$newlabel %1
+__lvar_check_duplicate_label %$labellist
 %ifdef ?%1
  %xdefine %$labellist %1,defined,?%1,%$labellist
 %else
