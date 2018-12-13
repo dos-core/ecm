@@ -1340,10 +1340,55 @@ depack:
   %error exemode variable must be directly below bp
  %endif
 %endif
+	lvar dword,	length_of_destination
 %if _DEBUG0
 	lvar word,	errordata
 %endif
 	lenter
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	dst
+	 push es
+	 push di
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+
+
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if 0 && _ALLOW_OVERLAPPING
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+
+	mov word [bp + ?length_of_destination], cx
+	mov word [bp + ?length_of_destination + 2], bx
+
 
 	lleave
 	lret
