@@ -478,7 +478,7 @@ msg:
 
  BriefLZ - small fast Lempel-Ziv
 
- 8086 Assembly lDOS iniload payload depacker
+ 8086 Assembly lDOS iniload payload BriefLZ depacker
 
  Based on: BriefLZ C safe depacker
 
@@ -1300,8 +1300,35 @@ func_bx_with_normalised_pointers:
 
 
 %if _LZ4
+
+%if 0
+
+8086 Assembly lDOS iniload payload LZ4 depacker
+ by C. Masloch, 2018
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
 %endif
 
+%endif
+
+
+%if 0
+
+lDOS iniload payload depacker support functions
+ by C. Masloch, 2018
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
 
 		; INP:	word [ss:sp + 2] = segment
 		;	word [ss:sp] = offset
