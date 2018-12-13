@@ -54,7 +54,6 @@ ldLoadUntilSeg:	resw 1
 	numdef OPTIMISE_MOVP_DN_ONLY,	1	; init0_movp always moves DN
 	numdef ALLOW_OVERLAPPING,	1	; allow overlapping src and dst
 
-	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	numdef IMAGE_EXE,	0
@@ -68,6 +67,17 @@ ldLoadUntilSeg:	resw 1
 		;  the same name. This one is only used as a flag; if non-zero,
 		;  keep the stack given to us by iniload; if zero, set up the
 		;  stack specified by _IMAGE_EXE_SS and _IMAGE_EXE_SP.
+
+	numdef BRIEFLZ,		1
+	numdef LZ4,		0
+%if (!!_BRIEFLZ + !!_LZ4) != 1
+ %error Exactly one compression method must be selected.
+%endif
+%if _BRIEFLZ
+	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
+%elif _LZ4
+	strdef PAYLOAD_FILE,	"lDOSLOAD.LZ4"
+%endif
 
 
 	cpu 8086
@@ -446,6 +456,7 @@ msg:
 %else
 .error:		db "Load error: Decompression failure.",13,10,0
 %endif
+%if _BRIEFLZ
 %if  _DEBUG1 || _DEBUG2 || _DEBUG3
 .dstavaileq:	asciz "iniblz: dst_avail="
 .dstsizeeq:	asciz "h dst_size="
@@ -1285,6 +1296,11 @@ func_bx_with_normalised_pointers:
 
 
 	lleave ctx
+%endif
+
+
+%if _LZ4
+%endif
 
 
 		; INP:	word [ss:sp + 2] = segment
