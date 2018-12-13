@@ -1314,6 +1314,40 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		;	 (if _DEBUG1) dump_stack_frame called at end
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The pointers have to be already normalised.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _IMAGE_EXE
+	lenter early
+	lvar word,	exemode		; must be bp - 2!
+	 push bx
+ %if ?exemode != -2
+  %error exemode variable must be directly below bp
+ %endif
+%endif
+%if _DEBUG0
+	lvar word,	errordata
+%endif
+	lenter
+
+	lleave
+	lret
+
 %endif
 
 
