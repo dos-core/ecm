@@ -240,6 +240,15 @@ payload:
 	incbin _PAYLOAD_FILE
 .end:
 	align 16, db 38
+
+	numdef INCLUDE_UNCOMPRESSED
+	strdef UNCOMPRESSED_FILE, "lDOSLOAD.BIN"
+%if _INCLUDE_UNCOMPRESSED
+payload_uncompressed:
+	incbin _UNCOMPRESSED_FILE
+	align 16, db 38
+%endif
+
 payload_end:
 
 
