@@ -1672,8 +1672,8 @@ depack:
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
 	call normalise_pointer_with_displacement_bxcx
-	 pop ds
-	 pop si				; ds:si -> source of matching
+	 pop si
+	 pop ds				; ds:si -> source of matching
 
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax
