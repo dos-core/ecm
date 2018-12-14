@@ -77,6 +77,10 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 %elif _LZ4
 	strdef PAYLOAD_FILE,	"lDOSLOAD.LZ4"
+	numdef COUNTER,		0, 32
+ %if (_COUNTER - 1) & _COUNTER
+  %error COUNTER must be a power of two
+ %endif
 %endif
 
 
@@ -1313,7 +1317,7 @@ lz4_bd_reserved_mask:	equ 1000_1111b
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-%if _IMAGE_EXE || _DEBUG0
+%if _IMAGE_EXE || _DEBUG0 || _COUNTER
 	lenter early
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
@@ -1322,15 +1326,20 @@ depack:
    %error exemode variable must be directly below bp
   %endif
  %endif
- %if _DEBUG0
+ %if _DEBUG0 || _COUNTER
 	xor bx, bx
+ %endif
+ %if _DEBUG0
 	lvar word,	errordata
 	 push bx
  %endif
 %endif
+	lvar word,	token_and_counter
+%if _COUNTER
+	 push bx		; initialise counter (high byte) to zero
+%endif
 	lvar dword,	src_behind_block
 	lvar word,	frame_descriptor_flg_and_bd
-	lvar word,	token
 	lenter
 
 	call normalise_both_pointers
@@ -1408,6 +1417,14 @@ depack:
 .error:
 	stc
 
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
 %if _DEBUG0
 	mov bx, word [bp + ?errordata]
 %endif
@@ -1509,6 +1526,10 @@ depack:
 	jc .error_CY_1
 
 .loop_block:
+%if _COUNTER
+	mov al, '#'
+	call disp_al
+%endif
 	mov cx, 4
 	call read_le_data_src		; read block size field
 					; leaves ds:si -> source
@@ -1603,13 +1624,23 @@ depack:
 
 .compressed:
 .loop_sequence:
+
+%if _COUNTER
+	inc byte [bp + ?token_and_counter + 1]
+	test byte [bp + ?token_and_counter + 1], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al
+@@:
+%endif
+
 	mov bx, .lodsb
 	call lz4_func_bx_with_src	; load token
 %if _DEBUG0
 	mov byte [bp + ?errordata], 11h
 %endif
 	jc .error_CY_3
-	mov byte [bp + ?token], al
+	mov byte [bp + ?token_and_counter], al
 
 	mov cl, 4
 	shr al, cl
@@ -1671,7 +1702,7 @@ depack:
 	ja .error_A_1			; no, ?original_dst is above it -->
 @@:
 
-	mov al, byte [bp + ?token]
+	mov al, byte [bp + ?token_and_counter]
 	and al, 0Fh			; get match length from token
 	call lz4_get_length		; dx:cx = length of match - 4
 %if _DEBUG0
