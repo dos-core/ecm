@@ -2077,6 +2077,18 @@ normalise_pointer_with_displacement_bxcx:
 	adc dx, bx			; dx:ax += bx:cx
 	; pop bx
 
+%if 0
+		; Adds in HMA support for this function. Not currently used.
+	cmp dx, 10h			; dx:ax >= 10_0000h ?
+	jb @F				; no, linear-to-pointer normally -->
+
+	add ax, 10h
+	mov word [bp + ?offset], ax
+	or word [bp + ?segment], -1
+	jmp .return
+@@:
+%endif
+
 	push ax
 	and ax, 15
 	mov word [bp + ?offset], ax
@@ -2088,6 +2100,7 @@ normalise_pointer_with_displacement_bxcx:
 %endrep
 	mov word [bp + ?segment], ax
 
+.return:
 	pop dx
 	pop ax
 	lleave
