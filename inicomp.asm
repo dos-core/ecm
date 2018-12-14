@@ -1910,7 +1910,11 @@ lz4_func_bx_with_src:
 		;	?src incremented
 		;	CY if error (too high or out of source data)
 		;	NC if success
+		; CHG:	ax, bx
 lz4_get_length:
+	push ds
+	push si
+
 	xor cx, cx
 	xor dx, dx			; dx:cx = length field
 	mov ah, 15			; first byte maximum value
@@ -1931,6 +1935,9 @@ lz4_get_length:
 	db __TEST_IMM8			; (NC)
 .error:
 	stc
+
+	pop si
+	pop ds
 	retn
 
 
