@@ -1742,7 +1742,10 @@ depack:
 		; INP:	?src_behind_block -> block end (normalised)
 		;	?src -> current address in source buffer
 		; OUT:	CY if ?src is >= (above-or-equal) ?src_behind_block
-		;	NC else
+		;	NC else (?src is below ?src_behind_block, more data)
+		;
+		; Note:	Although ?src should always equal ?src_behind_block
+		;	 if CY here, we actually check for above-or-equal.
 lz4_check_behind_block_higher_than_src:
 	push dx
 	push ax
