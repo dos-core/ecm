@@ -553,7 +553,6 @@ depack:
 	lvar dword,	dst_size
 	lvar dword,	src_avail
 	lvar dword,	depacked_size
-	lvar dword,	length_of_destination
 	lvar dword,	len
 	lvar dword,	off
 	lvar word,	tag
@@ -606,8 +605,9 @@ depack:
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
 
-	mov word [bp + ?length_of_destination], cx
-	mov word [bp + ?length_of_destination + 2], bx
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
 
 
 .loop:
@@ -1360,7 +1360,6 @@ depack:
 	 push bx
  %endif
 %endif
-	lvar dword,	length_of_destination
 	lvar dword,	src_behind_block
 	lvar word,	frame_descriptor_flg_and_bd
 	lvar word,	token
@@ -1412,8 +1411,9 @@ depack:
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
 
-	mov word [bp + ?length_of_destination], cx
-	mov word [bp + ?length_of_destination + 2], bx
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
 
 
 .loop_frame:
