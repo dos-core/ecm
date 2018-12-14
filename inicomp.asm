@@ -1643,7 +1643,8 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 21
 %endif
-	jz .error			; yes, error -->
+	stc
+	jz .error_CY_4			; yes, error -->
 
 	mov cx, ax
 	neg cx				; -1 .. -65535
