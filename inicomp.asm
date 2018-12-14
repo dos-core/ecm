@@ -1686,11 +1686,12 @@ depack:
 %endif
 	jc .error_CY_4
 	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
+		; returns: ?dst incremented, ds:si -> after match source
 %if _DEBUG0
 	mov byte [bp + ?errordata], 26
 %endif
 	jc .error_CY_4
-		; returns: ?dst incremented, ds:si -> after match source
+
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 %if _DEBUG0
