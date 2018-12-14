@@ -1587,28 +1587,26 @@ depack:
 	jc .error
 @@:
 
-	push word [bp + ?src_behind_block + 2]
-	push word [bp + ?src_behind_block]
+	 push word [bp + ?src_behind_block + 2]
+	 push word [bp + ?src_behind_block]
 	call pointer_to_linear
-	pop ax
-	pop dx				; dx:ax = linear ?src_behind_block
+	mov cx, ax
+	mov bx, dx			; bx:cx = linear ?src_behind_block
 
-	push word [bp + ?src + 2]
-	push word [bp + ?src]
-	call pointer_to_linear
-	pop cx
-	pop bx				; bx:cx = linear ?src
+	 push word [bp + ?src + 2]
+	 push word [bp + ?src]
+	call pointer_to_linear		; dx:ax = linear ?src
 
-	sub ax, cx
-	sbb dx, bx			; ?src_behind_block - ?src
+	sub cx, ax
+	sbb bx, dx			; ?src_behind_block - ?src
 					;  = amount to skip
 %if _DEBUG0
 	mov byte [bp + ?errordata], 15
 %endif
 	jc .error
 
-	sub word [bp + ?length_of_source], ax
-	sbb word [bp + ?length_of_source + 2], dx
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], bx
 %if _DEBUG0
 	mov byte [bp + ?errordata], 16
 %endif
