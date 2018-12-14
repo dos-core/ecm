@@ -537,10 +537,8 @@ blzhDecompressedCRC:	resd 1
 		; STT:	UP
 		;
 		; Note:	The destination reaches up to below the source.
-		; Note:	The pointers have to be already normalised.
+		; Note:	The input pointers need not be normalised yet.
 		;	 Normalised means that the offset part is below 16.
-		;	 Actually, offsets of up to 0FFFBh may work, but
-		;	 notionally the pointer should be already normalised.
 depack:
 	lframe near
 %if _IMAGE_EXE
@@ -564,6 +562,9 @@ depack:
 	lvar word,	errordata
 %endif
 	lenter
+
+	call normalise_both_pointers
+
 	lvar dword,	src
 	 push ds
 	 push si
@@ -1340,7 +1341,7 @@ lz4_bd_reserved_mask:	equ 1000_1111b
 		; STT:	UP
 		;
 		; Note:	The destination reaches up to below the source.
-		; Note:	The pointers have to be already normalised.
+		; Note:	The input pointers need not be normalised yet.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
