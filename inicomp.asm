@@ -68,7 +68,7 @@ ldLoadUntilSeg:	resw 1
 		;  keep the stack given to us by iniload; if zero, set up the
 		;  stack specified by _IMAGE_EXE_SS and _IMAGE_EXE_SP.
 
-	numdef BRIEFLZ,		1
+	numdef BRIEFLZ,		0
 	numdef LZ4,		0
 %if (!!_BRIEFLZ + !!_LZ4) != 1
  %error Exactly one compression method must be selected.
