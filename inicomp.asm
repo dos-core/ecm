@@ -1913,13 +1913,23 @@ lz4_get_length:
 
 		; INP:	?src -> source data (normalised)
 		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
-		; OUT:	dx:ax = value read as little-endian
-		;	 (either a dword, 3byte, word, or byte)
+		; OUT:	If cx >= 4,
+		;	 dx:ax = value read as little-endian
+		;	If cx == 3,
+		;	 dl:ax = value read
+		;	If cx == 2,
+		;	 ax = value read
+		;	If cx == 1,
+		;	 al = value read
+		;	If cx == 0,
+		;	 invalid, CY
 		;	ds:si = ?src = incremented source (normalised)
-		;	CY if error (source buffer too small)
+		;	CY if error (source buffer too small, or cx zero)
 		;	NC if success
 		; CHG:	ds, si
 read_le_data_src:
+	jcxz .error
+
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
@@ -1930,19 +1940,6 @@ read_le_data_src:
 	xchg ax, dx		; dx = low word (first)
 	lodsw			; ax = high word (second)
 	xchg ax, dx		; fix order, dx:ax = dword
-
-	cmp cx, 4
-	jae @F
-	xor dh, dh
-	cmp cx, 3
-	je @F
-	xor dl, dl
-	cmp cx, 2
-	je @F
-	xor ah, ah
-	cmp cx, 1
-	jb .error
-@@:
 
 	sub si, 4
 	add si, cx
