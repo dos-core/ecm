@@ -2012,6 +2012,11 @@ pointer_to_linear:
 init1_end:
 
 %assign num (init1_end - init1_start) + (init0_end - init0_start)
-%warning inicomp: num bytes used for depacker
+%if _BRIEFLZ
+%define which iniblz
+%elif _LZ4
+%define which inilz4
+%endif
+%warning which: num bytes used for depacker
 
 
