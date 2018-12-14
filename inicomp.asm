@@ -1469,6 +1469,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 6
 %endif
+.error_CY_1:
 	jc .error
 
 	mov word [bp + ?frame_descriptor_flg_and_bd], ax
@@ -1478,6 +1479,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 7
 %endif
+.error_NZ_1:
 	jne .error			; no -->
 
 	test ax, (lz4_bd_reserved_mask << 8) \
@@ -1485,7 +1487,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 8
 %endif
-	jnz .error 			; yes -->
+	jnz .error_NZ_1			; yes -->
 
 		; not checked: lz4_flg_b_indep (linked is always supported),
 		;  lz4_flg_b_checksum, lz4_flg_c_checksum (both checked later)
@@ -1497,14 +1499,14 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 9
 %endif
-	jc .error
+	jc .error_CY_1
 @@:
 	mov cl, 1
 	call read_le_data_src		; (skip header checksum field)
 %if _DEBUG0
 	mov byte [bp + ?errordata], 10
 %endif
-	jc .error
+	jc .error_CY_1
 
 .loop_block:
 	mov cx, 4
@@ -1513,7 +1515,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 11
 %endif
-	jc .error
+	jc .error_CY_1
 
 	test dx, dx			; nonzero ?
 	jnz @FF
@@ -1527,7 +1529,8 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 12
 %endif
-	jc .error
+.error_CY_2:
+	jc .error_CY_1
 @@:
 	jmp .loop_frame			; next frame, if any -->
 
@@ -1551,7 +1554,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 13
 %endif
-	jc .error
+	jc .error_CY_2
 
 .end_block:
 	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_b_checksum
@@ -1561,7 +1564,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 14
 %endif
-	jc .error
+	jc .error_CY_2
 @@:
 
 	 push word [bp + ?src_behind_block + 2]
@@ -1580,14 +1583,15 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 15
 %endif
-	jc .error
+	jc .error_CY_2
 
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], bx
 %if _DEBUG0
 	mov byte [bp + ?errordata], 16
 %endif
-	jc .error			; not enough data to skip -->
+.error_CY_3:
+	jc .error_CY_2			; not enough data to skip -->
 
 	push word [bp + ?src_behind_block + 2]
 	push word [bp + ?src_behind_block]
@@ -1604,7 +1608,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 17
 %endif
-	jc .error
+	jc .error_CY_3
 	mov byte [bp + ?token], al
 
 	mov cl, 4
@@ -1613,7 +1617,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 18
 %endif
-	jc .error
+	jc .error_CY_3
 
 	mov ax, cx			; dx:ax = lenght of literals (may be 0)
 	call lz4_copy_literal_or_uncompressed
@@ -1621,7 +1625,7 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 19
 %endif
-	jc .error
+	jc .error_CY_3
 
 	call lz4_check_behind_block_higher_than_src
 					; do we have more data in this block ?
@@ -1632,7 +1636,8 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 20
 %endif
-	jc .error
+.error_CY_4:
+	jc .error_CY_3
 
 	test ax, ax			; offset is 0 ?
 %if _DEBUG0
@@ -1655,13 +1660,14 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 22
 %endif
+.error_A_1:
 	ja .error
 	jb @F
 	cmp word [bp + ?original_dst], si
 %if _DEBUG0
 	mov byte [bp + ?errordata], 23
 %endif
-	ja .error			; no, ?original_dst is above it -->
+	ja .error_A_1			; no, ?original_dst is above it -->
 @@:
 
 	mov al, byte [bp + ?token]
@@ -1670,26 +1676,26 @@ depack:
 %if _DEBUG0
 	mov byte [bp + ?errordata], 24
 %endif
-	jc .error
+	jc .error_CY_4
 	mov ax, cx			; dx:ax = length of match - 4
 	add ax, 4
 	adc dx, 0			; dx:ax = length of match
 %if _DEBUG0
 	mov byte [bp + ?errordata], 25
 %endif
-	jc .error
+	jc .error_CY_4
 	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
 %if _DEBUG0
 	mov byte [bp + ?errordata], 26
 %endif
-	jc .error
+	jc .error_CY_4
 		; returns: ?dst incremented, ds:si -> after match source
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 %if _DEBUG0
 	mov byte [bp + ?errordata], 28
 %endif
-	jc .error
+	jc .error_CY_4
 %endif
 
 .next_sequence:
