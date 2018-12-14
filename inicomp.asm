@@ -1239,35 +1239,6 @@ blz_depack_safe:
 	retn
 
 
-%if _ALLOW_OVERLAPPING
-		; INP:	?src, ?dst
-		; OUT:	CY if error
-		;	NC if success
-		; CHG:	ax, bx, cx, dx
-check_pointers_not_overlapping:
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
-	call pointer_to_linear
-
-	xchg cx, ax
-	xchg bx, dx			; bx:cx = linear ?dst after write
-
-	 push word [bp + ?src + 2]
-	 push word [bp + ?src]
-	call pointer_to_linear		; dx:ax = linear ?src before next read
-
-	cmp dx, bx			; ?src >= ?dst ?
-	ja @F
-	jb .ret				; (CY)
-	cmp ax, cx
-	; jb .ret			; (CY)
-					; (NC) yes, no error
-@@:
-.ret:
-	retn
-%endif
-
-
 		; INP:	?dst -> destination
 		;	?src -> source
 		;	bx = function to call with pointers
@@ -1293,9 +1264,6 @@ func_bx_with_normalised_pointers:
 	 pop word [bp + ?dst + 2]
 
 	retn
-
-
-	lleave ctx
 %endif
 
 
@@ -1965,10 +1933,6 @@ read_le_data_src:
 .error:
 	stc
 	retn
-
-
-	lleave ctx
-
 %endif
 
 
@@ -1984,6 +1948,37 @@ that uses the works is notified of this instrument.
 DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
+
+
+%if _ALLOW_OVERLAPPING
+		; INP:	?src, ?dst
+		; OUT:	CY if error
+		;	NC if success
+		; CHG:	ax, bx, cx, dx
+check_pointers_not_overlapping:
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx			; bx:cx = linear ?dst after write
+
+	 push word [bp + ?src + 2]
+	 push word [bp + ?src]
+	call pointer_to_linear		; dx:ax = linear ?src before next read
+
+	cmp dx, bx			; ?src >= ?dst ?
+	ja @F
+	jb .ret				; (CY)
+	cmp ax, cx
+	; jb .ret			; (CY)
+					; (NC) yes, no error
+@@:
+.ret:
+	retn
+%endif
+
+	lleave ctx
 
 
 		; INP:	ds:si = pointer
