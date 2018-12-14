@@ -1360,7 +1360,7 @@ depack:
 	 push di
 	call pointer_to_linear
 
-%if 0 && _ALLOW_OVERLAPPING
+%if _ALLOW_OVERLAPPING
 	add cx, word [bp + ?length_of_source]
 	adc bx, word [bp + ?length_of_source + 2]
 		; In case of allowing overlapping source and destination,
@@ -1383,6 +1383,18 @@ depack:
 	 push bx		; push into [bp + ?length_of_destination + 2]
 	 push cx		; push into [bp + ?length_of_destination]
 
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+%if _DEBUG0
+	mov byte [bp + ?errordata], 27
+%endif
+	jc .error
+%endif
 
 .loop_frame:
 	xor cx, cx
@@ -1675,6 +1687,13 @@ depack:
 %endif
 	jc .error
 		; returns: ?dst incremented, ds:si -> after match source
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+%if _DEBUG0
+	mov byte [bp + ?errordata], 28
+%endif
+	jc .error
+%endif
 
 .next_sequence:
 	call lz4_check_behind_block_higher_than_src

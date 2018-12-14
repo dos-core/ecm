@@ -46,7 +46,6 @@ Currently, the system must have enough memory to hold all of the following:
 Note:	The compressed image and decompressed image may now overlap.
 	 To succeed, the write pointer has to stay below-or-equal the
 	 read pointer. Otherwise the decompression errors out.
-	 (Overlap is not yet supported by the LZ4 depacker.)
 
 
 Possibilities:
