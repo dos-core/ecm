@@ -1734,10 +1734,9 @@ depack:
 	retn
 
 
-		; INP:	dword [ss:sp] = far address of block end (normalised)
+		; INP:	?src_behind_block -> block end (normalised)
 		;	?src -> current address in source buffer
-		; OUT:	dword [ss:sp] preserved
-		;	CY if ?src is >= (above-or-equal) the stack dword
+		; OUT:	CY if ?src is >= (above-or-equal) ?src_behind_block
 		;	NC else
 lz4_check_behind_block_higher_than_src:
 	push dx
