@@ -1198,17 +1198,7 @@ blz_depack_safe:
 
 	rep movsb			; move one block (full or partial)
 
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
-
-	 push es
-	 push di
-	call normalise_pointer
-	 pop di
-	 pop es
+	call normalise_both_pointers
 
 	jmp .loop_copy_match
 
@@ -1868,21 +1858,6 @@ lz4_copy_data:
 	retn
 
 
-normalise_both_pointers:
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
-
-	 push es
-	 push di
-	call normalise_pointer
-	 pop di
-	 pop es
-	retn
-
-
 		; INP:	?src -> source data
 		;	bx = function to call
 		; OUT:	ds:si = ?src -> behind data (normalised)
@@ -2008,6 +1983,26 @@ that uses the works is notified of this instrument.
 DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
+
+
+		; INP:	ds:si = pointer
+		;	es:di = pointer
+		; OUT:	ds:si normalised
+		;	es:di normalised
+normalise_both_pointers:
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop si
+	 pop ds
+
+	 push es
+	 push di
+	call normalise_pointer
+	 pop di
+	 pop es
+	retn
+
 
 		; INP:	word [ss:sp + 2] = segment
 		;	word [ss:sp] = offset
