@@ -1315,6 +1315,19 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+lz4_flg_version_mask:	equ 1100_0000b
+lz4_flg_version:	equ 0100_0000b
+lz4_flg_b_indep:	equ 0010_0000b
+lz4_flg_b_checksum:	equ 0001_0000b
+lz4_flg_c_size:		equ 0000_1000b
+lz4_flg_c_checksum:	equ 0000_0100b
+lz4_flg_reserved:	equ 0000_0010b
+lz4_flg_dict_id:	equ 0000_0001b
+
+lz4_bd_reserved_mask:	equ 1000_1111b
+		; BD block max size is not used by us
+
+
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
@@ -1332,22 +1345,35 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-%if _IMAGE_EXE
+%if _IMAGE_EXE || _DEBUG0
 	lenter early
-	lvar word,	exemode		; must be bp - 2!
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
 	 push bx
- %if ?exemode != -2
-  %error exemode variable must be directly below bp
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0
+	xor bx, bx
+	lvar word,	errordata
+	 push bx
  %endif
 %endif
 	lvar dword,	length_of_destination
-%if _DEBUG0
-	lvar word,	errordata
-%endif
+	lvar dword,	src_behind_block
+	lvar word,	frame_descriptor_flg_and_bd
+	lvar word,	token
 	lenter
+
+	call normalise_both_pointers
+
 	lvar dword,	src
 	 push ds
 	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
 	lvar dword,	dst
 	 push es
 	 push di
@@ -1390,8 +1416,487 @@ depack:
 	mov word [bp + ?length_of_destination + 2], bx
 
 
-	lleave
+.loop_frame:
+	xor cx, cx
+	cmp word [bp + ?length_of_source + 2], cx
+	jne @F
+	cmp word [bp + ?length_of_source], cx
+	jne @F
+
+.end:
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+
+%if _DEBUG0
+	mov bx, word [bp + ?errordata]
+%endif
+	lleave code
 	lret
+
+
+@@:
+	mov cl, 4
+	call read_le_data_src
+	jc .error
+
+	cmp dx, 184Dh			; signature match ?
+	jne .error			; no -->
+	cmp ax, 2204h			; usual frame ?
+	je @F				; yes -->
+
+	and ax, ~000Fh
+	cmp ax,  2A50h			; skippable frame ?
+	jne .error			; no -->
+
+		; cx = 4 still here
+	call read_le_data_src		; read length of skippable frame
+	jc .error
+
+	 push ds
+	 push si
+	mov cx, ax
+	mov bx, dx			; displacement = skippable frame length
+	call normalise_pointer_with_displacement_bxcx
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]	; ?src += length
+
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], dx
+					; ?length_of_source -= length
+	jc .error
+	jmp .loop_frame
+
+
+@@:
+	mov cl, 2
+	call read_le_data_src		; read FLG (low byte), BD (high byte)
+	jc .error
+
+	mov word [bp + ?frame_descriptor_flg_and_bd], ax
+	mov bx, ax
+	and bl, lz4_flg_version_mask
+	cmp bl, lz4_flg_version		; version correct ?
+	jne .error			; no -->
+
+	test ax, (lz4_bd_reserved_mask << 8) \
+		 | lz4_flg_reserved | lz4_flg_dict_id	; unsupported bits set?
+	jnz .error 			; yes -->
+
+		; not checked: lz4_flg_b_indep (linked is always supported),
+		;  lz4_flg_b_checksum, lz4_flg_c_checksum (both checked later)
+
+	test al, lz4_flg_c_size		; content size field present ?
+	jz @F				; no -->
+	mov cl, 8
+	call read_le_data_src		; (skip content size field)
+	jc .error
+@@:
+	mov cl, 1
+	call read_le_data_src		; (skip header checksum field)
+	jc .error
+
+.loop_block:
+	mov cx, 4
+	call read_le_data_src		; read block size field
+					; leaves ds:si -> source
+	jc .error
+
+	test dx, dx			; nonzero ?
+	jnz @FF
+	test ax, ax
+	jnz @FF				; yes -->
+
+	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_c_checksum
+	jz @F
+		; cx = 4 already
+	call read_le_data_src		; (skip c checksum field)
+	jc .error
+@@:
+	jmp .loop_frame			; next frame, if any -->
+
+
+@@:
+	test dh, 80h
+
+	pushf
+	and dh, ~80h
+	 push ds
+	 push si			; -> source
+	mov bx, dx
+	mov cx, ax
+	call normalise_pointer_with_displacement_bxcx
+					; -> source after block
+	 pop word [bp + ?src_behind_block]
+	 pop word [bp + ?src_behind_block + 2]
+	popf
+	jz .compressed
+
+.uncompressed:
+	and dh, ~80h			; clear "uncompressed" flag
+	call lz4_copy_literal_or_uncompressed
+	jc .error
+
+.end_block:
+	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_b_checksum
+	jz @F				; no block checksum -->
+	mov cx, 4
+	call read_le_data_src		; (skip block checksum field)
+	jc .error
+@@:
+
+	push word [bp + ?src_behind_block + 2]
+	push word [bp + ?src_behind_block]
+	call pointer_to_linear
+	pop ax
+	pop dx				; dx:ax = linear ?src_behind_block
+
+	push word [bp + ?src + 2]
+	push word [bp + ?src]
+	call pointer_to_linear
+	pop cx
+	pop bx				; bx:cx = linear ?src
+
+	sub ax, cx
+	sbb dx, bx			; ?src_behind_block - ?src
+					;  = amount to skip
+	jc .error
+
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], dx
+	jc .error			; not enough data to skip -->
+
+	push word [bp + ?src_behind_block + 2]
+	push word [bp + ?src_behind_block]
+	pop word [bp + ?src]
+	pop word [bp + ?src + 2]	; set ?src -> behind block
+
+	jmp .loop_block
+
+
+.compressed:
+.loop_sequence:
+	mov bx, .lodsb
+	call lz4_func_bx_with_src	; load token
+	jc .error
+	mov byte [bp + ?token], al
+
+	mov cl, 4
+	shr al, cl
+	call lz4_get_length		; dx:cx = length of literals
+	jc .error
+
+	mov ax, cx			; dx:ax = lenght of literals (may be 0)
+	call lz4_copy_literal_or_uncompressed
+					; copy over the literals
+	jc .error
+
+	call lz4_check_behind_block_higher_than_src
+					; do we have more data in this block ?
+	jc .end_sequence		; no -->
+
+	mov bx, .lodsw
+	call lz4_func_bx_with_src	; load match offset
+	jc .error
+
+	test ax, ax			; offset is 0 ?
+	jz .error			; yes, error -->
+
+	mov cx, ax
+	neg cx				; -1 .. -65535
+	mov bx, -1			; sign-extend (always negative sense)
+
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call normalise_pointer_with_displacement_bxcx
+	 pop ds
+	 pop si				; ds:si -> source of matching
+
+	mov ax, ds			; is source of matching within ?dst ?
+	cmp word [bp + ?original_dst + 2], ax
+	ja .error
+	jb @F
+	cmp word [bp + ?original_dst], si
+	ja .error			; no, ?original_dst is above it -->
+@@:
+
+	mov al, byte [bp + ?token]
+	and al, 0Fh			; get match length from token
+	call lz4_get_length		; dx:cx = length of match - 4
+	jc .error
+	mov ax, cx			; dx:ax = length of match - 4
+	add ax, 4
+	adc dx, 0			; dx:ax = length of match
+	jc .error
+	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
+	jc .error
+		; returns: ?dst incremented, ds:si -> after match source
+
+.next_sequence:
+	call lz4_check_behind_block_higher_than_src
+	jnc .loop_sequence		; process next sequence -->
+
+.end_sequence:
+	jmp .end_block
+
+
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		; OUT:	CY if error (source buffer too small)
+		;	NC if success,
+		;	 al = value read
+		;	 ds:si incremented (NOT normalised)
+		;	 ?length_of_source decremented
+.lodsb:
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .retn
+	lodsb
+.retn:
+	retn
+
+
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		; OUT:	CY if error (source buffer too small)
+		;	NC if success,
+		;	 ax = value read
+		;	 ds:si incremented (NOT normalised)
+		;	 ?length_of_source decremented
+.lodsw:
+	sub word [bp + ?length_of_source], 2
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .retn
+	lodsw
+	retn
+
+
+		; INP:	dword [ss:sp] = far address of block end (normalised)
+		;	?src -> current address in source buffer
+		; OUT:	dword [ss:sp] preserved
+		;	CY if ?src is >= (above-or-equal) the stack dword
+		;	NC else
+lz4_check_behind_block_higher_than_src:
+	push dx
+	push ax
+
+	mov dx, word [bp + ?src_behind_block + 2]
+	mov ax, word [bp + ?src_behind_block]
+					; dx:ax -> behind block
+
+	cmp word [bp + ?src + 2], dx	; compare segment
+	ja .error			; ?src > dx:ax -->
+	jb .success			; ?src < dx:ax -->
+	cmp word [bp + ?src], ax	; segment is same, compare offset
+	jae .error			; ?src >= dx:ax -->
+
+.success:
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+
+	pop ax
+	pop dx
+	retn
+
+
+		; INP:	?dst -> destination (normalised)
+		;	?src -> source (normalised)
+		;	dx:ax = how long the literal data is (0 is valid)
+		; OUT:	?dst incremented (normalised)
+		;	?src incremented (normalised)
+		;	?length_of_destination shortened
+		;	?length_of_source shortened
+		;	CY if error (either buffer too small)
+		;	NC if success
+		; CHG:	cx, dx, ax, es, di, ds, si
+lz4_copy_literal_or_uncompressed:
+	lds si, [bp + ?src]
+
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], dx
+					; enough data exists ?
+	jb .return			; no --> (CY)
+
+	call lz4_copy_data		; CY/NC depending on status
+
+	mov word [bp + ?src], si
+	mov word [bp + ?src + 2], ds
+					; (CF preserved)
+.return:
+	retn
+
+
+		; INP:	?dst -> destination (normalised)
+		;	ds:si -> source (normalised)
+		;	dx:ax = how long the data is (0 is valid)
+		; OUT:	?dst incremented (normalised)
+		;	ds:si incremented (normalised)
+		;	?length_of_destination shortened
+		;	CY if error (buffer too small)
+		;	NC if success
+		; CHG:	cx, dx, ax, es, di, ds, si
+lz4_copy_data:
+	sub word [bp + ?length_of_destination], ax
+	sbb word [bp + ?length_of_destination + 2], dx
+					; enough space left ?
+	jb .error			; no -->
+
+	les di, [bp + ?dst]
+.loop:
+	mov cx, 64 * 1024 - 16		; block size
+		; If both pointers are normalised, moving 0FFF0h bytes is
+		;  valid and results in a maximum offset of 0FFFFh in either.
+
+	test dx, dx			; >= 1_0000h ?
+	jnz @F				; yes, full block -->
+	test ax, ax			; == 0 ?
+	jz .end				; yes, done -->
+	cmp ax, cx			; can move in one (last) block ?
+	jbe .last			; yes -->
+@@:
+					; no, move one block and continue
+	sub ax, cx
+	sbb dx, 0			; left over remaining
+	jmp .copy
+
+.last:
+	xchg cx, ax			; cx = remaining length
+	xor ax, ax			; no more remaining
+
+.copy:
+	rep movsb			; move one block (full or partial)
+
+	call normalise_both_pointers
+	jmp .loop
+
+.end:
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es
+
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+	retn
+
+
+normalise_both_pointers:
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop si
+	 pop ds
+
+	 push es
+	 push di
+	call normalise_pointer
+	 pop di
+	 pop es
+	retn
+
+
+		; INP:	?src -> source data
+		;	bx = function to call
+		; OUT:	ds:si = ?src -> behind data (normalised)
+		;	CY if error (buffer too small)
+		;	NC if success
+		;	(CF is passed from what the function at bx returns)
+lz4_func_bx_with_src:
+	lds si, [bp + ?src]
+	call bx
+	pushf
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop si
+	 pop ds
+	mov word [bp + ?src], si
+	mov word [bp + ?src + 2], ds
+	popf
+	retn
+
+
+		; INP:	?src -> source data
+		;	al = first field data (0 to 15)
+		; OUT:	dx:cx = length value
+		;	?src incremented
+		;	CY if error (too high or out of source data)
+		;	NC if success
+lz4_get_length:
+	xor cx, cx
+	xor dx, dx			; dx:cx = length field
+	mov ah, 15			; first byte maximum value
+.loop:
+	add cl, al
+	adc ch, 0
+	adc dx, 0			; add in this byte
+	jc .error			; if too high -->
+	cmp al, ah			; is this the maximum value ?
+	jne .end			; no -->
+	mov bx, depack.lodsb
+	call lz4_func_bx_with_src	; load next byte
+	jc .error
+	mov ah, 255			; next maximum value is 255
+	jmp .loop			; -->
+
+.end:
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+	retn
+
+
+		; INP:	?src -> source data (normalised)
+		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
+		; OUT:	dx:ax = value read as little-endian
+		;	 (either a dword, 3byte, word, or byte)
+		;	ds:si = ?src = incremented source (normalised)
+		;	CY if error (source buffer too small)
+		;	NC if success
+		; CHG:	ds, si
+read_le_data_src:
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+
+	lds si, [bp + ?src]
+
+	lodsw
+	xchg ax, dx		; dx = low word (first)
+	lodsw			; ax = high word (second)
+	xchg ax, dx		; fix order, dx:ax = dword
+
+	cmp cx, 4
+	jae @F
+	xor dh, dh
+	cmp cx, 3
+	je @F
+	xor dl, dl
+	cmp cx, 2
+	je @F
+	xor ah, ah
+	cmp cx, 1
+	jb .error
+@@:
+
+	sub si, 4
+	add si, cx
+
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop si
+	 pop ds
+	mov word [bp + ?src], si
+	mov word [bp + ?src + 2], ds
+
+	db __TEST_IMM8		; (NC)
+.error:
+	stc
+	retn
+
+
+	lleave ctx
 
 %endif
 
