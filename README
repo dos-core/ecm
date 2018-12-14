@@ -1,27 +1,28 @@
 
-iniblz is a BriefLZ depacker stage for lDOS's (and RxDOS's) iniload kernel.
+inicomp is a depacker stage for lDOS's (and RxDOS's) iniload kernel.
+It currently supports either BriefLZ or LZ4 as compression formats.
 
-For usage conditions, refer to comments in iniblz.asm
+For usage conditions, refer to comments in inicomp.asm
 
 
-Example usage (without _IMAGE_EXE):
+Example usage (without _IMAGE_EXE, with _BRIEFLZ):
 
-iniblz$ blzpack /path/to/rxdos-7.2x/ldos/lDOSLOAD.BIN lDOSLOAD.BLZ
-iniblz$ ./mak.sh -I/path/to/lmacros/
+inicomp$ blzpack /path/to/rxdos-7.2x/ldos/lDOSLOAD.BIN lDOSLOAD.BLZ
+inicomp$ ./mak.sh -I/path/to/lmacros/
 rxdos-7.2x/ldos$ nasm -Ox -D_REVISIONID="'hg $(hg -R .. id -i)'" \
  -I ../lmacros/ -f bin -o ../bin/RxDOS.COM -l ../lst/RxDOS.LST \
  -D_MAP=../map/RxDOS.MAP ../ldosboot/iniload.asm \
- -D_PAYLOAD_FILE=/path/to/iniblz/iniblz.bin
+ -D_PAYLOAD_FILE=/path/to/inicomp/iniblz.bin
 
 
-Example usage with _IMAGE_EXE payload:
+Example usage with _IMAGE_EXE (with _BRIEFLZ) payload:
 
 ldebug/source$ use_build_revision_id=1 ./make -D_BOOTLDR -D_DEBUG4 -D_DEBUG2
-iniblz$ blzpack /path/to/ldebug/bin/debug.com lDOSLOAD.BLZ
-iniblz$ ./mak.sh -I/path/to/lmacros/ -D_IMAGE_EXE -D_EXEC_OFFSET=32
+inicomp$ blzpack /path/to/ldebug/bin/debug.com lDOSLOAD.BLZ
+inicomp$ ./mak.sh -I/path/to/lmacros/ -D_IMAGE_EXE -D_EXEC_OFFSET=32
 ldosboot$ nasm -D_MAP=iniload.map -l iniload.lst \
  -I../lmacros/ -o LDEBUGPK.COM \
- -D_PAYLOAD_FILE="'/path/to/iniblz/iniblz.bin'" \
+ -D_PAYLOAD_FILE="'/path/to/inicomp/iniblz.bin'" \
  -D_IMAGE_EXE_MIN_CALC="((($(stat -c %s /path/to/ldebug/bin/debug.com) + \
   _IMAGE_EXE_AUTO_STACK) + 15) & ~15)" \
  -D_IMAGE_EXE_AUTO_STACK=2048 -D_IMAGE_EXE=1 -D_EXEC_OFFSET=32 iniload.asm
@@ -32,7 +33,7 @@ Currently, the system must have enough memory to hold all of the following:
 * 20 KiB of buffers (8 KiB FAT sector, 8 KiB DMA boundary buffer) and stack
   and boot sector, at the top of the LMA (below RPL or EBDA or video memory).
 
-* The depacker's INIT1 section, which contains the actual BriefLZ depacker
+* The depacker's INIT1 section, which contains the actual depacker
   and a bit of handling around it. This is directly below the "load top",
   which gives the segment of the lowest buffer at the LMA top.
   (INIT0 and INIT1 together are smaller than 2 KiB currently. As iniload's
@@ -45,6 +46,7 @@ Currently, the system must have enough memory to hold all of the following:
 Note:	The compressed image and decompressed image may now overlap.
 	 To succeed, the write pointer has to stay below-or-equal the
 	 read pointer. Otherwise the decompression errors out.
+	 (Overlap is not yet supported by the LZ4 depacker.)
 
 
 Possibilities:
@@ -72,7 +74,7 @@ Possibilities:
 
 * CRC checks of compressed or decompressed data could be added.
 
-* If a kernel CONFIG section is added to iniload or lDOS init, iniblz
+* If a kernel CONFIG section is added to iniload or lDOS init, inicomp
   should also support this. (Embed one in the uncompressed header, pass it on
   to the kernel when loading.)
 
@@ -81,7 +83,7 @@ Possibilities:
   typically the compressing during building the kernel is sufficient.
   (The FreeDOS kernel and EDR-DOS's also do not have such utilities.)
 
-* Other compression algorithms could be used.
+* Other compression algorithms could be used. (one done: LZ4 added)
 
 * If the depacker stage was integrated into iniload, some common code could
   be shared, mainly the error handling.
