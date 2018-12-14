@@ -1533,23 +1533,20 @@ depack:
 
 
 @@:
-	test dh, 80h
-
-	pushf
-	and dh, ~80h
 	 push ds
 	 push si			; -> source
 	mov bx, dx
-	mov cx, ax
+	and bh, ~80h			; clear "uncompressed" flag
+	mov cx, ax			; bx:cx = block size
 	call normalise_pointer_with_displacement_bxcx
 					; -> source after block
 	 pop word [bp + ?src_behind_block]
 	 pop word [bp + ?src_behind_block + 2]
-	popf
-	jz .compressed
+	test dh, 80h			; is it uncompressed ?
+	jz .compressed			; no -->
 
 .uncompressed:
-	and dh, ~80h			; clear "uncompressed" flag
+	xchg bx, dx			; get size without "uncompressed" flag
 	call lz4_copy_literal_or_uncompressed
 %if _DEBUG0
 	mov byte [bp + ?errordata], 13
