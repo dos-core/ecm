@@ -1885,6 +1885,16 @@ lz4_copy_data:
 		;	CY if error (buffer too small)
 		;	NC if success
 		;	(CF is passed from what the function at bx returns)
+		;
+		; Protocol of function in bx called by this:
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		;	(may take more inputs depending on function)
+		; OUT:	ds:si incremented (NOT normalised)
+		;	?length_of_source decremented
+		;	CY if error (buffer too small or other error)
+		;	NC if success
+		;	(may give more outputs depending on function)
 lz4_func_bx_with_src:
 	lds si, [bp + ?src]
 	call bx
@@ -1901,9 +1911,11 @@ lz4_func_bx_with_src:
 
 
 		; INP:	?src -> source data
+		;	?length_of_source
 		;	al = first field data (0 to 15)
 		; OUT:	dx:cx = length value
 		;	?src incremented
+		;	?length_of_source decremented
 		;	CY if error (too high or out of source data)
 		;	NC if success
 		; CHG:	ax, bx
@@ -1939,6 +1951,7 @@ lz4_get_length:
 
 		; INP:	?src -> source data (normalised)
 		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
+		;	?length_of_source
 		; OUT:	If cx >= 4,
 		;	 dx:ax = value read as little-endian
 		;	If cx == 3,
@@ -1950,9 +1963,12 @@ lz4_get_length:
 		;	If cx == 0,
 		;	 invalid, CY
 		;	ds:si = ?src = incremented source (normalised)
+		;	?length_of_source decremented
 		;	CY if error (source buffer too small, or cx zero)
 		;	NC if success
-		; CHG:	ds, si
+		; CHG:	ds, si, dx, ax
+		;
+		; Note:	Always reads four bytes at INP:ds:si -> data.
 read_le_data_src:
 	jcxz .error
 
