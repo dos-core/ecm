@@ -1447,8 +1447,8 @@ depack:
 	cmp ax, 2204h			; usual frame ?
 	je @F				; yes -->
 
-	and ax, ~000Fh
-	cmp ax,  2A50h			; skippable frame ?
+	and al,  ~0Fh
+	cmp ax, 2A50h			; skippable frame ?
 %if _DEBUG0
 	mov byte [bp + ?errordata], 3
 %endif
