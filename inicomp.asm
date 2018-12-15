@@ -1650,7 +1650,7 @@ depack:
 %endif
 	jc .error_CY_3
 
-	mov ax, cx			; dx:ax = lenght of literals (may be 0)
+	mov ax, cx			; dx:ax = length of literals (may be 0)
 	call lz4_copy_literal_or_uncompressed
 					; copy over the literals
 %if _DEBUG0
