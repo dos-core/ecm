@@ -1308,7 +1308,6 @@ lz4_bd_reserved_mask:	equ 1000_1111b
 		; OUT:	NC if success
 		;	CY if error,
 		;	 bx = ?errordata (if _DEBUG0)
-		;	 (if _DEBUG1) dump_stack_frame called at end
 		; CHG:	ax, (bx), cx, dx, es, ds, si, di
 		; STT:	UP
 		;
