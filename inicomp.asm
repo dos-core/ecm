@@ -1578,16 +1578,6 @@ depack:
 	jc .error_CY_2
 
 .end_block:
-	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_b_checksum
-	jz @F				; no block checksum -->
-	mov cx, 4
-	call read_le_data_src		; (skip block checksum field)
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Eh
-%endif
-	jc .error_CY_2
-@@:
-
 	 push word [bp + ?src_behind_block + 2]
 	 push word [bp + ?src_behind_block]
 	call pointer_to_linear
@@ -1618,6 +1608,16 @@ depack:
 	push word [bp + ?src_behind_block]
 	pop word [bp + ?src]
 	pop word [bp + ?src + 2]	; set ?src -> behind block
+
+	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_b_checksum
+	jz @F				; no block checksum -->
+	mov cx, 4
+	call read_le_data_src		; (skip block checksum field)
+%if _DEBUG0
+	mov byte [bp + ?errordata], 0Eh
+%endif
+	jc .error_CY_3
+@@:
 
 	jmp .loop_block
 
