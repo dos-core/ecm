@@ -250,6 +250,7 @@ payload:
 %if _INCLUDE_UNCOMPRESSED
 payload_uncompressed:
 	incbin _UNCOMPRESSED_FILE
+	db 38
 	align 16, db 38
 %endif
 
