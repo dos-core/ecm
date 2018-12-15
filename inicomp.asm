@@ -847,7 +847,7 @@ testmacro ERROR_DISPLAY
 
 		; INP:	?src -> source data
 		; OUT:	dx:ax = 32-bit value read as big-endian dword
-		;	?src incremented
+		;	?src incremented (normalised)
 		; CHG:	ds, si
 read_be32_src:
 	lds si, [bp + ?src]
@@ -872,9 +872,15 @@ read_be32_src:
 
 
 		; INP:	ss:bp -> stack frame (with blz_state equivalents)
+		;	?src -> source data
+		;	?src_avail = amount of available bytes
 		; OUT:	CY if error
 		;	NC if success,
 		;	 ax = bit
+		;	 ?src incremented (normalised) if had to read new tag
+		;	 ?src_avail decremented
+		;	 ?bits_left updated
+		;	 ?tag updated
 		; CHG:	ds, si, es, di
 blz_getbit_safe:
 	cmp word [bp + ?bits_left], 0
@@ -918,9 +924,13 @@ blz_getbit_safe:
 
 
 		; INP:	ss:bp -> stack frame (with blz_state equivalents)
+		;	?src -> source data
+		;	?src_avail = amount of available bytes
 		; OUT:	CY if error
 		;	NC if success,
 		;	 dx:ax = gamma
+		;	 ?src incremented accordingly (normalised)
+		;	 ?src_avail decremented accordingly
 		; CHG:	ds, si, es, di
 blz_getgamma_safe:
 	push bx
