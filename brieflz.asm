@@ -1,21 +1,4 @@
 
-%if  _DEBUG1 || _DEBUG2 || _DEBUG3
-.dstavaileq:	asciz "iniblz: dst_avail="
-.dstsizeeq:	asciz "h dst_size="
-.srcavaileq:	asciz "h src_avail="
-.depackedsizeeq:asciz "h",13,10,"iniblz: depacked_size="
-.len_of_dst_eq:	asciz "h length_of_destination="
-.leneq:		asciz "h",13,10,"iniblz: len="
-.offeq:		asciz "h off="
-.tageq:		asciz "h",13,10,"iniblz: tag="
-.bits_left_eq:	asciz "h bits_left="
-.src_eq:	asciz "h src="
-.dst_eq:	asciz "h",13,10,"iniblz: dst="
-.len_of_src_eq:	asciz "h length_of_source="
-.end:		asciz "h",13,10
-%endif
-
-
 %if 0
 
  BriefLZ - small fast Lempel-Ziv
@@ -46,6 +29,24 @@
       distribution.
 
 %endif
+
+
+%if  _DEBUG1 || _DEBUG2 || _DEBUG3
+.dstavaileq:	asciz "iniblz: dst_avail="
+.dstsizeeq:	asciz "h dst_size="
+.srcavaileq:	asciz "h src_avail="
+.depackedsizeeq:asciz "h",13,10,"iniblz: depacked_size="
+.len_of_dst_eq:	asciz "h length_of_destination="
+.leneq:		asciz "h",13,10,"iniblz: len="
+.offeq:		asciz "h off="
+.tageq:		asciz "h",13,10,"iniblz: tag="
+.bits_left_eq:	asciz "h bits_left="
+.src_eq:	asciz "h src="
+.dst_eq:	asciz "h",13,10,"iniblz: dst="
+.len_of_src_eq:	asciz "h length_of_source="
+.end:		asciz "h",13,10
+%endif
+
 
 	struc BRIEFLZHEADER
 blzhSignature:		resd 1	; 626C7A1Ah, big-endian ("blz\x1A")
