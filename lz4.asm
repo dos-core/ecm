@@ -124,9 +124,7 @@ depack:
 		;	 Doing this check here (as well as after any
 		;	 copied match) allows us to drop the check done
 		;	 after moving literal bytes.
-%if _DEBUG0
-	mov byte [bp + ?errordata], 1Bh
-%endif
+d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
 
@@ -150,9 +148,7 @@ depack:
 	call disp_al
 	sahf
 %endif
-%if _DEBUG0
-	mov bx, word [bp + ?errordata]
-%endif
+d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
 
@@ -160,31 +156,23 @@ depack:
 @@:
 	mov cl, 4
 	call read_le_data_src
-%if _DEBUG0
-	mov byte [bp + ?errordata], 1
-%endif
+d0	mov byte [bp + ?errordata], 1
 	jc .error
 
 	cmp dx, 184Dh			; signature match ?
-%if _DEBUG0
-	mov byte [bp + ?errordata], 2
-%endif
+d0	mov byte [bp + ?errordata], 2
 	jne .error			; no -->
 	cmp ax, 2204h			; usual frame ?
 	je @F				; yes -->
 
 	and al,  ~0Fh
 	cmp ax, 2A50h			; skippable frame ?
-%if _DEBUG0
-	mov byte [bp + ?errordata], 3
-%endif
+d0	mov byte [bp + ?errordata], 3
 	jne .error			; no -->
 
 		; cx = 4 still here
 	call read_le_data_src		; read length of skippable frame
-%if _DEBUG0
-	mov byte [bp + ?errordata], 4
-%endif
+d0	mov byte [bp + ?errordata], 4
 	jc .error
 
 	 push ds
@@ -198,9 +186,7 @@ depack:
 	sub word [bp + ?length_of_source], ax
 	sbb word [bp + ?length_of_source + 2], dx
 					; ?length_of_source -= length
-%if _DEBUG0
-	mov byte [bp + ?errordata], 5
-%endif
+d0	mov byte [bp + ?errordata], 5
 	jc .error
 	jmp .loop_frame
 
@@ -208,9 +194,7 @@ depack:
 @@:
 	mov cl, 2
 	call read_le_data_src		; read FLG (low byte), BD (high byte)
-%if _DEBUG0
-	mov byte [bp + ?errordata], 6
-%endif
+d0	mov byte [bp + ?errordata], 6
 .error_CY_1:
 	jc .error
 
@@ -218,17 +202,13 @@ depack:
 	mov bx, ax
 	and bl, lz4_flg_version_mask
 	cmp bl, lz4_flg_version		; version correct ?
-%if _DEBUG0
-	mov byte [bp + ?errordata], 7
-%endif
+d0	mov byte [bp + ?errordata], 7
 .error_NZ_1:
 	jne .error			; no -->
 
 	test ax, (lz4_bd_reserved_mask << 8) \
 		 | lz4_flg_reserved | lz4_flg_dict_id	; unsupported bits set?
-%if _DEBUG0
-	mov byte [bp + ?errordata], 8
-%endif
+d0	mov byte [bp + ?errordata], 8
 	jnz .error_NZ_1			; yes -->
 
 		; not checked: lz4_flg_b_indep (linked is always supported),
@@ -238,16 +218,12 @@ depack:
 	jz @F				; no -->
 	mov cl, 8
 	call read_le_data_src		; (skip content size field)
-%if _DEBUG0
-	mov byte [bp + ?errordata], 9
-%endif
+d0	mov byte [bp + ?errordata], 9
 	jc .error_CY_1
 @@:
 	mov cl, 1
 	call read_le_data_src		; (skip header checksum field)
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Ah
-%endif
+d0	mov byte [bp + ?errordata], 0Ah
 	jc .error_CY_1
 
 .loop_block:
@@ -258,9 +234,7 @@ depack:
 	mov cx, 4
 	call read_le_data_src		; read block size field
 					; leaves ds:si -> source
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Bh
-%endif
+d0	mov byte [bp + ?errordata], 0Bh
 	jc .error_CY_1
 
 	test dx, dx			; nonzero ?
@@ -272,9 +246,7 @@ depack:
 	jz @F
 		; cx = 4 already
 	call read_le_data_src		; (skip c checksum field)
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Ch
-%endif
+d0	mov byte [bp + ?errordata], 0Ch
 .error_CY_2:
 	jc .error_CY_1
 @@:
@@ -297,9 +269,7 @@ depack:
 .uncompressed:
 	xchg bx, dx			; get size without "uncompressed" flag
 	call lz4_copy_literal_or_uncompressed
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Dh
-%endif
+d0	mov byte [bp + ?errordata], 0Dh
 	jc .error_CY_2
 
 .end_block:
@@ -316,16 +286,12 @@ depack:
 	sub cx, ax
 	sbb bx, dx			; ?src_behind_block - ?src
 					;  = amount to skip
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Fh
-%endif
+d0	mov byte [bp + ?errordata], 0Fh
 	jc .error_CY_2
 
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], bx
-%if _DEBUG0
-	mov byte [bp + ?errordata], 10h
-%endif
+d0	mov byte [bp + ?errordata], 10h
 .error_CY_3:
 	jc .error_CY_2			; not enough data to skip -->
 
@@ -338,9 +304,7 @@ depack:
 	jz @F				; no block checksum -->
 	mov cx, 4
 	call read_le_data_src		; (skip block checksum field)
-%if _DEBUG0
-	mov byte [bp + ?errordata], 0Eh
-%endif
+d0	mov byte [bp + ?errordata], 0Eh
 	jc .error_CY_3
 @@:
 
@@ -361,26 +325,20 @@ depack:
 
 	mov bx, .lodsb
 	call lz4_func_bx_with_src	; load token
-%if _DEBUG0
-	mov byte [bp + ?errordata], 11h
-%endif
+d0	mov byte [bp + ?errordata], 11h
 	jc .error_CY_3
 	mov byte [bp + ?token_and_counter], al
 
 	mov cl, 4
 	shr al, cl
 	call lz4_get_length		; dx:cx = length of literals
-%if _DEBUG0
-	mov byte [bp + ?errordata], 12h
-%endif
+d0	mov byte [bp + ?errordata], 12h
 	jc .error_CY_3
 
 	mov ax, cx			; dx:ax = length of literals (may be 0)
 	call lz4_copy_literal_or_uncompressed
 					; copy over the literals
-%if _DEBUG0
-	mov byte [bp + ?errordata], 13h
-%endif
+d0	mov byte [bp + ?errordata], 13h
 	jc .error_CY_3
 
 	call lz4_check_behind_block_higher_than_src
@@ -389,16 +347,12 @@ depack:
 
 	mov bx, .lodsw
 	call lz4_func_bx_with_src	; load match offset
-%if _DEBUG0
-	mov byte [bp + ?errordata], 14h
-%endif
+d0	mov byte [bp + ?errordata], 14h
 .error_CY_4:
 	jc .error_CY_3
 
 	test ax, ax			; offset is 0 ?
-%if _DEBUG0
-	mov byte [bp + ?errordata], 15h
-%endif
+d0	mov byte [bp + ?errordata], 15h
 	stc
 	jz .error_CY_4			; yes, error -->
 
@@ -414,45 +368,33 @@ depack:
 
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax
-%if _DEBUG0
-	mov byte [bp + ?errordata], 16h
-%endif
+d0	mov byte [bp + ?errordata], 16h
 .error_A_1:
 	ja .error
 	jb @F
 	cmp word [bp + ?original_dst], si
-%if _DEBUG0
-	mov byte [bp + ?errordata], 17h
-%endif
+d0	mov byte [bp + ?errordata], 17h
 	ja .error_A_1			; no, ?original_dst is above it -->
 @@:
 
 	mov al, byte [bp + ?token_and_counter]
 	and al, 0Fh			; get match length from token
 	call lz4_get_length		; dx:cx = length of match - 4
-%if _DEBUG0
-	mov byte [bp + ?errordata], 18h
-%endif
+d0	mov byte [bp + ?errordata], 18h
 	jc .error_CY_4
 	mov ax, cx			; dx:ax = length of match - 4
 	add ax, 4
 	adc dx, 0			; dx:ax = length of match
-%if _DEBUG0
-	mov byte [bp + ?errordata], 19h
-%endif
+d0	mov byte [bp + ?errordata], 19h
 	jc .error_CY_4
 	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
 		; returns: ?dst incremented, ds:si -> after match source
-%if _DEBUG0
-	mov byte [bp + ?errordata], 1Ah
-%endif
+d0	mov byte [bp + ?errordata], 1Ah
 	jc .error_CY_4
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
-%if _DEBUG0
-	mov byte [bp + ?errordata], 1Ch
-%endif
+d0	mov byte [bp + ?errordata], 1Ch
 	jc .error_CY_4
 %endif
 
@@ -558,9 +500,7 @@ lz4_copy_literal_or_uncompressed:
 		;	NC if success
 		; CHG:	cx, dx, ax, es, di, ds, si
 lz4_copy_data:
-%if _DEBUG0
-	inc byte [bp + ?errordata + 1]
-%endif
+d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
 					; enough space left ?
