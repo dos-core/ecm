@@ -514,6 +514,9 @@ check_pointers_not_overlapping:
 	retn
 %endif
 
+	; This leaves the lframe context created within the
+	;  specific depacker's file. The above function
+	;  check_pointers_not_overlapping uses the frame.
 	lleave ctx
 
 
