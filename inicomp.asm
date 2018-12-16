@@ -11,7 +11,8 @@ that uses the works is notified of this instrument.
 DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
-Contains BriefLZ depacker, which is under separate usage conditions.
+Includes the BriefLZ depacker, which is under separate usage conditions.
+(Refer to brieflz.asm for the BriefLZ usage conditions.)
 
 %endif
 
@@ -469,6 +470,19 @@ msg:
 .error_end:	db "h.",13,10,0
 %else
 .error:		db "Load error: Decompression failure.",13,10,0
+%endif
+
+
+		; Specific depacker's file is included within label msg.
+		; In the file, lframe is used and lleave ctx is not used.
+
+%if _BRIEFLZ
+	%include "brieflz.asm"
+%endif
+
+
+%if _LZ4
+	%include "lz4.asm"
 %endif
 
 
