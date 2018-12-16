@@ -31,6 +31,7 @@
 %endif
 
 
+	; Local labels of non-local label "msg".
 %if  _DEBUG1 || _DEBUG2 || _DEBUG3
 .dstavaileq:	asciz "iniblz: dst_avail="
 .dstsizeeq:	asciz "h dst_size="
