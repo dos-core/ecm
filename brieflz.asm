@@ -76,13 +76,18 @@ blzhDecompressedCRC:	resd 1
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-%if _IMAGE_EXE
+%if _IMAGE_EXE || _DEBUG0
 	lenter early
+ %if _IMAGE_EXE
 	lvar word,	exemode		; must be bp - 2!
 	 push bx
- %if ?exemode != -2
-  %error exemode variable must be directly below bp
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
  %endif
+d0	xor bx, bx
+d0	lvar word,	errordata
+d0	 push bx
 %endif
 	lvar dword,	dst_avail
 	lvar dword,	dst_size
@@ -92,7 +97,6 @@ depack:
 	lvar dword,	off
 	lvar word,	tag
 	lvar word,	bits_left
-d0	lvar word,	errordata
 	lenter
 
 	call normalise_both_pointers
