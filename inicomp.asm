@@ -2027,7 +2027,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
-		; OUT:	CY if error
+		; OUT:	CY if error (?src < ?dst)
 		;	NC if success
 		; CHG:	ax, bx, cx, dx
 check_pointers_not_overlapping:
