@@ -404,7 +404,7 @@ d0	mov byte [bp + ?errordata], 1Ch
 		;
 		; Note:	Although ?src should always equal ?src_behind_block
 		;	 if CY here, we actually check for above-or-equal.
-lz4_check_behind_block_higher_than_src:
+snappy_check_behind_block_higher_than_src:
 	mov dx, word [bp + ?src_behind_block + 2]
 	mov ax, word [bp + ?src_behind_block]
 					; dx:ax -> behind block
