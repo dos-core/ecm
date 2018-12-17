@@ -407,8 +407,10 @@ d0	mov byte [bp + ?errordata], 15h
 	 pop si
 	 pop ds				; ds:si -> source of matching
 
+	push ax
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax
+	pop ax
 d0	mov byte [bp + ?errordata], 16h
 .error_A_1:
 	ja .error
