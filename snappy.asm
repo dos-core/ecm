@@ -234,6 +234,7 @@ d0	mov byte [bp + ?errordata], 0Ah
 	sub ax, 4
 	sbb dx, 0
 d0	mov byte [bp + ?errordata], 0Bh
+.error_CY_2:
 	jc .error_CY_1
 	call snappy_copy_literal_or_uncompressed
 d0	mov byte [bp + ?errordata], 0Dh
