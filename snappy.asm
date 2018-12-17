@@ -63,7 +63,7 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
-	lvar word,	tag
+	lvar word,	highbits_and_tag
 	lvar dword,	src_behind_block
 	lenter
 
@@ -296,16 +296,18 @@ d0	mov byte [bp + ?errordata], 10h
 d0	mov byte [bp + ?errordata], 11h
 	jc .error_CY_3
 	mov ah, al
-	mov byte [bp + ?tag], al
-
 	and ah, snappy_tag_mask
+	mov word [bp + ?highbits_and_tag], ax
+
+	shr al, 1
+	shr al, 1
+
 	cmp ah, snappy_tag_literal
 	jne .copy
 
+.literal:
 	xor dx, dx
 	xor ah, ah
-	shr al, 1
-	shr al, 1
 	inc ax				; dx:ax = literal length if <= 60
 					; ax = 61, 62, 63, 64 for 1--4 bytes
 	cmp al, 60
@@ -317,42 +319,81 @@ d0	mov byte [bp + ?errordata], 11h
 	call read_le_data_src
 	add ax, 1
 	adc dx, 0			; dx:ax = literal length
+d0	mov byte [bp + ?errordata], 14h
+	jc .error_CY_3
 
 .literal_got_length:
 	call snappy_copy_literal_or_uncompressed
 	jmp .next_sequence
 
 
-	mov cl, 4
-	shr al, cl
-	call lz4_get_length		; dx:cx = length of literals
+.copy:
+	cmp ah, snappy_tag_copy_1byteoffset
+	je .copy_1byteoffset
+	cmp ah, snappy_tag_copy_2byteoffset
+	je .copy_2byteoffset
+	cmp ah, snappy_tag_copy_4byteoffset
+	je .copy_4byteoffset
 d0	mov byte [bp + ?errordata], 12h
-	jc .error_CY_3
-
-	mov ax, cx			; dx:ax = length of literals (may be 0)
-	call lz4_copy_literal_or_uncompressed
-					; copy over the literals
-d0	mov byte [bp + ?errordata], 13h
-	jc .error_CY_3
-
-	call lz4_check_behind_block_higher_than_src
-					; do we have more data in this block ?
-	jc .end_sequence		; no -->
-
-	mov bx, .lodsw
-	call lz4_func_bx_with_src	; load match offset
-d0	mov byte [bp + ?errordata], 14h
-.error_CY_4:
-	jc .error_CY_3
-
-	test ax, ax			; offset is 0 ?
-d0	mov byte [bp + ?errordata], 15h
+.error_1:
 	stc
-	jz .error_CY_4			; yes, error -->
+	jmp .error_CY_3
+
+
+.copy_1byteoffset:
+	and al, 7
+	add al, 4
+	xor ah, ah
+
+	push ax
+
+	xor dx, dx			; dx = 0
+	xor ax, ax
+	mov al, byte [bp + ?highbits_and_tag]
+	shl ax, 1
+	shl ax, 1
+	shl ax, 1			; ah = upper three bits of al
+
+	mov bx, .lodsb			; al = to be loaded
+	jmp .copy_dxax_offset_stack_length
+
+
+.copy_2byteoffset:
+	xor dx, dx			; dx = 0
+	mov bx, .lodsw			; ax = to be loaded
+	jmp .copy_2_4_common
+
+
+.copy_4byteoffset:
+	mov bx, .lodsd_dxax		; dx:ax = to be loaded
+.copy_2_4_common:
+	add al, 4
+	xor ah, ah
+
+	push ax
+		; fall through
+
+
+.copy_dxax_offset_stack_length:
+	call snappy_func_bx_with_src	; load offset value, dx:ax = offset
 
 	mov cx, ax
-	neg cx				; -1 .. -65535
-	mov bx, -1			; sign-extend (always negative sense)
+	mov bx, dx			; bx:cx = offset
+	pop ax
+	mov dx, 0			; dx:ax = length (preserve CF!)
+d0	mov byte [bp + ?errordata], 13h
+	jc .error_1
+
+	test bx, bx			; offset is zero ?
+	jnz @F
+	test cx, cx
+d0	mov byte [bp + ?errordata], 15h
+	jz .error_1			; yes, error -->
+@@:
+
+        neg bx
+        neg cx
+        sbb bx, byte 0          	; neg bx:cx
 
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
@@ -371,17 +412,7 @@ d0	mov byte [bp + ?errordata], 17h
 	ja .error_A_1			; no, ?original_dst is above it -->
 @@:
 
-	mov al, byte [bp + ?token_and_counter]
-	and al, 0Fh			; get match length from token
-	call lz4_get_length		; dx:cx = length of match - 4
-d0	mov byte [bp + ?errordata], 18h
-	jc .error_CY_4
-	mov ax, cx			; dx:ax = length of match - 4
-	add ax, 4
-	adc dx, 0			; dx:ax = length of match
-d0	mov byte [bp + ?errordata], 19h
-	jc .error_CY_4
-	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
+	call snappy_copy_data		; give ?dst -> dest, ds:si -> source
 		; returns: ?dst incremented, ds:si -> after match source
 d0	mov byte [bp + ?errordata], 1Ah
 	jc .error_CY_4
@@ -393,7 +424,7 @@ d0	mov byte [bp + ?errordata], 1Ch
 %endif
 
 .next_sequence:
-	call lz4_check_behind_block_higher_than_src
+	call snappy_check_behind_block_higher_than_src
 	jnc .loop_sequence		; process next sequence -->
 
 .end_sequence:
@@ -428,6 +459,24 @@ d0	mov byte [bp + ?errordata], 1Ch
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .retn
 	lodsw
+	retn
+
+
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		; OUT:	CY if error (source buffer too small)
+		;	NC if success,
+		;	 dx:ax = value read
+		;	 ds:si incremented (NOT normalised)
+		;	 ?length_of_source decremented
+.lodsd_dxax:
+	sub word [bp + ?length_of_source], 4
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .retn
+	lodsw
+	xchg dx, ax
+	lodsw
+	xchg dx, ax
 	retn
 
 
