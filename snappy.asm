@@ -13,18 +13,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
-lz4_flg_version_mask:	equ 1100_0000b
-lz4_flg_version:	equ 0100_0000b
-lz4_flg_b_indep:	equ 0010_0000b
-lz4_flg_b_checksum:	equ 0001_0000b
-lz4_flg_c_size:		equ 0000_1000b
-lz4_flg_c_checksum:	equ 0000_0100b
-lz4_flg_reserved:	equ 0000_0010b
-lz4_flg_dict_id:	equ 0000_0001b
-
-lz4_bd_reserved_mask:	equ 1000_1111b
-		; BD block max size is not used by us
-
+snappy_chunk_id			equ 0FFh
+snappy_chunk_padding		equ 0FEh
+snappy_chunk_skippable_mask	equ  80h
+snappy_chunk_uncompressed	equ  01h
+snappy_chunk_compressed		equ  00h
 
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
