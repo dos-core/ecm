@@ -372,7 +372,7 @@ d0	mov byte [bp + ?errordata], 12h
 .copy_4byteoffset:
 	mov bx, .lodsd_dxax		; dx:ax = to be loaded
 .copy_2_4_common:
-	add al, 4
+	inc ax
 	xor ah, ah
 
 	push ax
