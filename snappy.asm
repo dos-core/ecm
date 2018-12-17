@@ -52,12 +52,11 @@ depack:
 	 push bx
  %endif
 %endif
-	lvar word,	token_and_counter
+	lvar word,	chunk_type_and_counter
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
 	lvar dword,	src_behind_block
-	lvar word,	frame_descriptor_flg_and_bd
 	lenter
 
 	call normalise_both_pointers
@@ -122,6 +121,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 .loop_frame:
+%if _COUNTER
+	mov al, '#'
+	call disp_al
+%endif
 	xor cx, cx
 	cmp word [bp + ?length_of_source + 2], cx
 	jne @F
@@ -152,6 +155,8 @@ d0	mov bx, word [bp + ?errordata]
 d0	mov byte [bp + ?errordata], 1
 	jc .error
 
+	mov byte [bp + ?chunk_type_and_counter], al
+
 	test al, snappy_chunk_skippable_mask
 					; skippable frame ?
 	jnz .not_skippable		; no -->
@@ -180,85 +185,57 @@ d0	mov byte [bp + ?errordata], 5
 
 
 .not_skippable:
-
-
-	mov cl, 2
-	call read_le_data_src		; read FLG (low byte), BD (high byte)
+	cmp al, snappy_chunk_uncompressed
+	je @F
+	cmp al, snappy_chunk_compressed
 d0	mov byte [bp + ?errordata], 6
+	jne .error
+
+@@:
+	mov cl, 3
+	call read_le_data_src		; read length of chunk
+d0	mov byte [bp + ?errordata], 7
 .error_CY_1:
 	jc .error
+	xor dh, dh			; dx:ax = length of chunk
+					;	  (including checksum)
 
-	mov word [bp + ?frame_descriptor_flg_and_bd], ax
-	mov bx, ax
-	and bl, lz4_flg_version_mask
-	cmp bl, lz4_flg_version		; version correct ?
-d0	mov byte [bp + ?errordata], 7
-.error_NZ_1:
-	jne .error			; no -->
-
-	test ax, (lz4_bd_reserved_mask << 8) \
-		 | lz4_flg_reserved | lz4_flg_dict_id	; unsupported bits set?
+	test dx, dx			; at least 4 bytes in this chunk ?
+	jnz @F
+	cmp ax, 4
 d0	mov byte [bp + ?errordata], 8
-	jnz .error_NZ_1			; yes -->
-
-		; not checked: lz4_flg_b_indep (linked is always supported),
-		;  lz4_flg_b_checksum, lz4_flg_c_checksum (both checked later)
-
-	test al, lz4_flg_c_size		; content size field present ?
-	jz @F				; no -->
-	mov cl, 8
-	call read_le_data_src		; (skip content size field)
-d0	mov byte [bp + ?errordata], 9
-	jc .error_CY_1
+	jb .error_CY_1			; no, error -->
 @@:
-	mov cl, 1
-	call read_le_data_src		; (skip header checksum field)
-d0	mov byte [bp + ?errordata], 0Ah
-	jc .error_CY_1
 
-.loop_block:
-%if _COUNTER
-	mov al, '#'
-	call disp_al
-%endif
-	mov cx, 4
-	call read_le_data_src		; read block size field
-					; leaves ds:si -> source
-d0	mov byte [bp + ?errordata], 0Bh
-	jc .error_CY_1
-
-	test dx, dx			; nonzero ?
-	jnz @FF
-	test ax, ax
-	jnz @FF				; yes -->
-
-	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_c_checksum
-	jz @F
-		; cx = 4 already
-	call read_le_data_src		; (skip c checksum field)
-d0	mov byte [bp + ?errordata], 0Ch
-.error_CY_2:
-	jc .error_CY_1
-@@:
-	jmp .loop_frame			; next frame, if any -->
-
-
-@@:
 	 push ds
 	 push si			; -> source
 	mov bx, dx
-	and bh, ~80h			; clear "uncompressed" flag
-	mov cx, ax			; bx:cx = block size
+	mov cx, ax			; bx:cx = chunk size
 	call normalise_pointer_with_displacement_bxcx
-					; -> source after block
+					; -> source after chunk
 	 pop word [bp + ?src_behind_block]
 	 pop word [bp + ?src_behind_block + 2]
-	test dh, 80h			; is it uncompressed ?
-	jz .compressed			; no -->
+
+	push dx
+	push ax
+	mov cl, 4
+	call read_le_data_src		; (skip checksum field)
+	pop ax
+	pop dx
+d0	mov byte [bp + ?errordata], 0Ah
+	jc .error_CY_1
+
+	cmp byte [bp + ?chunk_type_and_counter], snappy_chunk_compressed
+	 				; is it compressed ?
+	je .compressed			; yes -->
 
 .uncompressed:
-	xchg bx, dx			; get size without "uncompressed" flag
-	call lz4_copy_literal_or_uncompressed
+		; dx:ax = length of chunk
+	sub ax, 4
+	sbb dx, 0
+d0	mov byte [bp + ?errordata], 0Bh
+	jc .error_CY_1
+	call snappy_copy_literal_or_uncompressed
 d0	mov byte [bp + ?errordata], 0Dh
 	jc .error_CY_2
 
@@ -290,23 +267,15 @@ d0	mov byte [bp + ?errordata], 10h
 	pop word [bp + ?src]
 	pop word [bp + ?src + 2]	; set ?src -> behind block
 
-	test byte [bp + ?frame_descriptor_flg_and_bd], lz4_flg_b_checksum
-	jz @F				; no block checksum -->
-	mov cx, 4
-	call read_le_data_src		; (skip block checksum field)
-d0	mov byte [bp + ?errordata], 0Eh
-	jc .error_CY_3
-@@:
-
-	jmp .loop_block
+	jmp .loop_frame
 
 
 .compressed:
 .loop_sequence:
 
 %if _COUNTER
-	inc byte [bp + ?token_and_counter + 1]
-	test byte [bp + ?token_and_counter + 1], _COUNTER - 1
+	inc byte [bp + ?chunk_type_and_counter + 1]
+	test byte [bp + ?chunk_type_and_counter + 1], _COUNTER - 1
 	jnz @F
 	mov al, '.'
 	call disp_al
