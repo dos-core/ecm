@@ -618,45 +618,6 @@ snappy_func_bx_with_src:
 	retn
 
 
-		; INP:	?src -> source data
-		;	?length_of_source
-		;	al = first field data (0 to 15)
-		; OUT:	dx:cx = length value
-		;	?src incremented
-		;	?length_of_source decremented
-		;	CY if error (too high or out of source data)
-		;	NC if success
-		; CHG:	ax, bx
-lz4_get_length:
-	push ds
-	push si
-
-	xor cx, cx
-	xor dx, dx			; dx:cx = length field
-	mov ah, 15			; first byte maximum value
-.loop:
-	add cl, al
-	adc ch, 0
-	adc dx, 0			; add in this byte
-	jc .error			; if too high -->
-	cmp al, ah			; is this the maximum value ?
-	jne .end			; no -->
-	mov bx, depack.lodsb
-	call lz4_func_bx_with_src	; load next byte
-	jc .error
-	mov ah, 255			; next maximum value is 255
-	jmp .loop			; -->
-
-.end:
-	db __TEST_IMM8			; (NC)
-.error:
-	stc
-
-	pop si
-	pop ds
-	retn
-
-
 		; INP:	?src -> source data (normalised)
 		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
 		;	?length_of_source
