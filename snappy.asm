@@ -279,6 +279,12 @@ d0	mov byte [bp + ?errordata], 10h
 
 
 .compressed:
+@@:
+	mov bx, .lodsb
+	call snappy_func_bx_with_src	; load next varint byte of preamble
+	test al, 80h			; more bytes following ?
+	jnz @B
+
 .loop_sequence:
 
 %if _COUNTER
