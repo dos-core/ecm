@@ -432,8 +432,28 @@ d0	mov byte [bp + ?errordata], 1Ch
 %endif
 
 .next_sequence:
-	call snappy_check_behind_block_higher_than_src
-	jnc .loop_sequence		; process next sequence -->
+	; call snappy_check_behind_block_higher_than_src
+		; INP:	?src_behind_block -> block end (normalised)
+		;	?src -> current address in source buffer
+		; OUT:	CY if ?src is >= (above-or-equal) ?src_behind_block
+		;	NC else (?src is below ?src_behind_block, more data)
+		; CHG:	ax, dx
+		;
+		; Note:	Although ?src should always equal ?src_behind_block
+		;	 if CY here, we actually check for above-or-equal.
+; snappy_check_behind_block_higher_than_src:
+	mov dx, word [bp + ?src_behind_block + 2]
+	mov ax, word [bp + ?src_behind_block]
+					; dx:ax -> behind block
+
+	cmp word [bp + ?src + 2], dx	; compare segment
+	ja .snappy_check_error		; ?src > dx:ax -->
+	jb .snappy_check_success	; ?src < dx:ax -->
+	cmp word [bp + ?src], ax	; segment is same, compare offset
+	jae .snappy_check_error		; ?src >= dx:ax -->
+.snappy_check_success:
+	jmp .loop_sequence		; process next sequence -->
+.snappy_check_error:
 
 .end_sequence:
 	jmp .end_block
@@ -485,32 +505,6 @@ d0	mov byte [bp + ?errordata], 1Ch
 	xchg dx, ax
 	lodsw
 	xchg dx, ax
-	retn
-
-
-		; INP:	?src_behind_block -> block end (normalised)
-		;	?src -> current address in source buffer
-		; OUT:	CY if ?src is >= (above-or-equal) ?src_behind_block
-		;	NC else (?src is below ?src_behind_block, more data)
-		; CHG:	ax, dx
-		;
-		; Note:	Although ?src should always equal ?src_behind_block
-		;	 if CY here, we actually check for above-or-equal.
-snappy_check_behind_block_higher_than_src:
-	mov dx, word [bp + ?src_behind_block + 2]
-	mov ax, word [bp + ?src_behind_block]
-					; dx:ax -> behind block
-
-	cmp word [bp + ?src + 2], dx	; compare segment
-	ja .error			; ?src > dx:ax -->
-	jb .success			; ?src < dx:ax -->
-	cmp word [bp + ?src], ax	; segment is same, compare offset
-	jae .error			; ?src >= dx:ax -->
-
-.success:
-	db __TEST_IMM8			; (NC)
-.error:
-	stc
 	retn
 
 
