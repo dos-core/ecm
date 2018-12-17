@@ -173,8 +173,7 @@ d0	mov byte [bp + ?errordata], 1
 	call read_le_data_src		; read length of skippable frame
 d0	mov byte [bp + ?errordata], 2
 	jc .error
-
-	xor dh, dh			; dx:ax = length of skippable frame
+					; dx:ax = length of skippable frame
 
 	 push ds
 	 push si
