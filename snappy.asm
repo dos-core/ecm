@@ -519,7 +519,7 @@ d0	inc byte [bp + ?errordata + 1]
 		;	CY if error (buffer too small or other error)
 		;	NC if success
 		;	(may give more outputs depending on function)
-lz4_func_bx_with_src:
+snappy_func_bx_with_src:
 	lds si, [bp + ?src]
 	call bx
 	pushf
