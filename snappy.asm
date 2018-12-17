@@ -19,6 +19,13 @@ snappy_chunk_skippable_mask	equ  80h
 snappy_chunk_uncompressed	equ  01h
 snappy_chunk_compressed		equ  00h
 
+snappy_tag_mask			equ 0000_0011b
+snappy_tag_literal		equ 0
+snappy_tag_copy_1byteoffset	equ 1
+snappy_tag_copy_2byteoffset	equ 2
+snappy_tag_copy_4byteoffset	equ 3
+
+
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
@@ -56,6 +63,7 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
+	lvar word,	tag
 	lvar dword,	src_behind_block
 	lenter
 
@@ -284,10 +292,36 @@ d0	mov byte [bp + ?errordata], 10h
 %endif
 
 	mov bx, .lodsb
-	call lz4_func_bx_with_src	; load token
+	call snappy_func_bx_with_src	; load tag byte
 d0	mov byte [bp + ?errordata], 11h
 	jc .error_CY_3
-	mov byte [bp + ?token_and_counter], al
+	mov ah, al
+	mov byte [bp + ?tag], al
+
+	and ah, snappy_tag_mask
+	cmp ah, snappy_tag_literal
+	jne .copy
+
+	xor dx, dx
+	xor ah, ah
+	shr al, 1
+	shr al, 1
+	inc ax				; dx:ax = literal length if <= 60
+					; ax = 61, 62, 63, 64 for 1--4 bytes
+	cmp al, 60
+	jbe .literal_got_length
+
+	mov cx, ax
+	sub cx, 60			; 61 -> 1, 62 -> 2, 63 -> 3, 64 -> 4
+
+	call read_le_data_src
+	add ax, 1
+	adc dx, 0			; dx:ax = literal length
+
+.literal_got_length:
+	call snappy_copy_literal_or_uncompressed
+	jmp .next_sequence
+
 
 	mov cl, 4
 	shr al, cl
@@ -577,14 +611,8 @@ lz4_get_length:
 		; INP:	?src -> source data (normalised)
 		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
 		;	?length_of_source
-		; OUT:	If cx >= 4,
-		;	 dx:ax = value read as little-endian
-		;	If cx == 3,
-		;	 dl:ax = value read
-		;	If cx == 2,
-		;	 ax = value read
-		;	If cx == 1,
-		;	 al = value read
+		; OUT:	dx:ax = value read as little-endian
+		;	 (either a dword, 3byte, word, or byte)
 		;	If cx == 0,
 		;	 invalid, CY
 		;	ds:si = ?src = incremented source (normalised)
@@ -607,6 +635,19 @@ read_le_data_src:
 	xchg ax, dx		; dx = low word (first)
 	lodsw			; ax = high word (second)
 	xchg ax, dx		; fix order, dx:ax = dword
+
+	cmp cx, 4
+	jae @F
+	xor dh, dh
+	cmp cx, 3
+	je @F
+	xor dl, dl
+	cmp cx, 2
+	je @F
+	xor ah, ah
+	cmp cx, 1
+	jb .error
+@@:
 
 	sub si, 4
 	add si, cx
