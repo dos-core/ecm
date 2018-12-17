@@ -147,26 +147,21 @@ d0	mov bx, word [bp + ?errordata]
 
 
 @@:
-	mov cl, 4
+	mov cl, 1
 	call read_le_data_src
 d0	mov byte [bp + ?errordata], 1
 	jc .error
 
-	cmp dx, 184Dh			; signature match ?
-d0	mov byte [bp + ?errordata], 2
-	jne .error			; no -->
-	cmp ax, 2204h			; usual frame ?
-	je @F				; yes -->
+	test al, snappy_chunk_skippable_mask
+					; skippable frame ?
+	jnz .not_skippable		; no -->
 
-	and al,  ~0Fh
-	cmp ax, 2A50h			; skippable frame ?
-d0	mov byte [bp + ?errordata], 3
-	jne .error			; no -->
-
-		; cx = 4 still here
+	mov cl, 3
 	call read_le_data_src		; read length of skippable frame
-d0	mov byte [bp + ?errordata], 4
+d0	mov byte [bp + ?errordata], 2
 	jc .error
+
+	xor dh, dh			; dx:ax = length of skippable frame
 
 	 push ds
 	 push si
@@ -184,7 +179,9 @@ d0	mov byte [bp + ?errordata], 5
 	jmp .loop_frame
 
 
-@@:
+.not_skippable:
+
+
 	mov cl, 2
 	call read_le_data_src		; read FLG (low byte), BD (high byte)
 d0	mov byte [bp + ?errordata], 6
