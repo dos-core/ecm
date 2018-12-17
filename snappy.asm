@@ -167,7 +167,7 @@ d0	mov byte [bp + ?errordata], 1
 
 	test al, snappy_chunk_skippable_mask
 					; skippable frame ?
-	jnz .not_skippable		; no -->
+	jz .not_skippable		; no -->
 
 	mov cl, 3
 	call read_le_data_src		; read length of skippable frame
