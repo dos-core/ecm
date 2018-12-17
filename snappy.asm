@@ -204,7 +204,7 @@ d0	mov byte [bp + ?errordata], 6
 d0	mov byte [bp + ?errordata], 7
 .error_CY_1:
 	jc .error
-	xor dh, dh			; dx:ax = length of chunk
+					; dx:ax = length of chunk
 					;	  (including checksum)
 
 	test dx, dx			; at least 4 bytes in this chunk ?
