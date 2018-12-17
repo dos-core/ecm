@@ -382,6 +382,7 @@ d0	mov byte [bp + ?errordata], 12h
 	pop ax
 	mov dx, 0			; dx:ax = length (preserve CF!)
 d0	mov byte [bp + ?errordata], 13h
+.error_CY_4:
 	jc .error_1
 
 	test bx, bx			; offset is zero ?
