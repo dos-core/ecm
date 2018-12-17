@@ -79,12 +79,12 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 %elif _LZ4
 	strdef PAYLOAD_FILE,	"lDOSLOAD.LZ4"
-	numdef COUNTER,		0, 32
- %if (_COUNTER - 1) & _COUNTER
-  %error COUNTER must be a power of two
- %endif
 %elif _SNAPPY
 	strdef PAYLOAD_FILE,	"lDOSLOAD.SZ"
+%endif
+	numdef COUNTER,		0, 32
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
 %endif
 
 
