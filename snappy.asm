@@ -1,7 +1,7 @@
 
 %if 0
 
-8086 Assembly lDOS iniload payload LZ4 depacker
+8086 Assembly lDOS iniload payload Snappy depacker
  by C. Masloch, 2018
 
 Usage of the works is permitted provided that this
