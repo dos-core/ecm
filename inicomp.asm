@@ -71,7 +71,8 @@ ldLoadUntilSeg:	resw 1
 
 	numdef BRIEFLZ,		0
 	numdef LZ4,		0
-%if (!!_BRIEFLZ + !!_LZ4) != 1
+	numdef SNAPPY,		0
+%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY) != 1
  %error Exactly one compression method must be selected.
 %endif
 %if _BRIEFLZ
@@ -82,6 +83,8 @@ ldLoadUntilSeg:	resw 1
  %if (_COUNTER - 1) & _COUNTER
   %error COUNTER must be a power of two
  %endif
+%elif _SNAPPY
+	strdef PAYLOAD_FILE,	"lDOSLOAD.SZ"
 %endif
 
 
@@ -486,6 +489,11 @@ msg:
 %endif
 
 
+%if _SNAPPY
+	%include "snappy.asm"
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
@@ -659,6 +667,8 @@ init1_end:
 %define which iniblz
 %elif _LZ4
 %define which inilz4
+%elif _SNAPPY
+%define which inisz
 %endif
 %warning which: num bytes used for depacker
 
