@@ -432,7 +432,7 @@ lz4_check_behind_block_higher_than_src:
 		;	CY if error (either buffer too small)
 		;	NC if success
 		; CHG:	cx, dx, ax, es, di, ds, si
-lz4_copy_literal_or_uncompressed:
+snappy_copy_literal_or_uncompressed:
 	lds si, [bp + ?src]
 
 	sub word [bp + ?length_of_source], ax
@@ -440,7 +440,7 @@ lz4_copy_literal_or_uncompressed:
 					; enough data exists ?
 	jb .return			; no --> (CY)
 
-	call lz4_copy_data		; CY/NC depending on status
+	call snappy_copy_data		; CY/NC depending on status
 
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
@@ -458,7 +458,7 @@ lz4_copy_literal_or_uncompressed:
 		;	CY if error (buffer too small)
 		;	NC if success
 		; CHG:	cx, dx, ax, es, di, ds, si
-lz4_copy_data:
+snappy_copy_data:
 d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
