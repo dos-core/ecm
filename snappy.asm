@@ -225,7 +225,7 @@ d0	mov byte [bp + ?errordata], 8
 
 	push dx
 	push ax
-	mov cl, 4
+	mov cx, 4
 	call read_le_data_src		; (skip checksum field)
 	pop ax
 	pop dx
