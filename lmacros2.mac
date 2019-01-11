@@ -840,7 +840,6 @@ __@@_next
 	;  to define two @@ labels at once. May be useful.
 
 	; Only invalidate outstanding @@ forward references.
-	;  The sequence flag is reset, unless non-zero %1 is given.
  %imacro @FI 0.nolist
 %assign __@@_num_inv __@@_num_inv+1
 %idefine @FFFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
