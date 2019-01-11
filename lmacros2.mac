@@ -843,13 +843,13 @@ __@@_next
 	;  The sequence flag is reset, unless non-zero %1 is given.
  %imacro @FI 0.nolist
 %assign __@@_num_inv __@@_num_inv+1
-%define @FFFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @FFFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %assign __@@_num_inv __@@_num_inv+1
-%define @FFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @FFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %assign __@@_num_inv __@@_num_inv+1
-%define @FF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @FF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %assign __@@_num_inv __@@_num_inv+1
-%define @F ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @F ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %ixdefine @F4 @FFFF
 %ixdefine @F3 @FFF
 %ixdefine @F2 @FF
@@ -859,13 +859,13 @@ __@@_next
 	; Only invalidate @@ backward references.
  %imacro @BI 0.nolist
 %assign __@@_num_inv __@@_num_inv+1
-%define @B ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @B ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %assign __@@_num_inv __@@_num_inv+1
-%define @BB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @BB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %assign __@@_num_inv __@@_num_inv+1
-%define @BBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @BBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %assign __@@_num_inv __@@_num_inv+1
-%define @BBBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%idefine @BBBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
 %ixdefine @B4 @BBBB
 %ixdefine @B3 @BBB
 %ixdefine @B2 @BB
