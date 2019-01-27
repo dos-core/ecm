@@ -1345,7 +1345,7 @@ clust_next:
 		; OUT:	dx:ax -= 2 (makes it 0-based)
 		;	CY iff invalid cluster
 check_clust:
-	and dx, 0FFFh
+	and dh, 0Fh
 	sub ax, 2
 	sbb dx, 0
 	cmp dx, 0FFFh
