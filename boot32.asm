@@ -1200,8 +1200,6 @@ fsiboot:
 	adc dx, 0
 	jc fsiboot_error_badchain
 
-	xor di, di
-
 ; first sector of disk data area:
 	mov [VAR(data_start)], ax
 	mov [VAR(data_start+2)], dx
