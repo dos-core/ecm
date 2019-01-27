@@ -172,8 +172,10 @@ relocator:
 	xor si, si
 	lea cx, [ bp + 512 ]
 	rep movsb
+	cli
 	mov ss, ax
 	mov sp, bp
+	sti
 
 	jmp 60h:0
 .end:
