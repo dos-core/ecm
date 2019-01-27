@@ -1186,18 +1186,21 @@ fsiboot:
 		; dx = third word
 	test dx, dx
 	jnz fsiboot_error_badchain
+		; dx = zero
 	xchg dx, ax
 		; dx = high word adjust
+		; ax = zero
 	add dx, cx
 	jc .CY_fsiboot_error_badchain
 		; dx:bx = result
 	xchg ax, bx
 		; dx:ax = result
+		; bx = zero
 .CY_fsiboot_error_badchain:
 	jc fsiboot_error_badchain
 
 	add ax,[VAR(num_reserved_sectors)]
-	adc dx, 0
+	adc dx, bx		; bx is zero here
 	jc fsiboot_error_badchain
 
 ; first sector of disk data area:
