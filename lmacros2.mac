@@ -656,6 +656,8 @@ __lleave_undefine_labels %$labellist
 %imacro lret 0-2.nolist auto,0
 %ifctx LFRAME
  %fatal Must use lenter first
+%elifctx LENTEREARLY
+ %fatal Must use lenter first
 %endif
 ; Do not check specifically for ctx LENTER here!
 ; Usually, lleave already popped the ctx.
