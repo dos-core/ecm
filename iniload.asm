@@ -239,7 +239,11 @@ ms6_entry:
 		;	    load unit field set, hidden sectors set
 		; (actually boot unit in dl; because the "MZ" signature
 		;  destroys dl we assume it's in the BPB too)
-		; ds:si = old int 1Eh address
+		; Either:
+		;	dword [ss:sp] = 0:78h = 1Eh * 4 (IVT entry of int 1Eh)
+		;	dword [ss:sp + 4] = old int 1Eh address
+		; Or:
+		;	ds:si = old int 1Eh address
 		; 0:500h-> directory entry for BIO file
 	cli
 	cld
