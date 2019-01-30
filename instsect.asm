@@ -593,6 +593,7 @@ process_switch_filename:
 .disp_error_1:
 	jmp disp_error
 
+@@:
 .unquoted_loop:
 	cmp al, 32		; blank or EOL outside quoted part ?
 	je .blank
