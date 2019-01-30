@@ -494,7 +494,26 @@ NUM_REPLACEMENTS equ 4
 	jmp .loop_1
 
 @@:
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
 	jmp .switch_not_supported
+
+@@:
+	clropt [cmd_line_flags], clfWriteInfoMask
+	setopt [cmd_line_flags], clfWriteInfoToFile
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	dec si
+	mov word [cmd_line_info_file.name], si
+	call process_switch_filename
+	jmp .loop_got_byte
 
 
 .switch_b:
