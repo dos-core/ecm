@@ -2280,7 +2280,7 @@ AAAAAAAA00FFF
 	align 16
 	section BUFFERS
 
-cmd_line_flags:		dw 0
+cmd_line_flags:		dw clfWriteSectorToSector | clfWriteInfoToSector
 clfWriteSectorToFile:		equ   1
 clfWriteSectorToSector:		equ   2
 clfDontWriteSector:		equ   4
