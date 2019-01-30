@@ -2280,6 +2280,25 @@ AAAAAAAA00FFF
 	align 16
 	section BUFFERS
 
+cmd_line_flags:		dw 0
+clfWriteSectorToFile:		equ   1
+clfWriteSectorToSector:		equ   2
+clfDontWriteSector:		equ   4
+clfWriteSectorMask: \
+	equ clfWriteSectorToFile | clfWriteSectorToSector | clfDontWriteSector
+clfLeaveSector:			equ   8
+clfWriteInfoToFile:		equ  10h
+clfWriteInfoToSector:		equ  20h
+clfWriteInfoToSectorFile:	equ  40h
+clfDontWriteInfo:		equ  80h
+clfWriteInfoMask: \
+	equ clfWriteInfoToFile | clfWriteInfoToSector \
+		| clfWriteInfoToSectorFile | clfDontWriteInfo
+clfLeaveInfo:			equ 100h
+cmd_line_sector_file:	dw 0
+cmd_line_info_file:	dw 0
+
+
 	dw 0		; insure there's an unused word in front of this (1)
 	align 16
 sector_buffer:
