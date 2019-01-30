@@ -479,6 +479,20 @@ NUM_REPLACEMENTS equ 4
 	jmp .loop_1
 
 @@:
+	cmp al, 'S'
+	jne @F
+	clropt [cmd_line_flags], clfWriteInfoMask
+	setopt [cmd_line_flags], clfWriteInfoToSector
+	jmp .loop_1
+
+@@:
+	cmp al, 'N'
+	jne @F
+	clropt [cmd_line_flags], clfWriteInfoMask
+	setopt [cmd_line_flags], clfDontWriteInfo
+	jmp .loop_1
+
+@@:
 	jmp .switch_not_supported
 
 
@@ -494,6 +508,20 @@ NUM_REPLACEMENTS equ 4
 	cmp al, 'R'
 	jne @F
 	clropt [cmd_line_flags], clfLeaveSector
+	jmp .loop_1
+
+@@:
+	cmp al, 'S'
+	jne @F
+	clropt [cmd_line_flags], clfWriteSectorMask
+	setopt [cmd_line_flags], clfWriteSectorToSector
+	jmp .loop_1
+
+@@:
+	cmp al, 'N'
+	jne @F
+	clropt [cmd_line_flags], clfWriteSectorMask
+	setopt [cmd_line_flags], clfDontWriteSector
 	jmp .loop_1
 
 @@:
