@@ -543,7 +543,7 @@ NUM_REPLACEMENTS equ 4
 	je @B
 
 	dec si
-	mov word [cmd_line_sector_file], si
+	mov word [cmd_line_sector_file.name], si
 	call process_switch_filename
 	jmp .loop_got_byte
 
@@ -1147,6 +1147,25 @@ write:
 
 	testopt [cmd_line_flags], clfDontWriteSector
 	jnz exit_normal
+	testopt [cmd_line_flags], clfWriteSectorToFile
+	jz .not_sector_to_file
+
+	mov di, cmd_line_sector_file
+	call open_file
+	jc exit_error
+
+	mov ax, 4200h		; seek from start of file
+	xor cx, cx
+	xor dx, dx		; seek offset 0
+	int 21h			; seek to start of file
+
+	mov dx, sector_buffer	; -> buffer
+	call write_file_ae_512_bytes
+	jc exit_error
+	jmp exit_normal
+
+
+.not_sector_to_file:
 	mov bx, sector_buffer
 	xor ax, ax
 	xor dx, dx
@@ -1184,6 +1203,95 @@ exit_normal:
 	call restorestate
 	mov ax, 4C00h
 	int 21h
+
+
+		; INP:	ds:di -> cmd_line_file structure
+		;		(word pointer to name, word handle)
+		; OUT:	File opened,
+		;	 bx = file handle
+		;	Jumps to disp_dos_error then disp_error if error
+		; CHG:	ax, bx, cx, dx, si
+		; Note:	We never close our files, instead relying on the
+		;	 process termination to close them.
+open_file:
+		; Is it already open ?
+	mov bx, word [di + cmd_line_file_handle_ofs]
+	cmp bx, -1
+	je @F
+	retn
+
+@@:
+	mov si, word [di + cmd_line_file_name_ofs]	; -> filename
+	mov ax, 6C00h
+	mov bx, 0110_0000_0010_0001b		; Auto-commit, no int 24h
+						; DENY WRITE, Write-only
+	xor cx, cx				; create attribute
+	mov dx, 0000_0000_0001_0010b		; create / open-truncate
+	stc
+	int 21h
+	jnc .got
+
+	cmp ax, 1
+	je .try_old_create
+	cmp ax, 6C00h
+	jne .error
+
+.try_old_create:
+	mov ah, 3Ch
+	mov dx, si				; -> filename
+						; cx = create attribute
+	stc
+	int 21h
+	jc .error
+
+.got:
+	mov bx, ax
+	mov word [di + cmd_line_file_handle_ofs], bx
+	clc
+	retn
+
+.error:
+	mov dx, msg.error_file_open
+	call disp_dos_error
+	stc
+	retn
+
+
+disp_dos_error:
+	call disp_msg_asciz
+	mov dx, msg.dos_error_msg_1
+	call disp_msg_asciz
+	call disp_ax_hex
+	mov dx, msg.dos_error_msg_2
+	call disp_msg_asciz
+	mov dx, msg.dos_error_unknown
+	cmp ax, dos_error_table.after_last
+	jae @F
+	mov bx, ax
+	shl bx, 1
+	mov dx, word [dos_error_table + bx]
+@@:
+	call disp_msg_asciz
+	mov dx, msg.dos_error_msg_3
+	jmp disp_msg_asciz
+
+
+		; INP:	ds:dx -> buffer
+		;	bx = handle
+write_file_ae_512_bytes:
+	mov cx, word [bp + ldBytesPerSector]
+	cmp cx, 512		; more than 512 bytes ?
+	ja @F			; yes -->
+	mov cx, 512		; fix sector size
+@@:
+	mov ah, 40h
+	int 21h			; write file
+	jnc @F			; (NC) -->
+	mov dx, msg.error_file_write
+	call disp_dos_error
+	stc
+@@:
+	retn
 
 
 unit_search_strings:
@@ -1688,6 +1796,10 @@ disp_msg_asciz:
 	retn
 
 
+disp_ax_hex:
+		xchg al, ah
+		call disp_al_hex
+		xchg al, ah
 disp_al_hex:
 		push cx
 		mov cl, 4
@@ -1703,9 +1815,11 @@ disp_al_hex:
 		jbe .isdigit
 		add al, 'A'-('9'+1)
 .isdigit:
+		push dx
 		xchg dl, al
 		mov ah, 02h
 		int 21h
+		pop dx
 		pop ax
 		retn
 
@@ -2121,6 +2235,101 @@ load_kernel_name: equ $
 			asciz "Switch requires a filename.",13,10
 
 
+
+.error_file_open:	asciz "Error opening file for writing, "
+.error_file_write:	asciz "Error writing file, "
+.dos_error_msg_1:	asciz "DOS error "
+.dos_error_msg_2:	asciz "h ("
+.dos_error_msg_3:	asciz ").",13,10
+
+.dos_error_0:		asciz "No error"
+.dos_error_1:		asciz "Invalid function"
+.dos_error_2:		asciz "File not found"
+.dos_error_3:		asciz "Path not found"
+.dos_error_4:		asciz "No handles available"
+.dos_error_5:		asciz "Access denied"
+.dos_error_6:		asciz "Invalid handle"
+.dos_error_7:		asciz "MCB destroyed"
+.dos_error_8:		asciz "Out of memory"
+.dos_error_9:		asciz "MCB invalid"
+.dos_error_10:		asciz "Environment invalid"
+.dos_error_11:		asciz "Format invalid"
+.dos_error_12:		asciz "Access code invalid"
+.dos_error_13:		asciz "Data invalid"
+.dos_error_14:		asciz "Fixup overflow"
+.dos_error_15:		asciz "Invalid drive"
+.dos_error_16:		asciz "Attempted to remove current directory"
+.dos_error_17:		asciz "Not same device"
+.dos_error_18:		asciz "No more files"
+.dos_error_19:		asciz "Disk write protected"
+.dos_error_20:		asciz "Unknown unit"
+.dos_error_21:		asciz "Drive not ready"
+.dos_error_22:		asciz "Unknown command"
+.dos_error_23:		asciz "Data error"
+.dos_error_24:		asciz "Bad request structure length"
+.dos_error_25:		asciz "Seek error"
+.dos_error_26:		asciz "Unknown media type"
+.dos_error_27:		asciz "Sector not found"
+.dos_error_28:		asciz "Printer out of paper"
+.dos_error_29:		asciz "Write fault"
+.dos_error_30:		asciz "Read fault"
+.dos_error_31:		asciz "General failure"
+.dos_error_32:		asciz "Sharing violation"
+.dos_error_33:		asciz "Lock violation"
+.dos_error_34:		asciz "Disk change invalid"
+.dos_error_35:		asciz "FCB unavailable"
+.dos_error_36:		asciz "Sharing buffer overflow"
+.dos_error_37:		asciz "Code page mismatch"
+.dos_error_38:		asciz "Cannot complete file operation"
+.dos_error_39:		asciz "Insufficient disk space"
+.dos_error_unknown:	asciz "Unknown error"
+
+
+dos_error_table:
+.:
+	dw msg.dos_error_0
+	dw msg.dos_error_1
+	dw msg.dos_error_2
+	dw msg.dos_error_3
+	dw msg.dos_error_4
+	dw msg.dos_error_5
+	dw msg.dos_error_6
+	dw msg.dos_error_7
+	dw msg.dos_error_8
+	dw msg.dos_error_9
+	dw msg.dos_error_10
+	dw msg.dos_error_11
+	dw msg.dos_error_12
+	dw msg.dos_error_13
+	dw msg.dos_error_14
+	dw msg.dos_error_15
+	dw msg.dos_error_16
+	dw msg.dos_error_17
+	dw msg.dos_error_18
+	dw msg.dos_error_19
+	dw msg.dos_error_20
+	dw msg.dos_error_21
+	dw msg.dos_error_22
+	dw msg.dos_error_23
+	dw msg.dos_error_24
+	dw msg.dos_error_25
+	dw msg.dos_error_26
+	dw msg.dos_error_27
+	dw msg.dos_error_28
+	dw msg.dos_error_29
+	dw msg.dos_error_30
+	dw msg.dos_error_31
+	dw msg.dos_error_32
+	dw msg.dos_error_33
+	dw msg.dos_error_34
+	dw msg.dos_error_35
+	dw msg.dos_error_36
+	dw msg.dos_error_37
+	dw msg.dos_error_38
+	dw msg.dos_error_39
+.after_last:	equ ($ - .) >> 1
+
+
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
 		db dskerr4-dskerrs,dskerr9-dskerrs
@@ -2475,8 +2684,14 @@ clfWriteInfoMask: \
 	equ clfWriteInfoToFile | clfWriteInfoToSector \
 		| clfWriteInfoToSectorFile | clfDontWriteInfo
 clfLeaveInfo:			equ 100h
-cmd_line_sector_file:	dw 0
-cmd_line_info_file:	dw 0
+cmd_line_sector_file:
+.name:		dw 0
+.handle:	dw -1
+cmd_line_info_file:
+.name:		dw 0
+.handle:	dw -1
+cmd_line_file_name_ofs:		equ 0
+cmd_line_file_handle_ofs:	equ 2
 
 
 	dw 0		; insure there's an unused word in front of this (1)
