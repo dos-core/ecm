@@ -498,6 +498,8 @@ NUM_REPLACEMENTS equ 4
 	je @F
 	cmp al, '='
 	je @F
+	cmp al, 'B'
+	je .switch_i_b
 	jmp .switch_not_supported
 
 @@:
@@ -514,6 +516,11 @@ NUM_REPLACEMENTS equ 4
 	mov word [cmd_line_info_file.name], si
 	call process_switch_filename
 	jmp .loop_got_byte
+
+.switch_i_b:
+	clropt [cmd_line_flags], clfWriteInfoMask
+	setopt [cmd_line_flags], clfWriteInfoToSectorFile
+	jmp .loop_1
 
 
 .switch_b:
@@ -602,6 +609,15 @@ cmd_line_end:
 	cmp byte [drivenumber], -1
 	jne @F
 	mov dx, msg.no_drive_specified
+	jmp disp_error
+
+@@:
+	testopt [cmd_line_flags], clfWriteInfoToSectorFile
+	jz @F
+	testopt [cmd_line_flags], clfWriteSectorToFile
+	jnz @F
+
+	mov dx, msg.no_sector_file_specified
 	jmp disp_error
 
 @@:
@@ -2206,6 +2222,8 @@ msg:
 .invalid_argument:	asciz "Invalid argument.",13,10
 .no_drive_specified:	asciz "No drive specified.",13,10
 .error_multiple_drives:	asciz "Multiple drives specified.",13,10
+.no_sector_file_specified:
+		asciz "No boot sector file specified for /IB switch.",13,10
 .bootfail_sig:	asciz "Boot sector signature missing (is not AA55h).",13,10
 .bootfail_sig2:	asciz "Big boot sector signature missing (is not AA55h).",13,10
 .bootfail_secsizeinvalid:
