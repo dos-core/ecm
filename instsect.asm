@@ -554,6 +554,11 @@ detect_fat_type:
 	jne .disp_error_1
 @@:
 
+	mov si, second_sector_buffer
+	mov di, third_sector_buffer_512_bytes
+	mov cx, 512 >> 1
+	rep movsw
+
 	xor ax, ax
 	cmp word [bp + bsBPB + bpbSectorsPerFAT], ax
 	je @F					; is FAT32 -->
@@ -2363,7 +2368,9 @@ cmd_line_info_file:	dw 0
 	align 16
 sector_buffer:
 second_sector_buffer:	equ sector_buffer - LOADDATA2 + 16 + 8192
-end:			equ second_sector_buffer+8192
+third_sector_buffer_512_bytes: \
+			equ second_sector_buffer + 8192
+end:			equ third_sector_buffer_512_bytes + 512
 stack_start:		equ end
 stack_end:		equ stack_start + 4096
 
