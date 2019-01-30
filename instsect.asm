@@ -332,11 +332,12 @@ start:
 	mov si, 81h
 .loop:
 	lodsb
+.loop_got_byte:
 	cmp al, 9
 	je .loop
 	cmp al, 32
 	je .loop
-	jb .end
+	jb cmd_line_end
 
 	cmp al, '-'
 	je .switch
@@ -525,7 +526,26 @@ NUM_REPLACEMENTS equ 4
 	jmp .loop_1
 
 @@:
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
 	jmp .switch_not_supported
+
+@@:
+	clropt [cmd_line_flags], clfWriteSectorMask
+	setopt [cmd_line_flags], clfWriteSectorToFile
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	dec si
+	mov word [cmd_line_sector_file], si
+	call process_switch_filename
+	jmp .loop_got_byte
 
 
 .error_multiple_drives:
@@ -536,7 +556,30 @@ NUM_REPLACEMENTS equ 4
 	mov dx, msg.invalid_argument
 	jmp disp_error
 
-.end:
+
+process_switch_filename:
+	lodsb
+	call iseol?
+	jne @F
+	mov dx, msg.switch_requires_filename
+	jmp disp_error
+
+@@:
+	cmp al, 32
+	je .blank
+	cmp al, 9
+	je .blank
+	call iseol?
+	je .blank
+	lodsb
+	jmp @B
+
+.blank:
+	mov byte [si - 1], 0
+	retn
+
+
+cmd_line_end:
 	cmp byte [drivenumber], -1
 	jne @F
 	mov dx, msg.no_drive_specified
@@ -2073,6 +2116,9 @@ load_kernel_name: equ $
 .using_fix_unit_after:	asciz "h.",13,10
 .unit_not_found:	asciz "Unit fixing code not found in sector.",13,10
 .using_auto_unit:	asciz "Using auto unit.",13,10
+
+.switch_requires_filename:
+			asciz "Switch requires a filename.",13,10
 
 
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
