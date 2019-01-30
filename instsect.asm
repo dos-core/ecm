@@ -787,9 +787,29 @@ error_badchain: equ $
 .fat32_larger_sector:
 .fat32_fsinfo_setup_done:
 %endif
+	testopt [cmd_line_flags], clfLeaveSector
+	jz @F
+
+		; Copy over original 512-byte sector buffer content.
+	mov cx, 512
+	mov di, sector_buffer
+	mov si, third_sector_buffer_512_bytes
+	mov cx, 512 >> 1
+	rep movsw
+		; Copy over big sector excess from buffer.
+	mov si, second_sector_buffer + 512
+	mov cx, [bp + ldBytesPerSector]
+	sub cx, 512
+	jbe .got_sector_buffer
+	shr cx, 1
+	rep movsw
+	jmp .got_sector_buffer
+
+
 		; Copy over two sectors into the sector_buffer,
 		;  for the case of FAT32 with _FAT32_TWO_SECTORS
 		;  and a sector size >= 1 KiB.
+@@:
 	mov cx, 1024 >> 1
 	mov di, sector_buffer
 	rep movsw
@@ -808,10 +828,25 @@ error_badchain: equ $
 	mov cx, BPBN_size
 	rep movsb
 
+
+.got_sector_buffer:
 %if _FAT32_TWO_SECTORS
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
+	testopt [cmd_line_flags], clfLeaveInfo
+	jz @F
+
+		; Copy over original FSINFO sector content.
+	mov si, second_sector_buffer + 512
+	mov di, sector_buffer + 512
+	mov cx, 512 >> 1
+	rep movsw
+	jmp .no_fsinfo
+
+@@:
+		; Copy over actual FSINFO structure from original.
+		;  (Leaves FSIBOOT as written from our image.)
 	mov si, second_sector_buffer + 512 + FSINFO.signature2
 	mov di, sector_buffer + 512 + FSINFO.signature2
 	mov cx, (FSINFO_size - FSINFO.signature2) >> 1
