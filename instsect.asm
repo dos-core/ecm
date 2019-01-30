@@ -1546,6 +1546,8 @@ boot_parse_fn:
 .loop_name:
 	lodsb
 	call uppercase
+	cmp al, '"'
+	je .invalid
 	call iseol?
 	je .loop_name_done
 	cmp al, 32
@@ -1572,6 +1574,8 @@ boot_parse_fn:
 .loop_ext:
 	lodsb
 	call uppercase
+	cmp al, '"'
+	je .invalid
 	call iseol?
 	je .loop_ext_done
 	cmp al, 32
