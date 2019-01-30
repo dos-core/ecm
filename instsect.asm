@@ -362,11 +362,17 @@ start:
 	je .switch_f
 	cmp al, 'U'
 	je .switch_u
+	cmp al, 'I'
+	je .switch_i
+	cmp al, 'B'
+	je .switch_b
 
+.switch_not_supported:
 	mov dx, msg.switch_not_supported
 disp_error: equ $
 	call disp_msg_asciz
 	jmp exit_error
+
 
 .switch_f:
 
@@ -455,6 +461,43 @@ NUM_REPLACEMENTS equ 4
 @@:
 	mov word [load_unit], ax
 	jmp .loop
+
+
+.switch_i:
+	lodsb
+	call uppercase
+	cmp al, 'O'
+	jne @F
+	setopt [cmd_line_flags], clfLeaveInfo
+.loop_1:
+	jmp .loop
+
+@@:
+	cmp al, 'R'
+	jne @F
+	clropt [cmd_line_flags], clfLeaveInfo
+	jmp .loop_1
+
+@@:
+	jmp .switch_not_supported
+
+
+.switch_b:
+	lodsb
+	call uppercase
+	cmp al, 'O'
+	jne @F
+	setopt [cmd_line_flags], clfLeaveSector
+	jmp .loop_1
+
+@@:
+	cmp al, 'R'
+	jne @F
+	clropt [cmd_line_flags], clfLeaveSector
+	jmp .loop_1
+
+@@:
+	jmp .switch_not_supported
 
 
 .error_multiple_drives:
