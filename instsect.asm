@@ -1091,6 +1091,8 @@ write:
 		;  FAT32 sector which is an FSINFO sector, write it here.
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
+	testopt [cmd_line_flags], clfDontWriteInfo
+	jnz .no_fsinfo
 	mov bx, sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 	xor dx, dx
@@ -1100,6 +1102,8 @@ write:
 .no_fsinfo:
 %endif
 
+	testopt [cmd_line_flags], clfDontWriteSector
+	jnz exit_normal
 	mov bx, sector_buffer
 	xor ax, ax
 	xor dx, dx
@@ -1114,6 +1118,8 @@ write:
 		;  already written, try to restore FSINFO.
 	test byte [bp + ldHasLBA], 2
 	jz @F
+	testopt [cmd_line_flags], clfDontWriteInfo
+	jnz @F
 	mov bx, second_sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 	xor dx, dx
