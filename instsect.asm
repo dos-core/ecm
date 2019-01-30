@@ -533,12 +533,26 @@ detect_fat_type:
 
 	mov dx, msg.bootfail_sig
 	cmp word [bp + 510], 0AA55h
-	jne disp_error
+	jne .disp_error_1
 
 	mov bx, [bp + ldBytesPerSector]
 	cmp bx, [bp + bsBPB + bpbBytesPerSector]
 	mov dx, msg.bootfail_secsizediffer
-	jne disp_error
+	jne .disp_error_1
+
+	cmp bx, 512
+	jbe @FF
+	cmp bx, 1024
+	jae @F
+	mov dx, msg.bootfail_secsizeinvalid
+.disp_error_1:
+	jmp disp_error
+@@:
+	mov di, bx
+	cmp word [bp + di - 2], 0AA55h
+	mov dx, msg.bootfail_sig2
+	jne .disp_error_1
+@@:
 
 	xor ax, ax
 	cmp word [bp + bsBPB + bpbSectorsPerFAT], ax
@@ -1925,6 +1939,9 @@ msg:
 .no_drive_specified:	asciz "No drive specified.",13,10
 .error_multiple_drives:	asciz "Multiple drives specified.",13,10
 .bootfail_sig:	asciz "Boot sector signature missing (is not AA55h).",13,10
+.bootfail_sig2:	asciz "Big boot sector signature missing (is not AA55h).",13,10
+.bootfail_secsizeinvalid:
+		asciz "Sector size is invalid (not a power of two).",13,10
 .bootfail_secsizediffer:
 		asciz "BPB BpS differs from actual sector size.",13,10
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
