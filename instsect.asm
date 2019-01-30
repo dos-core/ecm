@@ -584,25 +584,53 @@ NUM_REPLACEMENTS equ 4
 
 
 process_switch_filename:
-	lodsb
+	mov bx, si		; -> start of name
+	mov di, si		; -> start of name
+	lodsb			; load character
 	call iseol?
 	jne @F
 	mov dx, msg.switch_requires_filename
+.disp_error_1:
 	jmp disp_error
 
-@@:
-	cmp al, 32
+.unquoted_loop:
+	cmp al, 32		; blank or EOL outside quoted part ?
 	je .blank
 	cmp al, 9
 	je .blank
 	call iseol?
-	je .blank
-	lodsb
-	jmp @B
+	je .blank		; yes -->
+	cmp al, '"'		; starting quote mark ?
+	je .quoted		; yes -->
+	stosb			; store character
+.unquote:
+	lodsb			; load character
+	jmp .unquoted_loop	; continue in not-quoted loop -->
 
 .blank:
-	mov byte [si - 1], 0
-	retn
+	; mov byte [si - 1], 0	; terminate (shouldn't be needed)
+	mov byte [di], 0	; terminate
+	cmp bx, di		; empty ?
+	je .empty		; yes -->
+	retn			; done
+
+.quoted_loop:
+	call iseol?		; EOL inside quoted part ?
+	je .quoted_eol		; if yes, error -->
+	cmp al, '"'		; ending quote mark ?
+	je .unquote		; yes -->
+	stosb			; store character
+.quoted:
+	lodsb			; load character
+	jmp .quoted_loop	; continue in quoted loop -->
+
+.empty:
+	mov dx, msg.switch_filename_empty
+	jmp .disp_error_1
+
+.quoted_eol:
+	mov dx, msg.switch_filename_missing_unquote
+	jmp .disp_error_1
 
 
 cmd_line_end:
@@ -2323,7 +2351,10 @@ load_kernel_name: equ $
 
 .switch_requires_filename:
 			asciz "Switch requires a filename.",13,10
-
+.switch_filename_missing_unquote:
+			asciz "Switch filename missing ending quote.",13,10
+.switch_filename_empty:
+			asciz "Switch filename is empty.",13,10
 
 
 .error_file_open:	asciz "Error opening file for writing, "
