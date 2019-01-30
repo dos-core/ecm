@@ -1155,6 +1155,20 @@ write:
 	jz .no_fsinfo
 	testopt [cmd_line_flags], clfDontWriteInfo
 	jnz .no_fsinfo
+	testopt [cmd_line_flags], clfWriteInfoToFile
+	jz .not_info_to_file
+
+	mov di, cmd_line_info_file
+	call open_file
+	jc exit_error
+
+	mov dx, sector_buffer + 512
+	call write_file_ae_512_bytes
+	jc exit_error
+	jmp .no_fsinfo
+
+
+.not_info_to_file:
 	mov bx, sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 	xor dx, dx
@@ -1199,7 +1213,11 @@ write:
 		;  already written, try to restore FSINFO.
 	test byte [bp + ldHasLBA], 2
 	jz @F
+		; If haven't written, do not restore.
 	testopt [cmd_line_flags], clfDontWriteInfo
+	jnz @F
+		; If have written to a file, do not restore.
+	testopt [cmd_line_flags], clfWriteInfoToFile | clfWriteInfoToSectorFile
 	jnz @F
 	mov bx, second_sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
