@@ -1171,6 +1171,22 @@ write:
 	jz .no_fsinfo
 	testopt [cmd_line_flags], clfDontWriteInfo
 	jnz .no_fsinfo
+	testopt [cmd_line_flags], clfWriteInfoToSectorFile
+	jz .not_info_to_sector_file
+
+	mov di, cmd_line_sector_file
+	call open_file
+	jc exit_error
+
+	mov ax, 4200h
+	xor cx, cx
+	mov dx, 512		; seek offset 512
+	int 21h
+
+	jmp @F
+
+
+.not_info_to_sector_file:
 	testopt [cmd_line_flags], clfWriteInfoToFile
 	jz .not_info_to_file
 
@@ -1178,6 +1194,7 @@ write:
 	call open_file
 	jc exit_error
 
+@@:
 	mov dx, sector_buffer + 512
 	call write_file_ae_512_bytes
 	jc exit_error
