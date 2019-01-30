@@ -1292,11 +1292,25 @@ open_file:
 
 @@:
 	mov si, word [di + cmd_line_file_name_ofs]	; -> filename
-	mov ax, 6C00h
+	mov ax, 716Ch				; LFN open-create
 	mov bx, 0110_0000_0010_0001b		; Auto-commit, no int 24h
 						; DENY WRITE, Write-only
 	xor cx, cx				; create attribute
 	mov dx, 0000_0000_0001_0010b		; create / open-truncate
+	push di
+	xor di, di				; alias hint
+	stc
+	int 21h
+	pop di
+	jnc .got
+
+	cmp ax, 1
+	je .try_sfn
+	cmp ax, 7100h
+	jne .error
+
+.try_sfn:
+	mov ax, 6C00h				; Open-create
 	stc
 	int 21h
 	jnc .got
@@ -1307,7 +1321,7 @@ open_file:
 	jne .error
 
 .try_old_create:
-	mov ah, 3Ch
+	mov ah, 3Ch				; Create (Create/Truncate)
 	mov dx, si				; -> filename
 						; cx = create attribute
 	stc
