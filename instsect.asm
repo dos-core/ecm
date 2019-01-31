@@ -1198,11 +1198,14 @@ write:
 		;  FAT32 sector which is an FSINFO sector, write it here.
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
+	mov dx, msg.info_writing_not
 	testopt [cmd_line_flags], clfDontWriteInfo
-	jnz .no_fsinfo
+	jnz .no_fsinfo_message
 	testopt [cmd_line_flags], clfWriteInfoToSectorFile
 	jz .not_info_to_sector_file
 
+	mov dx, msg.info_writing_sector_file
+	call disp_msg_asciz
 	mov di, cmd_line_sector_file
 	call open_file
 	jc exit_error
@@ -1219,6 +1222,8 @@ write:
 	testopt [cmd_line_flags], clfWriteInfoToFile
 	jz .not_info_to_file
 
+	mov dx, msg.info_writing_file
+	call disp_msg_asciz
 	mov di, cmd_line_info_file
 	call open_file
 	jc exit_error
@@ -1231,20 +1236,31 @@ write:
 
 
 .not_info_to_file:
+	mov dx, msg.info_writing_sector
+	call disp_msg_asciz
 	mov bx, sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 	xor dx, dx
 	mov cl, [drivenumber]
 	call write_ae_512_bytes
 	jc exit_error
+	jmp .no_fsinfo
+
+
+.no_fsinfo_message:
+	call disp_msg_asciz
+
 .no_fsinfo:
 %endif
 
+	mov dx, msg.sector_writing_not
 	testopt [cmd_line_flags], clfDontWriteSector
-	jnz exit_normal
+	jnz exit_normal_message
 	testopt [cmd_line_flags], clfWriteSectorToFile
 	jz .not_sector_to_file
 
+	mov dx, msg.sector_writing_file
+	call disp_msg_asciz
 	mov di, cmd_line_sector_file
 	call open_file
 	jc exit_error_restore_fsinfo
@@ -1261,6 +1277,8 @@ write:
 
 
 .not_sector_to_file:
+	mov dx, msg.sector_writing_sector
+	call disp_msg_asciz
 	mov bx, sector_buffer
 	xor ax, ax
 	xor dx, dx
@@ -1298,6 +1316,10 @@ exit_error:
 	call restorestate
 	mov ax, 4C01h
 	int 21h
+
+
+exit_normal_message:
+	call disp_msg_asciz
 
 exit_normal:
 	call restorestate
@@ -2357,6 +2379,15 @@ load_kernel_name: equ $
 			asciz "Switch filename missing ending quote.",13,10
 .switch_filename_empty:
 			asciz "Switch filename is empty.",13,10
+
+.info_writing_not:	asciz "Not writing FSINFO.",13,10
+.info_writing_sector_file:
+			asciz "Writing FSINFO to boot sector file.",13,10
+.info_writing_file:	asciz "Writing FSINFO to file.",13,10
+.info_writing_sector:	asciz "Writing FSINFO to sector.",13,10
+.sector_writing_not:	asciz "Not writing boot sector.",13,10
+.sector_writing_file:	asciz "Writing boot sector to file.",13,10
+.sector_writing_sector:	asciz "Writing boot sector to sector.",13,10
 
 
 .error_file_open:	asciz "Error opening file for writing, "
