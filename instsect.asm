@@ -1380,6 +1380,7 @@ open_file:
 	mov bx, word [di + cmd_line_file_handle_ofs]
 	cmp bx, -1
 	je @F
+	clc
 	retn
 
 @@:
