@@ -22,7 +22,7 @@ numdef DEBUG4
 numdef DEBUG5
 %idefine d5 _d 5,
 numdef VDD,		1	; try to load DEBXXVDD.DLL to use it for L and W sector commands
-numdef DISPLAY_ALL_NAMES,	1
+numdef DISPLAY_ALL_NAMES,	0
 
 
 	struc BS
