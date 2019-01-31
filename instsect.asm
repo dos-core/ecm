@@ -1300,6 +1300,10 @@ exit_error_restore_fsinfo:
 		; If have written to a file, do not restore.
 	testopt [cmd_line_flags], clfWriteInfoToFile | clfWriteInfoToSectorFile
 	jnz @F
+
+	mov dx, msg.info_restoring_sector
+	call disp_msg_asciz
+
 	mov bx, second_sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 	xor dx, dx
@@ -2388,6 +2392,8 @@ load_kernel_name: equ $
 .sector_writing_not:	asciz "Not writing boot sector.",13,10
 .sector_writing_file:	asciz "Writing boot sector to file.",13,10
 .sector_writing_sector:	asciz "Writing boot sector to sector.",13,10
+.info_restoring_sector:	db "Error while writing boot sector,"
+			asciz " restoring FSINFO sector.",13,10
 
 
 .error_file_open:	asciz "Error opening file for writing, "
