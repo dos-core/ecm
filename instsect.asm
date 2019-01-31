@@ -22,6 +22,7 @@ numdef DEBUG4
 numdef DEBUG5
 %idefine d5 _d 5,
 numdef VDD,		1	; try to load DEBXXVDD.DLL to use it for L and W sector commands
+numdef DISPLAY_ALL_NAMES,	1
 
 
 	struc BS
@@ -1018,6 +1019,7 @@ listnames:
 	mov cx, 512 - (bsBPB + ebpbNew + BPBN_size) - 2
 @@:
 
+%if _DISPLAY_ALL_NAMES
 .nextname:
 	call findname
 	 lahf
@@ -1048,6 +1050,29 @@ listnames:
 	add bx, 4
 	cmp word [bx], 0
 	jne .nextname
+%else
+.nextname:
+	call findname
+	jc @F
+	mov dx, [bx]
+	call disp_msg_asciz
+	mov dx, msg.name_before
+	call disp_msg_asciz
+	 mov dx, msg.name_quote
+	 call disp_msg_asciz
+	mov dx, msg.foundname
+	call disp_msg_asciz
+	 mov dx, msg.name_quote
+	 call disp_msg_asciz
+	mov dx, msg.name_after
+	call disp_msg_asciz
+	 lea ax, [si - 11]	; -> name in buffer
+	 mov word [bx + 2], ax	; -> name in buffer, or 0
+	add bx, 4
+	cmp word [bx], 0
+	jne .nextname
+@@:
+%endif
 
 	mov si, msg.name_replacements
 	mov bx, msg.names
