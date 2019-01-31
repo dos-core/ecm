@@ -1247,7 +1247,7 @@ write:
 
 	mov di, cmd_line_sector_file
 	call open_file
-	jc exit_error
+	jc exit_error_restore_fsinfo
 
 	mov ax, 4200h		; seek from start of file
 	xor cx, cx
@@ -1256,7 +1256,7 @@ write:
 
 	mov dx, sector_buffer	; -> buffer
 	call write_file_ae_512_bytes
-	jc exit_error
+	jc exit_error_restore_fsinfo
 	jmp exit_normal
 
 
@@ -1270,6 +1270,7 @@ write:
 	call write_ae_512_bytes
 	jnc exit_normal
 
+exit_error_restore_fsinfo:
 %if _FAT32_TWO_SECTORS
 		; If the boot sector failed to write after FSINFO was
 		;  already written, try to restore FSINFO.
