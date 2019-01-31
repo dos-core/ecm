@@ -1051,9 +1051,17 @@ listnames:
 	cmp word [bx], 0
 	jne .nextname
 %else
+		; First name: Special, if none found display a message.
+	call findname
+	jnc @F
+	mov dx, msg.name_none
+	call disp_msg_asciz
+	jmp @FF
+
 .nextname:
 	call findname
-	jc @F
+	jc @FF
+@@:
 	mov dx, [bx]
 	call disp_msg_asciz
 	mov dx, msg.name_before
@@ -2388,6 +2396,7 @@ load_kernel_name: equ $
 .name_before:	asciz ": "
 .name_quote:	asciz '"'
 .name_after:	asciz 13,10
+.name_none:	asciz "No name detected.",13,10
 
 .no_name_found_before:	asciz "No "
 .no_name_found_after:	asciz " for replacement found!",13,10
