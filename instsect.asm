@@ -369,11 +369,22 @@ start:
 	cmp al, 'B'
 	je .switch_b
 
+	cmp al, 'H'
+	je .switch_h
+	cmp al, '?'
+	je .switch_h
+
 .switch_not_supported:
 	mov dx, msg.switch_not_supported
 disp_error: equ $
 	call disp_msg_asciz
 	jmp exit_error
+
+
+.switch_h:
+	mov dx, msg.help
+	call disp_msg_asciz
+	jmp exit_normal
 
 
 .switch_f:
@@ -2341,6 +2352,37 @@ packet:	dd 0		; sector number
 	dd 0		; transfer address Segm:OOOO
 
 msg:
+.help:	db "INSTSECT: Install boot sectors. 2018 by C. Masloch",13,10
+	db 13,10
+	db "Usage of the works is permitted provided that this",13,10
+	db "instrument is retained with the works, so that any entity",13,10
+	db "that uses the works is notified of this instrument.",13,10
+	db 13,10
+	db "DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.",13,10
+	db 13,10
+	db "Options:",13,10
+	db 9,"a:",9,9,"load or update boot sectors of specified drive",13,10
+	db 13,10
+	db 9,"/Fx=filename",9,"replace Xth name in the boot sector, X = 1 to ",'0' + NUM_REPLACEMENTS,13,10
+	db 9,"/F=filename",9,"alias to /F1=filename",13,10
+	db 9,"/U AUTO",9,9,"leave in default auto-boot-unit handling (default)",13,10
+	db 9,"/U xx",9,9,"patch boot loader to use XXh as a fixed unit",13,10
+	db 13,10
+	db 9,"/BS",9,9,"write boot sector to drive's boot sector (default)",13,10
+	db 9,"/B=filename",9,"write boot sector to file, not to drive",13,10
+	db 9,"/BN",9,9,"do not write boot sector",13,10
+	db 9,"/BR",9,9,"replace boot sector loader with built-in one (default)",13,10
+	db 9,"/BO",9,9,"keep original boot sector",13,10
+	db 13,10
+	db "Only applicable for FAT32 with sector size below or equal to 512 bytes:",13,10
+	db 9,"/IS",9,9,"write FSIBOOT to drive's FSINFO sector (default)",13,10
+	db 9,"/I=filename",9,"write FSIBOOT to file, not to drive",13,10
+	db 9,"/IB",9,9,"write FSIBOOT to boot sector file (see /B=filename)",13,10
+	db 9,"/IN",9,9,"do not write FSIBOOT",13,10
+	db 9,"/IR",9,9,"replace FSINFO with built-in FSIBOOT (default)",13,10
+	db 9,"/IO",9,9,"keep original FSINFO",13,10
+	asciz
+
 .boot_access_error:	asciz "Access error.", 13,10
 .boot_sector_too_large:	asciz "Sector size too small (< 32 bytes).", 13,10
 .boot_sector_too_small:	asciz "Sector size too large (> 8192 bytes).", 13,10
