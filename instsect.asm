@@ -1395,25 +1395,103 @@ open_file:
 	retn
 
 @@:
-	mov si, word [di + cmd_line_file_name_ofs]	; -> filename
+
+	call .setup_opencreate			; ds:si -> pathname
 	mov ax, 716Ch				; LFN open-create
-	mov bx, 0110_0000_0010_0001b		; Auto-commit, no int 24h
-						; DENY WRITE, Write-only
-	xor cx, cx				; create attribute
-	mov dx, 0000_0000_0001_0010b		; create / open-truncate
 	push di
 	xor di, di				; alias hint
 	stc
 	int 21h
 	pop di
-	jnc .got
+	jnc .got		; LFN call succeeded -->
 
-	cmp ax, 1
-	je .try_sfn
+		; Early case for no-LFN-interface available.
+	; cmp ax, 1
+	; je .try_sfn
 	cmp ax, 7100h
-	jne .error
+	je .try_sfn
+
+		; Only now, we check whether the used drive supports LFNs.
+		; If it does, then we treat the error received as an
+		; actual error and cancel here. If not, the SFN function
+		; is called next as a fallback.
+		;
+		; We cannot rely on specific error returns like the
+		; expected 7100h CY (or 7100h CF-unchanged) or the similar
+		; 0001h CY (Invalid function) because no one agrees on what
+		; error code to use.
+		;
+		; dosemu returns 0003h (Path not found) on FATFS and
+		; redirected-non-dosemu drives. But may be changed so as to
+		; return 0059h (Function not supported on network).
+		; MSWindows 98SE returns 0002h (File not found) on
+		; DOS-redirected drives.
+		; DOSLFN with Fallback mode enabled supports the call (albeit
+		; limited to SFNs).
+		;
+		; To suss out what the error means, check LFN availability.
+		;
+		; Refer to https://github.com/stsp/dosemu2/issues/770
+	push ds
+	push es
+	push di
+	push ax
+	lframe
+	lvar 34, fstype_buffer
+	lvar 4, pathname_buffer
+	lenter
+
+	push ss
+	pop ds
+	mov dx, sp		; ds:dx -> ?pathname_buffer
+	push ss
+	pop es
+	mov di, sp		; es:di -> ?pathname_buffer
+
+	lodsw			; load first two bytes of pathname
+	cmp ah, ':'		; starts with drive specifier ?
+	je @F			; yes -->
+
+	mov ah, 19h
+	int 21h			; get current default drive
+	add al, 'A'		; A: = 0, convert to drive letter
+	mov ah, ':'		; drive specifier
+@@:
+	stosw
+	mov ax, '\'		; backslash and zero terminator
+	stosw			; es:di -> ?fstype_buffer
+
+	xor ax, ax
+	mov cx, 34 >> 1
+	push di
+	rep stosw		; initialise ?fstype_buffer to all zeros
+	pop di			; -> ?fstype_buffer
+
+	mov cx, 32		; size of ?fstype_buffer
+	xor bx, bx		; harden, initialise this
+	mov ax, 71A0h		; get volume information
+	stc
+	int 21h
+
+	jc @F			; if call not supported -->
+				; bx = FS flags
+	test bh, 0100_0000b	; LFN interface available ?
+	stc			; if no
+	jz @F			; no -->
+
+	clc			; is available
+@@:
+
+	lleave
+	pop ax			; (restore error code)
+	pop di
+	pop es
+	pop ds
+	jnc .error		; if LFN interface is available, actual error
+				; if LFN interface is not available, try SFN
 
 .try_sfn:
+	call .setup_opencreate
 	mov ax, 6C00h				; Open-create
 	stc
 	int 21h
@@ -1442,6 +1520,14 @@ open_file:
 	mov dx, msg.error_file_open
 	call disp_dos_error
 	stc
+	retn
+
+.setup_opencreate:
+	mov si, word [di + cmd_line_file_name_ofs]	; -> filename
+	mov bx, 0110_0000_0010_0001b		; Auto-commit, no int 24h
+						; DENY WRITE, Write-only
+	xor cx, cx				; create attribute
+	mov dx, 0000_0000_0001_0010b		; create / open-truncate
 	retn
 
 
