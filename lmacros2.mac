@@ -256,6 +256,21 @@ __lvar_list_label %2
 %assign %$req 1
 %endmacro
 
+		; Define a stack frame equ.
+		; %1	Numeric value to assign to this equ.
+		; %2	Name of equ. A question mark is prepended.
+		;
+		; The equ's lifetime is the same as the frame's, just like
+		;  for lvar and lpar labels. (All are internally defines.)
+%imacro lequ 2.nolist
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+__lvar_define_var %2, %1
+%endmacro
+
 		; Create a defined stack frame.
 		; This sets up bp and reserves stack space for all defined
 		;  variables. It also defines the labels for parameters.
