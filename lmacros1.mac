@@ -442,6 +442,30 @@ Intended for 86 Mode programs.
  %endif
 	%endmacro
 
+	%imacro overridedef 1-2.nolist 0
+%push OVERRIDE
+%assign %$prior _%1
+%assign %$defaulted __DEFAULTED_%1
+%define %$name %1
+%assign _%1 %2
+%assign __DEFAULTED_%1 0
+	%endmacro
+
+	%imacro resetdef 0-1.nolist
+%ifnctx OVERRIDE
+ %error Wrong context
+%endif
+%if %0
+ %ifnidn %1, %$name
+  %error Wrong usage of resetdef
+ %endif
+%endif
+%assign _%[%$name] %$prior
+%assign __DEFAULTED_%[%$name] %$defaulted
+%pop
+	%endmacro
+
+
 %assign __lMACROS1_MAC__DEFAULTING 0
 	%imacro defaulting 0-1.nolist 1
 %ifidni %1,toggle
