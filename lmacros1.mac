@@ -444,8 +444,13 @@ Intended for 86 Mode programs.
 
 	%imacro overridedef 1-2.nolist 0
 %push OVERRIDE
-%assign %$prior _%1
-%assign %$defaulted __DEFAULTED_%1
+%ifdef _%1
+ %assign %$defined 1
+%else
+ %assign %$defined 0
+%endif
+%xdefine %$prior _%1
+%xdefine %$defaulted __DEFAULTED_%1
 %define %$name %1
 %assign _%1 %2
 %assign __DEFAULTED_%1 0
@@ -460,8 +465,11 @@ Intended for 86 Mode programs.
   %error Wrong usage of resetdef
  %endif
 %endif
-%assign _%[%$name] %$prior
-%assign __DEFAULTED_%[%$name] %$defaulted
+%xdefine _%[%$name] %$prior
+%xdefine __DEFAULTED_%[%$name] %$defaulted
+%ifn %$defined
+ %undef _%[%$name]
+%endif
 %pop
 	%endmacro
 
