@@ -31,15 +31,45 @@ Intended for 86 Mode programs.
 		;	Accepted: none, near (or 2), far (or 4), int (or 6),
 		;		   positive even numbers
 		;	Notice:	lret's auto %1 observes near/far/int here.
-%imacro lframe 0-1.nolist none
+		; %2	Nesting type of frame.
+		;	Default: normal
+		;	Accepted: normal, nested, inner
+		;
+		; A nested frame pushes and sets bp anew. That means that
+		;  the labels of the outside frame are not usable.
+		; An inner frame modifies sp but not bp. The outer frame's
+		;  variables may be accessed from within the inner frame.
+		; A normal frame is neither a nested nor an inner frame.
+%imacro lframe 0-2.nolist none,normal
 %ifdef lsizeparameters
  %undef lsizeparameters
 %endif
 %ifdef __lframe__autoret
  %undef __lframe__autoret
 %endif
+
+%ifidni %2, normal
+%elifidni %2, nested
+%elifidni %2, inner
+%else
+ %fatal Invalid frame nesting type specified: %2
+%endif
+
 %ifctx LFRAME
  %fatal Already inside lframe, must end previous with lenter
+%elifctx LENTER
+ %ifidni %2, normal
+  %fatal Still inside lenter, must end previous with lleave
+ %endif
+%elifctx LENTEREARLY
+ %ifidni %2, normal
+  %fatal Still inside lenter, must end previous with lleave
+ %endif
+%endif
+%ifnctx LENTER
+ %ifnidni %2, normal
+  %fatal Not inside lenter, cannot use nested or inner frame
+ %endif
 %endif
 %push LFRAME
 
@@ -61,6 +91,11 @@ Intended for 86 Mode programs.
  %assign %$int_offset	24
 %else
  %fatal Unknown BITS specified: %$bits
+%endif
+
+%assign %$inner 0
+%ifidni %2, inner
+ %assign %$inner 1
 %endif
 
 %define %$autoret
@@ -94,6 +129,13 @@ Intended for 86 Mode programs.
 %assign %$enter 0
 %assign %$req 0
 %assign %$usereq 0
+
+%assign %$restore_frame_ofs 0
+%if %$inner
+ %assign %$ofs %$$ofs
+ %assign %$restore_frame_ofs %$$ofs
+%endif
+%assign %$pars_inner_size 0
 %endmacro
 
 		; Indicate that the stack frame set-up should not
@@ -231,6 +273,10 @@ __lvar_list_label %2
  %xdefine %$parlist %$parlist,%$varsize,%2
 %endif
 %assign %$req 1
+%if %$inner
+ %assign %$pars_inner_size %$pars_inner_size + %$varsize
+ %assign %$ofs %$ofs - %$varsize
+%endif
 %endmacro
 
 		; Note to return all prior defined stack frame parameters.
@@ -321,7 +367,7 @@ __lvar_define_var %2, %1
 %else
  %fatal Invalid parameter: %1
 %endif
-%assign %$lsizevariables (-%$ofs+1)&~1
+%assign %$lsizevariables (-%$ofs+1 - (- %$restore_frame_ofs) )&~1
 %ifn %$usereq
  %assign %$req 1
 %endif
@@ -336,7 +382,7 @@ __lvar_define_var %2, %1
  %elif __lframe__use_186_def
   %assign %$186 _186
  %endif
- %if %$186 && %$ofs
+ %if %$186 && %$ofs && (! %$inner)
 	enter %$lsizevariables, 0
  %assign %$enter_emitted 1
  %endif
@@ -344,6 +390,7 @@ __lvar_define_var %2, %1
  %fatal BITS of lframe (%$bits) differs from current: __BITS__
 %endif
 %if %$bits == 16
+%ifn %$inner
 %ifn %$wasearly
  __lvar_define_var frame_bp, 0
  %ifidni %$autoret, near
@@ -357,25 +404,30 @@ __lvar_define_var %2, %1
   __lvar_define_var frame_fl, 6
  %endif
 %endif
+%endif
  %ifn %$enter_emitted
+  %ifn %$inner
   %ifn %$wasearly
 	push bp
 	mov bp, sp
   %endif
+  %endif
   %ifn %$early
    %if %$ofs
-    %if %$wasearly == 0 && %$lsizevariables == 2
+    %if %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 0
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && %$lsizevariables == 4
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 4
 	push ax
 	push ax
     %else
-	lea sp, [bp - %$lsizevariables]
+	lea sp, [bp + %$restore_frame_ofs - %$lsizevariables]
     %endif
    %endif
   %endif
  %endif
 %elif %$bits == 32
+%ifn %$inner
 %ifn %$wasearly
  __lvar_define_var frame_ebp, 0
  %ifidni %$autoret, near
@@ -389,27 +441,32 @@ __lvar_define_var %2, %1
   __lvar_define_var frame_efl, 12
  %endif
 %endif
+%endif
  %ifn %$enter_emitted
+  %ifn %$inner
   %ifn %$wasearly
 	push ebp
 	mov ebp, esp
   %endif
+  %endif
   %ifn %$early
    %if %$ofs
-    %if %$wasearly == 0 && %$lsizevariables == 2
+    %if %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 0
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && %$lsizevariables == 4
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 4
 	push eax
-    %elif %$wasearly == 0 && %$lsizevariables == 8
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 8
 	push eax
 	push eax
     %else
-	lea esp, [ebp - %$lsizevariables]
+	lea esp, [ebp + %$restore_frame_ofs - %$lsizevariables]
     %endif
    %endif
   %endif
  %endif
 %elif %$bits == 64
+%ifn %$inner
 %ifn %$wasearly
  __lvar_define_var frame_rbp, 0
  %ifidni %$autoret, near
@@ -423,21 +480,25 @@ __lvar_define_var %2, %1
   __lvar_define_var frame_rfl, 24
  %endif
 %endif
+%endif
  %ifn %$enter_emitted
+  %ifn %$inner
   %ifn %$wasearly
 	push rbp
 	mov rbp, rsp
   %endif
+  %endif
   %ifn %$early
    %if %$ofs
-    %if %$wasearly == 0 && %$lsizevariables == 2
+    %if %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 0
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && %$lsizevariables == 4
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 4
 	push eax
-    %elif %$wasearly == 0 && %$lsizevariables == 8
+    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 8
 	push rax
     %else
-	lea rsp, [rbp - %$lsizevariables]
+	lea rsp, [rbp + %$restore_frame_ofs - %$lsizevariables]
     %endif
    %endif
   %endif
@@ -461,8 +522,13 @@ __lvar_define_var %2, %1
 %endif
 %rep %0 >> 1
 %assign %$pars_size %$pars_size - %1
+%if %$inner
+%assign ?%2 (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
+._%$lframe_?%2: equ (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
+%else
 %assign ?%2 (%$pars_size + %$parofs + %$base_size)
 ._%$lframe_?%2: equ (%$pars_size + %$parofs + %$base_size)
+%endif
 %rotate 2
 %endrep
 %endmacro
@@ -557,6 +623,7 @@ __lvar_define_var %2, %1
  %fatal Invalid second parameter specified: %2
 %endif
 	%ifnidni %1,ctx
+%ifn %$inner
 %if %$enter
  %ifn %$req
   %fatal lframe apparently unnecessary
@@ -615,6 +682,21 @@ __lvar_define_var %2, %1
  %elifidni %2,forcerestoresp
   %fatal No stack frame was created
  %endif
+%endif
+%endif
+%if %$inner
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$bits == 16
+	lea sp, [bp + %$restore_frame_ofs - %$pars_return_size]
+%elif %$bits == 32
+	lea esp, [ebp + %$restore_frame_ofs - %$pars_return_size]
+%elif %$bits == 64
+	lea rsp, [rbp + %$restore_frame_ofs - %$pars_return_size]
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
 %endif
 	%else
 %ifnempty %2

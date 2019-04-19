@@ -17,6 +17,11 @@
 	call fun4
 	call fun5
 	call fun6
+	call fun7
+	call fun8
+	call fun9
+	call fun10
+	call fun11
 
 	mov ax, 4C00h
 	int 21h
@@ -97,12 +102,153 @@ fun6:
 
 	mov word [bp + ?foo], ax
 
-	lframe
+	lframe 0, nested
 	lvar word, qux
 	lvar word, foo
 	lenter
 
 	mov word [bp + ?foo], bx
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
+
+fun7:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+
+	mov word [bp + ?foo], ax
+
+	lframe 0, inner
+	lvar word, qux
+	lvar word, foo
+	lenter
+
+	mov word [bp + ?foo], bx
+	mov ax, word [bp + ?bar]
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
+
+fun8:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+
+	mov word [bp + ?foo], ax
+
+	push cs
+	push si
+
+	lframe 0, inner
+	lpar word, segment
+	lpar word, offset
+	lvar word, qux
+	lvar word, foo
+	lenter
+
+	mov word [bp + ?foo], bx
+	mov ax, word [bp + ?bar]
+	mov bx, word [bp + ?segment]
+	mov dx, word [bp + ?offset]
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
+
+fun9:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+
+	mov word [bp + ?foo], ax
+
+	push cs
+	push si
+
+	lframe 0, inner
+	lpar word, segment
+	lpar word, offset
+	lvar word, qux
+	lvar word, foo
+	lvar word, xyzzy
+	lenter
+
+	mov word [bp + ?foo], bx
+	mov ax, word [bp + ?bar]
+	mov bx, word [bp + ?segment]
+	mov dx, word [bp + ?offset]
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
+
+fun10:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+
+	mov word [bp + ?foo], ax
+
+	push cs
+	push si
+
+	lframe 0, inner
+	lpar word, segment
+	lpar word, offset
+	lenter
+
+	mov word [bp + ?foo], bx
+	mov ax, word [bp + ?bar]
+	mov bx, word [bp + ?segment]
+	mov dx, word [bp + ?offset]
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
+
+fun11:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+
+	mov word [bp + ?foo], ax
+
+	push cs
+	push si
+
+	lframe 0, inner
+	lpar word, segment
+	lpar_return
+	lpar word, offset
+	lenter
+
+	mov word [bp + ?foo], bx
+	mov ax, word [bp + ?bar]
+	mov bx, word [bp + ?segment]
+	mov dx, word [bp + ?offset]
 
 	lleave
 
