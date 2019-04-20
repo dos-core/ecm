@@ -26,6 +26,7 @@ fun12:
 	lvar word, bar
 	lenter
 	lvar word, baz
+	 push bx
 
 	mov word [bp + ?foo], ax
 
