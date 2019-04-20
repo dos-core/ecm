@@ -22,6 +22,7 @@
 	call fun9
 	call fun10
 	call fun11
+	call fun12
 
 	mov ax, 4C00h
 	int 21h
@@ -249,6 +250,32 @@ fun11:
 	mov ax, word [bp + ?bar]
 	mov bx, word [bp + ?segment]
 	mov dx, word [bp + ?offset]
+
+	lleave
+
+	mov ax, word [bp + ?foo]
+
+	lleave
+	lret
+
+fun12:
+	lframe near
+	lvar word, foo
+	lvar word, bar
+	lenter
+	lvar word, baz
+
+	mov word [bp + ?foo], ax
+
+	lframe 0, inner
+	lvar word, quux
+	lvar word, foo
+	lenter
+
+	mov word [bp + ?foo], bx
+	mov ax, word [bp + ?bar]
+	mov bx, word [bp + ?quux]
+	mov dx, word [bp + ?baz]
 
 	lleave
 
