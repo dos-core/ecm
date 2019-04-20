@@ -30,7 +30,12 @@ fun13:
 
 	mov word [bp + ?foo], ax
 
+	push cs
+	push si
 	lframe 0, inner
+	lpar word, alpha
+	lpar word, beta
+	lpar_return
 	lenter
 	lvar word, quux
 	lvar word, foo
@@ -40,6 +45,8 @@ fun13:
 	mov ax, word [bp + ?bar]
 	mov bx, word [bp + ?quux]
 	mov dx, word [bp + ?baz]
+	mov si, word [bp + ?beta]
+	inc word [bp + ?alpha]
 
 	lleave
 
