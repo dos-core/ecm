@@ -14,13 +14,13 @@
 	section lCode start=256 align=1
 
 start:
-	call fun12
+	call fun13
 
 	mov ax, 4C00h
 	int 21h
 %endif
 
-fun12:
+fun13:
 	lframe near
 	lvar word, foo
 	lvar word, bar
@@ -31,9 +31,10 @@ fun12:
 	mov word [bp + ?foo], ax
 
 	lframe 0, inner
+	lenter
 	lvar word, quux
 	lvar word, foo
-	lenter
+	lreserve
 
 	mov word [bp + ?foo], bx
 	mov ax, word [bp + ?bar]
