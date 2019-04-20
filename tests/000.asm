@@ -3,7 +3,10 @@
 %assign _@@_start 0
 %include "lmacros2.mac"
 
-[map symbols brief test.map]
+%ifdef _MAP
+[map symbols brief _MAP]
+%endif
+
 	cpu 8086
 	org 256
 	sectalign off
