@@ -367,7 +367,7 @@ __lvar_define_var %2, %1
 %else
  %fatal Invalid parameter: %1
 %endif
-%assign %$lsizevariables (-%$ofs+1 - (- %$restore_frame_ofs) )&~1
+%assign %$lsizevariables (-%$ofs+1 - (- %$restore_frame_ofs) - %$pars_inner_size )&~1
 %ifn %$usereq
  %assign %$req 1
 %endif
@@ -414,14 +414,14 @@ __lvar_define_var %2, %1
   %endif
   %ifn %$early
    %if %$ofs
-    %if %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 0
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 2
+    %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 4
+    %elif %$wasearly == 0 && (%$lsizevariables) == 4
 	push ax
 	push ax
     %else
-	lea sp, [bp + %$restore_frame_ofs - %$lsizevariables]
+	lea sp, [bp + %$restore_frame_ofs - (%$lsizevariables + %$pars_inner_size)]
     %endif
    %endif
   %endif
@@ -451,16 +451,16 @@ __lvar_define_var %2, %1
   %endif
   %ifn %$early
    %if %$ofs
-    %if %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 0
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 2
+    %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 4
+    %elif %$wasearly == 0 && (%$lsizevariables) == 4
 	push eax
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 8
+    %elif %$wasearly == 0 && (%$lsizevariables) == 8
 	push eax
 	push eax
     %else
-	lea esp, [ebp + %$restore_frame_ofs - %$lsizevariables]
+	lea esp, [ebp + %$restore_frame_ofs - (%$lsizevariables + %$pars_inner_size)]
     %endif
    %endif
   %endif
@@ -490,15 +490,15 @@ __lvar_define_var %2, %1
   %endif
   %ifn %$early
    %if %$ofs
-    %if %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 0
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 2
+    %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 4
+    %elif %$wasearly == 0 && (%$lsizevariables) == 4
 	push eax
-    %elif %$wasearly == 0 && (+ %$restore_frame_ofs + %$lsizevariables) == 8
+    %elif %$wasearly == 0 && (%$lsizevariables) == 8
 	push rax
     %else
-	lea rsp, [rbp + %$restore_frame_ofs - %$lsizevariables]
+	lea rsp, [rbp + %$restore_frame_ofs - (%$lsizevariables + %$pars_inner_size)]
     %endif
    %endif
   %endif
