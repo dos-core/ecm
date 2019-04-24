@@ -582,6 +582,64 @@ __lvar_define_var %2, %1
 %endif
 %endmacro
 
+%imacro ldup 0.nolist
+%ifnctx LENTER
+ %fatal Must use lenter first
+%endif
+%ifn %$nested
+ %fatal ldup only valid in nested frame
+%endif
+%if %$enter != %$$enter
+ %fatal Failed ldup
+%endif
+__ldup_count newparlist, %$parlist
+__ldup_count oldparlist, %$$parlist
+%if %$count_newparlist != %$count_oldparlist
+ %fatal Failed ldup
+%endif
+__ldup_check_parlist %$$parlist
+__ldup_count newlabellist, %$labellist
+__ldup_count oldlabellist, %$$labellist
+%if %$count_newlabellist != %$count_oldlabellist
+ %fatal Failed ldup
+%endif
+__ldup_check_labellist %$$labellist
+%endmacro
+
+%macro __ldup_count 1-*.nolist
+%assign %$count_%[%1] %0 - 1
+%endmacro
+
+%macro __ldup_check_parlist 0-*.nolist
+%assign %$ii 0
+%rep %0
+ %define %$check %1
+ __ldup_check_single %$ii + 1,%$parlist
+ %assign %$ii %$ii + 1
+ %rotate 1
+%endrep
+%endmacro
+
+%macro __ldup_check_labellist 3-*.nolist
+%assign %$ii 0
+%rep (%0 / 3) - 1
+ %define %$check %1
+ __ldup_check_single %$ii + 1,%$labellist
+ %xdefine %$check ?%1
+ __ldup_check_single %$ii + 1 + 2,%$labellist
+ %assign %$ii %$ii + 3
+ %rotate 3
+%endrep
+%endmacro
+
+%macro __ldup_check_single 1-*.nolist
+%rotate %1
+%ifnidn %1, %$check
+ %fatal Failed ldup
+%endif
+%endmacro
+
+
 		; Remove a created stack frame.
 		; This restores bp if it was altered to access variables or
 		;  parameters. It also restores sp from bp if sp was altered
