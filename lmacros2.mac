@@ -595,6 +595,15 @@ __lvar_define_var %2, %1
 %if %$enter != %$$enter
  %fatal Failed ldup
 %endif
+%ifnidn %$autoret, %$$autoret
+ %fatal Failed ldup
+%endif
+%if %$parofs != %$$parofs
+ %fatal Failed ldup
+%endif
+%if %$bits != %$$bits
+ %fatal Failed ldup
+%endif
 %if %$pars_return_size != %$$pars_return_size
  %fatal Failed ldup
 %endif
