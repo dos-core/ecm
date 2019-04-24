@@ -97,6 +97,10 @@ Intended for 86 Mode programs.
 %ifidni %2, inner
  %assign %$inner 1
 %endif
+%assign %$nested 0
+%ifidni %2, nested
+ %assign %$nested 1
+%endif
 
 %define %$autoret
 %ifidni %1,none
