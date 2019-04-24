@@ -587,9 +587,15 @@ __lvar_define_var %2, %1
  %fatal Must use lenter first
 %endif
 %ifn %$nested
- %fatal ldup only valid in nested frame
+ %fatal ldup only valid in nested frame in normal frame
+%endif
+%if %$$inner
+ %fatal ldup only valid in nested frame in normal frame
 %endif
 %if %$enter != %$$enter
+ %fatal Failed ldup
+%endif
+%if %$pars_return_size != %$$pars_return_size
  %fatal Failed ldup
 %endif
 __ldup_count newparlist, %$parlist

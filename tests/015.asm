@@ -35,8 +35,14 @@ fun15:
 .2:
 	lframe near, nested
 	lpar word, alpha
+%ifdef FAIL2
+	lpar_return
+%endif
 	lvar word, foo
 	lvar word, bar
+%ifdef FAIL1
+	lvar word, quux
+%endif
 	lenter
 	lvar word, baz
 	 push bx
