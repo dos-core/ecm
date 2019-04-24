@@ -33,7 +33,14 @@ fun15:
 	jmp .common
 
 .2:
+%ifdef FAIL3
+bits 32
+%endif
+%ifdef FAIL4
+	lframe far, nested
+%else
 	lframe near, nested
+%endif
 	lpar word, alpha
 %ifdef FAIL2
 	lpar_return
