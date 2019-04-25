@@ -46,7 +46,11 @@ bits 32
 	lpar_return
 %endif
 	lvar word, foo
+%ifdef FAIL5
+	lvar word, foobar
+%else
 	lvar word, bar
+%endif
 %ifdef FAIL1
 	lvar word, quux
 %endif
