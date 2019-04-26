@@ -237,6 +237,7 @@ __lvar_list_label %1
 %assign %$ofs %$ofs-%$varsize
 __lvar_define_var %2, %$ofs
 %assign %$req 1
+%assign %$hadvar 1
 %endmacro
 
 		; Define a stack frame parameter.
@@ -255,6 +256,11 @@ __lvar_define_var %2, %$ofs
 %endif
 %ifndef %$parofs
  %fatal Specified no frame type with lframe
+%endif
+%ifdef %$hadvar
+ %fatal lpar must occur before any lvar
+	; This is for lframe inner-type frames
+	;  which modify %$ofs in lpar.
 %endif
 %ifidni %1,byte
  %assign %$varsize 1
