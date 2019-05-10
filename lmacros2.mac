@@ -597,6 +597,7 @@ __lvar_define_var %2, %1
 %endif
 %endmacro
 
+
 %imacro ldup 0.nolist
 %ifnctx LENTER
  %fatal Must use lenter first
@@ -666,6 +667,22 @@ __ldup_check_labellist %$$labellist
 %rotate %1
 %ifnidn %1, %$check
  %fatal Failed ldup
+%endif
+%endmacro
+
+
+%imacro lemit 0-1.nolist on
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifidni %1,on
+ %assign %$emit 1
+%elifidni %1,off
+ %assign %$emit 0
+%else
+ %assign %$emit !! %1
 %endif
 %endmacro
 
@@ -846,6 +863,10 @@ __lleave_undefine_labels %$labellist
 		;		  Must be at least -lsizeparameters!
 		;	Notice:	The sum of lsizeparameters and %2
 		;		must be 0 for type int (ie iret).
+		;
+		; Note:	As this is usually used after the lframe's
+		;	 context is already popped, the lemit
+		;	 setting does not affect this macro.
 %imacro lret 0-2.nolist auto,0
 %ifctx LFRAME
  %fatal Must use lenter first
