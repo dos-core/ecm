@@ -687,6 +687,18 @@ __ldup_check_labellist %$$labellist
 %endmacro
 
 
+%imacro lifemit 1+.nolist
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%if %$emit
+ %1
+%endif
+%endmacro
+
+
 		; Remove a created stack frame.
 		; This restores bp if it was altered to access variables or
 		;  parameters. It also restores sp from bp if sp was altered
