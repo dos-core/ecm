@@ -133,6 +133,7 @@ Intended for 86 Mode programs.
 %assign %$enter 0
 %assign %$req 0
 %assign %$usereq 0
+%assign %$emit 1
 
 %assign %$restore_frame_ofs 0
 %if %$inner
@@ -392,7 +393,7 @@ __lvar_define_var %2, %1
  %elif __lframe__use_186_def
   %assign %$186 _186
  %endif
- %if %$186 && %$ofs && (! %$inner)
+ %if %$186 && %$ofs && (! %$inner) && %$emit
 	enter %$lsizevariables, 0
  %assign %$enter_emitted 1
  %endif
@@ -415,6 +416,7 @@ __lvar_define_var %2, %1
  %endif
 %endif
 %endif
+ %if %$emit
  %ifn %$enter_emitted
   %ifn %$inner
   %ifn %$wasearly
@@ -436,6 +438,7 @@ __lvar_define_var %2, %1
    %endif
   %endif
  %endif
+ %endif
 %elif %$bits == 32
 %ifn %$inner
 %ifn %$wasearly
@@ -452,6 +455,7 @@ __lvar_define_var %2, %1
  %endif
 %endif
 %endif
+ %if %$emit
  %ifn %$enter_emitted
   %ifn %$inner
   %ifn %$wasearly
@@ -475,6 +479,7 @@ __lvar_define_var %2, %1
    %endif
   %endif
  %endif
+ %endif
 %elif %$bits == 64
 %ifn %$inner
 %ifn %$wasearly
@@ -491,6 +496,7 @@ __lvar_define_var %2, %1
  %endif
 %endif
 %endif
+ %if %$emit
  %ifn %$enter_emitted
   %ifn %$inner
   %ifn %$wasearly
@@ -512,6 +518,7 @@ __lvar_define_var %2, %1
     %endif
    %endif
   %endif
+ %endif
  %endif
 %else
  %fatal Unknown BITS specified: %$bits
@@ -571,6 +578,7 @@ __lvar_define_var %2, %1
 %ifnidn %$bits,__BITS__
  %fatal BITS of lframe (%$bits) differs from current: __BITS__
 %endif
+%if %$emit
 %if %$bits == 16
  %if %$ofs
 	lea sp, [bp - %$lsizevariables]
@@ -585,6 +593,7 @@ __lvar_define_var %2, %1
  %endif
 %else
  %fatal Unknown BITS specified: %$bits
+%endif
 %endif
 %endmacro
 
@@ -728,6 +737,7 @@ __ldup_check_labellist %$$labellist
    %assign %$186 0
   %endif
  %endif
+%if %$emit
  %if %$186
 	leave
  %else
@@ -759,6 +769,7 @@ __ldup_check_labellist %$$labellist
  %fatal Unknown BITS specified: %$bits
 %endif
  %endif
+%endif
 %else
  %if %$ofs
   %fatal No stack frame was created
@@ -771,6 +782,7 @@ __ldup_check_labellist %$$labellist
 %ifnidn %$bits,__BITS__
  %fatal BITS of lframe (%$bits) differs from current: __BITS__
 %endif
+%if %$emit
 %if %$bits == 16
 	lea sp, [bp + %$restore_frame_ofs - %$pars_return_size]
 %elif %$bits == 32
@@ -779,6 +791,7 @@ __ldup_check_labellist %$$labellist
 	lea rsp, [rbp + %$restore_frame_ofs - %$pars_return_size]
 %else
  %fatal Unknown BITS specified: %$bits
+%endif
 %endif
 %endif
 	%else
