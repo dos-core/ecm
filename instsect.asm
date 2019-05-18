@@ -14,6 +14,22 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %include "lmacros3.mac"
 
+numdef SYMHINTS, 1
+%if _SYMHINTS
+	%imacro symhint_store_string 1+.nolist
+..@symhint_store_string_%1:
+	%endmacro
+	%imacro symhint_store_and_label 1+.nolist
+..@symhint_store_string_%1:
+%1:
+	%endmacro
+%else
+%idefine symhint_store_string comment
+	%imacro symhint_store_and_label 1+.nolist
+%1:
+	%endmacro
+%endif
+
 numdef DEBUG0
 numdef DEBUG1
 numdef DEBUG2
@@ -1892,6 +1908,7 @@ get_hexadecimal_literal:
 	jmp disp_error
 
 
+symhint_store_string getexpression
 getexpression.lit_ishexdigit?:
 	mov cx, "9F"
 getexpression.lit_isdigit?:
@@ -2091,7 +2108,7 @@ disp_ax_dec:			; ax (no leading zeros)
 		;	dx:ax = incremented
 		;	ds:bx -> behind buffer
 		;	(bx += word[bp + ldBytesPerSector]
-write_sector:
+symhint_store_and_label write_sector
 	push ax
 	push dx
 	push bx
@@ -2272,7 +2289,7 @@ read_sector:
 		;	ds:bx -> buffer after last read
 		; CHG:	-
 		; STT:	ds = ss
-write_ae_512_bytes:
+symhint_store_and_label write_ae_512_bytes
 	push di
 	mov di, 512
 .loop:
@@ -2485,6 +2502,7 @@ load_kernel_name: equ $
 
 .error_file_open:	asciz "Error opening file for writing, "
 .error_file_write:	asciz "Error writing file, "
+symhint_store_string msg.dos_error_
 .dos_error_msg_1:	asciz "DOS error "
 .dos_error_msg_2:	asciz "h ("
 .dos_error_msg_3:	asciz ").",13,10
@@ -2577,6 +2595,7 @@ dos_error_table:
 .after_last:	equ ($ - .) >> 1
 
 
+symhint_store_string dskerr
 dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
 		db dskerr2-dskerrs,dskerr3-dskerrs
 		db dskerr4-dskerrs,dskerr9-dskerrs
