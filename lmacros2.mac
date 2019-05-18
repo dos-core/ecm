@@ -1167,6 +1167,8 @@ __@@_next 4
  %fatal Still inside lframe!
 %elifctx LENTER
  %fatal Still inside lenter!
+%elifctx LENTEREARLY
+ %fatal Still inside lenter!
 %endif
 	%endmacro
 
