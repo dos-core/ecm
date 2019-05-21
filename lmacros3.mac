@@ -94,5 +94,25 @@ Intended for 86 Mode programs.
 %idefine xoropt _opt ,xor,
 
 
+	%imacro addsection 1-2.nolist
+%ifdef _SECTION_ADDED_%1
+ %error Section %1 already added
+%endif
+	section %1 %2
+%define _SECTION_ADDED_%1 1
+	%endmacro
+
+	%imacro usesection 1-2.nolist 0
+%ifndef _SECTION_ADDED_%1
+ %error Section %1 not yet added
+%endif
+%if %2
+	[section %1]
+%else
+	section %1
+%endif
+	%endmacro
+
+
 %endif
 [list +]
