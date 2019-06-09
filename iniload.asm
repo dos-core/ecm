@@ -897,7 +897,10 @@ relocate_to:
 
 	pop ax
 	sub word [bp + lsvLoadSeg], ax
+	push ss
+	pop ds
 
+		; ds = ss
 		; cs = low enough to complete load
 		; lsvLoadSeg => after last loaded fragment
 		; ldLoadTop => after last available memory
