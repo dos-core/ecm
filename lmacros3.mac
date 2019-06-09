@@ -100,6 +100,7 @@ Intended for 86 Mode programs.
 %endif
 	section %1 %2
 %define _SECTION_ADDED_%1 1
+	usesection %1
 	%endmacro
 
 	%imacro usesection 1-2.nolist 0
