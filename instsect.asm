@@ -2837,7 +2837,7 @@ initialise:
 	pop bx
 	jc .access_error
 
-	std
+	std				; AMD erratum 109 handling not needed
 	mov word [es:bx - 2], 5E5Eh	; writes to unused word (1)
 	scasw				; -> sector_buffer+8192 (at last word to sca)
 	mov cx, (8192 + 2) >> 1
@@ -2861,7 +2861,7 @@ initialise:
 	 pop dx
 	jc .access_error
 
-	std
+	std				; AMD erratum 109 handling not needed
 	scasw				; di -> sector_buffer+8192 (last word to sca)
 	mov ax, -1
 	mov cx, (8192 + 2) >> 1
