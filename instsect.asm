@@ -2878,7 +2878,7 @@ AAAB
 	add di, 4			; di -> first differing byte (from top)
 	cld
 
-%if 0	
+%if 0
 0000000000000
 AAAAAAAA00000
 	^
