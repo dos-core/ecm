@@ -1221,7 +1221,10 @@ ldos_entry:
 	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 			; move sector up, except common BPB start part
-	std
+%if ((512 - bsBPB - bpbNew + 1) >> 1) <= 20
+ %fatal Need AMD erratum 109 workaround
+%endif
+	std		; AMD erratum 109 handling not needed
 	rep movsw
 	cld
 
