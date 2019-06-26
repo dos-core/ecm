@@ -54,10 +54,18 @@ ldLoadUntilSeg:	resw 1
 
 	numdef OPTIMISE_MOVP_DN_ONLY,	1	; init0_movp always moves DN
 	numdef ALLOW_OVERLAPPING,	1	; allow overlapping src and dst
+	numdef TEST_PROGRAM,		0
+	numdef TEST_PROGRAM_DECOMPRESSED_SIZE,		0,0
+%if _TEST_PROGRAM && ! _TEST_PROGRAM_DECOMPRESSED_SIZE
+ %error Test program has to learn of decompressed size.
+%endif
 
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	numdef IMAGE_EXE,	0
+%if ! _IMAGE_EXE && _TEST_PROGRAM
+ %error Test program can only be used as EXE.
+%endif
 	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
 	numdef IMAGE_EXE_IP,	256 +64	; value for IP
 		; The next two are only used if _IMAGE_EXE_AUTO_STACK is 0.
@@ -100,6 +108,13 @@ init0_kernel_entry:
 %if ($ - $$) != 32
  %error Wrong kernel mode entrypoint
 %endif
+%if _TEST_PROGRAM
+@@:
+	int3
+	sti
+	hlt
+	jmp @B
+%endif
 	mov bx, 0		; kernel mode
 	push ax
 	mov ax, cs
@@ -127,10 +142,23 @@ init0_common:
 		;	 called either with ip = init0_common (kernel mode)
 		;	 or ip = init0_common + 256 (EXE mode).
 	cld
+%if _TEST_PROGRAM
+	sub dx, ( (payload_end - payload) ) >> 4
+	jc .error
+	mov cx, ( (payload_end - payload) \
+		+ (init1_end - init1_start) \
+		+ (init2_end - init2_start) \
+		) >> 4
+	sub dx, cx
+	jc .error
+	cmp dx, ax
+	jb .error
+%else
 	mov cx, ( (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		) >> 4
 	sub dx, cx
+%endif
 	push si
 	call init0_movp
 	pop si
@@ -147,13 +175,39 @@ init0_common:
 %endif
 
 	mov ax, dx
+%if _TEST_PROGRAM
+	add ax, ( \
+		+ (payload_end - payload) \
+		+ (init1_end - init1_start) \
+		) >> 4
+%else
 	add ax, ( \
 		+ (payload_end - payload) \
 		) >> 4
+%endif
 	xor cx, cx
 	push ax
 	push cx
 	retf			; jump to relocated INIT1:init1_start
+
+
+%if _TEST_PROGRAM
+.error:
+	push cs
+	pop ds
+	mov dx, init0_msg.error_stderr + 256
+	mov cx, init0_msg.error_stderr.length
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+	mov dx, init0_msg.error_stdout + 256
+	mov cx, init0_msg.error_stdout.length
+	mov bx, 1
+	mov ah, 40h
+	int 21h
+	mov ax, 4CFFh
+	int 21h
+%endif
 
 
 		; Move paragraphs
@@ -162,7 +216,7 @@ init0_common:
 		;	dx => destination
 		;	cx = number of paragraphs
 		; CHG:	cx, ds, si, es, di
-		; OUT:	NC, ax and dx unchanged
+		; OUT:	ax and dx unchanged
 		; Note:	Doesn't work correctly on HMA; doesn't always wrap to LMA either.
 		;	Do not provide a wrapped/HMA source or destination!
 init0_movp:
@@ -195,7 +249,7 @@ init0_movp:
 	add cx, 1000h		; restore counter
 	shl cx, 1
 	shl cx, 1
-	shl cx, 1		; *8, paragraphs to words (NC)
+	shl cx, 1		; *8, paragraphs to words
 	rep movsw		; move last part
 	pop dx
 	pop ax
@@ -229,7 +283,7 @@ init0_movp:
 	shl cx, 1		; *8, paragraphs to words
 	mov di, cx
 	dec di
-	shl di, 1		; words to offset, -> last word (NC)
+	shl di, 1		; words to offset, -> last word
 	mov si, di
 	mov ds, ax
 	mov es, dx		; first segment correct
@@ -284,10 +338,6 @@ Contact your AMD representative for information on a BIOS update.
 	cld
 .return:
 	retn
-
-
-	align 16
-init0_end:
 
 
 	section PAYLOAD align=16 follows=INIT0
@@ -361,16 +411,22 @@ init1_start:
 		;	bx = EXE mode flag
 		; Note:	The destination reaches up to below the source.
 	call depack
-	jc error
-
+%ifn _TEST_PROGRAM
+	jc strict short error
+%endif
 %if _IMAGE_EXE
 	pop si			; si
 	pop bx			; ?exemode
 	pop bp			; bp
 	pop ax			; ax
-
 	lleave ctx
+%endif
+%if _TEST_PROGRAM
+	retf
+	nop
+%endif
 
+%if _IMAGE_EXE
 	test bx, 1
 	jz .jmp_kernel_mode
 
@@ -484,7 +540,11 @@ disp_al_lownibble_hex:
 %endif
 
 disp_al:
+%if _TEST_PROGRAM
+	retn
+%else
 	push ax
+%endif
 	push bx
 	push bp
 %if _IMAGE_EXE
@@ -709,6 +769,29 @@ pointer_to_linear:
 	align 16
 init1_end:
 
+
+	section INIT0
+%if _TEST_PROGRAM
+init0_msg:
+.error_stderr:	db "Error: Not enough memory allocated.",13,10
+.error_stderr.length: equ $ - .error_stderr
+.error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
+				+ (payload_end - payload) \
+				+ (init1_end - init1_start) \
+				)
+		db 13,10
+.error_stdout.length: equ $ - .error_stdout
+
+	align 512
+%if ($ - $$) != 512
+ %error Wrong INIT0 size
+%endif
+%endif
+
+	align 16
+init0_end:
+
+
 %assign num (init1_end - init1_start) + (init0_end - init0_start)
 %if _BRIEFLZ
 %define which iniblz
@@ -719,4 +802,324 @@ init1_end:
 %endif
 %warning which: num bytes used for depacker
 
+
+%if _TEST_PROGRAM
+	section INIT2 align=16 follows=INIT1 vstart=0
+init2_start:
+		; si => after PSP
+		; cs => INIT2
+		; psp, free, payload, init1, init2, payload space, stack
+		;
+		; The correct allocation for the test program
+		;  is image size (init0, payload, init1, init2)
+		;  minus init0 plus compressed payload size
+		;  plus decompressed size plus stack. For
+		;  simplicity, init0 subtraction may be skipped.
+	mov dx, cs
+	add dx, (init2_end - init2_start) >> 4
+				; => payload saving area
+	mov ax, cs
+	sub ax, ( (init1_end - init1_start) \
+		+ (payload_end - payload) \
+		) >> 4		; => payload source for first run
+	mov cx, (payload_end - payload) >> 4
+	call init2_movp		; copy payload to payload saving area
+		; We save away the payload here because a failure
+		;  to decompress generally overwrites part of that
+		;  payload which was used as source.
+
+	mov dx, ax		; => payload source to use
+	mov ax, cs
+	sub ax, (init1_end - init1_start) >> 4
+				; => INIT1
+	mov bx, 1		; say we're in EXE mode
+	push dx
+	push ax
+	push si
+	push cs
+	call .transfer		; call decompression
+	pop si
+	pop ax
+	pop dx
+		; Returns here after decompression.
+		; CY if error.
+	jnc @F
+
+	mov dx, init2_msg.initial_error
+	mov cx, init2_msg.initial_error.length
+	jmp init2_error
+
+@@:
+	lframe
+	lenter
+	lvar word,	upperbound
+	 push dx
+	lvar word,	lowerbound
+	 push si
+	lvar word,	current_init1
+	 push ax
+
+.loop:
+	mov dx, [bp + ?upperbound]
+	sub dx, [bp + ?lowerbound]
+	jz .found
+	shr dx, 1
+		; Rounding down, so that we never retry upper bound.
+		;  The upper bound is known to be working.
+	add dx, [bp + ?lowerbound]
+	push dx
+	add dx, (payload_end - payload) >> 4
+	mov ax, [bp + ?current_init1]
+	mov cx, (init1_end - init1_start) >> 4
+	call init2_movp
+	mov [bp + ?current_init1], dx
+	pop dx
+
+	mov ax, cs
+	add ax, (init2_end - init2_start) >> 4
+				; => payload in saving area
+	mov cx, (payload_end - payload) >> 4
+	call init2_movp		; copy payload from payload saving area
+
+		; dx => source
+	mov ax, [bp + ?current_init1]
+	mov bx, 1
+	push dx
+	push si
+	push cs
+	call .transfer
+	pop si
+	pop dx
+		; Returns here after decompression.
+		; CY if error.
+	jnc @F
+		; error: this attempt is one below the new lower bound
+	inc dx
+	mov word [bp + ?lowerbound], dx
+	jmp .loop
+
+@@:
+		; success: this attempt is the new upper bound
+	mov word [bp + ?upperbound], dx
+	jmp .loop
+
+.found:
+	mov ax, word [bp + ?upperbound]
+	sub ax, si		; = how many paragraphs in buffer before source
+	add ax, paras( (init1_end - init1_start) \
+			+ (payload_end - payload) )
+				; = how many paragraphs needed for process
+	call init2_disp_ax_dec
+	mov al, 13
+	call init2_disp_al
+	mov al, 10
+	call init2_disp_al
+	mov ax, 4C00h
+	int 21h
+
+	lleave ctx
+
+
+.transfer:
+	xor di, di
+	push di			; dummy ax value on stack
+	push ax			; INIT1 segment
+	push di			; zero = init1_start
+	retf
+
+init2_error:
+	push cs
+	pop ds
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+	mov dx, init2_msg.error_stdout
+	mov cx, init2_msg.error_stdout.length
+	mov bx, 1
+	mov ah, 40h
+	int 21h
+	mov ax, 4CFFh
+	int 21h
+
+
+init2_disp_al:
+	push dx
+	push ax
+	mov dl, al
+	mov ah, 2
+	int 21h
+	pop ax
+	pop dx
+	retn
+
+
+		; Display number in ax decimal
+		;
+		; INP:	ax = number
+		; OUT:	displayed using Int21.02
+		; CHG:	none
+init2_disp_ax_dec:			; ax (no leading zeros)
+		push bx
+		xor bx, bx
+.pushax:
+		push dx
+		push ax
+		or bl, bl
+		jz .nobl
+		sub bl, 5
+		neg bl
+.nobl:
+		push cx
+		mov cx, 10000
+		call .divide_out
+		mov cx, 1000
+		call .divide_out
+		mov cx, 100
+		call .divide_out
+		mov cl, 10
+		call .divide_out
+							; (Divisor 1 is useless)
+		add al, '0'
+		call init2_disp_al
+		pop cx
+		pop ax
+		pop dx
+		pop bx					; Caller's register
+		retn
+
+
+		; INP:	ax = number
+		;	cx = divisor
+		; OUT:	ax = remainder of operation
+		;	result displayed
+.divide_out:
+		push dx
+		xor dx, dx
+		div cx				; 0:ax / cx
+		push dx				; remainder
+		dec bl
+		jnz .nobl2
+		or bh, 1
+.nobl2:
+		or bh, al
+		jz .leadingzero
+		add al, '0'
+		call init2_disp_al		; display result
+ .leadingzero:
+		pop ax				; remainder
+		pop dx
+		retn
+
+
+init2_msg:
+.initial_error:	db "Error: Test program failed to decompress with full buffer.",13,10
+.initial_error.length: equ $ - .initial_error
+.error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
+				+ (payload_end - payload) \
+				+ (init1_end - init1_start) \
+				)
+		db 13,10
+.error_stdout.length: equ $ - .error_stdout
+
+
+		; Move paragraphs
+		;
+		; INP:	ax => source
+		;	dx => destination
+		;	cx = number of paragraphs
+		; CHG:	-
+		; OUT:	ax and dx unchanged
+		; Note:	Doesn't work correctly on HMA; doesn't always wrap to LMA either.
+		;	Do not provide a wrapped/HMA source or destination!
+init2_movp:
+	push cx
+	push ds
+	push si
+	push es
+	push di
+	cmp ax, dx		; source below destination ?
+	jb .down		; yes, move from top down -->
+	je .return		; same, no need to move --> (NC)
+	push ax
+	push dx
+.uploop:
+	mov ds, ax
+	mov es, dx
+	xor di, di
+	xor si, si		; -> start of segment
+	sub cx, 1000h		; 64 KiB left ?
+	jbe .uplast		; no -->
+	push cx
+	mov cx, 10000h /2
+	rep movsw		; move 64 KiB
+	pop cx
+	add ax, 1000h
+	add dx, 1000h		; -> next segment
+	jmp short .uploop	; proceed for more -->
+.uplast:
+	add cx, 1000h		; restore counter
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1		; *8, paragraphs to words
+	rep movsw		; move last part
+	pop dx
+	pop ax
+	jmp short .return
+
+.down:
+	std			; _AMD_ERRATUM_109_WORKAROUND as below
+.dnloop:
+	sub cx, 1000h		; 64 KiB left ?
+	jbe .dnlast		; no -->
+	push ax
+	push dx
+	add ax, cx
+	add dx, cx
+	mov ds, ax		; -> 64 KiB not yet moved
+	mov es, dx
+	pop dx
+	pop ax
+	mov di, -2
+	mov si, di		; moved from last word down
+	push cx
+	mov cx, 10000h /2
+	rep movsw		; move 64 KiB
+	pop cx
+	jmp short .dnloop	; proceed for more -->
+.dnlast:
+	add cx, 1000h		; restore counter
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1		; *8, paragraphs to words
+	mov di, cx
+	dec di
+	shl di, 1		; words to offset, -> last word
+	mov si, di
+	mov ds, ax
+	mov es, dx		; first segment correct
+
+		; Refer to comment in init0_movp.
+%if _AMD_ERRATUM_109_WORKAROUND
+	jcxz @FF
+	cmp cx, 20
+	ja @FF
+@@:
+	movsw
+	loop @B
+@@:
+%endif
+	rep movsw		; move first part
+	cld
+.return:
+	pop di
+	pop es
+	pop si
+	pop ds
+	pop cx
+	retn
+
+
+	align 16
+init2_end:
+%endif
 
