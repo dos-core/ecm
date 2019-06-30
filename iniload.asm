@@ -127,7 +127,7 @@ lpSector:	resq 1
 %ifndef _IMAGE_EXE_MIN_CALC
  %define _IMAGE_EXE_MIN_CALC	\
 		(((_IMAGE_EXE_MIN \
-		- ((payload.end - payload) - 512) \
+		- (payload.actual_end - payload) \
 		- 256 \
 		+ _IMAGE_EXE_AUTO_STACK) + 15) & ~15)
 %endif
@@ -143,7 +143,7 @@ lpSector:	resq 1
 %ifndef _SECOND_PAYLOAD_EXE_MIN_CALC
  %define _SECOND_PAYLOAD_EXE_MIN_CALC	\
 		(((_SECOND_PAYLOAD_EXE_MIN \
-		- ((second_payload.end - second_payload) - 512) \
+		- (second_payload.actual_end - second_payload) \
 		- 256 \
 		+ _SECOND_PAYLOAD_EXE_AUTO_STACK) + 15) & ~15)
 %endif
@@ -164,7 +164,7 @@ start:
 			; db 0EBh, 16h	; dw 16EBh
 %if _IMAGE_EXE
 		; For now hardcoded to carry a .COM-like executable.
-		; Note: With _SECOND_PAYLOAD_EXE_AUTO_STACK, the
+		; Note: With _IMAGE_EXE_AUTO_STACK, the
 		;	 stack segment will be behind the image.
 	dw (payload.end - $$ + 511) / 512	; exePages
 	dw 0		; exeRelocItems
@@ -176,7 +176,7 @@ start:
 	dw (_IMAGE_EXE_MIN_CALC + 15) >> 4	; exeMaxAlloc
 %endif
 %if _IMAGE_EXE_AUTO_STACK
-	dw (((payload.end - payload) - 512) \
+	dw ((payload.actual_end - payload) \
 		+ _IMAGE_EXE_MIN_CALC \
 		- _IMAGE_EXE_AUTO_STACK + 15) >> 4	; exeInitSS
 		; ss: payload size minus 512 (conservative, assume DOS
@@ -206,7 +206,7 @@ start:
 	dw (_SECOND_PAYLOAD_EXE_MIN_CALC + 15) >> 4	; exeMaxAlloc
 %endif
 %if _SECOND_PAYLOAD_EXE_AUTO_STACK
-	dw (((second_payload.end - second_payload) - 512) \
+	dw ((second_payload.actual_end - second_payload) \
 		+ _SECOND_PAYLOAD_EXE_MIN_CALC \
 		- _SECOND_PAYLOAD_EXE_AUTO_STACK + 15) >> 4	; exeInitSS
 	dw _SECOND_PAYLOAD_EXE_AUTO_STACK	; exeInitSP
@@ -1524,6 +1524,7 @@ end2:
 payload:
 	incbin _PAYLOAD_FILE
 	align 16, db 38
+.actual_end:
 %if _IMAGE_EXE
 	align 512, db 38	; until end of page
 	times 512 db 38		; a full additional page,
@@ -1537,6 +1538,8 @@ payload:
 	align 16, db 38
 second_payload:
 	incbin _SECOND_PAYLOAD_FILE
+	align 16, db 38
+.actual_end:
 	align 512, db 38
 	times 512 db 38
 .end:
