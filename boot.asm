@@ -249,7 +249,11 @@ ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 ADR_FATBUF	equ	end -start+7C00h	; 07E00h
 
 ; start of unused memory:
-ADR_FREE	equ	(ADR_FATBUF + 8192)	; 0BE00h
+%if (ADR_FATBUF + 8192) > (end -start+7C00h)
+ADR_FREE	equ	(ADR_FATBUF + 8192)	; 09E00h
+%else
+ADR_FREE	equ	(end -start+7C00h)	; 07E00h
+%endif
 
 %if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
  %warning Possibly crossing 64 KiB boundary while reading FAT
