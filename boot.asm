@@ -285,6 +285,22 @@ ADR_FREE	equ	(end -start+7C00h)	; 07E00h
  %error Load address must not overlap loader
 %endif
 
+%if ADR_FATBUF > LOADLIMIT
+ %error FAT buffer address must be in LMA
+%elif ADR_FATBUF < 00500h
+ %error FAT buffer address must not overlap IVT or BDA
+%elif (ADR_FATBUF + 8192) > (POSITION-512) && ADR_FATBUF < (POSITION+512)
+ %error FAT buffer address must not overlap loader
+%endif
+
+%if ADR_DIRBUF > LOADLIMIT
+ %error Dir buffer address must be in LMA
+%elif ADR_DIRBUF < 00500h
+ %error Dir buffer address must not overlap IVT or BDA
+%elif (ADR_DIRBUF + 8192) > (POSITION-512) && ADR_DIRBUF < (POSITION+512)
+ %error Dir buffer address must not overlap loader
+%endif
+
 %if ((_EXEC_SEG_ADJ<<4)+_EXEC_OFS) < 0
  %error Execution address must be in loaded file
 %elif ((_EXEC_SEG_ADJ<<4)+_EXEC_OFS+_LOAD_ADR) > LOADLIMIT
