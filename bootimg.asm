@@ -238,6 +238,8 @@ boot_end:
 %endif
 	align _BPS
 
+	times (_NUMRESERVED * _BPS) - ($ - $$) db 0
+
 
 	%macro addfatentry 1.nolist
 %xdefine FATENTRIES FATENTRIES,(%1)
