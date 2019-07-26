@@ -31,6 +31,12 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
 
+	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
+%if _DIRBUF_500
+	gendef _ADR_DIRBUF, 500h
+%endif
+	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
+
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
 	numdef RPL,		1	; support RPL and do not overwrite it
@@ -233,10 +239,6 @@ Notes about partial load compatibilities
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
 ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
-	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
-%if _DIRBUF_500
-	gendef _ADR_DIRBUF, 500h
-%endif
 ADR_DIRBUF	equ	__ADR_DIRBUF
 
 ; this used to be a two-sector FAT buffer -- two sectors because FAT12
@@ -246,7 +248,6 @@ ADR_DIRBUF	equ	__ADR_DIRBUF
 ;  or twelve 512 byte sectors.
 ; this shares its area with the directory buffer as they
 ;  are not simultaneously used. (if not _DIRBUF_500.)
-	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
 ADR_FATBUF	equ	__ADR_FATBUF
 
 ; start of unused memory after loader:
