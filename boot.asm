@@ -249,13 +249,15 @@ ADR_DIRBUF	equ	__ADR_DIRBUF
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
 ADR_FATBUF	equ	__ADR_FATBUF
 
-; start of unused memory:
+; start of unused memory after loader:
 ADR_END		equ	end -start+7C00h
 %if (ADR_FATBUF + 8192) > ADR_END
 ADR_FREE_FROM	equ	(ADR_FATBUF + 8192)	; 09E00h
 %else
 ADR_FREE_FROM	equ	ADR_END			; 07E00h
 %endif
+
+; end of unused memory before loader:
 %if ADR_FATBUF < ADR_STACK_LOW
 ADR_FREE_UNTIL	equ	ADR_FATBUF
 %else
