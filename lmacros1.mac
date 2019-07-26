@@ -362,6 +362,42 @@ Intended for 86 Mode programs.
 %endif
 	%endmacro
 
+
+		; Define a generic definition for conditional assembly
+		;
+		; %1 = Definition name. Will get an additional underscore prefix
+		; %2 = What to define as if not defined (defaults to empty)
+		; %3 = What to define as if defined, but empty (defaults to empty)
+	%imacro gendef 1-3.nolist
+%ifnum __DEFAULTED_%1
+ %if __lMACROS1_MAC__DEFAULTING && __DEFAULTED_%1
+  %undef _%1			; cause defaulting to take effect again
+  %if __DEFAULTED_%1 == 2	; defaulted to third parameter?
+   %define _%1			; cause alternative defaulting to take effect again
+  %endif
+ %endif
+%endif
+%ifdef _%1
+ %ifempty _%1
+  %define _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
+  %if __lMACROS1_MAC__DEFAULTING
+   %assign __DEFAULTED_%1 2	; note alternative defaulting occurred
+  %endif
+ %endif				;  (if option was "-d_DEFINE=0", it's left as zero)
+ %if __lMACROS1_MAC__DEFAULTING
+  %ifnnum __DEFAULTED_%1
+   %assign __DEFAULTED_%1 0	; note no defaulting occurred
+  %endif
+ %endif
+%else				; If not defined (no option on NASM's command line)
+ %define _%1 %2			;  then define to default
+ %if __lMACROS1_MAC__DEFAULTING
+  %assign __DEFAULTED_%1 1	; note defaulting occurred
+ %endif
+%endif
+	%endmacro
+
+
 ;;	%macro __help_strdef_stringify 3+.nolist
 ;;%xdefine _%1 %2%3%2
 ;;	%endmacro
