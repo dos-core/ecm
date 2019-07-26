@@ -232,12 +232,12 @@ Notes about partial load compatibilities
 ; 512-byte stack (minus the variables).
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
+; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
+	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
 %if _DIRBUF_500
- ADR_DIRBUF	equ	500h
-%else
- ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
- ADR_DIRBUF	equ	end -start+7C00h	; 07E00h
+	gendef _ADR_DIRBUF, 500h
 %endif
+ADR_DIRBUF	equ	__ADR_DIRBUF
 
 ; this used to be a two-sector FAT buffer -- two sectors because FAT12
 ;  entries are 12 bits and may straddle a sector boundary.
@@ -246,13 +246,15 @@ ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 ;  or twelve 512 byte sectors.
 ; this shares its area with the directory buffer as they
 ;  are not simultaneously used. (if not _DIRBUF_500.)
-ADR_FATBUF	equ	end -start+7C00h	; 07E00h
+	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
+ADR_FATBUF	equ	__ADR_FATBUF
 
 ; start of unused memory:
-%if (ADR_FATBUF + 8192) > (end -start+7C00h)
+ADR_END		equ	end -start+7C00h
+%if (ADR_FATBUF + 8192) > ADR_END
 ADR_FREE_FROM	equ	(ADR_FATBUF + 8192)	; 09E00h
 %else
-ADR_FREE_FROM	equ	(end -start+7C00h)	; 07E00h
+ADR_FREE_FROM	equ	ADR_END			; 07E00h
 %endif
 %if ADR_FATBUF < ADR_STACK_LOW
 ADR_FREE_UNTIL	equ	ADR_FATBUF
