@@ -250,9 +250,14 @@ ADR_FATBUF	equ	end -start+7C00h	; 07E00h
 
 ; start of unused memory:
 %if (ADR_FATBUF + 8192) > (end -start+7C00h)
-ADR_FREE	equ	(ADR_FATBUF + 8192)	; 09E00h
+ADR_FREE_FROM	equ	(ADR_FATBUF + 8192)	; 09E00h
 %else
-ADR_FREE	equ	(end -start+7C00h)	; 07E00h
+ADR_FREE_FROM	equ	(end -start+7C00h)	; 07E00h
+%endif
+%if ADR_FATBUF < ADR_STACK_LOW
+ADR_FREE_UNTIL	equ	ADR_FATBUF
+%else
+ADR_FREE_UNTIL	equ	ADR_STACK_LOW
 %endif
 
 %if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
@@ -263,7 +268,7 @@ ADR_FREE	equ	(end -start+7C00h)	; 07E00h
  %warning Possibly crossing 64 KiB boundary while reading directory
 %endif
 
-%if _LOAD_ADR >= ADR_FREE
+%if _LOAD_ADR >= ADR_FREE_FROM
 	; if reading on a 8 KiB boundary, no crossing can occur.
  %if _LOAD_ADR & (8192 - 1)
   %warning Possibly crossing 64 KiB boundary while reading file
@@ -450,7 +455,7 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 	nextvariable para_per_sector, 2
 %endif
 
-%ifn _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
+%ifn _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
 %endif
@@ -696,7 +701,7 @@ found_it:
 	xchg si, di	; es:di -> behind (second) directory entry
 %endif
 
-%if _LOAD_ADR >= ADR_FREE
+%if _LOAD_ADR >= ADR_FREE_FROM
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
@@ -722,14 +727,14 @@ found_it:
 	xchg ax, dx
  %endif
 	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
-%elif _LOAD_ADR < ADR_STACK_LOW
+%elif _LOAD_ADR < ADR_FREE_UNTIL
  %if !_FIX_SECTOR_SIZE
-	mov ax, ADR_STACK_LOW >> 4	; rounding *down*
+	mov ax, ADR_FREE_UNTIL >> 4	; rounding *down*
  %endif
 %else
  %error Load address within used memory
 %endif
-%if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
+%if _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 	; user of last_available_sector will hardcode the value!
 %else
  %if _FIX_SECTOR_SIZE
@@ -900,8 +905,8 @@ next_cluster:
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 @@:
- %if _LOAD_ADR < ADR_STACK_LOW && _FIX_SECTOR_SIZE
-		cmp bx, (ADR_STACK_LOW >> 4) - (_FIX_SECTOR_SIZE >> 4)
+ %if _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+		cmp bx, (ADR_FREE_UNTIL >> 4) - (_FIX_SECTOR_SIZE >> 4)
  %else
 		cmp bx, [VAR(last_available_sector)]
  %endif
