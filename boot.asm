@@ -33,9 +33,6 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_OFS,	400h	; what value ip will be
 
 	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
-%if _DIRBUF_500
-	gendef _ADR_DIRBUF, 500h
-%endif
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
@@ -72,6 +69,11 @@ Public domain by C. Masloch, 2012
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+
+%if _DIRBUF_500
+	gendef _ADR_DIRBUF, 500h
+%endif
+
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
