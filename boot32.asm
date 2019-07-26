@@ -890,7 +890,7 @@ read_sector:
 	pop cx
 	pop cx
  %endif
-%endif	
+%endif
 
 %if _CHS		; +70 bytes
 ; DX:AX=LBA sector number
