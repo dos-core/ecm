@@ -81,8 +81,11 @@ Public domain by C. Masloch, 2012
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
 	numdef COMPAT_MS6,	0	; partial MS-DOS 6 load compatibility
 	numdef COMPAT_LDOS,	0	; lDOS load compatibility
+	numdef COMPAT_KERNEL7E, 0	; kernel at 0:7E00h load compatibility
 
-%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7 + !!_COMPAT_MS6 + !!_COMPAT_LDOS) > 1
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + \
+	!!_COMPAT_MS7 + !!_COMPAT_MS6 + \
+	!!_COMPAT_LDOS || _COMPAT_KERNEL7E) > 1
  %error At most one set must be selected.
 %endif
 
@@ -182,6 +185,29 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	1
 	numdef DATASTART_HIDDEN,0
 %endif
+
+%if _COMPAT_KERNEL7E
+	strdef OEM_NAME,	"KERNEL7E"
+	strdef LOAD_NAME,	"KERNEL7E"
+	strdef LOAD_EXT,	"BIN"
+	numdef LOAD_ADR,	07E00h
+	numdef EXEC_SEG_ADJ,	-7E0h
+	numdef EXEC_OFS,	7E00h
+
+	numdef SET_DL_UNIT,	1
+	numdef SET_BL_UNIT,	0
+	numdef SET_CLUSTER,	0
+	numdef SET_FAT_SEG,	0
+	numdef SET_LOAD_SEG,	0
+	numdef MEMORY_CONTINUE,	0
+	numdef DATASTART_HIDDEN,0
+
+	gendef _ADR_FATBUF,	4000h
+	gendef _ADR_DIRBUF,	4000h
+	numdef RPL,		0
+	numdef ZERO_ES,		1
+%endif
+
 
 %if 0
 
