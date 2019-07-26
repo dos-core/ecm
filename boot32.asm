@@ -231,7 +231,7 @@ Notes about partial load compatibilities
  %error Execution segment adjustment must fit into 16 bits
 %endif
 
-%define OEM_NAME_FILL '_'
+	strdef OEM_NAME_FILL, '_'
 
 %if !_CHS && _QUERY_GEOMETRY
  %warning No CHS support but querying geometry anyway
@@ -275,7 +275,7 @@ itself would disqualify our boot sector already.
 %else
  %assign %$warn 0
  %rep 8 - %$len
-  %strcat %$nam %$nam,OEM_NAME_FILL
+  %strcat %$nam %$nam,_OEM_NAME_FILL
  %endrep
  %substr %$prefix %$nam	5	; "wvxyZa.b", get "Z"
  %substr %$major %$nam 6,7	; "wvxyzA.b", get "A."
@@ -450,7 +450,7 @@ lowest_variable		equ _LASTVARIABLE
 ; These values must be initialised when installing the loader.
 
 oem_id:			; offset 03h (03) - not used by this code
-	fill 8,OEM_NAME_FILL,db _OEM_NAME
+	fill 8,_OEM_NAME_FILL,db _OEM_NAME
 bytes_per_sector:	; offset 0Bh (11) - refer to _FIX_SECTOR_SIZE !
 	dw 0
 sectors_per_cluster:	; offset 0Dh (13) - refer to _FIX_CLUSTER_SIZE !
