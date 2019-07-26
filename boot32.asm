@@ -54,6 +54,8 @@ Public domain by C. Masloch, 2012
 	numdef SET_LOAD_SEG,	1	; if to set load_seg (word [ss:bp - 6])
 	numdef SET_FAT_SEG,	1	; if to set fat_seg (word [ss:bp - 8])
 	numdef SET_CLUSTER,	1	; if to set first_cluster (dword [ss:bp - 16])
+	numdef ZERO_ES,		0	; if to set es = 0 before jump
+	numdef ZERO_DS,		0	; if to set ds = 0 before jump
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
@@ -1047,6 +1049,28 @@ load_finish:
 		push ss
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
    %endif
+  %endif
+ %endif
+%endif
+%if _ZERO_ES || _ZERO_DS
+ %if _RELOCATE
+  %ifn _PUSH_DPT || _SET_DSSI_DPT
+		xor ax, ax
+  %endif
+  %if _ZERO_ES
+		mov es, ax
+  %endif
+  %if _ZERO_DS
+		mov ds, ax
+  %endif
+ %else
+  %if _ZERO_ES
+		push ss
+		pop es
+  %endif
+  %if _ZERO_DS && _SET_DSSI_DPT
+		push ss
+		pop ds
   %endif
  %endif
 %endif
