@@ -565,16 +565,16 @@ fsiboot_name:
 skip_bpb:
 	cli
 	cld
-	 xor ax, ax
+	 xor cx, cx
 	mov bp, start
-	 mov ss, ax
+	 mov ss, cx
 	mov sp, ADR_STACK_START
 	mov [VAR(boot_unit)], dl
 
 	; Note:	es is left uninitialised here until the first call to
 	;	 read_sector if the below conditional is false.
 %if _USE_PART_INFO	; +19 bytes
-	 mov es, ax
+	 mov es, cx
 ; Note:	Award Medallion BIOS v6.0 (ASUS MED 2001 ACPI BIOS Revision 1009)
 ;	 loads from a floppy disk drive with ds:si = 0F000h:0A92Dh ->
 ;	 FF FF FF FF 08 00 08 01 FF FF FF FF FF FF FF FF, which was detected
@@ -584,10 +584,10 @@ skip_bpb:
 	jns @F			; don't attempt detection -->
 ; Check whether an MBR left us partition information.
 ; byte[ds:si] bit 7 means active and must be set if valid.
-	cmp byte [si], al	; flags for xx-00h (result is xx), SF = bit 7
+	cmp byte [si], cl	; flags for xx-00h (result is xx), SF = bit 7
 	jns @F			; xx < 80h, ie info invalid -->
 ; byte[ds:si+4] is the file system type. Check for valid one.
-	cmp byte [si+4], al	; is it zero?
+	cmp byte [si+4], cl	; is it zero?
 	je @F			; yes, info invalid -->
 ; Info valid, trust their hidden sectors over hardcoded.
 ; Assume the movsw instructions won't run with si = FFFFh.
@@ -597,7 +597,7 @@ skip_bpb:
 	movsw			; overwrite BPB field with value from info
 @@:
 %endif
-	mov ds, ax
+	mov ds, cx
 	sti
 
 
@@ -608,7 +608,8 @@ skip_bpb:
 	;  (for its diskettes), it does properly return the error code 01h.
 	; https://sites.google.com/site/pcdosretro/ibmpcbios (IBM PC version 1)
 	mov ah, 08h
-	xor cx, cx		; initialise cl to 0
+	; xor cx, cx		; initialise cl to 0
+	; Already from prologue cx = 0.
 	stc			; initialise to CY
 	int 13h			; query drive geometry
 	jc @F			; apparently failed -->
