@@ -23,6 +23,7 @@ Public domain by C. Masloch, 2012
 
 	numdef FAT16,		0	; 0 = FAT12, 1 = FAT16
 	strdef OEM_NAME,	"    lDOS"
+	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"lDOS"
 
 	strdef LOAD_NAME,	"LDOS"
@@ -325,7 +326,6 @@ ADR_FREE_UNTIL	equ	ADR_STACK_LOW
  %error Execution segment adjustment must fit into 16 bits
 %endif
 
-	strdef OEM_NAME_FILL, '_'
 
 %if !_CHS && _QUERY_GEOMETRY
  %warning No CHS support but querying geometry anyway
@@ -362,6 +362,10 @@ itself would disqualify our boot sector already.
 %endif
 
 %push
+%strlen %$len _OEM_NAME_FILL
+%if %$len != 1
+ %error Specified OEM name fill must be 1 character
+%endif
 %strlen %$len _OEM_NAME
 %define %$nam _OEM_NAME
 %if %$len > 8
