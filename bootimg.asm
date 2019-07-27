@@ -358,8 +358,7 @@ at deSize,		dd filesize
 	%macro checkchar 2-3.nolist 0
 %if %2 <= ' ' || %2 >= 128 || \
 	%2 == '/' || %2 == '\' || \
-	%2 == '"' || %2 == "'" || \
-	%2 == %3
+	%2 == '"' || %2 == %3
  %error Invalid character (%2) in name (%1)
 %endif
 	%endmacro
