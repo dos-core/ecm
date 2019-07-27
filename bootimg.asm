@@ -82,7 +82,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
  %error Invalid EOF value (_EOF)
 %endif
 
-%assign MAXENTRY (1 << _BPE) - 1
+%if _BPE != 32
+ %assign MAXENTRY (1 << _BPE) - 1
+%else
+ %assign MAXENTRY (1 << 28) - 1
+%endif
 %assign EOFSTARTENTRY MAXENTRY - 7
 %assign EOFENDENTRY MAXENTRY
 %assign BADENTRY MAXENTRY - 8
