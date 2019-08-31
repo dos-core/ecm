@@ -644,23 +644,23 @@ skip_bpb:
 	mov al, 'S'
 	jne error
  %endif
-	mov ax, _FIX_SECTOR_SIZE >> 5
+	mov bx, _FIX_SECTOR_SIZE >> 5
 	mov ch, 0			; ! ch = 0
 %else
 ; 16-byte paragraphs per sector
-	mov ax,[VAR(bytes_per_sector)]
+	mov bx,[VAR(bytes_per_sector)]
 	mov cx,4			; ! ch = 0
-	shr ax,cl
-	push ax				; push into word [VAR(para_per_sector)]
+	shr bx,cl
+	push bx				; push into word [VAR(para_per_sector)]
 
 ; 32-byte FAT directory entries per sector
-	shr ax, 1			; /2 = 32-byte entries per sector
+	shr bx, 1			; /2 = 32-byte entries per sector
 %endif
 
 ; number of sectors used for root directory (store in CX)
 	xor dx, dx
 	mov si, [VAR(num_root_dir_ents)]
-	mov bx, ax
+	mov ax, bx
 	dec ax				; rounding up
 	add ax, si			; from BPB
 	adc dx, dx			; account for overflow (dx was zero)
