@@ -662,11 +662,13 @@ skip_bpb:
 ; calculate some values that we need:
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
-	xor ax, ax
-	mov al, [VAR(sectors_per_cluster)]
-	dec al
-	inc ax
-	push ax			; push into word [VAR(adj_sectors_per_cluster)]
+				; ! ch = 0
+	mov cl, [VAR(sectors_per_cluster)]
+				; therefore cx = sectors_per_cluster
+	dec cl
+	inc cx
+	push cx			; push into word [VAR(adj_sectors_per_cluster)]
+	dec cx			; ! ch = 0
  %endif
 	push bx				; push into word [VAR(para_per_sector)]
 
