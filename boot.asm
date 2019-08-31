@@ -602,22 +602,6 @@ skip_bpb:
 	sti
 
 
-%if _FIX_CLUSTER_SIZE
- %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
-	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
-	mov al, 'C'
-	jne error
- %endif
-%else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
-	mov al, [VAR(sectors_per_cluster)]
-	dec al
-	inc ax
-	push ax			; push into word [VAR(adj_sectors_per_cluster)]
-%endif
-
 %if _QUERY_GEOMETRY	; +27 bytes
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
@@ -645,12 +629,44 @@ skip_bpb:
 	jne error
  %endif
 	mov bx, _FIX_SECTOR_SIZE >> 5
+ %if _FIX_CLUSTER_SIZE
+  %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
+	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
+	mov al, 'C'
+	jne error
+  %endif
+ %else
+; calculate some values that we need:
+; adjusted sectors per cluster (store in a word,
+;  and decode EDR-DOS's special value 0 meaning 256)
+	xor ax, ax
+	mov al, [VAR(sectors_per_cluster)]
+	dec al
+	inc ax
+	push ax			; push into word [VAR(adj_sectors_per_cluster)]
+ %endif
 	mov ch, 0			; ! ch = 0
 %else
 ; 16-byte paragraphs per sector
 	mov bx,[VAR(bytes_per_sector)]
 	mov cx,4			; ! ch = 0
 	shr bx,cl
+ %if _FIX_CLUSTER_SIZE
+  %if !_FIX_CLUSTER_SIZE_SKIP_CHECK
+	cmp byte [VAR(sectors_per_cluster)], _FIX_CLUSTER_SIZE & 0FFh
+	mov al, 'C'
+	jne error
+  %endif
+ %else
+; calculate some values that we need:
+; adjusted sectors per cluster (store in a word,
+;  and decode EDR-DOS's special value 0 meaning 256)
+	xor ax, ax
+	mov al, [VAR(sectors_per_cluster)]
+	dec al
+	inc ax
+	push ax			; push into word [VAR(adj_sectors_per_cluster)]
+ %endif
 	push bx				; push into word [VAR(para_per_sector)]
 
 ; 32-byte FAT directory entries per sector
