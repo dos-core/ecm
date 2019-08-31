@@ -609,7 +609,8 @@ skip_bpb:
 	;  (for its diskettes), it does properly return the error code 01h.
 	; https://sites.google.com/site/pcdosretro/ibmpcbios (IBM PC version 1)
 	mov ah, 08h
-	xor cx, cx		; initialise cl to 0
+	; xor cx, cx		; initialise cl to 0
+	; Already from prologue cx = 0.
 	stc			; initialise to CY
 	int 13h			; query drive geometry
 	jc @F			; apparently failed -->
