@@ -11,6 +11,70 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
+%if 0
+
+_PAYLOADFILE must be defined to a list of strings and/or keywords.
+Keywords are accepted only as (non-string) tokens. The available
+keywords are:
+
+::empty		Ignored. Can be used to create an image without files.
+
+::chdir		Change into subdirectory. May be followed by a ..
+		 (dotdot) keyword to back out of a directory.
+		 Otherwise, the filename of the subdirectory to
+		 create (relative to the current directory),
+		 as a string, is expected in the next list item.
+
+Note that there is no check for duplicate directories, so if
+the string ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
+there will be two subdirectories with the same name in the same
+parent directory. Likewise, files may be duplicated and are
+also not checked for this.
+
+The order of the files' directory entries and cluster chains in
+the file system is determined by the order they were specified
+in the list. Particularly, in FAT12 and FAT16 images, the first
+two files specified will be placed consecutively at the start
+of the data area, which may be necessary for some loaders.
+As this is not known to be required by any FAT32 loaders,
+the FAT32 root directory counts as the first file.
+
+Files and directories are always written into a single run of
+clusters each, that is, there is no fragmentation.
+
+Some things are not supported yet:
+
+* File dates and times.
+
+* Attributes other than the directory bit.
+
+* A volume label directory entry.
+
+* Long file names.
+
+* FSINFO sector for FAT32.
+
+* Backup boot sectors for FAT32.
+
+* Boot sector loaders that are not exactly 512 bytes long.
+
+
+A directory is always terminated with one or more directory
+entries that are filled with all-zeros.
+
+To specify the _PAYLOADFILE list to NASM from a bash shell,
+the quoting must be doubled, eg -D_PAYLOADFILE="'file.bin'"
+(The outer quotes are parsed and swallowed by bash, while
+the inner quotes are passed verbatim to NASM.)
+
+If _BOOTFILE is specified (not the empty quoted string),
+it is expected that the (E)BPB of that boot sector matches
+the file system parameters specified to the bootimg.asm file.
+If _BOOTFILE equals "" then a proper (E)BPB is created,
+along with a default loader (which aborts with an error).
+
+%endif
+
 
 %include "lmacros3.mac"
 
