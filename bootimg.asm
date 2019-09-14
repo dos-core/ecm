@@ -283,30 +283,125 @@ boot_end:
 	%endmacro
 
 
-	addsection root1612, follows=fat align=_BPS
-	addsection data, follows=root1612 vstart=0 align=_BPS
-data_start:
-	addsection root32, follows=data vstart=0 align=_BPS
-root32_start:
-
-%if _BPE == 32
-%define root root32
-%else
-%define root root1612
-%endif
-
+	addsection fixed_root, follows=fat align=_BPS
 	sectalign off
 
 
-	%macro incfile 1.nolist
-	usesection data
-%%start:
-incbin %1
-%assign filesize ($ - %%start)
-	align _BPS * _SPC
-%assign clusters ($ - %%start) / (_BPS * _SPC)
+		; %1 = directory name ("" if is root)
+		; %2 = data section name to use
+		; %3 = data section name of dir to write to (none if is root)
+		; %4 = data cluster number of parent dir (0 if root is parent)
+	%macro incdir 4.nolist
+	usesection %2
+%2 %+ _start:
+%ifnidni %1, ""
+	istruc DIRENTRY
+at deName,		fill 8,32,db "."
+at deExt,		fill 3,32,db 32
+at deAttrib,		db ATTR_DIRECTORY
+at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deSize,		dd 0
+	iend
+	istruc DIRENTRY
+at deName,		fill 8,32,db ".."
+at deExt,		fill 3,32,db 32
+at deAttrib,		db ATTR_DIRECTORY
+at deClusterHigh,	dw %4 >> 16
+at deClusterLow,	dw %4 & 0FFFFh
+at deSize,		dd 0
+	iend
+%endif
 
-	addfatchain %%file, clusters
+%xdefine CHAINLIST CHAINLIST,%%file
+
+%ifnidni %3, none
+
+%define string %1
+%strlen length string
+%assign ii 1
+%rep length
+ %substr cc string length - ii + 1
+ %ifidn cc,"/"
+  %error Subsubdirectory not supported yet
+  %substr string string length -ii + 2, -1
+  %exitrep
+ %endif
+ %ifidn cc,"\"
+  %error Subsubdirectory not supported yet
+  %substr string string length -ii + 2, -1
+  %exitrep
+ %endif
+ %assign ii ii + 1
+%endrep
+%strlen length string
+%assign ii 1
+%define name ""
+%define ext ""
+%assign dotyet 0
+%rep length
+ %substr cc string ii
+ %assign ii ii + 1
+ %if cc >= 'a' && cc <= 'z'
+  %substr cc "ABCDEFGHIJKLMNOPQRSTUVWXYZ" (cc - 'a' + 1)
+ %endif
+ %ifn dotyet
+  %ifidn cc,"."
+   %assign dotyet 1
+  %else
+   %strlen ll name
+   %if ll >= 8
+    %error Too long name part in %1
+    %exitrep
+   %endif
+   checkchar %1,cc
+   %strcat name name,cc
+  %endif
+ %else
+  %strlen ll ext
+  %if ll >= 3
+   %error Too long ext part in %1
+   %exitrep
+  %else
+   checkchar %1,cc,"."
+   %strcat ext ext,cc
+  %endif
+ %endif
+%endrep
+%ifidn name,""
+ %error Invalid empty name part in %1
+%endif
+
+	usesection %3
+	istruc DIRENTRY
+at deName,		fill 8,32,db name
+at deExt,		fill 3,32,db ext
+at deAttrib,		db ATTR_DIRECTORY
+at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deSize,		dd 0
+	iend
+%else
+ rootcluster equ %%file_start_cluster
+%endif
+%2 %+ _start_cluster equ %%file_start_cluster
+	%endmacro
+
+
+		; %1 = filename, may include a directory
+		;	(the directory is only used to locate
+		;	the file on the host system, the file
+		;	will be written to the image with only
+		;	its base name used, and in all-caps.)
+		; %2 = data section name to use
+		; %3 = data section name of directory to write to
+	%macro incfile 3.nolist
+	usesection %2
+%2 %+ _start:
+incbin %1
+%assign filesize ($ - %2 %+ _start)
+
+%xdefine CHAINLIST CHAINLIST,%%file
 
 %define string %1
 %strlen length string
@@ -361,7 +456,7 @@ incbin %1
  %error Invalid empty name part in %1
 %endif
 
-	usesection root
+	usesection %3
 	istruc DIRENTRY
 at deName,		fill 8,32,db name
 at deExt,		fill 3,32,db ext
@@ -369,10 +464,6 @@ at deClusterHigh,	dw %%file_start_cluster >> 16
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd filesize
 	iend
-	%endmacro
-
-	%macro assigncluster 2-*.nolist
-%assign cluster %0
 	%endmacro
 
 	%macro checkchar 2-3.nolist 0
@@ -384,47 +475,159 @@ at deSize,		dd filesize
 	%endmacro
 
 
-	%macro multiincfile 1-*.nolist
+	%macro setup_a_section 0.nolist
+	addsection data %+ filescount, follows= %+ ff vstart=0
+data %+ filescount %+ _start:
+  %xdefine ff data %+ filescount
+  %assign filescount filescount + 1
+	%endmacro
+
+	%macro count_files_setup_sections 1-*.nolist
+%assign filescount 0
+%define ff fixed_root
+%assign chdir 0
 %rep %0
- %ifnidn %1, ::empty
-	incfile %1
+ %if chdir
+  %ifnidni %1, ..		; (not if backing out of directory)
+	setup_a_section		; add a section for a directory
+  %endif
+  %assign chdir 0
+ %elifidni %1, ::chdir
+  %assign chdir 1		; note next list entry is directory name
+ %elifnidni %1, ::empty
+	setup_a_section		; add a section for a file
  %endif
  %rotate 1
 %endrep
+%if chdir
+ %error No directory to create specified
+%endif
+%if _BPE == 32
+	setup_a_section		; add a section for root directory
+%endif
+	addsection empty, follows= %+ ff vstart=0
+	%endmacro
+	count_files_setup_sections _PAYLOADFILE
+
+
+%define DIRLIST none
+%define CHAINLIST none
+	%macro multiincfile 1-*.nolist
+%assign chainindex 0
+%assign chdir 0
+%push ROOT
+%if _BPE == 32
+	incdir "", data %+ chainindex, none, 0
+ %xdefine nextdir data %+ chainindex
+ %xdefine DIRLIST DIRLIST,nextdir
+ %xdefine %$parent nextdir
+; %xdefine %$parentcluster %$parent %+ _start_cluster
+ %define %$parentcluster 0
+ %assign chainindex chainindex + 1
+%else
+ %define %$parent fixed_root
+ %define %$parentcluster 0
+%endif
+%rep %0
+ %if chdir
+  %ifidni %1, ..
+   %ifctx ROOT
+    %error Cannot back out over root
+   %else
+    %pop
+   %endif
+  %else
+   %push SUB
+	incdir %1, data %+ chainindex, %$$parent, %$$parentcluster
+   %xdefine nextdir data %+ chainindex
+   %xdefine DIRLIST DIRLIST,nextdir
+   %xdefine %$parent nextdir
+   %xdefine %$parentcluster %$parent %+ _start_cluster
+   %assign chainindex chainindex + 1
+  %endif
+  %assign chdir 0
+ %elifidni %1, ::chdir
+  %assign chdir 1
+ %elifnidni %1, ::empty
+	incfile %1, data %+ chainindex, %$parent
+  %assign chainindex chainindex + 1
+ %endif
+ %rotate 1
+%endrep
+%if chdir
+ %error No directory to create specified
+%endif
+%rep 1024
+ %ifctx ROOT
+  %exitrep
+ %else
+  %pop
+ %endif
+%endrep
+%pop
 	%endmacro
 	multiincfile _PAYLOADFILE
 
 
-%if _BPE != 32
-	usesection root
-	times ROOTSECTORS * _BPS - ($ - $$) db 0
-
-	usesection data
-	times DATASECTORS * _BPS - ($ - $$) db 0
-%else
-	usesection data
-	align _BPS * _SPC
-data_end:
-	usesection root
+	%macro extenddirectories 1-*.nolist
+%ifnidni %1, none
+ %error Expected a none entry to start dir list
+%endif
+%rotate 1
+%rep %0 - 1
+	usesection %1
 	times 32 db 0
 		; Insure at least one entry. Makes things
 		;  easier to handle for the loader too.
+		;  (Can depend on a zero-filled entry
+		;  that terminates the directory.)
+ %rotate 1
+%endrep
+	%endmacro
+
+	extenddirectories DIRLIST
+
+
+	%macro allocatechains 1-*.nolist
+%ifnidni %1, none
+ %error Expected a none entry to start chain list
+%endif
+%rotate 1
+%assign ii 0
+%rep %0 - 1
+	usesection data %+ ii
 	align _BPS * _SPC
-root32_end:
-%assign clusters ($ - root32_start) / (_BPS * _SPC)
+ %assign clusters ($ - data %+ ii %+ _start) / (_BPS * _SPC)
+	addfatchain %1,clusters
+ %assign ii ii + 1
+ %rotate 1
+%endrep
+	%endmacro
 
-%if clusters == 0
- %error Internal error in root writer
-%else
-	addfatchain rootchain, clusters
-rootcluster equ rootchain_start_cluster
-%endif
+	allocatechains CHAINLIST
 
-	times DATASECTORS * _BPS \
-		- (data_end - data_start) \
-		- (root32_end - root32_start) \
-		db 0
+
+%assign data_used 0
+%assign ii 0
+%rep filescount
+	usesection data %+ ii
+	align _BPS * _SPC
+data %+ ii %+ _end:
+ %assign data_used data_used \
+	+ (data %+ ii %+ _end - data %+ ii %+ _start)
+ %assign ii ii + 1
+%endrep
+
+
+	usesection fixed_root
+%if _BPE != 32
+	times 32 db 0
 %endif
+	times ROOTSECTORS * _BPS - ($ - $$)	db 0
+
+	usesection empty
+	times DATASECTORS * _BPS - data_used	db 0
+
 
 %if _BPE == 32
  %define dumpfatentries dd
@@ -450,10 +653,16 @@ rootcluster equ rootchain_start_cluster
 
 	expandfatchains FATCHAINS
 
+
+	%macro assigncluster 2-*.nolist
+%assign cluster %0
+	%endmacro
+
 	assigncluster FATENTRIES
 %if _BPE == 12 && (cluster & 1) == 1
 	addfatentry 0
 %endif
+
 
 	usesection fat
 %assign ii 0
