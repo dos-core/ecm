@@ -33,17 +33,15 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	numdef HIDDEN, 0
 
 	strdef BOOTFILE, "boot12.bin"
-	strdef SINGLEPAYLOADFILE, ""
+	strdef PAYLOADFILE, ""
 
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"NO NAME"
 
 
-%ifidn _SINGLEPAYLOADFILE, ""
- %ifndef _MULTIPAYLOADFILE
+%ifidn _PAYLOADFILE, ""
   %error No payload files specified!
- %endif
 %endif
 
 
@@ -386,17 +384,16 @@ at deSize,		dd filesize
 	%endmacro
 
 
-%ifnidn _SINGLEPAYLOADFILE, ""
-	incfile _SINGLEPAYLOADFILE
-%elifnidn _MULTIPAYLOADFILE, ""
 	%macro multiincfile 1-*.nolist
 %rep %0
+ %ifnidn %1, ::empty
 	incfile %1
+ %endif
  %rotate 1
 %endrep
 	%endmacro
-	multiincfile _MULTIPAYLOADFILE
-%endif
+	multiincfile _PAYLOADFILE
+
 
 %if _BPE != 32
 	usesection root
