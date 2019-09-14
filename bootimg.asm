@@ -245,26 +245,58 @@ boot_end:
 	times (_NUMRESERVED * _BPS) - ($ - $$) db 0
 
 
+	addsection fat, follows=boot align=_BPS
+
+
+		; %1 = name for the equ to receive the start cluster,
+		;	_start_cluster will be appended
+		; %2 = how many clusters/entries to allocate
+		;	(if zero, %1_start_cluster equ will be zero)
+	%macro addfatchain 2.nolist
+%xdefine FATCHAINS FATCHAINS,%1,%2
+	%endmacro
+%define FATCHAINS secondentry,1
+
+		; %1 = numeric value to put into next entry
 	%macro addfatentry 1.nolist
-%xdefine FATENTRIES FATENTRIES,(%1)
+%xdefine FATENTRIES FATENTRIES,%1
 	%endmacro
 
 
-	addsection fat, follows=boot align=_BPS
-
+	%macro expandfatchains 2-*.nolist
 %assign FATENTRIES (_MEDIAID | (MAXENTRY - 15))
-	addfatentry EOFENTRY
+				; first entry has media ID byte
+%assign ii 1			; FATENTRIES has entry at index 0,
+				;  next is index 1
+%rep %0 / 2			; for each pair
+ %if %2
+  %1_start_cluster equ ii	; equ for start cluster
+  %rep %2 - 1			; as many as are non-EOF entries
+   %assign ii ii + 1
+   addfatentry ii		; link to next cluster
+  %endrep
+  %assign ii ii + 1
+  addfatentry EOFENTRY		; EOF entry
+ %else
+  %1_start_cluster equ 0	; empty chain, start cluster is 0
+ %endif
+ %rotate 2			; rotate to next pair
+%endrep
+	%endmacro
 
-%if _BPE != 32
-	addsection root, follows=fat align=_BPS
-	addsection data, follows=root vstart=0 align=_BPS
-%else
-	addsection data, follows=fat vstart=0 align=_BPS
+
+	addsection root1612, follows=fat align=_BPS
+	addsection data, follows=root1612 vstart=0 align=_BPS
 data_start:
-	addsection root, follows=data align=_BPS
-root_start:
-	addsection empty, follows=root vstart=0 align=_BPS
+	addsection root32, follows=data vstart=0 align=_BPS
+root32_start:
+
+%if _BPE == 32
+%define root root32
+%else
+%define root root1612
 %endif
+
 	sectalign off
 
 
@@ -276,17 +308,7 @@ incbin %1
 	align _BPS * _SPC
 %assign clusters ($ - %%start) / (_BPS * _SPC)
 
-%if clusters == 0
- %assign cluster 0
-%else
-	assigncluster FATENTRIES
- %assign ii 1
- %rep clusters - 1
-	addfatentry cluster + ii
- %assign ii ii + 1
- %endrep
-	addfatentry EOFENTRY
-%endif
+	addfatchain %%file, clusters
 
 %define string %1
 %strlen length string
@@ -345,8 +367,8 @@ incbin %1
 	istruc DIRENTRY
 at deName,		fill 8,32,db name
 at deExt,		fill 3,32,db ext
-at deClusterHigh,	dw cluster >> 16
-at deClusterLow,	dw cluster & 0FFFFh
+at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd filesize
 	iend
 	%endmacro
@@ -386,32 +408,24 @@ at deSize,		dd filesize
 	usesection data
 	align _BPS * _SPC
 data_end:
-%push
 	usesection root
 	times 32 db 0
 		; Insure at least one entry. Makes things
 		;  easier to handle for the loader too.
 	align _BPS * _SPC
-root_end:
-%assign clusters ($ - root_start) / (_BPS * _SPC)
+root32_end:
+%assign clusters ($ - root32_start) / (_BPS * _SPC)
 
 %if clusters == 0
  %error Internal error in root writer
 %else
-	assigncluster FATENTRIES
-rootcluster equ cluster
- %assign ii 1
- %rep clusters - 1
-	addfatentry cluster + ii
- %assign ii ii + 1
- %endrep
-	addfatentry EOFENTRY
+	addfatchain rootchain, clusters
+rootcluster equ rootchain_start_cluster
 %endif
 
-	usesection empty
 	times DATASECTORS * _BPS \
 		- (data_end - data_start) \
-		- (root_end - root_start) \
+		- (root32_end - root32_start) \
 		db 0
 %endif
 
@@ -435,6 +449,9 @@ rootcluster equ cluster
 %else
  %error Invalid bits per entry (_BPE)
 %endif
+
+
+	expandfatchains FATCHAINS
 
 	assigncluster FATENTRIES
 %if _BPE == 12 && (cluster & 1) == 1
