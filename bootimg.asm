@@ -58,6 +58,8 @@ Some things are not supported yet:
 
 * Boot sector loaders that are not exactly 512 bytes long.
 
+* Automatic calculation of some parameters such as SPF.
+
 
 A directory is always terminated with one or more directory
 entries that are filled with all-zeros.
