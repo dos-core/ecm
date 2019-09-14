@@ -80,21 +80,21 @@ along with a default loader (which aborts with an error).
 
 	defaulting
 
-	numdef SPI, 2880
-	numdef BPS, 512
-	numdef SPC, 1
-	numdef SPF, 9
-	numdef BPE, 12
-	numdef NUMFATS, 2
-	numdef NUMROOT, 224
-	numdef NUMRESERVED, 1
-	numdef MEDIAID, 0F0h
-	numdef EOF, 15
+	numdef SPI, 2880	; sectors per image
+	numdef BPS, 512		; bytes per sector
+	numdef SPC, 1		; sectors per cluster
+	numdef SPF, 9		; sectors per FAT
+	numdef BPE, 12		; bits per entry
+	numdef NUMFATS, 2	; number of FATs
+	numdef NUMROOT, 224	; number of root directory entries
+	numdef NUMRESERVED, 1	; number of reserved sectors
+	numdef MEDIAID, 0F0h	; media ID
+	numdef EOF, 15		; suffix of EOF entry marker
 
-	numdef UNIT, 0
-	numdef CHS_SECTORS, 18
-	numdef CHS_HEADS, 2
-	numdef HIDDEN, 0
+	numdef UNIT, 0		; load unit in BPB
+	numdef CHS_SECTORS, 18	; CHS geometry field for sectors
+	numdef CHS_HEADS, 2	; CHS geometry field for heads
+	numdef HIDDEN, 0	; number of hidden sectors
 
 	strdef BOOTFILE, "boot12.bin"
 	strdef PAYLOADFILE, ""
