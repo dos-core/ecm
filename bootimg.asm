@@ -25,11 +25,10 @@ keywords are:
 		 create (relative to the current directory),
 		 as a string, is expected in the next list item.
 
-Note that there is no check for duplicate directories, so if
-the string ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
-there will be two subdirectories with the same name in the same
-parent directory. Likewise, files may be duplicated and are
-also not checked for this.
+File and directory names are checked for duplicates. If a
+string like ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
+the subdirectory will be detected as a duplicate. That is,
+it is not valid to create/enter the same subdirectory twice.
 
 The order of the files' directory entries and cluster chains in
 the file system is determined by the order they were specified
@@ -438,6 +437,8 @@ at deSize,		dd 0
  %error Invalid empty name part in %1
 %endif
 
+	addnametonamelist %$namelist
+
 	usesection %3
 	istruc DIRENTRY
 at deName,		fill 8,32,db name
@@ -522,6 +523,8 @@ incbin %1
  %error Invalid empty name part in %1
 %endif
 
+	addnametonamelist %$namelist
+
 	usesection %3
 	istruc DIRENTRY
 at deName,		fill 8,32,db name
@@ -538,6 +541,29 @@ at deSize,		dd filesize
 	%2 == '"' || %2 == %3
  %error Invalid character (%2) in name (%1)
 %endif
+	%endmacro
+
+		; name = (string) filename part, 1 to 8 characters, all caps
+		; ext = (string) file extension part, 0 to 3 characters, all caps
+	%macro addnametonamelist 2-*.nolist
+%ifnidn %1, ""
+ %error Expected first list entry to be empty
+%elifnidn %2, ""
+ %error Expected first list entry to be empty
+%elif %0 & 1
+ %error Expected list to contain even number of entries
+%endif
+%rotate 2
+%rep (%0 - 2) / 2
+ %ifidn %1, name
+  %ifidn %2, ext
+   %error Duplicate filename name %+ . %+ ext in directory %$dirname
+   %exitrep
+  %endif
+ %endif
+ %rotate 2
+%endrep
+%xdefine %$namelist %$namelist, name, ext
 	%endmacro
 
 
@@ -582,6 +608,8 @@ data %+ filescount %+ _start:
 %assign chainindex 0
 %assign chdir 0
 %push ROOT
+%define %$namelist "", ""
+%define %$dirname "/"
 %if _BPE == 32
 	incdir "", data %+ chainindex, none, 0
  %xdefine nextdir data %+ chainindex
@@ -603,8 +631,10 @@ data %+ filescount %+ _start:
     %pop
    %endif
   %else
+	incdir %1, data %+ chainindex, %$parent, %$parentcluster
    %push SUB
-	incdir %1, data %+ chainindex, %$$parent, %$$parentcluster
+   %define %$namelist "", ""
+   %strcat %$dirname %$$dirname, name, ".", ext, "/"
    %xdefine nextdir data %+ chainindex
    %xdefine DIRLIST DIRLIST,nextdir
    %xdefine %$parent nextdir
