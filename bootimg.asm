@@ -129,12 +129,12 @@ along with a default loader (which aborts with an error).
 %if NUMENTRIES < (DATACLUSTERS + 2)
  %error Too few FAT sectors specified
 %endif
-%if NUMENTRIES > 0FF0h
+%if (DATACLUSTERS + 2) > 0FF0h
  %if _BPE == 12
   %error FAT would be detected as FAT16
  %endif
 %endif
-%if NUMENTRIES < 1000h
+%if (DATACLUSTERS + 2) < 1000h
  %if _BPE == 16
   %error FAT would be detected as FAT12
  %endif
