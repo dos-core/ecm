@@ -382,62 +382,7 @@ at deSize,		dd 0
 
 %ifnidni %3, none
 
-%define string %1
-%strlen length string
-%assign ii 1
-%rep length
- %substr cc string length - ii + 1
- %ifidn cc,"/"
-  %error Subsubdirectory not supported yet
-  %substr string string length -ii + 2, -1
-  %exitrep
- %endif
- %ifidn cc,"\"
-  %error Subsubdirectory not supported yet
-  %substr string string length -ii + 2, -1
-  %exitrep
- %endif
- %assign ii ii + 1
-%endrep
-%strlen length string
-%assign ii 1
-%define %$name ""
-%define %$ext ""
-%assign dotyet 0
-%rep length
- %substr cc string ii
- %assign ii ii + 1
- %if cc >= 'a' && cc <= 'z'
-  %substr cc "ABCDEFGHIJKLMNOPQRSTUVWXYZ" (cc - 'a' + 1)
- %endif
- %ifn dotyet
-  %ifidn cc,"."
-   %assign dotyet 1
-  %else
-   %strlen ll %$name
-   %if ll >= 8
-    %error Too long name part in %1
-    %exitrep
-   %endif
-   checkchar %1,cc
-   %strcat %$name %$name,cc
-  %endif
- %else
-  %strlen ll %$ext
-  %if ll >= 3
-   %error Too long ext part in %1
-   %exitrep
-  %else
-   checkchar %1,cc,"."
-   %strcat %$ext %$ext,cc
-  %endif
- %endif
-%endrep
-%ifidn %$name,""
- %error Invalid empty name part in %1
-%endif
-
-	addnametonamelist %$namelist
+	parsename %1, 1
 
 	usesection %3
 	istruc DIRENTRY
@@ -470,16 +415,38 @@ incbin %1
 
 %xdefine CHAINLIST CHAINLIST,%%file
 
+	parsename %1
+
+	usesection %3
+	istruc DIRENTRY
+at deName,		fill 8,32,db %$$name
+at deExt,		fill 3,32,db %$$ext
+at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deSize,		dd filesize
+	iend
+	%endmacro
+
+		; %1 = filename, with directory as on host side
+		; %2 = if slash disallowed in pathname
+		; returns result in %$name, %$ext, and %$namelist
+	%macro parsename 1-2.nolist 0
 %define string %1
 %strlen length string
 %assign ii 1
 %rep length
  %substr cc string length - ii + 1
  %ifidn cc,"/"
+  %if %2
+   %error Subsubdirectory not supported, use ::chdir twice
+  %endif
   %substr string string length -ii + 2, -1
   %exitrep
  %endif
  %ifidn cc,"\"
+  %if %2
+   %error Subsubdirectory not supported, use ::chdir twice
+  %endif
   %substr string string length -ii + 2, -1
   %exitrep
  %endif
@@ -524,15 +491,6 @@ incbin %1
 %endif
 
 	addnametonamelist %$namelist
-
-	usesection %3
-	istruc DIRENTRY
-at deName,		fill 8,32,db %$$name
-at deExt,		fill 3,32,db %$$ext
-at deClusterHigh,	dw %%file_start_cluster >> 16
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
-at deSize,		dd filesize
-	iend
 	%endmacro
 
 	%macro checkchar 2-3.nolist 0
