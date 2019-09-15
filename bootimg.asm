@@ -401,8 +401,8 @@ at deSize,		dd 0
 %endrep
 %strlen length string
 %assign ii 1
-%define name ""
-%define ext ""
+%define %$name ""
+%define %$ext ""
 %assign dotyet 0
 %rep length
  %substr cc string ii
@@ -414,26 +414,26 @@ at deSize,		dd 0
   %ifidn cc,"."
    %assign dotyet 1
   %else
-   %strlen ll name
+   %strlen ll %$name
    %if ll >= 8
     %error Too long name part in %1
     %exitrep
    %endif
    checkchar %1,cc
-   %strcat name name,cc
+   %strcat %$name %$name,cc
   %endif
  %else
-  %strlen ll ext
+  %strlen ll %$ext
   %if ll >= 3
    %error Too long ext part in %1
    %exitrep
   %else
    checkchar %1,cc,"."
-   %strcat ext ext,cc
+   %strcat %$ext %$ext,cc
   %endif
  %endif
 %endrep
-%ifidn name,""
+%ifidn %$name,""
  %error Invalid empty name part in %1
 %endif
 
@@ -441,8 +441,8 @@ at deSize,		dd 0
 
 	usesection %3
 	istruc DIRENTRY
-at deName,		fill 8,32,db name
-at deExt,		fill 3,32,db ext
+at deName,		fill 8,32,db %$$name
+at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db ATTR_DIRECTORY
 at deClusterHigh,	dw %%file_start_cluster >> 16
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
@@ -487,8 +487,8 @@ incbin %1
 %endrep
 %strlen length string
 %assign ii 1
-%define name ""
-%define ext ""
+%define %$name ""
+%define %$ext ""
 %assign dotyet 0
 %rep length
  %substr cc string ii
@@ -500,26 +500,26 @@ incbin %1
   %ifidn cc,"."
    %assign dotyet 1
   %else
-   %strlen ll name
+   %strlen ll %$name
    %if ll >= 8
     %error Too long name part in %1
     %exitrep
    %endif
    checkchar %1,cc
-   %strcat name name,cc
+   %strcat %$name %$name,cc
   %endif
  %else
-  %strlen ll ext
+  %strlen ll %$ext
   %if ll >= 3
    %error Too long ext part in %1
    %exitrep
   %else
    checkchar %1,cc,"."
-   %strcat ext ext,cc
+   %strcat %$ext %$ext,cc
   %endif
  %endif
 %endrep
-%ifidn name,""
+%ifidn %$name,""
  %error Invalid empty name part in %1
 %endif
 
@@ -527,8 +527,8 @@ incbin %1
 
 	usesection %3
 	istruc DIRENTRY
-at deName,		fill 8,32,db name
-at deExt,		fill 3,32,db ext
+at deName,		fill 8,32,db %$$name
+at deExt,		fill 3,32,db %$$ext
 at deClusterHigh,	dw %%file_start_cluster >> 16
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd filesize
@@ -543,8 +543,8 @@ at deSize,		dd filesize
 %endif
 	%endmacro
 
-		; name = (string) filename part, 1 to 8 characters, all caps
-		; ext = (string) file extension part, 0 to 3 characters, all caps
+		; %$name = (string) filename part, 1 to 8 characters, all caps
+		; %$ext = (string) file extension part, 0 to 3 characters, all caps
 		; %3 = first saved name part in name list
 		; %4 = first saved extension part in name list
 		; %5, %6 = next filename in name list
@@ -559,15 +559,15 @@ at deSize,		dd filesize
 %endif
 %rotate 2
 %rep (%0 - 2) / 2
- %ifidn %1, name
-  %ifidn %2, ext
-   %error Duplicate filename name %+ . %+ ext in directory %$dirname
+ %ifidn %1, %$name
+  %ifidn %2, %$ext
+   %error Duplicate filename %$name %+ . %+ %$ext in directory %$dirname
    %exitrep
   %endif
  %endif
  %rotate 2
 %endrep
-%xdefine %$namelist %$namelist, name, ext
+%xdefine %$namelist %$namelist, %$name, %$ext
 	%endmacro
 
 
@@ -638,7 +638,7 @@ data %+ filescount %+ _start:
 	incdir %1, data %+ chainindex, %$parent, %$parentcluster
    %push SUB
    %define %$namelist "", ""
-   %strcat %$dirname %$$dirname, name, ".", ext, "/"
+   %strcat %$dirname %$$dirname, %$$name, ".", %$$ext, "/"
    %xdefine nextdir data %+ chainindex
    %xdefine DIRLIST DIRLIST,nextdir
    %xdefine %$parent nextdir
