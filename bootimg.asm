@@ -545,6 +545,10 @@ at deSize,		dd filesize
 
 		; name = (string) filename part, 1 to 8 characters, all caps
 		; ext = (string) file extension part, 0 to 3 characters, all caps
+		; %3 = first saved name part in name list
+		; %4 = first saved extension part in name list
+		; %5, %6 = next filename in name list
+		; %$namelist = name list (pairs of name parts, extension parts)
 	%macro addnametonamelist 2-*.nolist
 %ifnidn %1, ""
  %error Expected first list entry to be empty
