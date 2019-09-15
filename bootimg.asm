@@ -97,7 +97,7 @@ along with a default loader (which aborts with an error).
 	numdef CHS_HEADS, 2	; CHS geometry field for heads
 	numdef HIDDEN, 0	; number of hidden sectors
 
-	strdef BOOTFILE, "boot12.bin"
+	strdef BOOTFILE, ""
 	strdef PAYLOADFILE, ""
 
 	strdef OEM_NAME,	"    lDOS"
