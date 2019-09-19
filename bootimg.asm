@@ -98,7 +98,7 @@ along with a default loader (which aborts with an error).
 	numdef HIDDEN, 0	; number of hidden sectors
 
 	strdef BOOTFILE, ""
-	strdef PAYLOADFILE, ""
+	gendef PAYLOADFILE, ""
 
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
