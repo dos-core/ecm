@@ -101,11 +101,16 @@ along with a default loader (which aborts with an error).
 
 	strdef BOOTFILE, ""
 	gendef PAYLOADFILE, ""
+	gendef MAP, ""
 
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"NO NAME"
 
+
+%ifnidn _MAP, ""
+ [map all _MAP]
+%endif
 
 %ifidn _PAYLOADFILE, ""
   %error No payload files specified!
