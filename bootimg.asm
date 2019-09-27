@@ -538,7 +538,6 @@ at deSize,		dd filesize
 
 	%macro setup_a_section 0.nolist
 	addsection data %+ filescount, follows= %+ ff vstart=0
-data %+ filescount %+ _start:
   %xdefine ff data %+ filescount
   %assign filescount filescount + 1
 	%endmacro
