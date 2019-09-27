@@ -49,6 +49,8 @@ Some things are not supported yet:
 
 * A volume label directory entry.
 
+* A volume serial number.
+
 * Long file names.
 
 * FSINFO sector for FAT32.
