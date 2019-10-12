@@ -509,8 +509,6 @@ __lvar_define_var %2, %1
     %if %$wasearly == 0 && (%$lsizevariables) == 0
     %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
-    %elif %$wasearly == 0 && (%$lsizevariables) == 4
-	push eax
     %elif %$wasearly == 0 && (%$lsizevariables) == 8
 	push rax
     %else
