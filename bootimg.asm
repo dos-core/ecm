@@ -49,7 +49,7 @@ Some things are not supported yet:
 
 * A volume label directory entry.
 
-* A volume serial number.
+* Automatic choice of a volume serial number.
 
 * Long file names.
 
@@ -106,6 +106,7 @@ along with a default loader (which aborts with an error).
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"NO NAME"
+	numdef VOLUMEID,	0
 
 
 %ifnidn _MAP, ""
@@ -254,7 +255,7 @@ backup_sector:		; offset 32h (50)
 boot_unit:		db _UNIT
 			db 0
 ext_bpb_signature:	db 29h
-serial_number:		dd 0
+serial_number:		dd _VOLUMEID
 volume_label:		fill 11,32,db _DEFAULT_LABEL
 filesystem_identifier:
 %if _BPE == 12
