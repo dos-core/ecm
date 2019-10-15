@@ -390,6 +390,10 @@ at deSize,		dd 0
 
 %ifnidni %3, none
 
+%define string %1
+%ifnstr string
+ %defstr string string
+%endif
 	parsename %1, 1
 
 	usesection %3
@@ -418,7 +422,11 @@ at deSize,		dd 0
 	%macro incfile 3.nolist
 	usesection %2
 %2 %+ _start:
-incbin %1
+%define string %1
+%ifnstr string
+ %defstr string string
+%endif
+incbin string
 %assign filesize ($ - %2 %+ _start)
 
 %xdefine CHAINLIST CHAINLIST,%%file
@@ -436,10 +444,10 @@ at deSize,		dd filesize
 	%endmacro
 
 		; %1 = filename, with directory as on host side
+		; string = stringified filename, still with host path
 		; %2 = if slash disallowed in pathname
 		; returns result in %$name, %$ext, and %$namelist
 	%macro parsename 1-2.nolist 0
-%define string %1
 %strlen length string
 %assign ii 1
 %rep length
