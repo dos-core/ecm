@@ -607,30 +607,30 @@ __lvar_define_var %2, %1
  %fatal ldup only valid in nested frame in normal frame
 %endif
 %if %$enter != %$$enter
- %fatal Failed ldup
+ %fatal Failed ldup (enter)
 %endif
 %ifnidn %$autoret, %$$autoret
- %fatal Failed ldup
+ %fatal Failed ldup (autoret)
 %endif
 %if %$parofs != %$$parofs
- %fatal Failed ldup
+ %fatal Failed ldup (parofs)
 %endif
 %if %$bits != %$$bits
- %fatal Failed ldup
+ %fatal Failed ldup (bits)
 %endif
 %if %$pars_return_size != %$$pars_return_size
- %fatal Failed ldup
+ %fatal Failed ldup (pars_return_size)
 %endif
 __ldup_count newparlist, %$parlist
 __ldup_count oldparlist, %$$parlist
 %if %$count_newparlist != %$count_oldparlist
- %fatal Failed ldup
+ %fatal Failed ldup (count_*parlist)
 %endif
 __ldup_check_parlist %$$parlist
 __ldup_count newlabellist, %$labellist
 __ldup_count oldlabellist, %$$labellist
 %if %$count_newlabellist != %$count_oldlabellist
- %fatal Failed ldup
+ %fatal Failed ldup (count_*labellist)
 %endif
 __ldup_check_labellist %$$labellist
 %endmacro
@@ -664,7 +664,15 @@ __ldup_check_labellist %$$labellist
 %macro __ldup_check_single 1-*.nolist
 %rotate %1
 %ifnidn %1, %$check
- %fatal Failed ldup
+	; The following is a workaround for older versions of NASM.
+	; Refer to https://bugzilla.nasm.us/show_bug.cgi?id=3392628
+ %ifnnum %1
+  %fatal Failed ldup (check single: 1 1=%1 check=%$check)
+ %elifnnum %$check
+  %fatal Failed ldup (check single: 2 1=%1 check=%$check)
+ %elifn %1 == %$check
+  %fatal Failed ldup (check single: 3 1=%1 check=%$check)
+ %endif
 %endif
 %endmacro
 
