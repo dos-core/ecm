@@ -909,7 +909,10 @@ next_cluster:
 
 ; read the target FAT sector.
 		push bx
-		xor dx, dx
+			; As noted above, the sector offset in ax here is
+			;  0..4095 (ie, 4 Ki S * 32 B/S = 128 KiB of FAT data),
+			;  therefore this cwd instruction always zeros dx.
+		cwd
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
 		call read_sector_fatbuf
