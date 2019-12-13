@@ -395,12 +395,11 @@ read_sector:
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
+	xor cx, cx
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jz .no_lba_checked
  %endif
-
-	xor cx, cx
 	push cx
 	push cx
 	push dx
@@ -478,9 +477,17 @@ read_sector:
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
 ; Use two-step 32:16 divide to avoid overflow
-			mov cx,ax
-			mov ax,dx
-			xor dx,dx
+ %if !_LBA
+			xchg cx, ax	; cx = low word of sector, clobbers ax
+			mov ax, dx	; ax = high word of sector
+			xor dx, dx	; dx:ax = high word of sector
+ %else
+			xchg cx, ax	; cx = low word of sector, ax = 0
+			push dx		; stack = high word of sector
+			cwd		; dx = 0 (because ax was 0)
+			pop ax		; ax = high word of sector
+					; dx:ax = high word of sector
+ %endif
 			div word [bp + bsBPB + bpbCHSSectors]
 			xchg cx,ax
 			div word [bp + bsBPB + bpbCHSSectors]
