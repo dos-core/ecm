@@ -637,6 +637,10 @@ load_fsiboot:
 	cmp ax, 1024 >> 5	; sector size is at least 1 KiB (large) ?
 	jae .loaded		; already loaded as part of the boot sector -->
 
+		; If this code runs, then ax was below 1024 >> 5,
+		;  therefore this cwd instruction always zeros dx.
+	cwd
+
 	mov ax, [VAR(fsinfo_sector)]
 ;	inc ax
 ;	jz error_fsiboot	; was FFFFh, invalid -->
@@ -646,7 +650,7 @@ load_fsiboot:
 	jz error_fsiboot	; is 0 ? invalid -->
 	cmp ax, [VAR(num_reserved_sectors)]
 	jae error_fsiboot
-	xor dx, dx		; dx:ax = FSINFO sector
+				; dx:ax = FSINFO sector (dx = 0 from cwd)
 	mov cx, 512
 	mov bx, ADR_FSIBOOT >> 4
 @@:
