@@ -395,7 +395,7 @@ read_sector:
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
-	xor cx, cx
+	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jz .no_lba_checked
@@ -464,7 +464,7 @@ read_sector:
 	pop ax
 	pop dx
 	pop cx
-	pop cx
+	pop cx		; cx = 0 (needed as input for next cwd instruction)
 		; si == sp - 16
  %else
 .no_lba_checked:
@@ -473,7 +473,7 @@ read_sector:
 %endif
 
 %if _CHS		; +70 bytes
-; DX:AX=LBA sector number
+; dx:ax = LBA sector number, (if _LBA) cx = 0
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
 ; Use two-step 32:16 divide to avoid overflow

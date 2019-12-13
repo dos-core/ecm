@@ -893,12 +893,12 @@ read_sector:
 	pop ax
 	pop dx
 	pop cx
-	pop cx
+	pop cx		; cx = 0 (needed as input for next cwd instruction)
  %endif
 %endif
 
 %if _CHS		; +70 bytes
-; DX:AX=LBA sector number
+; dx:ax = LBA sector number, (if _LBA) cx = 0
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
 ; Use two-step 32:16 divide to avoid overflow
