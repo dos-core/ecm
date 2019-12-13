@@ -1204,7 +1204,9 @@ ldos_entry:
 	mov [bp + ldParaPerSector], ax
 
 ; total sectors
-	xor dx, dx
+		; After the prior shr instruction, ax is < 8000h,
+		;  so the following cwd always zeros dx.
+	cwd
 	mov ax, [bp + bsBPB + bpbTotalSectors]
 	test ax, ax
 	jnz @F
@@ -1299,7 +1301,9 @@ ldos_entry:
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [bp + bsBPB + bpbSectorsPerFAT]
 					; maximum size of this FS's FAT
-		xor dx, dx
+			; If we're here, then ax = 0 (jnz jumped if not),
+			;  so this cwd always zeros dx.
+		cwd
 		mov ax, [bp + bsBPB + bpbReservedSectors]; = first FAT sector
 		mov bx, [bp + lsvFATSeg]
 @@:
@@ -1455,7 +1459,9 @@ freedos_entry:
 	shr ax, cl
 
 ; number of sectors used for root directory (store in CX)
-	xor dx, dx
+		; After the prior shr instruction, ax is always < 8000h,
+		;  so this cwd instruction always zeros dx.
+	cwd
 	mov si, [bp + bsBPB + bpbNumRootDirEnts]	; (0 iff FAT32)
 	mov bx, ax
 	dec ax				; rounding up
