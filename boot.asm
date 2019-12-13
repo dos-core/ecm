@@ -922,7 +922,6 @@ next_cluster:
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ;  so multiply cluster number by 3 first, then divide by 2.
 		mov ax, si		; = cluster number (up to 12 bits set)
-		xor dx, dx
 		shl ax, 1		; = 2n (up to 13 bits set)
 		add ax, si		; = 2n+n = 3n (up to 14 bits set)
 		shr ax, 1		; ax = byte offset into FAT (0..6129)
