@@ -677,9 +677,12 @@ skip_bpb:
 %endif
 
 ; number of sectors used for root directory (store in CX)
-	xor dx, dx
 	mov si, [VAR(num_root_dir_ents)]
 	mov ax, bx
+		; The ax value here is the last value of bx, which is set
+		;  by the shr instruction. Therefore, it cannot be higher
+		;  than 7FFFh, so this cwd instruction always zeros dx.
+	cwd
 	dec ax				; rounding up
 	add ax, si			; from BPB
 	adc dx, dx			; account for overflow (dx was zero)
