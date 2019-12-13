@@ -902,9 +902,17 @@ read_sector:
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
 ; Use two-step 32:16 divide to avoid overflow
-			mov cx,ax
-			mov ax,dx
-			xor dx,dx
+ %if !_LBA
+			xchg cx, ax	; cx = low word of sector, clobbers ax
+			mov ax, dx	; ax = high word of sector
+			xor dx, dx	; dx:ax = high word of sector
+ %else
+			xchg cx, ax	; cx = low word of sector, ax = 0
+			push dx		; stack = high word of sector
+			cwd		; dx = 0 (because ax was 0)
+			pop ax		; ax = high word of sector
+					; dx:ax = high word of sector
+ %endif
 			div word [VAR(sectors_per_track)]
 			xchg cx,ax
 			div word [VAR(sectors_per_track)]
