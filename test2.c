@@ -16,12 +16,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 /* taken from https://stackoverflow.com/a/44947877/738287 */
-uint16_t crc16_3(const uint8_t *ptr, int32_t count)
+uint16_t crc16_3(const uint8_t *ptr, uint32_t count)
 {
    uint16_t crc;
    uint8_t i;
    crc = 0xFFFF;
-   while (--count >= 0)
+   while (count)
    {
       crc = crc ^ ( ((uint16_t) *ptr++) << 8);
       i = 8;
@@ -32,16 +32,17 @@ uint16_t crc16_3(const uint8_t *ptr, int32_t count)
          else
             crc = crc << 1;
       } while(--i);
+      --count;
    }
    return (crc);
 }
 
-uint16_t crc16_4(const uint8_t *ptr, int32_t count)
+uint16_t crc16_4(const uint8_t *ptr, uint32_t count)
 {
    uint16_t crc;
    uint8_t i, v, ch;
    crc = 0xFFFF;
-   while (--count >= 0)
+   while (count)
    {
       ch = *ptr++;
       i = 8;
@@ -56,6 +57,7 @@ uint16_t crc16_4(const uint8_t *ptr, int32_t count)
             crc ^= 1;
          v >>= 1;
       } while(--i);
+      --count;
    }
    for (i = 0; i < 16; ++i) {
       if (crc & 0x8000)
@@ -66,10 +68,10 @@ uint16_t crc16_4(const uint8_t *ptr, int32_t count)
    return (crc);
 }
 
-void test(const uint8_t * ptr, int32_t count) {
-	printf("CRC16_3 = %04"PRIX16", Length = %"PRId32", Text = \"%s\"\n",
+void test(const uint8_t * ptr, uint32_t count) {
+	printf("CRC16_3 = %04"PRIX16", Length = %"PRIu32", Text = \"%s\"\n",
 		crc16_3(ptr, count), count, ptr);
-	printf("CRC16_4 = %04"PRIX16", Length = %"PRId32", Text = \"%s\"\n",
+	printf("CRC16_4 = %04"PRIX16", Length = %"PRIu32", Text = \"%s\"\n",
 		crc16_4(ptr, count), count, ptr);
 }
 
