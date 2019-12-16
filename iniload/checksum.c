@@ -197,7 +197,8 @@ usage:
     return 10;
   }
 
-  printf("Successfully set checksum\n");
+  printf("Successfully set checksum, %"PRIu32" bytes, CRC=%04"PRIX16"h\n",
+	filesize - prefix, crc);
 
   return 0;
 }
