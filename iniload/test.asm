@@ -176,12 +176,12 @@ checksum_crc16_6_paragraphs_start_cs:
 .loop_word:
 	mov ax, cs
 	cmp ax, bp			; cs (first segment) ?
-	jne @F				; no -->
-	xor ax, ax			; initialise to zero if it matches
+	jne @F				; no --> (NZ)
 	cmp si, ..@checksumfield	; checksum field ?
-	je @FF				; yes, use zero value instead -->
-@@:
-	lodsw				; load word
+@@:		; if NZ: lodsw, if ZR: lodsw then xor ax, ax
+	 lodsw				; load word
+	jne @F				; no, use loaded word value -->
+	 xor ax, ax			; set to zero instead
 @@:
 	xchg al, ah
 	mov dx, (16 << 8)
