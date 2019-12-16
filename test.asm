@@ -212,10 +212,8 @@ crc16_6:
 	mov dx, (16 << 8)
 	xor bx, ax
 .loop_bit:
-	mov di, bx
 	shl bx, 1
-	test di, 8000h
-	jz @F
+	jnc @F
 	xor bx, 1021h
 @@:
 	dec dh
