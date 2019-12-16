@@ -132,6 +132,7 @@ crc16_2:
 	jcxz .augment
 .loop_word:
 	lodsw
+	xchg al, ah
 	mov dx, (16 << 8)
 	mov bp, 8000h
 .loop_bit:
