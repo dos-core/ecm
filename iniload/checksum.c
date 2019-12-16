@@ -23,10 +23,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 struct __attribute__((__packed__)) checksumheader {
 	uint16_t signature;
 	uint16_t length_bytes_structure;
+	uint16_t offset_structure;
 	uint16_t checksum_structure;
 	uint16_t type_checksum;
 	uint16_t amount_paragraphs_data;
 	uint16_t checksum_data;
+	uint16_t reserved;
 };
 #pragma pack(pop)
 
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
   uint8_t buffer[BUFFER_SIZE];
   const uint8_t signature[SIGNATURE_SIZE] = "CS";
   uint16_t size, cs, ww, type, crc;
-  uint32_t offset, ii, filesize, jj;
+  uint32_t offset, ii, filesize, jj, header_offset, prefix;
   struct checksumheader csh;
   if (argc != 2) {
 usage:
@@ -136,6 +138,7 @@ usage:
   }
 
  foundheader:
+  header_offset = getword(&csh.offset_structure);
   setword(&csh.type_checksum, type);
   cs = get_checksum_structure(&csh);
   setword(&csh.checksum_structure, cs);
@@ -144,11 +147,22 @@ usage:
   filesize = ftell(ff);
   size = getword(&csh.amount_paragraphs_data);
 
-  if ( ((uint32_t)size * 16) > filesize) {
-    fprintf(stderr, "Checksum header has too large size,"
+  if ( (offset + ii) < header_offset ) {
+    fprintf(stderr, "Checksum header has invalid structure offset"
+		" maximum=%04"PRIX16"h"
+		" got=%04"PRIX16"h\n",
+		(uint16_t)(offset + ii), header_offset );
+    return 6;
+  }
+
+  prefix = offset + ii - header_offset;
+
+  if ( ((uint32_t)size * 16 - prefix ) > filesize) {
+    fprintf(stderr, "Checksum header has too large size\n"
 		" header=%04"PRIX16"h para"
+		" + prefix=%04"PRIX16"h bytes"
 		" file=%04"PRIX16"h para\n",
-		size, (uint16_t)(filesize / 16) );
+		size, prefix, (uint16_t)(filesize / 16) );
     return 6;
   }
 
@@ -158,11 +172,11 @@ usage:
     fprintf(stderr, "Failed to intermediately write checksum header\n");
     return 6;
   }
-  filesize = (uint32_t)size * 16;
+  filesize = (uint32_t)size * 16 + prefix;
 
   crc16_5_init(&crc);
 
-  for (jj = 0; jj < filesize; jj += BUFFER_SIZE) {
+  for (jj = prefix; jj < filesize; jj += BUFFER_SIZE) {
     fseek(ff, jj, SEEK_SET);
     size = fread(buffer, 1, BUFFER_SIZE, ff);
     if (size < BUFFER_SIZE && jj + (uint32_t)size < filesize) {

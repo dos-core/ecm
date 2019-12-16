@@ -17,10 +17,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	struc CHECKSUMHEADER
 cshSignature:			resw 1
 cshLengthBytesStructure:	resw 1
+cshOffsetStructure:		resw 1
 cshChecksumStructure:		resw 1
 cshTypeChecksum:		resw 1
 cshAmountParagraphsData:	resw 1
 cshChecksumData:		resw 1
+cshReserved:			resw 1
 	endstruc
 
 
@@ -135,14 +137,18 @@ checksumheader:
 	istruc CHECKSUMHEADER
 at cshSignature,		dw "CS"
 at cshLengthBytesStructure,	dw CHECKSUMHEADER_size
+at cshOffsetStructure,		dw checksumheader - $$ + 0
 at cshChecksumStructure,	dw \
 	10000h-(("CS" + CHECKSUMHEADER_size \
-		 + 8006h + CHECKSUM_SIZE_P) & 0FFFFh)
+		 + (checksumheader - $$ + 0) \
+		 + 8006h + CHECKSUM_SIZE_P \
+		 + 0 + 0) & 0FFFFh)
 at cshTypeChecksum
 ..@checksumtype:		dw 8006h
 at cshAmountParagraphsData,	dw CHECKSUM_SIZE_P
 at cshChecksumData
 ..@checksumfield:		dw 0
+at cshReserved,			dw 0
 	iend
 
 
