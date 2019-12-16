@@ -6,5 +6,5 @@
 #
 # DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
-dosemu -K "$PWD" -dumb -quiet -E test.com
+dosemu -K "$PWD" -dumb -quiet -E inicheck.com
 
