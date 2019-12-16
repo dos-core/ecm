@@ -369,6 +369,7 @@ disp_ax_dec:			; ax (no leading zeros)
 		retn
 
 
+	align 16
 	numdef TESTDATA, 1
 %if _TESTDATA
 	times 120 * 1024 db 26h
