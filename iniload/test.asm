@@ -50,9 +50,13 @@ start:
 	mov cx, CHECKSUMHEADER_size / 2
 	xor bx, bx
 @@:
-	lodsw
+	cmp si, ..@checksumfield
+	 lodsw
+	jne @F
+	 xor ax, ax
+@@:
 	add bx, ax
-	loop @B
+	loop @BB
 
 	mov dx, msg.header_success
 	test bx, bx
@@ -128,7 +132,7 @@ at cshSignature,		dw "CS"
 at cshLengthBytesStructure,	dw CHECKSUMHEADER_size
 at cshChecksumStructure,	dw \
 	10000h-(("CS" + CHECKSUMHEADER_size \
-		 + 8006h + CHECKSUM_SIZE_P + 0) & 0FFFFh)
+		 + 8006h + CHECKSUM_SIZE_P) & 0FFFFh)
 at cshTypeChecksum
 ..@checksumtype:		dw 8006h
 at cshAmountParagraphsData,	dw CHECKSUM_SIZE_P
