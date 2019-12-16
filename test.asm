@@ -81,6 +81,39 @@ do_2:
 	jb .
 
 
+do_6:
+	mov si, table
+.:
+	lodsw
+	xchg ax, di
+	lodsw
+	xchg ax, cx
+	push si
+	push di
+	push cx
+	call crc16_6			; di -> data, cx = length
+	pop cx
+	pop di
+	pop si
+
+	mov dx, msg.crc16_6.1
+	call disp_message
+	call disp_ax_hex
+	mov dx, msg.2
+	call disp_message
+	mov ax, cx
+	call disp_ax_dec
+	mov dx, msg.3
+	call disp_message
+	mov dx, di
+	call disp_message_length_cx
+	mov dx, msg.4
+	call disp_message
+
+	cmp si, table.end
+	jb .
+
+
 	mov ax, 4C00h
 	int 21h
 
@@ -165,6 +198,34 @@ crc16_2:
 	retn
 
 
+crc16_6:
+	inc cx
+	and cl, ~1
+	shr cx, 1
+
+	mov si, di
+	mov bx, 1D0Fh
+	jcxz .end
+.loop_word:
+	lodsw
+	xchg al, ah
+	mov dx, (16 << 8)
+	xor bx, ax
+.loop_bit:
+	mov di, bx
+	shl bx, 1
+	test di, 8000h
+	jz @F
+	xor bx, 1021h
+@@:
+	dec dh
+	jnz .loop_bit
+	loop .loop_word
+.end:
+	xchg ax, bx
+	retn
+
+
 	align 4
 table:
 	dw msg.empty, 0
@@ -178,6 +239,7 @@ table:
 msg:
 .crc16_1.1:	asciz "CRC16_1 = "
 .crc16_2.1:	asciz "CRC16_2 = "
+.crc16_6.1:	asciz "CRC16_6 = "
 .2:		asciz ", Length = "
 .3:		asciz ", Text = "
 .4:		asciz 13,10
