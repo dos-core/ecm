@@ -40,6 +40,7 @@ start:
 	push bx
 	retf
 
+	align 16
 .continue:
 	push cs
 	pop ds
@@ -110,6 +111,10 @@ start:
 	mov ah, 4Ch
 	int 21h
 
+	align 16
+%assign num $ - .continue
+%warning Main program size = num
+
 
 msg:
 .header_success:asciz "Header success, sum="
@@ -139,10 +144,13 @@ at cshAmountParagraphsData,	dw CHECKSUM_SIZE_P
 at cshChecksumData
 ..@checksumfield:		dw 0
 	iend
+
+
+	align 16
 %endif
 
-
 checksum_crc16_6_paragraphs_start_cs:
+.:
 	push bp
 	mov bp, cs
 	mov cx, CHECKSUM_SIZE_P
@@ -206,6 +214,11 @@ checksum_crc16_6_paragraphs_start_cs:
 
 
 %if _STANDALONE
+	align 16
+%assign num $ - .
+%warning Checksumming size = num
+
+
 		; INP:	ds:dx -> message
 		;	cx = length
 		; CHG:	-
