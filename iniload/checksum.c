@@ -184,6 +184,9 @@ usage:
 		filesize - (jj + (uint32_t)size) );
       return 9;
     }
+    if ( (jj + (uint32_t)size) > filesize ) {
+      size = filesize - jj;
+    }
     crc16_5_step(&crc, buffer, size);
   }
 
