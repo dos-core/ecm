@@ -158,7 +158,7 @@ usage:
 
   prefix = offset + ii - header_offset;
 
-  if ( ((uint32_t)size * 16 - prefix ) > filesize) {
+  if ( ((uint32_t)size * 16 + prefix ) > filesize) {
     fprintf(stderr, "Checksum header has too large size\n"
 		" header=%04"PRIX16"h para"
 		" + prefix=%04"PRIX16"h bytes"
