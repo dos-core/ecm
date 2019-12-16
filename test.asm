@@ -15,6 +15,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	cpu 8086
 	org 256
 start:
+do_1:
 	mov si, table
 .:
 	lodsw
@@ -24,7 +25,7 @@ start:
 	push si
 	push di
 	push cx
-	call crc16_1			; es:di -> data, cx = length
+	call crc16_1			; di -> data, cx = length
 	pop cx
 	pop di
 	pop si
@@ -45,6 +46,40 @@ start:
 
 	cmp si, table.end
 	jb .
+
+
+do_2:
+	mov si, table
+.:
+	lodsw
+	xchg ax, di
+	lodsw
+	xchg ax, cx
+	push si
+	push di
+	push cx
+	call crc16_2			; di -> data, cx = length
+	pop cx
+	pop di
+	pop si
+
+	mov dx, msg.crc16_2.1
+	call disp_message
+	call disp_ax_hex
+	mov dx, msg.2
+	call disp_message
+	mov ax, cx
+	call disp_ax_dec
+	mov dx, msg.3
+	call disp_message
+	mov dx, di
+	call disp_message_length_cx
+	mov dx, msg.4
+	call disp_message
+
+	cmp si, table.end
+	jb .
+
 
 	mov ax, 4C00h
 	int 21h
@@ -87,6 +122,48 @@ crc16_1:
 	retn
 
 
+crc16_2:
+	inc cx
+	and cl, ~1
+	shr cx, 1
+
+	mov si, di
+	mov bx, -1
+	jcxz .augment
+.loop_word:
+	lodsw
+	mov dx, (16 << 8)
+	mov bp, 8000h
+.loop_bit:
+	mov di, bx
+	shl bx, 1
+	test ax, bp
+	jz @F
+	inc bx
+@@:
+	test di, 8000h
+	jz @F
+	xor bx, 1021h
+@@:
+	shr bp, 1
+	dec dh
+	jnz .loop_bit
+	loop .loop_word
+.augment:
+	mov dh, 16
+.loop_augment:
+	mov di, bx
+	shl bx, 1
+	test di, 8000h
+	jz @F
+	xor bx, 1021h
+@@:
+	dec dh
+	jnz .loop_augment
+	xchg ax, bx
+	retn
+
+
 	align 4
 table:
 	dw msg.empty, 0
@@ -98,6 +175,7 @@ table:
 
 msg:
 .crc16_1.1:	asciz "CRC16_1 = "
+.crc16_2.1:	asciz "CRC16_2 = "
 .2:		asciz ", Length = "
 .3:		asciz ", Text = "
 .4:		asciz 13,10
