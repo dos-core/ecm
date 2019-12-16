@@ -140,9 +140,9 @@ usage:
  foundheader:
   header_offset = getword(&csh.offset_structure);
   setword(&csh.type_checksum, type);
+  setword(&csh.checksum_data, 0);
   cs = get_checksum_structure(&csh);
   setword(&csh.checksum_structure, cs);
-  setword(&csh.checksum_data, 0);
 
   fseek(ff, 0, SEEK_END);
   filesize = ftell(ff);
