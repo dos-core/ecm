@@ -170,6 +170,7 @@ table:
 	dw msg.A, 1
 	dw msg.123, msg.123.length
 	dw msg.AAA, msg.AAA.length
+	dw msg.foobar, msg.foobar.length
 .end:
 
 
@@ -191,6 +192,10 @@ msg:
 .AAA:
 	times 256 db "A"
 .AAA.length equ $ - .AAA
+	db 0
+.foobar:
+	db "foobar"
+.foobar.length equ $ - .foobar
 	db 0
 
 
