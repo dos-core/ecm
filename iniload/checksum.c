@@ -163,14 +163,14 @@ usage:
 		" + prefix=%04"PRIX16"h bytes"
 		" file=%04"PRIX16"h para\n",
 		size, prefix, (uint16_t)(filesize / 16) );
-    return 6;
+    return 7;
   }
 
   fseek(ff, offset + ii, SEEK_SET);
   ww = fwrite((uint8_t *)&csh, 1, sizeof(csh), ff);
   if (ww != sizeof(csh)) {
     fprintf(stderr, "Failed to intermediately write checksum header\n");
-    return 6;
+    return 8;
   }
   filesize = (uint32_t)size * 16 + prefix;
 
@@ -182,7 +182,7 @@ usage:
     if (size < BUFFER_SIZE && jj + (uint32_t)size < filesize) {
       fprintf(stderr, "Failed to read %04"PRIu32" remaining bytes\n",
 		filesize - (jj + (uint32_t)size) );
-      return 8;
+      return 9;
     }
     crc16_5_step(&crc, buffer, size);
   }
@@ -194,7 +194,7 @@ usage:
   ww = fwrite((uint8_t *)&csh, 1, sizeof(csh), ff);
   if (ww != sizeof(csh)) {
     fprintf(stderr, "Failed to finally write checksum header\n");
-    return 9;
+    return 10;
   }
 
   printf("Successfully set checksum\n");
