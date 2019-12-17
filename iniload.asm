@@ -13,7 +13,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
-%include "lmacros2.mac"
+%include "lmacros3.mac"
 
 	struc BS
 bsJump:	resb 3
@@ -110,6 +110,10 @@ lpSector:	resq 1
 		; EBDA / RPL / end of low memory), this results in a maximum
 		; stack size around 3 KiB (substantially below 4 KiB).
  %error Too large stack size
+%endif
+	numdef CHECKSUM,	0	; include checksumming of kernel image
+%if _CHECKSUM
+ %include "inicheck.mac"
 %endif
 
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
@@ -1012,6 +1016,30 @@ ms6_continue1:
 	jmp ms7_entry.ms6_common
 
 
+%if _CHECKSUM
+CHECKSUM_SIZE_P equ (payload.actual_end - $$ + 0) / 16
+
+        align 16
+checksumheader:
+        istruc CHECKSUMHEADER
+at cshSignature,                dw "CS"
+at cshLengthBytesStructure,     dw CHECKSUMHEADER_size
+at cshOffsetStructure,          dw checksumheader - $$ + 0
+at cshChecksumStructure,        dw \
+        10000h-(("CS" + CHECKSUMHEADER_size \
+                 + (checksumheader - $$ + 0) \
+                 + 8006h + CHECKSUM_SIZE_P \
+                 + 0 + 0) & 0FFFFh)
+at cshTypeChecksum
+..@checksumtype:                dw 8006h
+at cshAmountParagraphsData,     dw CHECKSUM_SIZE_P
+at cshChecksumData
+..@checksumfield:               dw 0
+at cshReserved,                 dw 0
+        iend
+%endif
+
+
 %assign num 1024-($-$$)
 %warning num bytes in front of ldos_entry
 	_fill 1024,38,start
@@ -1411,6 +1439,41 @@ loaded_all:
 		;  ebpbReserved
 
 .fat32:
+
+%if _CHECKSUM
+        push cs
+        pop ds
+
+        mov si, checksumheader
+        mov cx, CHECKSUMHEADER_size / 2
+        xor bx, bx
+@@:
+        cmp si, ..@checksumfield
+         lodsw
+        jne @F
+         xor ax, ax
+@@:
+        add bx, ax
+        loop @BB
+
+        test bx, bx
+        jnz error_header_checksum_failed
+
+        testopt [..@checksumtype], 8000h
+        jnz @F
+
+        call checksum_crc16_6_paragraphs_start_cs
+        int3
+
+        push cs
+        pop ds
+
+        cmp ax, word [..@checksumfield]
+	jne error_data_checksum_failed
+..@data_checksum_ignore_failure_debugger:
+@@:
+%endif
+
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
 	push ax
@@ -1424,6 +1487,20 @@ loaded_all:
 		; entire payload loaded (payload -- payload.end)
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
 	retf
+
+
+%if _CHECKSUM
+error_header_checksum_failed:
+	call error
+	db "Header checksum failed.", 0
+
+error_data_checksum_failed:
+	stc
+	int3
+	jnc ..@data_checksum_ignore_failure_debugger
+	call error
+	db "Data checksum failed.", 0
+%endif
 
 
 freedos_entry:
@@ -1525,6 +1602,13 @@ freedos_entry:
 	jmp error_badchain
 
 
+%if _CHECKSUM
+	overridedef STANDALONE, 0
+ %include "inicheck.asm"
+	resetdef
+%endif
+
+
 %assign num 2046-($-$$)
 %warning num bytes in front of end2
 	_fill 2046,38,start
@@ -1546,6 +1630,7 @@ payload:
 		; Thus alignment to the file-level page boundary is correct.
 %endif
 .end:
+
 
 %if _SECOND_PAYLOAD_EXE
 	align 16, db 38
