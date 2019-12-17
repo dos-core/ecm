@@ -13,17 +13,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 %include "lmacros3.mac"
-
-	struc CHECKSUMHEADER
-cshSignature:			resw 1
-cshLengthBytesStructure:	resw 1
-cshOffsetStructure:		resw 1
-cshChecksumStructure:		resw 1
-cshTypeChecksum:		resw 1
-cshAmountParagraphsData:	resw 1
-cshChecksumData:		resw 1
-cshReserved:			resw 1
-	endstruc
+%include "inicheck.mac"
 
 
 	defaulting
