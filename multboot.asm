@@ -26,26 +26,12 @@ MBOOTBASE equ (1024+64)*1024		; one paragraph above the HMA
 mbootheader:
 	mbootchecksummed 00010000h
 			; flags: provides info where to load image
-fixme Check whether the above macro works as expected
-	; dd 1BADB002h
-	; dd 00010000h
-	; dd 0E4514FFEh
-	dd MBOOTBASE+mbootheader	; load address of header
-%if _LOAD_CMPR
- fixme CHDR specification must involve the following two or three fields.
-		; The "load area end" field can be specified as 0 which
-		;  means that the whole file should be loaded. But then,
-		;  we will be unable to specify any uninitialised area,
-		;  which is necessary to insure free memory that will not
-		;  overlap with any of the structures and modules that a
-		;  loader may pass to us. So we don't do that.
-%endif
-	dd MBOOTBASE	; load address
-.load_area_end:
-	dd MBOOTBASE+lDOS_size+..@headersignature_size
+	dd MBOOTBASE + mbootheader	; load address of header
+	dd MBOOTBASE			; load address
+	dd MBOOTBASE + (payload.actual_end - $$ + 0)
 					; load area end (0 = load whole file)
 	dd 0				; uninitialised area end (0 = none)
-	dd MBOOTBASE+mbootentry		; entry point
+	dd MBOOTBASE + mbootentry	; entry point
 
 %unmacro mbootchecksummed 1.nolist 1BADB002h
 
