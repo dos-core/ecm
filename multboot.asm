@@ -86,18 +86,18 @@ mbootentry:
  %if _MULTIBOOT_CHECKS
 [bits 16]
 	test ax, 0			; (test eax if in 32-bit segment)
-	jmp sho .halt			; (skipped if in 32-bit segment)
+	jmp short .halt			; (skipped if in 32-bit segment)
 [bits 32]
 	cmp eax, 2BADB002h		; signature ?
-	jne sho .halt			; no -->
+	jne short .halt			; no -->
 	smsw eax
 	rol eax, 1			; 2 = protection, 1 = paging
 	and al, 3			; mask off others
 	cmp al, 2			; PE but not PG ?
-	jz sho .halt			; no -->
+	jz short .halt			; no -->
 	mov eax, cs
 	and al, 3			; CPL 0 ?
-	jnz sho .halt			; no -->
+	jnz short .halt			; no -->
  %endif
 
 		; prepare this and that
