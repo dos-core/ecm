@@ -153,7 +153,7 @@ mbootentry:
 	dec ax
 	mov cr0, eax				; clear PE bit
 
-	jmp dword 60h:.rm			; reload cs
+	jmp dword 200h:.rm			; reload cs
 
 		; Set up registers and the environment for
 		; the kernel entry point. It doesn't need initialised
@@ -183,9 +183,9 @@ mbootgdt:
 	db 0,0,0,0
 
 		; selector 8: 16-bit real mode CS
-		; base = 00000600h, limit 0FFFFh (1 B Granularity), present
+		; base = 00002000h, limit 0FFFFh (1 B Granularity), present
 		; type = 16-bit code execute/read only/conforming, DPL = 0
-	dw 0FFFFh,600h
+	dw 0FFFFh,2000h
 	db 0,9Eh,0,0
 
 		; selector 10h: 16-bit real mode DS
