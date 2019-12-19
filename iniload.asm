@@ -13,6 +13,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+%assign __lMACROS1_MAC__DEBUG_DEFAULTS 1
 %include "lmacros3.mac"
 
 	struc BS
@@ -254,6 +255,9 @@ ms6_entry:
 	cld
 	push dx
 	inc bp		; undo signature instructions
+
+d3	call d3_display_two_characters
+d3	test ax, "00"
 
 	mov cx, cs
 	cmp cx, 60h
@@ -1523,6 +1527,9 @@ freedos_entry:
 	mov sp, bx
 @@:
 
+d3	call d3_display_two_characters
+d3	test ax, "F0"
+
 	xor cx, cx			; ! ch = 0
 	mov word [bp + lsvFirstCluster + 0], cx
 	mov word [bp + lsvFirstCluster + 2], cx
@@ -1621,6 +1628,46 @@ freedos_entry:
 	dw "MS"			; signature of MS-DOS 7 load
 	align 16, db 38
 end2:
+
+%if _DEBUG3
+		; INP:	word [cs:ip + 1] = two characters to display
+		;		(second one may be NUL to skip)
+		; OUT:	-
+		; CHG:	-
+d3_display_two_characters:
+	lframe near
+	lenter
+	push ax
+	push bx
+	mov bx, word [bp + ?frame_ip]
+	mov ax, [cs:bx + 1]
+
+	push ax
+	call d3_disp_al
+	pop ax
+
+	xchg al, ah
+	test al, al
+	jz @F
+
+	call d3_disp_al
+@@:
+
+	pop bx
+	pop ax
+	lleave
+	lret
+
+		; INP:	al = to display
+		; CHG:	ax, bx
+d3_disp_al:
+	push bp
+	mov ah, 0Eh
+	mov bx, 7
+	int 10h
+	pop bp
+	retn
+%endif
 
 
 	align 16, db 38
