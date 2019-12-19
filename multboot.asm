@@ -94,7 +94,7 @@ mbootentry:
 	rol eax, 1			; 2 = protection, 1 = paging
 	and al, 3			; mask off others
 	cmp al, 2			; PE but not PG ?
-	jz short .halt			; no -->
+	jne short .halt			; no -->
 	mov eax, cs
 	and al, 3			; CPL 0 ?
 	jnz short .halt			; no -->
