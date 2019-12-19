@@ -161,7 +161,7 @@ mbootentry:
 		; they still contain selector content.
 .rm:
 		; some sources indicate we should set the IDT
-	o32 lidt [mbootidtdesc]			; set IDT to RM IVT
+	o32 lidt [cs:mbootidtdesc]		; set IDT to RM IVT
 	xor ax, ax
 	mov ds, ax
 	mov es, ax
