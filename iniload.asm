@@ -916,7 +916,7 @@ relocate_to:
 		; lsvLoadSeg => after last loaded fragment
 		; ldLoadTop => after last available memory
 		; ldParaPerSector = initialised
-		; word [ss:sp] = payload.end in paras
+		; word [ss:sp] = payload.actual_end in paras
 finish_load:
 	pop ax
 	mov bx, cs
@@ -1071,7 +1071,7 @@ ldos_entry:
 	db "Initial loader not fully loaded.", 0
 @@:
 
-	mov bx, (payload.end -$$+0 +15) >> 4
+	mov bx, (payload.actual_end -$$+0 +15) >> 4
 	cmp cx, bx
 	jbe @F
 	add bx, ax
@@ -1352,15 +1352,15 @@ ldos_entry:
 	pop ax
 @@:
 
-	mov ax, (payload.end -$$+0 +15) >> 4
+	mov ax, (payload.actual_end -$$+0 +15) >> 4
 	push ax
-		; on stack: payload.end in paragraphs
+		; on stack: payload.actual_end in paragraphs
 	mov bx, [bp + ldParaPerSector]
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
 	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
-		; ((payload.end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
+		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
@@ -1484,7 +1484,7 @@ loaded_all:
 %endif
 	push ax
 		; cs:ip = xxxxh:_EXEC_OFFSET
-		; entire payload loaded (payload -- payload.end)
+		; entire payload loaded (payload -- payload.actual_end)
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
 	retf
 
@@ -1594,7 +1594,7 @@ freedos_entry:
 	mov [bp + lsvDataStart + 2], di
 
 	mov ax, cs
-	add ax, (payload.end -$$+0 +15) >> 4
+	add ax, (payload.actual_end -$$+0 +15) >> 4
 
 	jmp ms7_entry.continue2
 
