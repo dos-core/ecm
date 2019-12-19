@@ -102,16 +102,16 @@ mbootentry:
 
 		; prepare this and that
 	mov esi, MBOOTBASE
-	mov edx, MBOOTBASE+init0data
-	inc dword [ edx+i0MBFlag ]	; flag Multiboot entry for determining partition
-	and dword [ edx+i0Partition ], 0; insure invalid
 
+	or edx, -1
 		; locate boot drive in Multiboot info structure
 	test byte [ ebx + mbiFlags ], 2	; boot device info valid ?
 	jnz @F
 	mov eax, [ ebx + mbiBootDevice ]; get the info
-	mov [ .dl ], al
-	mov [ edx+i0MBDevice ], eax	; save it there
+	bswap eax
+	mov edx, eax			; dl = boot load unit (or 0FFh),
+					;  dh = partition (or 0FFh)
+					;  (edxh = subpartition numbers)
 @@:
 
 		; A20 is on. set up some things
