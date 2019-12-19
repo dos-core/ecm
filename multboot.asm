@@ -168,16 +168,16 @@ mbootentry:
 	mov fs, ax
 	mov gs, ax
 	mov ss, ax
-	mov dl, -1
-.dl: equ $-1
- %if _FIX_FREEDOS_LOAD
-	mov dh, dl
- %endif
-	mov ax, cs
-	; (cs should be = 60h now, need no far jump)
-	jmp loadentry.mbootenter		; enter this RM entry -->
+	; (cs should be = 200h now, need no far jump)
+		; cs = 200h, ip = mboot_86m_entry
+		: ds = es = fs = gs = ss = 0
+		; sp = 2000h
+		; dl = boot unit (or -1)
+		; dh = boot partition (0..3 = primary, 4+ = logical, or -1)
 
-	align 16, db 0				; right.. shouldn't this be aligned?
+	jmp mboot_86m_entry			; enter this 86M entry -->
+
+	align 16, db 0
 mbootgdt:
 	dw 0,0
 	db 0,0,0,0
@@ -201,6 +201,6 @@ mbootgdtdesc:
 
 mbootidtdesc:
 	dw 400h-1		; limit
-	dd 0			; address (RM IVT)
+	dd 0			; address (86M IVT)
 
 __CPU__
