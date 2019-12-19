@@ -103,8 +103,6 @@ mbootentry:
 					;  (also required by 86M entry later)
 
 		; prepare this and that
-	mov esi, MBOOTBASE		; -> iniload image
-
 	or edx, -1
 		; locate boot drive in Multiboot info structure
 	test byte [ ebx + mbiFlags ], 2	; boot device info valid ?
@@ -129,6 +127,7 @@ mbootentry:
 ; The above writes to 10_00C0h..10_00C4h
 
 		; relocate image to a good location, 2000h
+	mov esi, MBOOTBASE		; -> iniload image
 	mov edi, esp
 	mov ecx, (payload.actual_end - $$ + 0 + 3) / 4
 	rep movsd
