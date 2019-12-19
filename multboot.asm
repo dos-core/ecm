@@ -12,7 +12,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
-%macro mbootchecksummed 1.nolist 1BADB002h
+%macro mbootchecksummed 1-2.nolist 1BADB002h
 	dd %2		; signature
 	dd %1		; flags
 	dd -(%2+%1)	; checksum: dword sum of these three = 0
@@ -33,7 +33,7 @@ mbootheader:
 	dd 0				; uninitialised area end (0 = none)
 	dd MBOOTBASE + mbootentry	; entry point
 
-%unmacro mbootchecksummed 1.nolist 1BADB002h
+%unmacro mbootchecksummed 1-2.nolist 1BADB002h
 
 %if ($-$$) > 8192
  %fatal Multiboot header must be in the first 8 KiB
