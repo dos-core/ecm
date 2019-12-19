@@ -175,7 +175,32 @@ mbootentry:
 		; dl = boot unit (or -1)
 		; dh = boot partition (0..3 = primary, 4+ = logical, or -1)
 
-	jmp mboot_86m_entry			; enter this 86M entry -->
+	mov bp, 2000h - 512 - 16		; -> pseudo BPB
+	lea sp, [bp + LOADSTACKVARS]		; -> lsv
+	mov di, sp
+	mov cx, (-LOADSTACKVARS + 512 + 3) / 4
+	xor eax, eax
+	rep stosd				; clear
+		; lsvFirstCluster = 0 (same as for FreeDOS entrypoint)
+		; bsBPB + bpbHiddenSectors = 0 (invalid or unpartitioned)
+
+	inc ax
+	mov dword [bp + lsvDataStart], eax
+		; lsvDataStart = 1 (placeholder)
+	mov word [bp + bsBPB + bpbNumRootDirEnts], ax
+	mov word [bp + bsBPB + bpbSectorsPerFAT], ax
+			; do not detect as FAT32
+	mov byte [bp + bsBPB + bpbSectorsPerCluster], al
+	mov word [bp + bsBPB + bpbBytesPerSector], 512
+	mov word [bp + bsBPB + bpbTotalSectors], 8192
+			; 1 C/s * 8 Ki sectors = 8 Ki clusters, detect as FAT16
+			;  that is, do not load FAT at all (would load a FAT12)
+
+	mov byte [bp + bsBPB + bpbNew + bpbnBootUnit], dl
+			; set boot load unit
+
+	jmp freedos_entry.multiboot_entry
+
 
 	align 16, db 0
 mbootgdt:
