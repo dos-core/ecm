@@ -95,6 +95,7 @@ lpSector:	resq 1
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
+	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
@@ -1593,6 +1594,7 @@ freedos_entry:
 	mov [bp + lsvDataStart], cx
 	mov [bp + lsvDataStart + 2], di
 
+.multiboot_entry:
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
 
@@ -1606,6 +1608,10 @@ freedos_entry:
 	overridedef STANDALONE, 0
  %include "inicheck.asm"
 	resetdef
+%endif
+
+%if _MULTIBOOT1
+ %include "multboot.asm"
 %endif
 
 
