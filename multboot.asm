@@ -106,7 +106,7 @@ mbootentry:
 	or edx, -1
 		; locate boot drive in Multiboot info structure
 	test byte [ ebx + mbiFlags ], 2	; boot device info valid ?
-	jnz @F
+	jz @F
 	mov eax, [ ebx + mbiBootDevice ]; get the info
 	bswap eax
 	mov edx, eax			; dl = boot load unit (or 0FFh),
