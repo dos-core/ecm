@@ -108,7 +108,8 @@ mbootentry:
 	test byte [ ebx + mbiFlags ], 2	; boot device info valid ?
 	jz @F
 	mov eax, [ ebx + mbiBootDevice ]; get the info
-	bswap eax
+	rol eax, 16
+	xchg al, ah
 	mov edx, eax			; dl = boot load unit (or 0FFh),
 					;  dh = partition (or 0FFh)
 					;  (edxh = subpartition numbers)
