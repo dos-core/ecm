@@ -61,7 +61,7 @@ mbootentry.halt:
 	cli
 @@:
 	hlt
-	jmp sho @F
+	jmp short @B
  %endif
 
 		; INP:	eax = 2BADB002h
