@@ -170,7 +170,7 @@ mbootentry:
 	mov ss, ax
 	; (cs should be = 200h now, need no far jump)
 		; cs = 200h, ip = mboot_86m_entry
-		: ds = es = fs = gs = ss = 0
+		; ds = es = fs = gs = ss = 0
 		; sp = 2000h
 		; dl = boot unit (or -1)
 		; dh = boot partition (0..3 = primary, 4+ = logical, or -1)
