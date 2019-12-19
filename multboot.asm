@@ -141,8 +141,8 @@ mbootentry:
 	mov ss, ax
 	mov fs, ax
 	mov gs, ax			; set 64 KiB segment limits
-	push 0
-	popf				; reset all flags
+	o32 push byte 0
+	o32 popf			; reset all flags
 	jmp 08h:.pm16			; use 16-bit selector
 
 [bits 16]
