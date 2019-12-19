@@ -99,9 +99,11 @@ mbootentry:
 	and al, 3			; CPL 0 ?
 	jnz short .halt			; no -->
  %endif
+	mov esp, 2000h			; set a valid stack, at 8 KiB
+					;  (also required by 86M entry later)
 
 		; prepare this and that
-	mov esi, MBOOTBASE
+	mov esi, MBOOTBASE		; -> iniload image
 
 	or edx, -1
 		; locate boot drive in Multiboot info structure
@@ -126,11 +128,10 @@ mbootentry:
 	mov [ edi-40h+eax+1 ], eax	; write jump for CP/M entry hack here
 ; The above writes to 10_00C0h..10_00C4h
 
-		; relocate image to optimal location, 000600h
-	mov edi, 000600h
-	mov ecx, dword [ MBOOTBASE+mbootheader.load_area_end ]
-	sub ecx, esi
-	rep movsb
+		; relocate image to a good location, 2000h
+	mov edi, esp
+	mov ecx, (payload.actual_end - $$ + 0 + 3) / 4
+	rep movsd
 
 		; now back to real mode
 	o32 lgdt [ MBOOTBASE+mbootgdtdesc ]
@@ -141,7 +142,6 @@ mbootentry:
 	mov ss, ax
 	mov fs, ax
 	mov gs, ax			; set 64 KiB segment limits
-	mov esp, 600h			; set a valid stack; also required by RM entry
 	push 0
 	popf				; reset all flags
 	jmp 08h:.pm16			; use 16-bit selector
