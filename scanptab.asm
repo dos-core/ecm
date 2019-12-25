@@ -1,3 +1,18 @@
+
+%if 0
+
+scanptab - Scan partition table
+ 2019 by C. Masloch
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
+
+
 scan_partitions:
 	and word [load_partition_cycle], 0
 d4	call init1_d4message
