@@ -12,10 +12,13 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
+	; _SCANPTAB_PREFIX = prefix for our variables and functions
+	; _SCANPTAB_DEBUG4_PREFIX = prefix for d4 function calls
 
-scan_partitions:
-	and word [load_partition_cycle], 0
-d4	call init1_d4message
+
+%[_SCANPTAB_PREFIX]scan_partitions:
+	and word [ %[_SCANPTAB_PREFIX]load_partition_cycle], 0
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_partitions",13,10
 
 	push bp
@@ -26,57 +29,58 @@ d4	asciz "In scan_partitions",13,10
 	push di		; [ss:bx+di-6]
 	push di		; [ss:bx+di-8]
 
-	cmp byte [load_unit], 80h
+	cmp byte [ %[_SCANPTAB_PREFIX]load_unit], 80h
 	jae @F
 
 	push di
 	push cx
 	 push cs
 	 pop es
-	mov di, parttable
+	mov di, %[_SCANPTAB_PREFIX]partition_table
 	xor ax, ax
 	mov cx, (4 * 16) >> 1
 	rep stosw			; initialise fake partition table
 	pop cx
 	pop di
-	mov si, parttable		; -> fake PARTINFO
+	mov si, %[_SCANPTAB_PREFIX]partition_table
+					; -> fake PARTINFO
 	mov byte [es:si + piBoot], 80h	; fake primary active
 	mov byte [es:si + piType], 0FFh	; fake a type
-	mov byte [load_current_partition], 0	; special: 0 = diskette
+	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 0	; special: 0 = diskette
 					; piLength is 0, too
 	call cx
 
-	jmp scan_logical.end
+	jmp %[_SCANPTAB_PREFIX]scan_logical.end
 
 
 @@:
 	xor ax, ax
 	xor dx, dx
-d4	call init1_d4message
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_partitions (before first call to read_partition_table)",13,10
-	call read_partition_table
-d4	call init1_d4message
+	call %[_SCANPTAB_PREFIX]read_partition_table
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_partitions (after first call to read_partition_table)",13,10
-	mov si, parttable
-	mov byte [load_current_partition], dl	; = 0
+	mov si, %[_SCANPTAB_PREFIX]partition_table
+	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], dl	; = 0
 .loop_primary_parts:
-	inc byte [load_current_partition]
+	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 	cmp byte [es:si + piType], 0
 	je .loop_primary_skip
 	call cx			; es:si -> partition table entry
 				; byte [load_current_partition] = which
 .loop_primary_skip:
 	add si, 16
-	cmp si, parttable.end
+	cmp si, %[_SCANPTAB_PREFIX]partition_table.end
 	jb .loop_primary_parts
 
-scan_logical:
+%[_SCANPTAB_PREFIX]scan_logical:
 .:
-d4	call init1_d4message
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.",13,10
-	mov si, parttable
+	mov si, %[_SCANPTAB_PREFIX]partition_table
 .loop:
-	inc word [load_partition_cycle]
+	inc word [ %[_SCANPTAB_PREFIX]load_partition_cycle]
 	jz .got_partition_cycle
 
 	mov al, [es:si + piType]
@@ -94,13 +98,14 @@ d4	asciz "In scan_logical.",13,10
 	cmp word [ss:bx+di-4], 0
 	je .next
 .logical:
-	inc byte [load_current_partition]
+	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 	jz .error_too_many_partitions
 	call cx			; CHG: ax, (cx), dx
 				; preserve: (cx), si, di, bx, ds, es
 .next:
 	add si, 16		; -> next partition table entry
-	cmp si, parttable.end	; was last?
+	cmp si, %[_SCANPTAB_PREFIX]partition_table.end
+				; was last?
 	jb .loop		; no, loop -->
 	test di, di		; still some on stack?
 	jnz .pop		; yes, pop
@@ -110,20 +115,21 @@ d4	asciz "In scan_logical.",13,10
 	retn			; and bye
 
 .push:
-d4	call init1_d4message
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.push",13,10
 
 	push si
 .push_check_empty_next:
 	add si, 16		; -> next
-	cmp si, parttable.end	; at end?
+	cmp si, %[_SCANPTAB_PREFIX]partition_table.end
+				; at end?
 	jae .replace		; yes, no other partitions found, replace -->
 	cmp byte [es:si + piType], 0	; is this a partition?
 	je .push_check_empty_next	; no, check next -->
 				; found a partition after this, do push
 				; (possibly logical or another extended)
 .push_check_is_not_empty:
-d4	call init1_d4message
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 	pop si			; restore -> partition table entry
 	push si			; stored at word [ss:bx+di-10]
@@ -149,11 +155,11 @@ d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 	mov word [ss:bx+di-4], ax	; set root
 .have_root:
 
-	call read_partition_table
+	call %[_SCANPTAB_PREFIX]read_partition_table
 	jmp .
 
 .pop:
-d4	call init1_d4message
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.pop",13,10
 
 	add di, 10
@@ -162,11 +168,11 @@ d4	asciz "In scan_logical.pop",13,10
 
 	mov ax, word [ss:bx+di-8]
 	mov dx, word [ss:bx+di-6]
-	call read_partition_table
+	call %[_SCANPTAB_PREFIX]read_partition_table
 	jmp .next
 
 .replace:
-d4	call init1_d4message
+d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.replace",13,10
 
 	pop si				; (discard)
@@ -188,10 +194,10 @@ d4	asciz "In scan_logical.replace",13,10
 	jmp bootcmd.fail
 
 
-read_partition_table:
+%[_SCANPTAB_PREFIX]read_partition_table:
 	push bx
 	mov bx, word [bp + ldSectorSeg]
-	call read_ae_512_bytes
+	call %[_SCANPTAB_PREFIX]read_ae_512_bytes
 	pop bx
 	cmp word [es:510], 0AA55h
 	jne @F
@@ -204,7 +210,8 @@ read_partition_table:
 	mov si, 510 - 4*16		; ds:si -> partition table in sectorseg
 	push cs
 	pop es
-	mov di, parttable		; es:di -> cs:parttable
+	mov di, %[_SCANPTAB_PREFIX]partition_table
+					; es:di -> cs:%[_SCANPTAB_PREFIX]partition_table
 	mov cx, 4*16 / 2
 	rep movsw
 	 pop cx
