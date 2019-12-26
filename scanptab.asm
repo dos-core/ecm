@@ -172,9 +172,15 @@ d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 	push ax			; new base
 
 .replace_common:
+%ifidn _BASE, bp
+	cmp word [_BASE+di-2], bx	; have a (nonzero) root?
+	jne .have_root
+	cmp word [_BASE+di-4], bx
+%else
 	cmp word [_BASE+di-2], 0	; have a (nonzero) root?
 	jne .have_root
 	cmp word [_BASE+di-4], 0
+%endif
 	jne .have_root		; yes -->
 
 	mov word [_BASE+di-2], dx
