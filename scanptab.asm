@@ -14,6 +14,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 	; _SCANPTAB_PREFIX = prefix for our variables and functions
 	; _SCANPTAB_DEBUG4_PREFIX = prefix for d4 function calls
+	numdef PARTITION_TABLE_IN_CS, 1
 	gendef BASE, ss:bx
 %ifidn _BASE, ss:bx
 %elifidn _BASE, bp
@@ -219,9 +220,27 @@ d4	asciz "In scan_logical.replace",13,10
 	jmp bootcmd.fail
 
 
+
+		; if _PARTITION_TABLE_IN_CS:
+		; INP:  dx:ax = partition table sector to read
+		; CHG:	ax, dx
+		; OUT:  es = cs
+		;       64 bytes [es:partition_table] = partition table
+		;       does not return if error
+
+		; else:
+		; INP:  dx:ax = partition table sector to read
+		; CHG:	ax, dx
+		; OUT:  es = ss
+		;       64 bytes [es:partition_table] = partition table
+		;       does not return if error
 %[_SCANPTAB_PREFIX]read_partition_table:
 	push bx
+%ifidn _BASE, bp
+	mov bx, word [auxbuff_segorsel]	; bx => auxbuff
+%else
 	mov bx, word [bp + ldSectorSeg]
+%endif
 	call %[_SCANPTAB_PREFIX]read_ae_512_bytes
 	pop bx
 	cmp word [es:510], 0AA55h
@@ -233,7 +252,11 @@ d4	asciz "In scan_logical.replace",13,10
 	push es
 	pop ds
 	mov si, 510 - 4*16		; ds:si -> partition table in sectorseg
+%if _PARTITION_TABLE_IN_CS
 	push cs
+%else
+	push ss
+%endif
 	pop es
 	mov di, %[_SCANPTAB_PREFIX]partition_table
 					; es:di -> cs:%[_SCANPTAB_PREFIX]partition_table
