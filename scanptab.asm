@@ -14,6 +14,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 	; _SCANPTAB_PREFIX = prefix for our variables and functions
 	; _SCANPTAB_DEBUG4_PREFIX = prefix for d4 function calls
+	gendef BASE, ss:bx
+%ifidn _BASE, ss:bx
+%elifidn _BASE, bp
+%else
+ %error Invalid base
+%endif
 
 
 %[_SCANPTAB_PREFIX]scan_partitions:
@@ -24,10 +30,10 @@ d4	asciz "In scan_partitions",13,10
 	push bp
 	mov bx, sp
 	xor di, di
-	push di		; [ss:bx+di-2]
-	push di		; [ss:bx+di-4]
-	push di		; [ss:bx+di-6]
-	push di		; [ss:bx+di-8]
+	push di		; [_BASE+di-2]
+	push di		; [_BASE+di-4]
+	push di		; [_BASE+di-6]
+	push di		; [_BASE+di-8]
 
 	cmp byte [ %[_SCANPTAB_PREFIX]load_unit], 80h
 	jae @F
@@ -93,9 +99,9 @@ d4	asciz "In scan_logical.",13,10
 	cmp al, 05h		;  or extended partition DOS (05h) ?
 	je .push		; yes -->
 
-	cmp word [ss:bx+di-2], 0
+	cmp word [_BASE+di-2], 0
 	jne .logical
-	cmp word [ss:bx+di-4], 0
+	cmp word [_BASE+di-4], 0
 	je .next
 .logical:
 	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
@@ -132,27 +138,27 @@ d4	asciz "In scan_logical.push",13,10
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 	pop si			; restore -> partition table entry
-	push si			; stored at word [ss:bx+di-10]
+	push si			; stored at word [_BASE+di-10]
 	sub di, 10
-	push word [ss:bx+di+10-2]
-	push word [ss:bx+di+10-4]	; copy root
+	push word [_BASE+di+10-2]
+	push word [_BASE+di+10-4]	; copy root
 
 	mov ax, word [es:si + piStart]
 	mov dx, word [es:si + piStart + 2]	; get extended partition offset
-	add ax, word [ss:bx+di-4]
-	adc dx, word [ss:bx+di-2]	; add in root to get absolute sector number
+	add ax, word [_BASE+di-4]
+	adc dx, word [_BASE+di-2]	; add in root to get absolute sector number
 
 	push dx
 	push ax			; new base
 
 .replace_common:
-	cmp word [ss:bx+di-2], 0	; have a (nonzero) root?
+	cmp word [_BASE+di-2], 0	; have a (nonzero) root?
 	jne .have_root
-	cmp word [ss:bx+di-4], 0
+	cmp word [_BASE+di-4], 0
 	jne .have_root		; yes -->
 
-	mov word [ss:bx+di-2], dx
-	mov word [ss:bx+di-4], ax	; set root
+	mov word [_BASE+di-2], dx
+	mov word [_BASE+di-4], ax	; set root
 .have_root:
 
 	call %[_SCANPTAB_PREFIX]read_partition_table
@@ -166,8 +172,8 @@ d4	asciz "In scan_logical.pop",13,10
 	add sp, 8
 	pop si
 
-	mov ax, word [ss:bx+di-8]
-	mov dx, word [ss:bx+di-6]
+	mov ax, word [_BASE+di-8]
+	mov dx, word [_BASE+di-6]
 	call %[_SCANPTAB_PREFIX]read_partition_table
 	jmp .next
 
@@ -178,10 +184,10 @@ d4	asciz "In scan_logical.replace",13,10
 	pop si				; (discard)
 	mov ax, word [es:si + piStart]
 	mov dx, word [es:si + piStart + 2]	; get extended partition offset
-	add ax, word [ss:bx+di - 4]
-	adc dx, word [ss:bx+di - 2]	; add in root
-	mov word [ss:bx+di - 8], ax
-	mov word [ss:bx+di - 6], dx	; set base
+	add ax, word [_BASE+di - 4]
+	adc dx, word [_BASE+di - 2]	; add in root
+	mov word [_BASE+di - 8], ax
+	mov word [_BASE+di - 6], dx	; set base
 
 	jmp .replace_common
 
