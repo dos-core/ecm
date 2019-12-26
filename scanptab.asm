@@ -23,6 +23,42 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+		; INP:	byte [%load_unit] = unit to scan
+		;	cx = function to call for each partition
+		; OUT:	function called for each partition
+		; CHG:	di, si, ax, bx, (cx), dx, es
+		; STT:	ds => data segment (used for %load_* variables, unless bp-based)
+		;
+		; Note:	Calls %read_partition_table (in this module),
+		;	 which calls %read_ae_512_bytes, which calls
+		;	 read_sector. The read_sector base must be
+		;	 zero and the geometry must be initialised.
+
+		; Function in cx is called with:
+		; INP:	es:si -> partition table entry,
+		;	 si = %partition_table .. %partition_table+48,
+		;	 es = ss (if not _PARTITION_TABLE_IN_CS)
+		;	 es = cs (if _PARTITION_TABLE_IN_CS)
+		;	byte [%load_current_partition] = partition number,
+		;	 0 for diskette (unpartitioned),
+		;	 1 to 4 for primary partitions,
+		;	 5+ for logical partitions
+		;	_BASE + di -> above part table metadata,
+		;	 dword [_BASE + di - 4] = root (outermost extended position)
+		;	 dword [_BASE + di - 8] = base (current table position)
+		;	 dword [es:si + piStart] = local partition start
+		;	 base + local start = absolute partition start
+		;	_BASE -> bp value (dummy if _BASE is not bp),
+		;		near return address of scan_partitions
+		; CHG:	ax, (cx), dx, bx (unless part of _BASE)
+		; STT:	ds => data segment (used for load_* variables, unless bp-based)
+		; Note:	preserves (cx), si, di, ds, es, (bp), _BASE
+		;
+		; Note:	If the function returns to scan_partitions,
+		;	 cx must be left as the function to call for
+		;	 subsequent partitions afterwards.
+		; Note:	May load sp from _BASE then pop bp then return
+		;	 near if the scan should stop after the call.
 %[_SCANPTAB_PREFIX]scan_partitions:
 	and word [ %[_SCANPTAB_PREFIX]load_partition_cycle], 0
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
