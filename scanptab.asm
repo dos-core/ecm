@@ -45,7 +45,11 @@ d4	asciz "In scan_partitions",13,10
 
 	push di
 	push cx
+%if _PARTITION_TABLE_IN_CS
 	 push cs
+%else
+	 push ss
+%endif
 	 pop es
 	mov di, %[_SCANPTAB_PREFIX]partition_table
 	xor ax, ax
