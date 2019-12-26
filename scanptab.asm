@@ -28,7 +28,11 @@ d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_partitions",13,10
 
 	push bp
+%ifidn _BASE, ss:bx
 	mov bx, sp
+%elifidn _BASE, bp
+	mov bp, sp
+%endif
 	xor di, di
 	push di		; [_BASE+di-2]
 	push di		; [_BASE+di-4]
@@ -91,6 +95,9 @@ d4	asciz "In scan_logical.",13,10
 
 	mov al, [es:si + piType]
 
+%ifidn _BASE, bp
+	xor bx, bx
+%endif
 	test al, al
 	jz .next
 	cmp al, 0Fh		; extended partition (LBA aware) ?
@@ -99,15 +106,22 @@ d4	asciz "In scan_logical.",13,10
 	cmp al, 05h		;  or extended partition DOS (05h) ?
 	je .push		; yes -->
 
+%ifidn _BASE, bp
+	cmp word [_BASE+di-2], bx
+	jne .logical
+	cmp word [_BASE+di-4], bx
+%else
 	cmp word [_BASE+di-2], 0
 	jne .logical
 	cmp word [_BASE+di-4], 0
+%endif
 	je .next
 .logical:
 	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 	jz .error_too_many_partitions
-	call cx			; CHG: ax, (cx), dx
-				; preserve: (cx), si, di, bx, ds, es
+	call cx
+		; CHG: ax, (cx), dx, bx if _BASE = bp
+		; preserve: (cx), si, di, ds, es, bx if _BASE = ss:bx
 .next:
 	add si, 16		; -> next partition table entry
 	cmp si, %[_SCANPTAB_PREFIX]partition_table.end
@@ -116,8 +130,13 @@ d4	asciz "In scan_logical.",13,10
 	test di, di		; still some on stack?
 	jnz .pop		; yes, pop
 .end:
+%ifidn _BASE, bp
+	mov sp, bp		; restore sp
+	pop bp
+%else
 	mov sp, bx		; restore sp
 	pop ax			; (discard dummy bp value)
+%endif
 	retn			; and bye
 
 .push:
