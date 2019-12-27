@@ -1409,9 +1409,7 @@ load_next_clust:
 	push cx
 	push bx
 	mov cx, [bp + ldClusterSize]
-load_next_sect:
-	push cx
-	jmp load_next_sect_continue
+	jmp load_next_clust_continue
 
 %assign num 1024+512-($-$$)
 %warning num bytes in front of end
@@ -1419,7 +1417,9 @@ load_next_sect:
 	align 16, db 38
 end:
 
-load_next_sect_continue:
+load_next_clust_continue:
+load_next_sect:
+	push cx
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.3stack
