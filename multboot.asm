@@ -214,7 +214,7 @@ __CPU__
 			; (0..3 primary, 4+ logical, -1 invalid)
 	inc dx		; 0 invalid, 1..4 primary, 5+ logical
 	mov dh, lsvefPartitionNumber
-	mov word [bp + lsvExtra], dx
+	push dx		; push into word [bp + lsvExtra]
 %endif
 	jmp freedos_entry.multiboot_entry
 
