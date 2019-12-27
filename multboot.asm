@@ -53,6 +53,8 @@ mbiModuleTable:	resd 1
 [bits 32]
 
 	numdef MULTIBOOT_CHECKS, 1
+	numdef MULTIBOOT_DEBUG, 0
+
 
  %if _MULTIBOOT_CHECKS
 mbootentry.halt:
@@ -204,6 +206,10 @@ __CPU__
 			; set boot load unit
 
 %if _LSVEXTRA
+ %if _MULTIBOOT_DEBUG
+	mov ax, dx
+	call mb_disp_ax_hex
+ %endif
 	xchg dl, dh	; dl = Multiboot spec partition number
 			; (0..3 primary, 4+ logical, -1 invalid)
 	inc dx		; 0 invalid, 1..4 primary, 5+ logical
@@ -211,6 +217,45 @@ __CPU__
 	mov word [bp + lsvExtra], dx
 %endif
 	jmp freedos_entry.multiboot_entry
+
+
+%if _MULTIBOOT_DEBUG
+mb_disp_ax_hex:			; ax
+		xchg al,ah
+		call mb_disp_al_hex		; display former ah
+		xchg al,ah			;  and fall trough for al
+mb_disp_al_hex:			; al
+		push cx
+		mov cl,4
+		ror al,cl
+		call mb_disp_al_lownibble_hex	; display former high-nibble
+		rol al,cl
+		pop cx
+						;  and fall trough for low-nibble
+mb_disp_al_lownibble_hex:
+		push ax			 ; save ax for call return
+		and al,00001111b		; high nibble must be zero
+		add al,'0'			; if number is 0-9, now it's the correct character
+		cmp al,'9'
+		jna .decimalnum		 ; if we get decimal number with this, ok -->
+		add al,7			;  otherwise, add 7 and we are inside our alphabet
+ .decimalnum:
+		call mb_disp_al
+		pop ax
+		retn
+
+mb_disp_al:
+	push ax
+	push bx
+	push bp
+	mov ah, 0Eh
+	mov bx, 7
+	int 10h
+	pop bp
+	pop bx
+	pop ax
+	retn
+%endif
 
 
 	align 16, db 0
