@@ -15,6 +15,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %assign __lMACROS1_MAC__DEBUG_DEFAULTS 1
 %include "lmacros3.mac"
+	numdef DEBUG5
+%idefine d5 _d 5,
 
 	struc BS
 bsJump:	resb 3
@@ -89,6 +91,27 @@ lpCount:	resw 1
 lpBuffer:	resd 1
 lpSector:	resq 1
 	endstruc
+
+	struc PARTINFO
+piBoot:		resb 1
+piStartCHS:	resb 3
+piType:		resb 1
+piEndCHS:	resb 3
+piStart:	resd 1
+piLength:	resd 1
+	endstruc
+
+ptEmpty:		equ 0
+ptFAT12:		equ 1
+ptFAT16_16BIT_CHS:	equ 4
+ptExtendedCHS:		equ 5
+ptFAT16_CHS:		equ 6
+ptFAT32_CHS:		equ 0Bh
+ptFAT32:		equ 0Ch
+ptFAT16:		equ 0Eh
+ptExtended:		equ 0Fh
+ptLinux:		equ 83h
+ptExtendedLinux:	equ 85h
 
 
 %ifndef _MAP
@@ -394,6 +417,7 @@ disp_error.ret:
 		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
 		;	 es = input bx
 		; CHG:	-
+		; STT:	ds = ss
 		;
 		; Note:	If error 09h (data boundary error) is returned,
 		;	 the read is done into the ldSectorSeg buffer,
@@ -1234,10 +1258,42 @@ init_memory:
 	push ss
 	pop ds
 
+	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
+	test bx, bx
+	jz .not_fat32
+
+	lea si, [bp + 510]			; -> last source word
+	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
+	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
+			; move sector up, except common BPB start part
+%if ((512 - bsBPB - bpbNew + 1) >> 1) <= 20
+ %fatal Need AMD erratum 109 workaround
+%endif
+	std		; AMD erratum 109 handling not needed
+	rep movsw
+	cld
+
+	mov word [bp + lsvFirstCluster + 2], cx
+	mov word [bp + lsvFATSector + 2], cx
+
+	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
+	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
+	mov word [bp + bsBPB + ebpbFSFlags], cx
+	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
+	;  uninitialised here (initialised by loaded_all later)
+.not_fat32:
+%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
+	call query_geometry
+		; The ebpbNew BPBN needs to be initialised
+		;  to use this function. It must be called
+		;  before using read_sector (used by the FAT12
+		;  FAT loader, or by finish_load later).
+%endif
+
 %if _LSVEXTRA
-	test byte [bp + lsvExtra.flags], lsvefNoDataStart
+	test byte [bp + lsvExtra.flags], -1
 	jz @F
-	call calculate_data_start
+	call handle_lsv_extra_flags
 @@:
 %endif
 
@@ -1278,26 +1334,6 @@ init_memory:
 	test bx, bx
 	jz .got_fat_type
 
-	lea si, [bp + 510]			; -> last source word
-	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
-	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
-			; move sector up, except common BPB start part
-%if ((512 - bsBPB - bpbNew + 1) >> 1) <= 20
- %fatal Need AMD erratum 109 workaround
-%endif
-	std		; AMD erratum 109 handling not needed
-	rep movsw
-	cld
-
-	mov word [bp + lsvFirstCluster + 2], cx
-	mov word [bp + lsvFATSector + 2], cx
-
-	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
-	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
-	mov word [bp + bsBPB + ebpbFSFlags], cx
-	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
-	;  uninitialised here (initialised by loaded_all later)
-
 	; dx:ax = total amount of sectors
 	sub ax, word [bp + lsvDataStart]
 	sbb dx, word [bp + lsvDataStart + 2]
@@ -1324,11 +1360,6 @@ init_memory:
 	ja .got_fat_type
 
 	mov byte [bp + ldFATType], 12
-%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
-	call query_geometry
-		; do it here because loading the FAT uses the geometry.
-		; however, the ebpbNew BPBN needs to be initialised.
-%endif
 	pop ax
 	test ax, ax
 	jnz .got_fat12
@@ -1367,13 +1398,9 @@ init_memory:
 @@:					; one of the limits reached; FAT read
 
 .got_fat12:
-	jmp short @F
+	db __TEST_IMM8	; skip pop ax
 .got_fat_type:
-%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
-	call query_geometry
-%endif
 	pop ax
-@@:
 
 	mov ax, (payload.actual_end -$$+0 +15) >> 4
 	push ax
@@ -1600,6 +1627,464 @@ d3	test ax, "F0"
 	add ax, (payload.actual_end -$$+0 +15) >> 4
 
 	jmp ms7_entry.continue2
+
+
+%if _LSVEXTRA
+handle_lsv_extra_flags:
+	test byte [bp + lsvExtra.flags], lsvefPartitionNumber
+	jz @F
+	call parse_partition_number
+@@:
+	test byte [bp + lsvExtra.flags], lsvefNoDataStart
+	jz @F
+	call calculate_data_start
+@@:
+	retn
+
+
+parse_partition_number:
+	xor ax, ax
+	mov word [bp + bsBPB + bpbHiddenSectors], ax
+	mov word [bp + bsBPB + bpbHiddenSectors + 2], ax
+	cmp byte [bp + bsBPB + ebpbNew + bpbnBootUnit], -1
+	jne @F
+	mov byte [bp + bsBPB + ebpbNew + bpbnBootUnit], 80h
+	mov word [bp + bsBPB + bpbCHSSectors], ax
+	mov word [bp + bsBPB + bpbCHSHeads], ax
+	call query_geometry
+@@:
+
+ %if !_LBA_SKIP_CHECK
+	test byte [bp + ldHasLBA], 1
+	jnz @F
+ %endif
+
+	mov ax, word [bp + bsBPB + bpbCHSSectors]
+	mov dx, word [bp + bsBPB + bpbCHSHeads]
+
+		; following is from lDebug 0c0930773929 boot.asm
+	overridedef DEBUG5, 0
+%define load_unit (bp + bsBPB + ebpbNew + bpbnBootUnit)
+%define load_sectorsize (bp + bsBPB + bpbBytesPerSector)
+%define load_sectorsizepara (bp + ldParaPerSector)
+
+	test ax, ax
+	jz .invalid_sectors
+	cmp ax, 63
+	ja .invalid_sectors
+	test dx, dx
+	jz .invalid_heads
+	cmp dx, 100h
+	ja .invalid_heads
+@@:
+
+	mov ax, word [bp + ldSectorSeg]	; ax => sector seg
+	dec ax				; ax => sector seg - 16
+	mov es, ax
+	xor ax, ax
+	mov bx, 16
+
+d5	call d5dumpregs
+d5	call d5message
+d5	asciz 13,10,"In query_geometry 0",13,10
+
+	mov di, bx
+	mov cx, (8192 + 2) >> 1
+					; es:bx -> auxbuff, es:di = same
+	rep stosw			; fill buffer, di -> behind (auxbuff+8192+2)
+	mov ax, 0201h			; read sector, 1 sector
+	inc cx				; sector 1 (1-based!), cylinder 0 (0-based)
+	mov dh, 0			; head 0 (0-based)
+	mov dl, [load_unit]
+	stc
+	call .int13_retry
+	jc .access_error
+
+	std				; _AMD_ERRATUM_109_WORKAROUND does not apply
+	mov word [es:bx - 2], 5E5Eh	; may overwrite last 2 bytes at line_out_end
+	scasw				; -> auxbuff+8192 (at last word to sca)
+d5	call d5dumpregs
+d5	call d5message
+d5	asciz 13,10,"In query_geometry 1",13,10
+	mov cx, (8192 + 2) >> 1
+	xor ax, ax
+	repe scasw
+	add di, 4			; di -> first differing byte (from top)
+	cld
+	push di
+
+	mov di, bx
+	mov cx, (8192 + 2) >> 1
+	dec ax				; = FFFFh
+	rep stosw
+
+	mov ax, 0201h
+	inc cx
+	mov dh, 0
+	mov dl, [load_unit]
+	stc
+	call .int13_retry
+	jc .access_error
+
+	std				; _AMD_ERRATUM_109_WORKAROUND does not apply
+	scasw				; di -> auxbuff+8192 (last word to sca)
+d5	call d5dumpregs
+d5	call d5message
+d5	asciz 13,10,"In query_geometry 2",13,10
+	pop dx
+	mov ax, -1
+	mov cx, (8192 + 2) >> 1
+	repe scasw
+%if 0
+AAAB
+   ^
+	sca B, match
+  ^
+	sca B, mismatch
+ ^
+	stop
+%endif
+	add di, 4			; di -> first differing byte (from top)
+	cld
+
+%if 0
+0000000000000
+AAAAAAAA00000
+	^
+FFFFFFFFFFFFF
+AAAAAAAA00FFF
+	  ^
+%endif
+	cmp dx, di			; choose the higher one
+	jae @F
+	mov dx, di
+@@:
+	sub dx, bx			; dx = sector size
+
+d5	call d5dumpregs
+d5	call d5message
+d5	asciz 13,10,"In query_geometry 3",13,10
+
+	cmp dx, 8192 + 2
+	jae .sector_too_large
+	mov ax, 32
+	cmp dx, ax
+	jb .sector_too_small
+@@:
+	cmp dx, ax
+	je .got_match
+	cmp ax, 8192
+	jae .sector_not_power
+	shl ax, 1
+	jmp @B
+
+.got_match:
+	mov word [load_sectorsize], ax
+	mov cl, 4
+	shr ax, cl
+	mov word [load_sectorsizepara], ax
+
+	resetdef
+
+
+	push cs
+	pop ds
+	push cs
+	pop es
+
+	mov cx, .per_partition
+	call scan_partitions
+
+	mov di, partition_offset
+	mov dx, word [di + 2]
+	mov ax, word [di]
+
+	cmp ax, -1
+	jne @F
+	cmp dx, -1
+	jne @F
+
+	push ss
+	pop es
+	mov di, bp
+	xor ax, ax
+	mov cx, 512 / 2 + (((ebpbNew - bpbNew + 15) & ~15) >> 1)
+	push word [bp + bsBPB + ebpbNew + bpbnBootUnit]
+	push word [bp + bsBPB + bpbCHSSectors]
+	push word [bp + bsBPB + bpbCHSHeads]
+	rep stosw
+	pop word [bp + bsBPB + bpbCHSHeads]
+	pop word [bp + bsBPB + bpbCHSSectors]
+	pop bx
+	mov byte [bp + bsBPB + ebpbNew + bpbnBootUnit], bl
+	mov word [bp + bsBPB + bpbHiddenSectors], dx
+	mov word [bp + bsBPB + bpbHiddenSectors + 2], dx
+
+	jmp .invalid_return
+
+
+@@:
+	push dx
+	push ax
+	mov bx, [bp + ldSectorSeg]
+	call read_ae_512_bytes
+	push es
+	pop ds
+	xor si, si
+	push ss
+	pop es
+	mov di, bp
+	mov cx, 512 / 2
+
+	pop ax
+	pop dx
+
+	push word [bp + bsBPB + ebpbNew + bpbnBootUnit]
+	push word [bp + bsBPB + bpbCHSSectors]
+	push word [bp + bsBPB + bpbCHSHeads]
+
+
+	rep movsw
+
+	push ax
+	xor ax, ax
+	mov cx, ((ebpbNew - bpbNew + 15) & ~15) >> 1
+	rep stosw	; initialise area behind sector (left so for FAT32)
+	pop ax
+
+
+	pop word [bp + bsBPB + bpbCHSHeads]
+	pop word [bp + bsBPB + bpbCHSSectors]
+	mov word [bp + bsBPB + bpbHiddenSectors], ax
+	mov word [bp + bsBPB + bpbHiddenSectors + 2], dx
+
+
+	push ss
+	pop ds
+	push ss
+	pop es
+
+	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
+	test bx, bx
+	jz .not_fat32
+
+	lea si, [bp + 510]			; -> last source word
+	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
+	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
+			; move sector up, except common BPB start part
+%if ((512 - bsBPB - bpbNew + 1) >> 1) <= 20
+ %fatal Need AMD erratum 109 workaround
+%endif
+	std		; AMD erratum 109 handling not needed
+	rep movsw
+	cld
+
+	mov word [bp + lsvFirstCluster + 2], cx
+	mov word [bp + lsvFATSector + 2], cx
+
+	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
+	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
+	mov word [bp + bsBPB + ebpbFSFlags], cx
+	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
+	;  uninitialised here (initialised by loaded_all later)
+.not_fat32:
+
+	pop bx
+	mov byte [bp + bsBPB + ebpbNew + bpbnBootUnit], bl
+
+	mov ah, lsvefNoDataStart
+	mov al, byte [cs:partition_type]
+	cmp al, ptFAT12
+	je @F
+	cmp al, ptFAT16_16BIT_CHS
+	je @F
+	cmp al, ptFAT16_CHS
+	je @F
+	cmp al, ptFAT32_CHS
+	je @F
+	cmp al, ptFAT32
+	je @F
+	cmp al, ptFAT16
+	je @F
+
+.invalid_return:
+	xor ax, ax
+	mov word [bp + lsvDataStart], ax
+	mov word [bp + lsvDataStart + 2], ax
+@@:
+	mov byte [bp + lsvExtra.flags], ah
+
+%if _CHECKSUM
+	push cs
+	pop es
+	mov di, scanparttab_variables_start
+	mov cx, scanparttab_variables_length_w
+	xor ax, ax
+	rep stosw	; clear variables for eventual checksum
+	dec ax
+	mov di, partition_offset
+	stosw
+	stosw		; reset this variable too
+%endif
+
+	push ss
+	pop es
+	push ss
+	pop ds
+	retn
+
+
+.per_partition:
+	push cx
+	push si
+	push di
+	push bx
+
+	mov ax, [es:si + piStart]
+	mov dx, [es:si + piStart + 2]
+	add ax, [ss:bx + di - 8]
+	adc dx, [ss:bx + di - 8 + 2]	; = partition start
+
+	mov cx, -1
+	mov di, partition_offset
+	cmp word [di], cx		; first one encountered ?
+	jne @F
+	cmp word [di + 2], cx
+	jne @F				; no -->
+	mov cl, byte [es:si + piType]
+	mov byte [di - partition_offset + partition_type], cl
+					; save type
+	mov word [di], ax
+	mov word [di + 2], dx		; yes, save offset
+@@:
+
+	mov cl, byte [load_current_partition]
+					; which one ?
+	cmp cl, byte [bp + lsvExtra.partition]
+	jne @F				; not the sought one
+
+	mov cl, byte [es:si + piType]
+	mov byte [di - partition_offset + partition_type], cl
+					; save type
+	mov word [di], ax
+	mov word [di + 2], dx		; save offset
+
+	pop bx				; bx = base
+	mov sp, bx			; reset sp
+	pop ax				; pop dummy bp
+	retn				; return to caller
+
+@@:					; not yet found, continue
+	pop bx
+	pop di
+	pop si
+	pop cx
+	retn
+
+
+.int13_retry:
+	pushf
+	push ax
+	int 13h		; first try
+	jnc @F		; NC, success on first attempt -->
+
+; reset drive
+	xor ax, ax
+	int 13h
+	jc @F		; CY, reset failed, error in ah -->
+
+; try read again
+	pop ax		; restore function number
+	popf
+	int 13h		; retry, CF error status, ah error number
+	retn
+
+@@:			; NC or CY, stack has function number
+	inc sp
+	inc sp
+	inc sp
+	inc sp		; discard two words on stack, preserve CF
+	retn
+
+
+.access_error:
+	jmp error_diskaccess
+
+.sector_too_large:
+.sector_too_small:
+.sector_not_power:
+	call error
+	asciz "Invalid sector size."
+
+.invalid_sectors:
+.invalid_heads:
+	call error
+	asciz "Invalid geometry."
+
+scan_logical.got_partition_cycle:
+	call error
+	asciz "Partition cycle detected."
+
+scan_logical.error_too_many_partitions:
+	call error
+	asciz "Too many partitions detected."
+
+read_partition_table.signature_fail:
+	call error
+	asciz "Invalid partition table detected."
+
+
+		; INP:	dx:ax = first sector
+		;	bx:0 -> buffer
+		; OUT:	dx:ax = sector number after last read
+		;	es = input bx
+		;	bx:0 -> buffer after last written
+		; CHG:	-
+read_ae_512_bytes:
+	push ds
+	push cx
+	push bx
+	 push ss
+	 pop ds
+	mov cx, 512
+.loop:
+	call read_sector
+	sub cx, word [bp + bsBPB + bpbBytesPerSector]
+	ja .loop
+	pop es
+	pop cx
+	pop ds
+	retn
+
+
+%assign _PARTITION_TABLE_IN_CS 1
+%assign _BOOTCMD_FAIL_ERROR 0
+%define _SCANPTAB_PREFIX
+%define _SCANPTAB_DEBUG4_PREFIX
+	overridedef DEBUG4, 0
+%include "scanptab.asm"
+	resetdef
+
+
+	align 16
+scanparttab_variables_start:
+partition_table:
+	times 16 * 4 db 0
+.end:
+
+partition_offset:
+	dd -1
+
+load_partition_cycle:
+	dw 0
+load_current_partition:
+	db 0
+partition_type:
+	db 0
+
+	align 2
+scanparttab_variables_length_w: equ ($ - scanparttab_variables_start) / 2
+%endif
 
 
 		; INP:	ss:bp -> BPB

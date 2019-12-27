@@ -184,10 +184,13 @@ mbootentry:
 	rep stosd				; clear
 		; lsvFirstCluster = 0 (same as for FreeDOS entrypoint)
 		; bsBPB + bpbHiddenSectors = 0 (invalid or unpartitioned)
+		; bsBPB + bpbCHSSectors = 0
+		; bsBPB + bpbCHSHeads = 0
 
 	inc ax
 	mov dword [bp + lsvDataStart], eax
 		; lsvDataStart = 1 (placeholder)
+__CPU__
 	mov word [bp + bsBPB + bpbNumRootDirEnts], ax
 	mov word [bp + bsBPB + bpbSectorsPerFAT], ax
 			; do not detect as FAT32
@@ -235,5 +238,3 @@ mbootgdtdesc:
 mbootidtdesc:
 	dw 400h-1		; limit
 	dd 0			; address (86M IVT)
-
-__CPU__
