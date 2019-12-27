@@ -1464,6 +1464,15 @@ ms7_entry.continue:
 
 	jmp ms7_entry.continue2_set_extra
 
+
+%assign num 2046-($-$$)
+%warning num bytes in front of end2
+	_fill 2046,38,start
+	dw "MS"			; signature of MS-DOS 7 load
+	align 16, db 38
+end2:
+
+
 		; This handling is in the second header part,
 		;  behind the needed part to finish loading.
 		;  It is only used when the file is completely loaded.
@@ -1680,13 +1689,6 @@ calculate_data_start:
  %include "multboot.asm"
 %endif
 
-
-%assign num 2046-($-$$)
-%warning num bytes in front of end2
-	_fill 2046,38,start
-	dw "MS"			; signature of MS-DOS 7 load
-	align 16, db 38
-end2:
 
 %if _DEBUG3
 		; INP:	word [cs:ip + 1] = two characters to display
