@@ -79,6 +79,9 @@ lsvExtra:		; word
 .flags:		resb 1	; byte
 	endstruc
 
+lsvefNoDataStart	equ 1
+
+
 	struc LBAPACKET
 lpSize:		resw 1
 lpCount:	resw 1
@@ -1234,6 +1237,11 @@ ldos_entry:
 	push ss
 	pop ds
 
+	test byte [bp + lsvExtra.flags], lsvefNoDataStart
+	jz @F
+	call calculate_data_start
+@@:
+
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
 	xor ax, ax
@@ -1542,9 +1550,24 @@ freedos_entry:
 d3	call d3_display_two_characters
 d3	test ax, "F0"
 
-	xor cx, cx			; ! ch = 0
+	xor cx, cx
 	mov word [bp + lsvFirstCluster + 0], cx
 	mov word [bp + lsvFirstCluster + 2], cx
+
+	mov word [bp + lsvExtra], lsvefNoDataStart << 8
+.multiboot_entry:
+	mov ax, cs
+	add ax, (payload.actual_end -$$+0 +15) >> 4
+
+	jmp ms7_entry.continue2
+
+
+		; INP:	ss:bp -> BPB
+		;	ss:bp - LOADSTACKVARS -> lsv
+		; OUT:	lsvDataStart set
+		; CHG:	ax, bx, cx, dx, si, di
+calculate_data_start:
+	xor cx, cx			; ! ch = 0
 
 		; Although this currently is unused, we calculate the
 		;  first data sector (including root directory size)
@@ -1614,12 +1637,7 @@ d3	test ax, "F0"
 	mov [bp + lsvDataStart], cx
 	mov [bp + lsvDataStart + 2], di
 
-	and word [bp + lsvExtra], 0
-.multiboot_entry:
-	mov ax, cs
-	add ax, (payload.actual_end -$$+0 +15) >> 4
-
-	jmp ms7_entry.continue2
+	retn
 
 .error_badchain:
 	jmp error_badchain
