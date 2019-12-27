@@ -200,6 +200,11 @@ mbootentry:
 	mov byte [bp + bsBPB + bpbNew + bpbnBootUnit], dl
 			; set boot load unit
 
+%if _LSVEXTRA
+	xchg dl, dh
+	mov dh, 0
+	mov word [bp + lsvExtra], dx
+%endif
 	jmp freedos_entry.multiboot_entry
 
 
