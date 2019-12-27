@@ -288,7 +288,7 @@ d3	test ax, "00"
 
 	mov es, cx
 	mov ss, cx
-	mov sp, 7C00h + LOADSTACKVARS
+	mov sp, 7C00h + lsvExtra
 	mov bp, 7C00h
 
 	mov word [es:di], si
@@ -682,6 +682,9 @@ ms7_entry:
 .ms6_common:
 	mov ax, cs
 	add ax, (3 * 512) >> 4
+
+.continue2_set_extra:
+	and word [bp + lsvExtra], 0
 .continue2:
 	mov word [bp + lsvLoadSeg], ax
 
@@ -1068,8 +1071,12 @@ ldos_entry:
 		; dwo [ss:bp - 16] = first_cluster (FAT32)
 		;  initialised to 0 by FreeDOS entrypoint
 
-.ms7_common:
+	push ax			; push into lsvExtra if sp -> LSV
+	and word [bp + lsvExtra], 0
+		; byte [ss:bp - 18] = partition number
+		; byte [ss:bp - 17] = flags for initialisation
 
+.ms7_common:
 	mov ax, cs
 	mov cx, word [bp + lsvLoadSeg]
 	sub cx, ax
@@ -1184,11 +1191,13 @@ ldos_entry:
 	inc cx		; => stack + BPB buffer
 	push ss
 	pop ds
-	lea si, [bp + LOADSTACKVARS]	; ds:si -> lsv + BPB
+	lea si, [bp + lsvExtra]
+			; ds:si -> lsv + BPB
 	mov es, cx
-	mov di, _STACKSIZE - LOADDATA + LOADSTACKVARS	; es:di -> where to place lsv
+	mov di, _STACKSIZE - LOADDATA + lsvExtra
+			; es:di -> where to place lsv
 	push cx		; top of memory below buffers
-	mov cx, (- LOADSTACKVARS + 512 + 1) >> 1
+	mov cx, (- lsvExtra + 512 + 1) >> 1
 	rep movsw
 	push ax
 	xor ax, ax
@@ -1406,7 +1415,7 @@ ms7_entry.continue:
 	pop word [es:bx]
 	pop word [es:bx + 2]
 
-	lea bx, [bp + LOADSTACKVARS]
+	lea bx, [bp + lsvExtra]
 	cmp sp, bx
 	jbe @F
 	mov sp, bx
@@ -1422,7 +1431,7 @@ ms7_entry.continue:
 	mov ax, cs
 	add ax, (4 * 512) >> 4
 
-	jmp ms7_entry.continue2
+	jmp ms7_entry.continue2_set_extra
 
 		; This handling is in the second header part,
 		;  behind the needed part to finish loading.
@@ -1524,7 +1533,7 @@ freedos_entry:
 		;	    load unit field set, hidden sectors set
 		;  (usually at 1FE0h:7C00h)
 
-	lea bx, [bp + LOADSTACKVARS]
+	lea bx, [bp + lsvExtra]
 	cmp sp, bx
 	jbe @F
 	mov sp, bx
@@ -1561,7 +1570,8 @@ d3	test ax, "F0"
 
 	push cx				; number of root secs
 ; first sector of root directory
-	mov al, [bp + bsBPB + bpbNumFATs]		; ! ah = 0, hence ax = number of FATs
+	mov al, [bp + bsBPB + bpbNumFATs]
+					; ! ah = 0, hence ax = number of FATs
 	mov cx, word [bp + bsBPB + bpbSectorsPerFAT]
 	xor di, di			; di:cx = sectors per FAT
 					;  iff FAT12, FAT16
@@ -1604,6 +1614,7 @@ d3	test ax, "F0"
 	mov [bp + lsvDataStart], cx
 	mov [bp + lsvDataStart + 2], di
 
+	and word [bp + lsvExtra], 0
 .multiboot_entry:
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
