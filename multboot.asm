@@ -201,7 +201,9 @@ mbootentry:
 			; set boot load unit
 
 %if _LSVEXTRA
-	xchg dl, dh
+	xchg dl, dh	; dl = Multiboot spec partition number
+			; (0..3 primary, 4+ logical, -1 invalid)
+	inc dx		; 0 invalid, 1..4 primary, 5+ logical
 	mov dh, lsvefPartitionNumber
 	mov word [bp + lsvExtra], dx
 %endif
