@@ -15,6 +15,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	; _SCANPTAB_PREFIX = prefix for our variables and functions
 	; _SCANPTAB_DEBUG4_PREFIX = prefix for d4 function calls
 	numdef PARTITION_TABLE_IN_CS, 1
+	numdef BOOTCMD_FAIL_ERROR, 1
 	gendef BASE, ss:bx
 %ifidn _BASE, ss:bx
 %elifidn _BASE, bp
@@ -257,6 +258,8 @@ d4	asciz "In scan_logical.replace",13,10
 
 	jmp .replace_common
 
+
+%if _BOOTCMD_FAIL_ERROR
 .got_partition_cycle:
 	mov dx, msg.boot_partition_cycle_error
 	jmp bootcmd.fail
@@ -264,7 +267,7 @@ d4	asciz "In scan_logical.replace",13,10
 .error_too_many_partitions:
 	mov dx, msg.boot_too_many_partitions_error
 	jmp bootcmd.fail
-
+%endif
 
 
 		; if _PARTITION_TABLE_IN_CS:
@@ -290,7 +293,7 @@ d4	asciz "In scan_logical.replace",13,10
 	call %[_SCANPTAB_PREFIX]read_ae_512_bytes
 	pop bx
 	cmp word [es:510], 0AA55h
-	jne @F
+	jne .signature_fail
 	 push ds
 	 push di
 	 push si
@@ -314,6 +317,9 @@ d4	asciz "In scan_logical.replace",13,10
 	 pop ds
 	retn
 
-@@:
+
+%if _BOOTCMD_FAIL_ERROR
+.signature_fail:
 	mov dx, msg.bootfail_sig_parttable
 	jmp bootcmd.fail
+%endif
