@@ -103,6 +103,7 @@ lpSector:	resq 1
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
+	numdef LSVEXTRA,	0
 
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
@@ -687,7 +688,9 @@ ms7_entry:
 	add ax, (3 * 512) >> 4
 
 .continue2_set_extra:
+%if _LSVEXTRA
 	and word [bp + lsvExtra], 0
+%endif
 .continue2:
 	mov word [bp + lsvLoadSeg], ax
 
@@ -1061,10 +1064,12 @@ ldos_entry:
 		; dwo [ss:bp - 16] = first_cluster (FAT32)
 		;  initialised to 0 by FreeDOS entrypoint
 
+%if _LSVEXTRA
 	push ax			; push into lsvExtra if sp -> LSV
 	and word [bp + lsvExtra], 0
 		; byte [ss:bp - 18] = partition number
 		; byte [ss:bp - 17] = flags for initialisation
+%endif
 
 .ms7_common:
 	mov ax, cs
@@ -1224,10 +1229,12 @@ init_memory:
 	push ss
 	pop ds
 
+%if _LSVEXTRA
 	test byte [bp + lsvExtra.flags], lsvefNoDataStart
 	jz @F
 	call calculate_data_start
 @@:
+%endif
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
@@ -1570,7 +1577,11 @@ d3	test ax, "F0"
 	mov word [bp + lsvFirstCluster + 0], cx
 	mov word [bp + lsvFirstCluster + 2], cx
 
+%if _LSVEXTRA
 	mov word [bp + lsvExtra], lsvefNoDataStart << 8
+%else
+	call calculate_data_start
+%endif
 .multiboot_entry:
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
