@@ -1427,8 +1427,8 @@ load_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.3stack
 
-skipped_all_continue:
 	call read_sector
+skipped_all_continue:
 	mov [bp + ldLoadingSeg], bx
 	pop cx
 	loop load_next_sect
