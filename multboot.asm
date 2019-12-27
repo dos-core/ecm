@@ -202,7 +202,7 @@ mbootentry:
 
 %if _LSVEXTRA
 	xchg dl, dh
-	mov dh, 0
+	mov dh, lsvefPartitionNumber
 	mov word [bp + lsvExtra], dx
 %endif
 	jmp freedos_entry.multiboot_entry

@@ -80,6 +80,7 @@ lsvExtra:		; word
 	endstruc
 
 lsvefNoDataStart	equ 1
+lsvefPartitionNumber	equ 2
 
 
 	struc LBAPACKET
