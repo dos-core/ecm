@@ -662,6 +662,10 @@ error_badchain:
 	call error
 	db "Bad cluster chain.", 0
 
+error_badclusters:
+	call error
+	db "Bad amount of clusters.", 0
+
 
 %assign num 512-($-$$)
 %warning num bytes in front of ms7_entry
@@ -1309,8 +1313,7 @@ init_memory:
 	test bx, bx
 	jz @F
 .badclusters:
-	call error
-	db "Bad amount of clusters.", 0
+	jmp error_badclusters
 
 @@:
 	cmp ax, 0FFF7h - 2
