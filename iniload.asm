@@ -962,7 +962,7 @@ skip_next_sect:
 
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae ..@ae__loaded_all.3stack
+	jae loaded_all.3stack
 
 	mov cx, bx
 	add cx, [bp + ldParaPerSector]
@@ -993,28 +993,15 @@ end_of_chain:
 	jmp error_shortfile
 
 
-load_next_clust:
-	call clust_to_first_sector
-	push cx
-	push bx
-	mov cx, [bp + ldClusterSize]
-load_next_sect:
-	push cx
-
-	mov bx, [bp + ldLoadingSeg]
-	cmp bx, [bp + ldLoadUntilSeg]
-..@ae__loaded_all.3stack:
-	jae loaded_all.3stack
 skipped_all:
 	call read_sector
-	mov [bp + ldLoadingSeg], bx
-	pop cx
-	loop load_next_sect
-	pop bx
-	pop cx
-	call clust_next
-	jnc load_next_clust
-	jmp short end_of_chain
+		; we can depend on the fact that at least
+		;  up to end was already loaded, so this
+		;  (successful) read_sector call loaded
+		;  at least 32 bytes starting at end.
+		; therefore, we can put part of the
+		;  remaining handler into these 32 bytes.
+	jmp skipped_all_continue
 
 
 ms6_continue1:
@@ -1096,7 +1083,7 @@ ldos_entry:
 	mov word [bp + lsvLoadSeg], bx
 @@:
 
-
+init_memory:
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
@@ -1410,11 +1397,40 @@ ldos_entry:
 	jmp error_outofmemory
 
 
+load_next_clust:
+	call clust_to_first_sector
+	push cx
+	push bx
+	mov cx, [bp + ldClusterSize]
+load_next_sect:
+	push cx
+	jmp load_next_sect_continue
+
 %assign num 1024+512-($-$$)
 %warning num bytes in front of end
 	_fill 1024+512,38,start
 	align 16, db 38
 end:
+
+load_next_sect_continue:
+	mov bx, [bp + ldLoadingSeg]
+	cmp bx, [bp + ldLoadUntilSeg]
+	jae loaded_all.3stack
+
+skipped_all_continue:
+	call read_sector
+	mov [bp + ldLoadingSeg], bx
+	pop cx
+	loop load_next_sect
+	pop bx
+	pop cx
+	call clust_next
+	jnc load_next_clust
+	jmp end_of_chain
+
+%if ($ - end) > 32
+ %error load_next part exceeds end+32
+%endif
 
 
 ms7_entry.continue:
