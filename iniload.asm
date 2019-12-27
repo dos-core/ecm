@@ -73,7 +73,10 @@ ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
 ldLoadingSeg:	resw 1
-ldLoadUntilSeg:	resw 1
+ldLoadUntilSeg:		; word
+lsvExtra:		; word
+.partition:	resb 1	; byte
+.flags:		resb 1	; byte
 	endstruc
 
 	struc LBAPACKET
