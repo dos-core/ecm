@@ -127,7 +127,8 @@ ptExtendedLinux:	equ 85h
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
-	numdef LSVEXTRA,	0
+	numdef LSVEXTRA,	1	; use lsvExtra field
+		; (needed if to use partition scanner)
 
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
