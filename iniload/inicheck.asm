@@ -148,7 +148,8 @@ startoffset1 equ checksumheader0 + fromparas(paras(CHECKSUMHEADER_size)) - $$
 	push bx
 	mov ax, cs
 	add ax, paras(startoffset)
-	call checksum_crc16_6_paragraphs_start_ax
+	mov cx, CHECKSUM_SIZE_P - paras(startoffset)
+	call checksum_crc16_6_paragraphs_start_ax_length_cx
 	pop bx
 
 	push cs
@@ -239,21 +240,16 @@ at cshReserved,			dw 0
 %endif
 
 checksum_crc16_6_paragraphs_start_cs:
+checksum_crc16_6_paragraphs_start_cs_length_implied:
 	mov ax, cs
+	mov cx, CHECKSUM_SIZE_P
 
-checksum_crc16_6_paragraphs_start_ax:
+checksum_crc16_6_paragraphs_start_ax_length_cx:
 .:
 	push bp
 	mov bp, ax
-	mov cx, CHECKSUM_SIZE_P
 	mov bx, 1D0Fh
-%if 0
 	jcxz .end			; if empty -->
-%else
- %if CHECKSUM_SIZE_P == 0
-  %error Expected non-zero size
- %endif
-%endif
 
 .loop_segment:
 	mov ds, bp
