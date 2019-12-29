@@ -19,6 +19,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	defaulting
 
 	numdef STANDALONE, 1
+	numdef AMOUNT, 1
 
 
 %if _STANDALONE
@@ -39,11 +40,11 @@ start:
 	push cs
 	pop es
 
-	mov si, checksumheader
+	mov si, checksumheader0
 	mov cx, CHECKSUMHEADER_size / 2
 	xor bx, bx
 @@:
-	cmp si, ..@checksumfield
+	cmp si, ..@checksumfield0
 	 lodsw
 	jne @F
 	 xor ax, ax
@@ -64,11 +65,11 @@ start:
 	mov dx, msg.header_end
 	call disp_message
 
-	mov cx, word [..@checksumfield]
+	mov cx, word [..@checksumfield0]
 	xor ax, ax
 	mov dx, msg.no_test.1
 	mov bl, 02h
-	testopt [..@checksumtype], 8000h
+	testopt [..@checksumtype0], 8000h
 	jnz @F
 
 	call checksum_crc16_6_paragraphs_start_cs
@@ -78,7 +79,7 @@ start:
 	push cs
 	pop es
 
-	mov cx, word [..@checksumfield]
+	mov cx, word [..@checksumfield0]
 	cmp ax, cx
 	mov dx, msg.success.1
 	mov bl, 00h
@@ -98,6 +99,92 @@ start:
 
 	mov dx, msg.3
 	call disp_message
+
+startoffset1 equ checksumheader0 + fromparas(paras(CHECKSUMHEADER_size)) - $$
+%assign ii 1
+%assign startoffset startoffset1
+%rep _AMOUNT - 1
+	push cs
+	pop ds
+	push cs
+	pop es
+
+	push bx
+	mov si, checksumheader %+ %[ii]
+	mov cx, CHECKSUMHEADER_size / 2
+	xor bx, bx
+@@:
+	cmp si, ..@checksumfield %+ %[ii]
+	 lodsw
+	jne @F
+	 xor ax, ax
+@@:
+	add bx, ax
+	loop @BB
+
+	mov dx, msg.header_success
+	test bx, bx
+	jz @F
+	mov dx, msg.header_failure
+@@:
+	call disp_message
+
+	mov ax, bx
+	call disp_ax_hex
+
+	mov dx, msg.header_end
+	call disp_message
+	pop bx
+
+	mov cx, word [..@checksumfield %+ %[ii]]
+	xor ax, ax
+	mov dx, msg.no_test.1
+	testopt [..@checksumtype %+ %[ii]], 8000h
+	jz @F
+	or bl, 2
+	jmp @FF
+@@:
+
+	push bx
+	mov ax, cs
+	add ax, paras(startoffset)
+	call checksum_crc16_6_paragraphs_start_ax
+	pop bx
+
+	push cs
+	pop ds
+	push cs
+	pop es
+
+	mov cx, word [..@checksumfield %+ %[ii]]
+	cmp ax, cx
+	mov dx, msg.success.1
+	je @F
+	mov dx, msg.failure.1
+	or bl, 1
+@@:
+	call disp_message
+
+	call disp_ax_hex
+
+	mov dx, msg.2
+	call disp_message
+
+	mov ax, cx
+	call disp_ax_hex
+
+	mov dx, msg.3plus
+	call disp_message
+
+	mov ax, CHECKSUM_SIZE_P - paras(startoffset)
+	call disp_ax_dec
+
+	mov dx, msg.4
+	call disp_message
+
+%assign ii ii + 1
+%assign startoffset startoffset + fromparas(paras(CHECKSUMHEADER_size))
+%endrep
 
 	mov al, bl
 	mov ah, 4Ch
@@ -119,36 +206,45 @@ msg:
 .3:		db "h length="
 CHECKSUM_SIZE_P equ (end - $$) / 16
 		_autodigits CHECKSUM_SIZE_P
-		asciz " paragraphs",13,10
+.4:		asciz " paragraphs",13,10
+.3plus:		asciz "h length="
 
 
+%assign ii 0
+%assign startoffset 0
+%rep _AMOUNT
 	align 16
-checksumheader:
+checksumheader %+ %[ii]:
 	istruc CHECKSUMHEADER
 at cshSignature,		dw "CS"
 at cshLengthBytesStructure,	dw CHECKSUMHEADER_size
-at cshOffsetStructure,		dw checksumheader - $$ + 0
+at cshOffsetStructure,		dw checksumheader %+ %[ii] - $$ + startoffset
 at cshChecksumStructure,	dw \
 	10000h-(("CS" + CHECKSUMHEADER_size \
-		 + (checksumheader - $$ + 0) \
-		 + 8006h + CHECKSUM_SIZE_P \
+		 + (checksumheader %+ %[ii] - $$ + startoffset) \
+		 + 8006h + CHECKSUM_SIZE_P - paras(startoffset) \
 		 + 0 + 0) & 0FFFFh)
 at cshTypeChecksum
-..@checksumtype:		dw 8006h
-at cshAmountParagraphsData,	dw CHECKSUM_SIZE_P
+..@checksumtype %+ %[ii]:	dw 8006h
+at cshAmountParagraphsData,	dw CHECKSUM_SIZE_P - paras(startoffset)
 at cshChecksumData
-..@checksumfield:		dw 0
+..@checksumfield %+ %[ii]:	dw 0
 at cshReserved,			dw 0
 	iend
-
+%assign ii ii + 1
+%assign startoffset $ - $$
+%endrep
 
 	align 16
 %endif
 
 checksum_crc16_6_paragraphs_start_cs:
+	mov ax, cs
+
+checksum_crc16_6_paragraphs_start_ax:
 .:
 	push bp
-	mov bp, cs
+	mov bp, ax
 	mov cx, CHECKSUM_SIZE_P
 	mov bx, 1D0Fh
 %if 0
@@ -181,7 +277,7 @@ checksum_crc16_6_paragraphs_start_cs:
 	mov ax, cs
 	cmp ax, bp			; cs (first segment) ?
 	jne @F				; no --> (NZ)
-	cmp si, ..@checksumfield	; checksum field ?
+	cmp si, ..@checksumfield0	; checksum field ?
 @@:		; if NZ: lodsw, if ZR: lodsw then xor ax, ax
 	 lodsw				; load word
 	jne @F				; no, use loaded word value -->
