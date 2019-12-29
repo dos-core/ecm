@@ -6,7 +6,7 @@
 #
 # DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
-nasm -I ../../lmacros/ inicheck.asm -o inicheck.big "$@" \
+nasm -I ../../lmacros/ inicheck.asm -o inicheck.big -l inicheck.lst "$@" \
 && nasm -I ../../lmacros/ mzshim.asm -D_FILE="'inicheck.big'" \
  -D_IMAGE_EXE_IP=256 -D_IMAGE_EXE_AUTO_STACK \
  -D_IMAGE_EXE_MIN_CALC=_IMAGE_EXE_AUTO_STACK \
