@@ -86,7 +86,8 @@ void crc16_5_exit(uint16_t * p_crc) {
 
 #define BUFFER_SIZE 8192
 
-unsigned int handle_checksum_header(FILE* ff, uint32_t header_start) {
+unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
+	uint32_t * earliest) {
   uint8_t buffer[BUFFER_SIZE];
   uint16_t size, cs, ww, crc, type;
   uint32_t filesize, jj, header_offset, prefix;
@@ -144,6 +145,8 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start) {
   }
   filesize = (uint32_t)size * 16 + prefix;
 
+  *earliest = prefix;
+
   crc16_5_init(&crc);
 
   for (jj = prefix; jj < filesize; jj += BUFFER_SIZE) {
@@ -184,7 +187,7 @@ int main(int argc, char **argv)
   uint8_t buffer[BUFFER_SIZE];
   const uint8_t signature[SIGNATURE_SIZE] = "CS";
   uint16_t size, cs, ww, type, amount;
-  uint32_t offset, ii, filesize, offsets[AMOUNT_OFFSETS];
+  uint32_t offset, ii, filesize, offsets[AMOUNT_OFFSETS], earliest;
   unsigned int rc;
   struct checksumheader csh;
   if (argc != 2) {
@@ -236,7 +239,13 @@ usage:
 
   for (ii = amount; ii != 0; ii --) {
     offset = offsets[ii - 1];
-    rc = handle_checksum_header(ff, offset);
+    if (ii != amount) {
+      if (earliest < (offset + sizeof(csh)) ) {
+	fprintf(stderr, "Later checksum header checksums part of earlier header\n");
+	return 21;
+      }
+    }
+    rc = handle_checksum_header(ff, offset, &earliest);
     if (rc) {
       if (ii != 1) {
 	fprintf(stderr, "%"PRIu32" remaining checksum header%s skipped\n",
