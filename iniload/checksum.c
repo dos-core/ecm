@@ -219,12 +219,8 @@ usage:
     return 3;
   }
 
-  if (amount > 1) {
-    fprintf(stderr, "Currently only using first checksum header\n");
-  }
-
-  for (ii = 0; ii < 1; ii ++) {
-    offset = offsets[ii];
+  for (ii = amount; ii != 0; ii --) {
+    offset = offsets[ii - 1];
 
     fseek(ff, offset, SEEK_SET);
     ww = fread((uint8_t *)&csh, 1, sizeof(csh), ff);
@@ -240,6 +236,13 @@ usage:
       return 5;
     }
     rc = handle_checksum_header(ff, offset, csh, type);
+    if (rc) {
+      if (ii != 1) {
+	fprintf(stderr, "%"PRIu32" remaining checksum header%s skipped\n",
+		ii - 1, (ii - 1) == 1 ? "" : "s");
+      }
+      return rc;
+    }
   }
-  return rc;
+  return 0;
 }
