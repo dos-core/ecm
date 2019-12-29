@@ -218,10 +218,10 @@ checksumheader %+ %[ii]:
 	istruc CHECKSUMHEADER
 at cshSignature,		dw "CS"
 at cshLengthBytesStructure,	dw CHECKSUMHEADER_size
-at cshOffsetStructure,		dw checksumheader %+ %[ii] - $$ + startoffset
+at cshOffsetStructure,		dw checksumheader %+ %[ii] - $$ - startoffset
 at cshChecksumStructure,	dw \
 	10000h-(("CS" + CHECKSUMHEADER_size \
-		 + (checksumheader %+ %[ii] - $$ + startoffset) \
+		 + (checksumheader %+ %[ii] - $$ - startoffset) \
 		 + 8006h + CHECKSUM_SIZE_P - paras(startoffset) \
 		 + 0 + 0) & 0FFFFh)
 at cshTypeChecksum
