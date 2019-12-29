@@ -239,11 +239,8 @@ at cshReserved,			dw 0
 	align 16
 %endif
 
-checksum_crc16_6_paragraphs_start_cs:
-checksum_crc16_6_paragraphs_start_cs_length_implied:
-	mov ax, cs
-	mov cx, CHECKSUM_SIZE_P
 
+%if _AMOUNT > 1
 checksum_crc16_6_paragraphs_start_ax_length_cx:
 .:
 	push bp
@@ -299,6 +296,7 @@ checksum_crc16_6_paragraphs_start_ax_length_cx:
 	xchg ax, bx
 	pop bp
 	retn
+%endif
 
 
 %if _STANDALONE
