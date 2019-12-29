@@ -86,11 +86,26 @@ void crc16_5_exit(uint16_t * p_crc) {
 
 #define BUFFER_SIZE 8192
 
-unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
-	struct checksumheader csh, uint16_t type) {
+unsigned int handle_checksum_header(FILE* ff, uint32_t header_start) {
   uint8_t buffer[BUFFER_SIZE];
-  uint16_t size, cs, ww, crc;
+  uint16_t size, cs, ww, crc, type;
   uint32_t filesize, jj, header_offset, prefix;
+  struct checksumheader csh;
+
+  fseek(ff, header_start, SEEK_SET);
+  ww = fread((uint8_t *)&csh, 1, sizeof(csh), ff);
+  if (ww != sizeof(csh)) {
+    fprintf(stderr, "Failed to read checksum header\n");
+    return 11;
+  }
+
+  type = getword(&csh.type_checksum) & 0x7FFF;
+  if (type != TYPE_CRC16_6) {
+    fprintf(stderr, "Checksum header has unknown checksum type"
+		" (%04"PRIX16"h)\n",
+		type);
+    return 5;
+  }
 
   header_offset = getword(&csh.offset_structure);
   setword(&csh.type_checksum, type);
@@ -221,21 +236,7 @@ usage:
 
   for (ii = amount; ii != 0; ii --) {
     offset = offsets[ii - 1];
-
-    fseek(ff, offset, SEEK_SET);
-    ww = fread((uint8_t *)&csh, 1, sizeof(csh), ff);
-    if (ww != sizeof(csh)) {
-      fprintf(stderr, "Failed to read checksum header\n");
-      return 11;
-    }
-    type = getword(&csh.type_checksum) & 0x7FFF;
-    if (type != TYPE_CRC16_6) {
-      fprintf(stderr, "Checksum header has unknown checksum type"
-		" (%04"PRIX16"h)\n",
-		type);
-      return 5;
-    }
-    rc = handle_checksum_header(ff, offset, csh, type);
+    rc = handle_checksum_header(ff, offset);
     if (rc) {
       if (ii != 1) {
 	fprintf(stderr, "%"PRIu32" remaining checksum header%s skipped\n",
