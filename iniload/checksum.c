@@ -242,7 +242,8 @@ usage:
     offset = offsets[ii - 1];
     if (ii != amount) {
       if (earliest < (offset + sizeof(csh)) ) {
-	fprintf(stderr, "Later checksum header checksums part of earlier header\n");
+	fprintf(stderr, "Later checksum header (at %04"PRIX32"h) checksums part of earlier header (at %04"PRIX32"h)\n",
+		offsets[ii], offset);
 	return 21;
       }
     }
