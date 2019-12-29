@@ -245,6 +245,7 @@ checksum_crc16_6_paragraphs_start_ax_length_cx:
 .:
 	push bp
 	mov bp, ax
+	mov di, ax
 	mov bx, 1D0Fh
 	jcxz .end			; if empty -->
 
@@ -267,10 +268,9 @@ checksum_crc16_6_paragraphs_start_ax_length_cx:
 @@:
 
 .loop_word:
-	mov ax, cs
-	cmp ax, bp			; cs (first segment) ?
+	cmp di, bp			; cs (first segment) ?
 	jne @F				; no --> (NZ)
-	cmp si, ..@checksumfield0	; checksum field ?
+	cmp si, cshChecksumData		; checksum field ?
 @@:		; if NZ: lodsw, if ZR: lodsw then xor ax, ax
 	 lodsw				; load word
 	jne @F				; no, use loaded word value -->
