@@ -173,8 +173,9 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
     return 10;
   }
 
-  printf("Successfully set checksum, %"PRIu32" bytes, CRC=%04"PRIX16"h\n",
-	filesize - prefix, crc);
+  printf("Success, %"PRIu32" bytes, image start=%04"PRIX32"h,"
+  	" header start=%04"PRIX32"h, CRC=%04"PRIX16"h\n",
+	filesize - prefix, prefix, header_start, crc);
 
   return 0;
 }
