@@ -164,11 +164,13 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
 int main(int argc, char **argv)
 {
 #define SIGNATURE_SIZE 2
+#define AMOUNT_OFFSETS 16
   FILE* ff;
   uint8_t buffer[BUFFER_SIZE];
   const uint8_t signature[SIGNATURE_SIZE] = "CS";
-  uint16_t size, cs, ww, type;
-  uint32_t offset, ii;
+  uint16_t size, cs, ww, type, amount;
+  uint32_t offset, ii, filesize, offsets[AMOUNT_OFFSETS];
+  unsigned int rc;
   struct checksumheader csh;
   if (argc != 2) {
 usage:
@@ -180,13 +182,13 @@ usage:
     fprintf(stderr, "Failed to open file: %s\n", argv[1]);
     return 2;
   }
+  amount = 0;
   offset = 0;
   for (;;) {
     fseek(ff, offset, SEEK_SET);
     size = fread(buffer, 1, BUFFER_SIZE, ff);
     if (size < sizeof(csh)) {
-      fprintf(stderr, "Checksum header not found\n");
-      return 3;
+      break;
     }
     for (ii = 0; ii <= (size - sizeof(csh)); ii += 16) {
       if (!memcmp(buffer + ii, signature, SIGNATURE_SIZE)) {
@@ -201,17 +203,43 @@ usage:
 		ww, cs);
 	  return 4;
 	}
-	type = getword(&csh.type_checksum) & 0x7FFF;
-	if (type != TYPE_CRC16_6) {
-	  fprintf(stderr, "Checksum header has unknown checksum type"
-		" (%04"PRIX16"h)\n",
-		type);
-	  return 5;
+	if (amount == AMOUNT_OFFSETS) {
+	  fprintf(stderr, "Too many checksum headers\n");
+	  return 20;
 	}
-	return handle_checksum_header(ff, offset + ii, csh, type);
+	offsets[amount] = offset + ii;
+	amount ++;
       }
     }
     offset += BUFFER_SIZE;
   }
-  return 0;
+
+  if (!amount) {
+    fprintf(stderr, "Checksum header not found\n");
+    return 3;
+  }
+
+  if (amount > 1) {
+    fprintf(stderr, "Currently only using first checksum header\n");
+  }
+
+  for (ii = 0; ii < 1; ii ++) {
+    offset = offsets[ii];
+
+    fseek(ff, offset, SEEK_SET);
+    ww = fread((uint8_t *)&csh, 1, sizeof(csh), ff);
+    if (ww != sizeof(csh)) {
+      fprintf(stderr, "Failed to read checksum header\n");
+      return 11;
+    }
+    type = getword(&csh.type_checksum) & 0x7FFF;
+    if (type != TYPE_CRC16_6) {
+      fprintf(stderr, "Checksum header has unknown checksum type"
+		" (%04"PRIX16"h)\n",
+		type);
+      return 5;
+    }
+    rc = handle_checksum_header(ff, offset, csh, type);
+  }
+  return rc;
 }
