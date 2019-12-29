@@ -145,7 +145,9 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
   }
   filesize = (uint32_t)size * 16 + prefix;
 
-  *earliest = prefix;
+  if (*earliest > prefix) {
+    *earliest = prefix;
+  }
 
   crc16_5_init(&crc);
 
@@ -238,14 +240,13 @@ usage:
     return 3;
   }
 
+  earliest = UINT32_MAX;
   for (ii = amount; ii != 0; ii --) {
     offset = offsets[ii - 1];
-    if (ii != amount) {
-      if (earliest < (offset + sizeof(csh)) ) {
-	fprintf(stderr, "Later checksum header (at %04"PRIX32"h) checksums part of earlier header (at %04"PRIX32"h)\n",
-		offsets[ii], offset);
-	return 21;
-      }
+    if (earliest < (offset + sizeof(csh)) ) {
+      fprintf(stderr, "Later checksum header checksums part of earlier header (at %04"PRIX32"h)\n",
+		offset);
+      return 21;
     }
     rc = handle_checksum_header(ff, offset, &earliest);
     if (rc) {
