@@ -92,7 +92,7 @@ int main(int argc, char **argv)
   uint8_t buffer[BUFFER_SIZE];
   const uint8_t signature[SIGNATURE_SIZE] = "CS";
   uint16_t size, cs, ww, type, crc;
-  uint32_t offset, ii, filesize, jj, header_offset, prefix;
+  uint32_t offset, ii, header_start, filesize, jj, header_offset, prefix;
   struct checksumheader csh;
   if (argc != 2) {
 usage:
@@ -138,6 +138,7 @@ usage:
   }
 
  foundheader:
+  header_start = offset + ii;
   header_offset = getword(&csh.offset_structure);
   setword(&csh.type_checksum, type);
   setword(&csh.checksum_data, 0);
@@ -148,15 +149,15 @@ usage:
   filesize = ftell(ff);
   size = getword(&csh.amount_paragraphs_data);
 
-  if ( (offset + ii) < header_offset ) {
+  if (header_start < header_offset) {
     fprintf(stderr, "Checksum header has invalid structure offset"
 		" maximum=%04"PRIX16"h"
 		" got=%04"PRIX16"h\n",
-		(uint16_t)(offset + ii), header_offset );
+		(uint16_t)header_start, header_offset );
     return 6;
   }
 
-  prefix = offset + ii - header_offset;
+  prefix = header_start - header_offset;
 
   if ( ((uint32_t)size * 16 + prefix ) > filesize) {
     fprintf(stderr, "Checksum header has too large size\n"
@@ -167,7 +168,7 @@ usage:
     return 7;
   }
 
-  fseek(ff, offset + ii, SEEK_SET);
+  fseek(ff, header_start, SEEK_SET);
   ww = fwrite((uint8_t *)&csh, 1, sizeof(csh), ff);
   if (ww != sizeof(csh)) {
     fprintf(stderr, "Failed to intermediately write checksum header\n");
@@ -194,7 +195,7 @@ usage:
   crc16_5_exit(&crc);
 
   setword(&csh.checksum_data, crc);
-  fseek(ff, offset + ii, SEEK_SET);
+  fseek(ff, header_start, SEEK_SET);
   ww = fwrite((uint8_t *)&csh, 1, sizeof(csh), ff);
   if (ww != sizeof(csh)) {
     fprintf(stderr, "Failed to finally write checksum header\n");
