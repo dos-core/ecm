@@ -240,6 +240,70 @@ at cshReserved,			dw 0
 %endif
 
 
+checksum_crc16_6_paragraphs_start_cs:
+.:
+	push bp
+	mov bp, cs
+	mov cx, CHECKSUM_SIZE_P
+	mov bx, 1D0Fh
+%if 0
+	jcxz .end			; if empty -->
+%else
+ %if CHECKSUM_SIZE_P == 0
+  %error Expected non-zero size
+ %endif
+%endif
+
+.loop_segment:
+	mov ds, bp
+	xor si, si			; ds:si -> next segment to check
+	sub cx, 1000h			; cmp cx, 1000h
+	jae .not_last_segment		; (jnc)
+	add cx, 1000h			; restore cx
+	jz .end				; if it was zero, end -->
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1			; to words
+	push si				; push a zero
+	jmp @F
+
+.not_last_segment:
+	push cx
+	mov cx, 8000h			; 8000h words = 1_0000h bytes = 64 KiB
+@@:
+
+.loop_word:
+	mov ax, cs
+	cmp ax, bp			; cs (first segment) ?
+	jne @F				; no --> (NZ)
+	cmp si, ..@checksumfield	; checksum field ?
+@@:		; if NZ: lodsw, if ZR: lodsw then xor ax, ax
+	 lodsw				; load word
+	jne @F				; no, use loaded word value -->
+	 xor ax, ax			; set to zero instead
+@@:
+	xchg al, ah
+	mov dx, (16 << 8)
+	xor bx, ax
+.loop_bit:
+	shl bx, 1
+	jnc @F
+	xor bx, 1021h
+@@:
+	dec dh
+	jnz .loop_bit
+	loop .loop_word
+
+	pop cx
+	add bp, 1000h			; => next segment
+	jmp .loop_segment
+
+.end:
+	xchg ax, bx
+	pop bp
+	retn
+
+
 %if _AMOUNT > 1
 checksum_crc16_6_paragraphs_start_ax_length_cx:
 .:
