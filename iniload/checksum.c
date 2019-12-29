@@ -84,61 +84,14 @@ void crc16_5_exit(uint16_t * p_crc) {
    (void)p_crc;
 }
 
-int main(int argc, char **argv)
-{
 #define BUFFER_SIZE 8192
-#define SIGNATURE_SIZE 2
-  FILE* ff;
-  uint8_t buffer[BUFFER_SIZE];
-  const uint8_t signature[SIGNATURE_SIZE] = "CS";
-  uint16_t size, cs, ww, type, crc;
-  uint32_t offset, ii, header_start, filesize, jj, header_offset, prefix;
-  struct checksumheader csh;
-  if (argc != 2) {
-usage:
-    fprintf(stderr, "Usage: checksum filename.com\n");
-    return 255;
-  }
-  ff = fopen(argv[1], "r+b");
-  if (!ff) {
-    fprintf(stderr, "Failed to open file: %s\n", argv[1]);
-    return 2;
-  }
-  for (;;) {
-    fseek(ff, offset, SEEK_SET);
-    size = fread(buffer, 1, BUFFER_SIZE, ff);
-    if (size < sizeof(csh)) {
-      fprintf(stderr, "Checksum header not found\n");
-      return 3;
-    }
-    for (ii = 0; ii <= (size - sizeof(csh)); ii += 16) {
-      if (!memcmp(buffer + ii, signature, SIGNATURE_SIZE)) {
-	memcpy((uint8_t *)&csh, buffer + ii, sizeof(csh));
-	if (getword(&csh.length_bytes_structure) != sizeof(csh))
-	  continue;
-	cs = get_checksum_structure(&csh);
-	ww = getword(&csh.checksum_structure);
-	if (ww != cs) {
-	  fprintf(stderr, "Checksum header checksum mismatch,"
-		" is=%04"PRIX16"h want=%04"PRIX16"h\n",
-		ww, cs);
-	  return 4;
-	}
-	type = getword(&csh.type_checksum) & 0x7FFF;
-	if (type != TYPE_CRC16_6) {
-	  fprintf(stderr, "Checksum header has unknown checksum type"
-		" (%04"PRIX16"h)\n",
-		type);
-	  return 5;
-	}
-	goto foundheader;
-      }
-    }
-    offset += BUFFER_SIZE;
-  }
 
- foundheader:
-  header_start = offset + ii;
+unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
+	struct checksumheader csh, uint16_t type) {
+  uint8_t buffer[BUFFER_SIZE];
+  uint16_t size, cs, ww, crc;
+  uint32_t filesize, jj, header_offset, prefix;
+
   header_offset = getword(&csh.offset_structure);
   setword(&csh.type_checksum, type);
   setword(&csh.checksum_data, 0);
@@ -205,5 +158,59 @@ usage:
   printf("Successfully set checksum, %"PRIu32" bytes, CRC=%04"PRIX16"h\n",
 	filesize - prefix, crc);
 
+  return 0;
+}
+
+int main(int argc, char **argv)
+{
+#define SIGNATURE_SIZE 2
+  FILE* ff;
+  uint8_t buffer[BUFFER_SIZE];
+  const uint8_t signature[SIGNATURE_SIZE] = "CS";
+  uint16_t size, cs, ww, type;
+  uint32_t offset, ii;
+  struct checksumheader csh;
+  if (argc != 2) {
+usage:
+    fprintf(stderr, "Usage: checksum filename.com\n");
+    return 255;
+  }
+  ff = fopen(argv[1], "r+b");
+  if (!ff) {
+    fprintf(stderr, "Failed to open file: %s\n", argv[1]);
+    return 2;
+  }
+  for (;;) {
+    fseek(ff, offset, SEEK_SET);
+    size = fread(buffer, 1, BUFFER_SIZE, ff);
+    if (size < sizeof(csh)) {
+      fprintf(stderr, "Checksum header not found\n");
+      return 3;
+    }
+    for (ii = 0; ii <= (size - sizeof(csh)); ii += 16) {
+      if (!memcmp(buffer + ii, signature, SIGNATURE_SIZE)) {
+	memcpy((uint8_t *)&csh, buffer + ii, sizeof(csh));
+	if (getword(&csh.length_bytes_structure) != sizeof(csh))
+	  continue;
+	cs = get_checksum_structure(&csh);
+	ww = getword(&csh.checksum_structure);
+	if (ww != cs) {
+	  fprintf(stderr, "Checksum header checksum mismatch,"
+		" is=%04"PRIX16"h want=%04"PRIX16"h\n",
+		ww, cs);
+	  return 4;
+	}
+	type = getword(&csh.type_checksum) & 0x7FFF;
+	if (type != TYPE_CRC16_6) {
+	  fprintf(stderr, "Checksum header has unknown checksum type"
+		" (%04"PRIX16"h)\n",
+		type);
+	  return 5;
+	}
+	return handle_checksum_header(ff, offset + ii, csh, type);
+      }
+    }
+    offset += BUFFER_SIZE;
+  }
   return 0;
 }
