@@ -19,10 +19,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	defaulting
 
 	numdef STANDALONE, 1
-	numdef AMOUNT, 1
 
 
 %if _STANDALONE
+	numdef AMOUNT, 1
+
+
 	cpu 8086
 	org 0
 start:
@@ -304,6 +306,12 @@ checksum_crc16_6_paragraphs_start_cs:
 	retn
 
 
+%if _STANDALONE
+	align 16
+%assign num $ - .
+%warning Checksumming size = num
+
+
 %if _AMOUNT > 1
 checksum_crc16_6_paragraphs_start_ax_length_cx:
 .:
@@ -361,12 +369,6 @@ checksum_crc16_6_paragraphs_start_ax_length_cx:
 	pop bp
 	retn
 %endif
-
-
-%if _STANDALONE
-	align 16
-%assign num $ - .
-%warning Checksumming size = num
 
 
 		; INP:	ds:dx -> message
