@@ -211,7 +211,7 @@ CHECKSUM_SIZE_P equ (end - $$) / 16
 .3plus:		asciz "h length="
 
 
-%assign ii 0
+%define ii
 %assign startoffset 0
 %rep _AMOUNT
 	align 16
