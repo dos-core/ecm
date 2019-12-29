@@ -100,7 +100,7 @@ start:
 	mov dx, msg.3
 	call disp_message
 
-startoffset1 equ checksumheader0 + fromparas(paras(CHECKSUMHEADER_size)) - $$
+startoffset1 equ checksumheader + fromparas(paras(CHECKSUMHEADER_size)) - $$
 %assign ii 1
 %assign startoffset startoffset1
 %rep _AMOUNT - 1
