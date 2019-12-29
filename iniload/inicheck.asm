@@ -40,11 +40,11 @@ start:
 	push cs
 	pop es
 
-	mov si, checksumheader0
+	mov si, checksumheader
 	mov cx, CHECKSUMHEADER_size / 2
 	xor bx, bx
 @@:
-	cmp si, ..@checksumfield0
+	cmp si, ..@checksumfield
 	 lodsw
 	jne @F
 	 xor ax, ax
@@ -65,11 +65,11 @@ start:
 	mov dx, msg.header_end
 	call disp_message
 
-	mov cx, word [..@checksumfield0]
+	mov cx, word [..@checksumfield]
 	xor ax, ax
 	mov dx, msg.no_test.1
 	mov bl, 02h
-	testopt [..@checksumtype0], 8000h
+	testopt [..@checksumtype], 8000h
 	jnz @F
 
 	call checksum_crc16_6_paragraphs_start_cs
@@ -79,7 +79,7 @@ start:
 	push cs
 	pop es
 
-	mov cx, word [..@checksumfield0]
+	mov cx, word [..@checksumfield]
 	cmp ax, cx
 	mov dx, msg.success.1
 	mov bl, 00h
