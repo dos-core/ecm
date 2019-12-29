@@ -180,6 +180,7 @@ usage:
     fprintf(stderr, "Failed to open file: %s\n", argv[1]);
     return 2;
   }
+  offset = 0;
   for (;;) {
     fseek(ff, offset, SEEK_SET);
     size = fread(buffer, 1, BUFFER_SIZE, ff);
