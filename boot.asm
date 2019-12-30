@@ -833,7 +833,14 @@ found_it:
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [VAR(sectors_per_fat)]
 					; maximum size of this FS's FAT
+%if _LOAD_ADR < ADR_FREE_UNTIL && !_FIX_SECTOR_SIZE
+			; Under these conditions, ax here is
+			;  below ADR_FREE_UNTIL >> 4 so the
+			;  following cwd instruction zeros dx.
+		cwd
+%else
 		xor dx, dx
+%endif
 		mov ax, [VAR(fat_start)]; = first FAT sector
 		mov bx, ADR_FATBUF>>4
 %if _SET_FAT_SEG
