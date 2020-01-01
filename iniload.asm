@@ -680,10 +680,6 @@ error_shortfile:
 	call error
 	db "File is too short.", 0
 
-error_outofmemory:
-	call error
-	db "Out of memory.", 0
-
 error_badchain:
 	call error
 	db "Bad cluster chain.", 0
@@ -691,6 +687,10 @@ error_badchain:
 error_badclusters:
 	call error
 	db "Bad amount of clusters.", 0
+
+error_outofmemory:
+	call error
+	db "Out of memory.", 0
 
 
 %assign num 512-($-$$)
@@ -735,6 +735,29 @@ ms7_entry:
 		;  We use this to store specific handling in that last sector.
 
 	jmp ldos_entry.ms7_common
+
+
+finish_continue:
+	not bx		; ~ (para per sector - 1)
+	and ax, bx	; rounded up,
+		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
+
+	mov bx, cs
+	add ax, bx	; = cs + rounded up length
+	sub ax, word [bp + ldLoadTop]	; = paras to move down
+	jbe short finish_load
+
+	push ax
+	neg ax
+	add ax, bx	; ax = cs - paras to move down
+	jnc short error_outofmemory
+	mov di, relocate_to
+	push ax
+	push di		; dword on stack: relocate_to
+	cmp ax, 60h + 1
+	jb short error_outofmemory
+	dec ax		; one less to allow relocator
+	mov es, ax
 
 
 finish_relocation:
@@ -1417,31 +1440,7 @@ init_memory:
 	mov bx, [bp + ldParaPerSector]
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
-	not bx		; ~ (para per sector - 1)
-	and ax, bx	; rounded up,
-		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
-
-	mov bx, cs
-	add ax, bx	; = cs + rounded up length
-	sub ax, word [bp + ldLoadTop]	; = paras to move down
-	jbe finish_load
-
-	push ax
-	neg ax
-	add ax, bx	; ax = cs - paras to move down
-	jnc .error_outofmemory2
-	mov di, relocate_to
-	push ax
-	push di		; dword on stack: relocate_to
-	cmp ax, 60h + 1
-	jb .error_outofmemory2
-	dec ax		; one less to allow relocator
-	mov es, ax
-
-	jmp finish_relocation
-
-.error_outofmemory2:
-	jmp error_outofmemory
+	jmp finish_continue
 
 
 load_next_clust:
