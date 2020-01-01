@@ -55,6 +55,45 @@ bpbnVolumeLabel:	resb 11	; 07h 20h 2Bh 3Ch 47h
 bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	endstruc		; 1Ah 33h 3Eh 4Fh 5Ah
 
+	struc LOADSTACKVARS, -10h
+lsvFirstCluster:	resd 1
+lsvFATSector:		resd 1
+lsvFATSeg:		resw 1
+lsvLoadSeg:		resw 1
+lsvDataStart:		resd 1
+	endstruc
+
+lsvclSignature		equ "CL"
+lsvclBufferLength	equ 256
+
+	struc LOADDATA, LOADSTACKVARS - 10h
+ldMemoryTop:	resw 1
+ldLoadTop:	resw 1
+ldSectorSeg:	resw 1
+ldFATType:	resb 1
+ldHasLBA:	resb 1
+ldClusterSize:	resw 1
+ldParaPerSector:resw 1
+ldLoadingSeg:		; word
+lsvCommandLine:		; word
+.start:		equ $ - lsvclBufferLength
+.signature:	resw 1
+ldLoadUntilSeg:		; word
+lsvExtra:		; word
+.partition:	resb 1	; byte
+.flags:		resb 1	; byte
+	endstruc
+
+lsvefNoDataStart	equ 1
+lsvefPartitionNumber	equ 2
+
+	struc LOADCMDLINE, LOADDATA - lsvclBufferLength - 2
+ldCommandLine:
+.start:		resb lsvclBufferLength
+.signature:	resw 1
+	endstruc
+
+
 %ifndef _MAP
 %elifempty _MAP
 %else	; defined non-empty, str or non-str
@@ -150,7 +189,9 @@ msg:
 
 .psp_and_size_before:	asciz "PSP at "
 .psp_and_size_between:	asciz "h, size of memory block is "
-.psp_and_size_after:	asciz "h paragraphs."
+.psp_and_size_after:	asciz "h paragraphs.",13,10
+.cmdline_before:	asciz "Kernel command line = ",'"'
+.cmdline_after:		asciz '"',13,10
 
 	align 4
 .foundname:
@@ -345,7 +386,7 @@ listnames:
 	call disp_msg
 
 	test byte [cs:loadmode], 1
-	jz @F
+	jz .skip_psp_dos
 
 	mov si, msg.psp_and_size_before
 	call disp_msg
@@ -360,6 +401,23 @@ listnames:
 	mov ax, word [es:3]
 	call disp_ax_hex
 	mov si, msg.psp_and_size_after
+	call disp_msg
+
+	jmp @F
+
+.skip_psp_dos:
+
+	mov si, msg.cmdline_before
+	call disp_msg
+
+	push ss
+	pop ds
+	lea si, [bp + ldCommandLine]
+	call disp_msg
+
+	push cs
+	pop ds
+	mov si, msg.cmdline_after
 	call disp_msg
 
 @@:
