@@ -746,8 +746,10 @@ finish_relocation:
 	mov ds, bx	; ds => unrelocated cs
 	inc ax		; ax => where to relocate to
 	mov si, relocator	; ds:si -> relocator
-	mov cx, 8
-	rep movsw	; move 16 bytes
+relocator_size equ relocator.end - relocator
+%rep (relocator_size + 1) / 2
+	movsw		; place relocator
+%endrep
 	mov es, ax
 	xor di, di	; -> where to relocate to
 	xor si, si	; ds:si = cs:0
@@ -893,6 +895,7 @@ error_badchain_j:
 relocator:
 	rep movsw
 	retf		; jump to relocated relocate_to
+.end:
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
