@@ -769,13 +769,6 @@ finish_relocation:
 
 
 		; ds => first chunk of to be relocated data
-		; es => first chunk of relocation destination
-		; cx = number of words in first chunk
-relocator:
-	rep movsw
-	retf		; jump to relocated relocate_to
-
-		; ds => first chunk of to be relocated data
 		; es => first chunk of relocated data
 		; bx = 1000h (64 KiB >> 4)
 		; ax = number of paragraphs after first chunk (in next chunk)
@@ -892,6 +885,14 @@ skipped_all:
 
 error_badchain_j:
 	jmp error_badchain
+
+
+		; ds => first chunk of to be relocated data
+		; es => first chunk of relocation destination
+		; cx = number of words in first chunk
+relocator:
+	rep movsw
+	retf		; jump to relocated relocate_to
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
