@@ -836,7 +836,7 @@ finish_load:
 	mov di, [bp + lsvFATSector]
 	mov si, [bp + lsvFATSector + 2]
 	call check_clust
-	jc error_badchain
+	jc short error_badchain_j
 
 skip_next_clust:
 	call clust_to_first_sector
@@ -872,7 +872,7 @@ end_of_chain:
 	inc ax
 	test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 			;  clear in 0, 1, and 0FFF_FFF7h
-	jz error_badchain
+	jz short error_badchain_j
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all
@@ -890,6 +890,10 @@ skipped_all:
 	jmp skipped_all_continue
 
 
+error_badchain_j:
+	jmp error_badchain
+
+
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
 		; OUT:	cx:bx = input dx:ax
 		;	dx:ax = first sector of that cluster
@@ -904,16 +908,16 @@ clust_to_first_sector:
 	 pop ax
 	mul word [bp + ldClusterSize]
 	test dx, dx
-	jnz error_badchain
+	jnz short error_badchain_j
 	xchg dx, ax
 	add dx, cx
 .cy_error_badchain:
-	jc error_badchain
+	jc short error_badchain_j
 	xchg ax, bx
 
 	add ax, [bp + lsvDataStart]
 	adc dx, [bp + lsvDataStart + 2]
-	jc .cy_error_badchain
+	jc short .cy_error_badchain
 				; dx:ax = first sector in cluster
 	pop bx
 	pop cx			; cx:bx = cluster
