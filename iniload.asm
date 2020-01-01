@@ -1139,6 +1139,7 @@ ldos_entry:
 	sub cx, ax
 	cmp cx, (end -$$+0) >> 4
 	jae @F
+error_notfullyloaded:
 	call error
 	db "Initial loader not fully loaded.", 0
 @@:
@@ -1326,6 +1327,13 @@ init_memory:
 %if _LSVEXTRA
 	test byte [bp + lsvExtra.flags], -1
 	jz @F
+
+	mov cx, cs
+	mov ax, word [bp + lsvLoadSeg]
+	sub ax, cx
+	cmp ax, (end_of_handle_lsv_extra_flags + 15 -$$+0) >> 4
+	jb error_notfullyloaded
+
 	call handle_lsv_extra_flags
 @@:
 %endif
@@ -2175,6 +2183,9 @@ calculate_data_start:
 
 .error_badchain:
 	jmp error_badchain
+
+
+end_of_handle_lsv_extra_flags:
 
 
 %if _CHECKSUM
