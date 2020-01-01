@@ -737,153 +737,6 @@ ms7_entry:
 	jmp ldos_entry.ms7_common
 
 
-		; INP:	dx:ax = cluster - 2 (0-based cluster)
-		; OUT:	cx:bx = input dx:ax
-		;	dx:ax = first sector of that cluster
-		; CHG:	-
-clust_to_first_sector:
-	push dx
-	push ax
-	 push dx
-	mul word [bp + ldClusterSize]
-	xchg bx, ax
-	xchg cx, dx
-	 pop ax
-	mul word [bp + ldClusterSize]
-	test dx, dx
-	jnz error_badchain
-	xchg dx, ax
-	add dx, cx
-.cy_error_badchain:
-	jc error_badchain
-	xchg ax, bx
-
-	add ax, [bp + lsvDataStart]
-	adc dx, [bp + lsvDataStart + 2]
-	jc .cy_error_badchain
-				; dx:ax = first sector in cluster
-	pop bx
-	pop cx			; cx:bx = cluster
-	retn
-
-
-		; INP:	cx:bx = cluster (0-based)
-		;	si:di = loaded FAT sector, -1 if none
-		; OUT:	CY if no next cluster
-		;	NC if next cluster found,
-		;	 dx:ax = next cluster value (0-based)
-		;	si:di = loaded FAT sector
-		; CHG:	cx, bx
-clust_next:
-	mov ax, bx
-	mov dx, cx
-	add ax, 2
-	adc dx, 0
-
-	push es
-	cmp byte [bp + ldFATType], 16
-	je .fat16
-	ja .fat32
-
-.fat12:
-; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
-;  so multiply cluster number by 3 first, then divide by 2.
-					; ax = cluster number (up to 12 bits set)
-		mov dx, ax
-		shl ax, 1		; = 2n (up to 13 bits set)
-		add ax, dx		; = 2n+n = 3n (up to 14 bits set)
-		shr ax, 1		; ax = byte offset into FAT (0..6129)
-					; CF = whether to use high 12 bits
-		sbb cx, cx		; = -1 iff CY, else 0
-
-; Use the calculated byte offset as an offset into the FAT
-;  buffer, which holds all of the FAT's relevant data.
-		mov es, [bp + lsvFATSeg]
-		xchg bx, ax		; bx -> 16-bit word in FAT to load
-
-; get 16 bits from FAT
-		mov ax, [es:bx]
-
-		and cl, 4	; = 4 iff CY after shift, else 0
-		shr ax, cl	; shift down iff odd entry, else unchanged
-		and ax, 0FFFh	; insure it's only 12 bits
-	jmp short .gotvalue_zero_dx
-
-.fat32:
-		; * 4 = byte offset into FAT (0--4000_0000h)
-	add ax, ax
-	adc dx, dx
-.fat16:
-		; * 2 = byte offset into FAT (0--2_0000h)
-	add ax, ax
-	adc dx, dx
-
-	 push ax
-	xchg ax, dx
-	xor dx, dx		; dx:ax = high word
-	div word [bp + bsBPB + bpbBytesPerSector]
-	xchg bx, ax		; bx = high word / divisor
-	 pop ax			; dx = remainder, ax = low word
-	div word [bp + bsBPB + bpbBytesPerSector]
-	xchg dx, bx		; dx:ax = result, bx = remainder
-				; dx:ax = sector offset into FAT (0--200_0000h)
-				; bx = byte offset into FAT sector (0--8190)
-	cmp dx, si
-	jne @F		; read sector
-	cmp ax, di
-	je @FF		; sector is already buffered
-@@:
-	mov si, dx
-	mov di, ax
-	mov word [bp + lsvFATSector + 2], dx
-	mov word [bp + lsvFATSector + 0], ax
-
-	push bx
-	add ax, [bp + bsBPB + bpbReservedSectors]
-	adc dx, 0
-	mov bx, [bp + lsvFATSeg]
-	call read_sector
-	pop bx
-@@:
-	mov es, [bp + lsvFATSeg]
-	mov dx, [es:bx + 2]
-	mov ax, [es:bx]		; dx:ax = FAT32 entry
-
-	cmp byte [bp + ldFATType], 16	; is it FAT32 ?
-	jne @F			; yes -->
-.gotvalue_zero_dx:
-	xor dx, dx		; no, clear high word
-@@:
-	pop es
-
-		; INP:	dx:ax = cluster value, 2-based
-		; OUT:	dx:ax -= 2 (makes it 0-based)
-		;	CY iff invalid cluster
-check_clust:
-	and dh, 0Fh
-	sub ax, 2
-	sbb dx, 0
-
-	cmp byte [bp + ldFATType], 16
-	ja .fat32
-	je .fat16
-
-.fat12:
-	cmp ax, 0FF7h - 2
-	jmp short .common
-
-.fat32:
-	cmp dx, 0FFFh
-	jb @F		; CY here means valid ...-
-
-.fat16:
-	cmp ax, 0FFF7h - 2
-@@:			;  -... or if NC first, CY here also
-.common:
-	cmc		; NC if valid
-	retn
-
-
 finish_relocation:
 	xor di, di	; es:di -> where to put relocator
 
@@ -1035,6 +888,153 @@ skipped_all:
 		; therefore, we can put part of the
 		;  remaining handler into these 32 bytes.
 	jmp skipped_all_continue
+
+
+		; INP:	dx:ax = cluster - 2 (0-based cluster)
+		; OUT:	cx:bx = input dx:ax
+		;	dx:ax = first sector of that cluster
+		; CHG:	-
+clust_to_first_sector:
+	push dx
+	push ax
+	 push dx
+	mul word [bp + ldClusterSize]
+	xchg bx, ax
+	xchg cx, dx
+	 pop ax
+	mul word [bp + ldClusterSize]
+	test dx, dx
+	jnz error_badchain
+	xchg dx, ax
+	add dx, cx
+.cy_error_badchain:
+	jc error_badchain
+	xchg ax, bx
+
+	add ax, [bp + lsvDataStart]
+	adc dx, [bp + lsvDataStart + 2]
+	jc .cy_error_badchain
+				; dx:ax = first sector in cluster
+	pop bx
+	pop cx			; cx:bx = cluster
+	retn
+
+
+		; INP:	cx:bx = cluster (0-based)
+		;	si:di = loaded FAT sector, -1 if none
+		; OUT:	CY if no next cluster
+		;	NC if next cluster found,
+		;	 dx:ax = next cluster value (0-based)
+		;	si:di = loaded FAT sector
+		; CHG:	cx, bx
+clust_next:
+	mov ax, bx
+	mov dx, cx
+	add ax, 2
+	adc dx, 0
+
+	push es
+	cmp byte [bp + ldFATType], 16
+	je .fat16
+	ja .fat32
+
+.fat12:
+; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
+;  so multiply cluster number by 3 first, then divide by 2.
+					; ax = cluster number (up to 12 bits set)
+		mov dx, ax
+		shl ax, 1		; = 2n (up to 13 bits set)
+		add ax, dx		; = 2n+n = 3n (up to 14 bits set)
+		shr ax, 1		; ax = byte offset into FAT (0..6129)
+					; CF = whether to use high 12 bits
+		sbb cx, cx		; = -1 iff CY, else 0
+
+; Use the calculated byte offset as an offset into the FAT
+;  buffer, which holds all of the FAT's relevant data.
+		mov es, [bp + lsvFATSeg]
+		xchg bx, ax		; bx -> 16-bit word in FAT to load
+
+; get 16 bits from FAT
+		mov ax, [es:bx]
+
+		and cl, 4	; = 4 iff CY after shift, else 0
+		shr ax, cl	; shift down iff odd entry, else unchanged
+		and ax, 0FFFh	; insure it's only 12 bits
+	jmp short .gotvalue_zero_dx
+
+.fat32:
+		; * 4 = byte offset into FAT (0--4000_0000h)
+	add ax, ax
+	adc dx, dx
+.fat16:
+		; * 2 = byte offset into FAT (0--2_0000h)
+	add ax, ax
+	adc dx, dx
+
+	 push ax
+	xchg ax, dx
+	xor dx, dx		; dx:ax = high word
+	div word [bp + bsBPB + bpbBytesPerSector]
+	xchg bx, ax		; bx = high word / divisor
+	 pop ax			; dx = remainder, ax = low word
+	div word [bp + bsBPB + bpbBytesPerSector]
+	xchg dx, bx		; dx:ax = result, bx = remainder
+				; dx:ax = sector offset into FAT (0--200_0000h)
+				; bx = byte offset into FAT sector (0--8190)
+	cmp dx, si
+	jne @F		; read sector
+	cmp ax, di
+	je @FF		; sector is already buffered
+@@:
+	mov si, dx
+	mov di, ax
+	mov word [bp + lsvFATSector + 2], dx
+	mov word [bp + lsvFATSector + 0], ax
+
+	push bx
+	add ax, [bp + bsBPB + bpbReservedSectors]
+	adc dx, 0
+	mov bx, [bp + lsvFATSeg]
+	call read_sector
+	pop bx
+@@:
+	mov es, [bp + lsvFATSeg]
+	mov dx, [es:bx + 2]
+	mov ax, [es:bx]		; dx:ax = FAT32 entry
+
+	cmp byte [bp + ldFATType], 16	; is it FAT32 ?
+	jne @F			; yes -->
+.gotvalue_zero_dx:
+	xor dx, dx		; no, clear high word
+@@:
+	pop es
+
+		; INP:	dx:ax = cluster value, 2-based
+		; OUT:	dx:ax -= 2 (makes it 0-based)
+		;	CY iff invalid cluster
+check_clust:
+	and dh, 0Fh
+	sub ax, 2
+	sbb dx, 0
+
+	cmp byte [bp + ldFATType], 16
+	ja .fat32
+	je .fat16
+
+.fat12:
+	cmp ax, 0FF7h - 2
+	jmp short .common
+
+.fat32:
+	cmp dx, 0FFFh
+	jb @F		; CY here means valid ...-
+
+.fat16:
+	cmp ax, 0FFF7h - 2
+@@:			;  -... or if NC first, CY here also
+.common:
+	cmc		; NC if valid
+	retn
 
 
 ms6_continue1:
