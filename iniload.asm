@@ -66,6 +66,9 @@ lsvLoadSeg:		resw 1
 lsvDataStart:		resd 1
 	endstruc
 
+lsvclSignature		equ "CL"
+lsvclBufferLength	equ 256
+
 	struc LOADDATA, LOADSTACKVARS - 10h
 ldMemoryTop:	resw 1
 ldLoadTop:	resw 1
@@ -74,7 +77,10 @@ ldFATType:	resb 1
 ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
-ldLoadingSeg:	resw 1
+ldLoadingSeg:		; word
+lsvCommandLine:		; word
+.start:		equ $ - lsvclBufferLength
+.signature:	resw 1
 ldLoadUntilSeg:		; word
 lsvExtra:		; word
 .partition:	resb 1	; byte
@@ -84,6 +90,11 @@ lsvExtra:		; word
 lsvefNoDataStart	equ 1
 lsvefPartitionNumber	equ 2
 
+	struc LOADCMDLINE, LOADDATA - lsvclBufferLength - 2
+ldCommandLine:
+.start:		resb lsvclBufferLength
+.signature:	resw 1
+	endstruc
 
 	struc LBAPACKET
 lpSize:		resw 1
@@ -317,7 +328,7 @@ d3	test ax, "00"
 
 	mov es, cx
 	mov ss, cx
-	mov sp, 7C00h + lsvExtra
+	mov sp, 7C00h + lsvCommandLine
 	mov bp, 7C00h
 
 	mov word [es:di], si
@@ -717,10 +728,11 @@ ms7_entry:
 	mov ax, cs
 	add ax, (3 * 512) >> 4
 
-.continue2_set_extra:
+.continue2_set_extra_and_empty_cmdline:
 %if _LSVEXTRA
 	and word [bp + lsvExtra], 0
 %endif
+	and word [bp + lsvCommandLine], 0
 .continue2:
 	mov word [bp + lsvLoadSeg], ax
 
@@ -1125,13 +1137,25 @@ ldos_entry:
 		; wo [ss:bp - 16] = first_cluster (FAT16, FAT12)
 		; dwo [ss:bp - 16] = first_cluster (FAT32)
 		;  initialised to 0 by FreeDOS entrypoint
+		;
+		; Extension 1:
+		; lsvExtra (word [ss:bp - 18]) may be set,
+		;  not sure about interface yet. allows
+		;  to not initialise data start, or to specify
+		;  a partition number instead of offset
+		;
+		; Extension 2:
+		; word [ss:bp - 20] = signature "CL" if valid
+		; 256bytes [ss:bp - 20 - 256] = ASCIZ command line string
 
-%if _LSVEXTRA
+	xor ax, ax
 	push ax			; push into lsvExtra if sp -> LSV
-	and word [bp + lsvExtra], 0
+%if _LSVEXTRA
+	mov word [bp + lsvExtra], ax
 		; byte [ss:bp - 18] = partition number
 		; byte [ss:bp - 17] = flags for initialisation
 %endif
+	push ax			; push into lsvCommandLine if sp -> LSV
 
 .ms7_common:
 	mov ax, cs
@@ -1207,9 +1231,9 @@ init_memory:
 		; bx = FAT seg
 		; cx = the lower of the two
 .gotsegs:
-	sub cx, (+_STACKSIZE -LOADDATA + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
+	sub cx, (+_STACKSIZE -LOADCMDLINE + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
 			; +_STACKSIZE = stack space
-			; -LOADDATA = load data + lsv space
+			; -LOADCMDLINE = load cmd line + data + lsv space
 			; 512 = boot sector (allows finding filename)
 			; (ebpbNew - bpbNew) = additional space for BPBN moving
 			; 32 = leave space for lower buffer MCB + header
@@ -1249,14 +1273,20 @@ init_memory:
 	inc cx		; => stack + BPB buffer
 	push ss
 	pop ds
+	lea si, [bp + lsvCommandLine.start]
+	mov es, cx
+	mov di, _STACKSIZE - LOADCMDLINE + ldCommandLine.start
+			; -> cmd line target
+	push cx		; top of memory below buffers
+	mov cx, (LOADCMDLINE_size + 1) >> 1
+	rep movsw	; copy cmd line
+
 	lea si, [bp + lsvExtra]
 			; ds:si -> lsv + BPB
-	mov es, cx
-	mov di, _STACKSIZE - LOADDATA + lsvExtra
+	mov di, _STACKSIZE - LOADCMDLINE + lsvExtra
 			; es:di -> where to place lsv
-	push cx		; top of memory below buffers
 	mov cx, (- lsvExtra + 512 + 1) >> 1
-	rep movsw
+	rep movsw	; copy lsv (including lsvExtra) and BPB
 	push ax
 	xor ax, ax
 	mov cx, ((ebpbNew - bpbNew + 15) & ~15) >> 1
@@ -1264,8 +1294,10 @@ init_memory:
 	pop ax
 	pop cx
 	mov ss, cx
-	mov sp, _STACKSIZE	; -> above end of stack space
-	mov bp, _STACKSIZE - LOADDATA	; -> BPB, above end of lsv
+	mov sp, _STACKSIZE
+			; -> above end of stack space
+	mov bp, _STACKSIZE - LOADCMDLINE
+			; -> BPB, above end of lsv
 	dec cx		; => space for stack + BPB buffer MCB
 	sti
 
@@ -1494,7 +1526,7 @@ ms7_entry.continue:
 	pop word [es:bx]
 	pop word [es:bx + 2]
 
-	lea bx, [bp + lsvExtra]
+	lea bx, [bp + lsvCommandLine]
 	cmp sp, bx
 	jbe @F
 	mov sp, bx
@@ -1510,7 +1542,7 @@ ms7_entry.continue:
 	mov ax, cs
 	add ax, (4 * 512) >> 4
 
-	jmp ms7_entry.continue2_set_extra
+	jmp ms7_entry.continue2_set_extra_and_empty_cmdline
 
 
 %assign num 2046-($-$$)
@@ -1579,6 +1611,17 @@ loaded_all:
 @@:
 %endif
 
+	push ss
+	pop es
+	lea di, [bp + ldCommandLine.start]
+	mov cx, lsvclBufferLength
+	xor ax, ax
+	cmp word [bp + ldCommandLine.signature], lsvclSignature
+	jne @F
+	repne scasb
+@@:
+	rep stosb
+
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
 	push ax
@@ -1591,6 +1634,7 @@ loaded_all:
 		; cs:ip = xxxxh:_EXEC_OFFSET
 		; entire payload loaded (payload -- payload.actual_end)
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
+		; LOADCMDLINE set (zeroed if invalid signature)
 	retf
 
 
@@ -1621,7 +1665,7 @@ freedos_entry:
 		;	    load unit field set, hidden sectors set
 		;  (usually at 1FE0h:7C00h)
 
-	lea bx, [bp + lsvExtra]
+	lea bx, [bp + lsvCommandLine]
 	cmp sp, bx
 	jbe @F
 	mov sp, bx
@@ -1634,6 +1678,7 @@ d3	test ax, "F0"
 	mov word [bp + lsvFirstCluster + 0], cx
 	mov word [bp + lsvFirstCluster + 2], cx
 
+	mov word [bp + lsvCommandLine], cx
 %if _LSVEXTRA
 	mov word [bp + lsvExtra], lsvefNoDataStart << 8
 %else

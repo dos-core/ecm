@@ -18,7 +18,13 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	dd -(%2+%1)	; checksum: dword sum of these three = 0
 %endmacro
 
-MBOOTBASE equ (1024+64)*1024		; one paragraph above the HMA
+MULTIBOOT_BASE equ (1024+64)*1024		; one paragraph above the HMA
+MULTIBOOT_TARGET_SEGMENT equ 200h
+MULTIBOOT_TARGET equ MULTIBOOT_TARGET_SEGMENT << 4
+MULTIBOOT_BPB equ MULTIBOOT_TARGET - 512 - 16
+MULTIBOOT_CMDLINE_START equ MULTIBOOT_BPB + lsvCommandLine.start
+MULTIBOOT_CMDLINE_LENGTH equ lsvclBufferLength
+MULTIBOOT_STACK_TOP equ MULTIBOOT_CMDLINE_START
 
 		; Multiboot header
 		; must be dword aligned and in first 8 KiB!
@@ -26,12 +32,12 @@ MBOOTBASE equ (1024+64)*1024		; one paragraph above the HMA
 mbootheader:
 	mbootchecksummed 00010000h
 			; flags: provides info where to load image
-	dd MBOOTBASE + mbootheader	; load address of header
-	dd MBOOTBASE			; load address
-	dd MBOOTBASE + (payload.actual_end - $$ + 0)
+	dd MULTIBOOT_BASE + mbootheader	; load address of header
+	dd MULTIBOOT_BASE		; load address
+	dd MULTIBOOT_BASE + (payload.actual_end - $$ + 0)
 					; load area end (0 = load whole file)
 	dd 0				; uninitialised area end (0 = none)
-	dd MBOOTBASE + mbootentry	; entry point
+	dd MULTIBOOT_BASE + mbootentry	; entry point
 
 %unmacro mbootchecksummed 1-2.nolist 1BADB002h
 
@@ -69,8 +75,8 @@ mbootentry.halt:
 		; INP:	eax = 2BADB002h
 		;	ebx-> multiboot info structure
 		; STT:	loaded and executed according to Multiboot header, ie
-		;	 loaded at MBOOTBASE
-		;	 eip = MBOOTBASE+mbootentry
+		;	 loaded at MULTIBOOT_BASE
+		;	 eip = MULTIBOOT_BASE+mbootentry
 		;	in PM32 with paging disabled
 		;	CPL 0
 		;	cs,ds,es,fs,gs,ss = flat 32-bit code/data selectors
@@ -101,7 +107,7 @@ mbootentry:
 	and al, 3			; CPL 0 ?
 	jnz short .halt			; no -->
  %endif
-	mov esp, 2000h			; set a valid stack, at 8 KiB
+	mov esp, MULTIBOOT_STACK_TOP	; set a valid stack, at 8 KiB
 					;  (also required by 86M entry later)
 
 		; prepare this and that
@@ -117,10 +123,21 @@ mbootentry:
 					;  (edxh = subpartition numbers)
 @@:
 
+	xor eax, eax
+	mov edi, MULTIBOOT_CMDLINE_START
+	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
+	test byte [ ebx + mbiFlags ], 4	; command line valid ?
+	jz @F
+	mov esi, [ ebx + mbiCmdLine ]
+	rep movsd
+	mov byte [ edi - 1 ], 0		; insure it is terminated
+					; (this may truncate the line)
+@@:
+	rep stosd
+
 		; A20 is on. set up some things
 	xor ecx, ecx
 	mov edi, 1024*1024
-	xor eax, eax
 	mov cl, 10h			; (ecx = 10h)
 	rep stosd			; clear this area so A20 tests succeed
 ; The above writes to 10_0000h..10_003Fh, leaving edi = 10_0040h
@@ -130,13 +147,13 @@ mbootentry:
 ; The above writes to 10_00C0h..10_00C4h
 
 		; relocate image to a good location, 2000h
-	mov esi, MBOOTBASE		; -> iniload image
-	mov edi, esp
+	mov esi, MULTIBOOT_BASE		; -> iniload image
+	mov edi, MULTIBOOT_TARGET
 	mov ecx, (payload.actual_end - $$ + 0 + 3) / 4
 	rep movsd
 
 		; now back to real mode
-	o32 lgdt [ MBOOTBASE+mbootgdtdesc ]
+	o32 lgdt [ MULTIBOOT_BASE+mbootgdtdesc ]
 					; set our GDT
 	mov ax, 10h
 	mov ds, ax
@@ -156,7 +173,7 @@ mbootentry:
 	dec ax
 	mov cr0, eax				; clear PE bit
 
-	jmp dword 200h:.rm			; reload cs
+	jmp dword MULTIBOOT_TARGET_SEGMENT:.rm	; reload cs
 
 		; Set up registers and the environment for
 		; the kernel entry point. It doesn't need initialised
@@ -174,14 +191,15 @@ mbootentry:
 	; (cs should be = 200h now, need no far jump)
 		; cs = 200h, ip = mboot_86m_entry
 		; ds = es = fs = gs = ss = 0
-		; sp = 2000h
+		; sp = 2000h - 512 - 16 + lsvCommandLine.start
 		; dl = boot unit (or -1)
 		; dh = boot partition (0..3 = primary, 4+ = logical, or -1)
 
-	mov bp, 2000h - 512 - 16		; -> pseudo BPB
-	lea sp, [bp + LOADSTACKVARS]		; -> lsv
-	mov di, sp
-	mov cx, (-LOADSTACKVARS + 512 + 3) / 4
+	mov bp, MULTIBOOT_BPB			; -> pseudo BPB
+	mov di, MULTIBOOT_BPB + lsvCommandLine.signature
+	mov ax, lsvclSignature
+	stosw					; store signature
+	mov cx, (- (lsvCommandLine.signature + 2) + 512 + 3) / 4
 	xor eax, eax
 	rep stosd				; clear
 		; lsvFirstCluster = 0 (same as for FreeDOS entrypoint)
@@ -214,7 +232,7 @@ __CPU__
 			; (0..3 primary, 4+ logical, -1 invalid)
 	inc dx		; 0 invalid, 1..4 primary, 5+ logical
 	mov dh, lsvefPartitionNumber
-	push dx		; push into word [bp + lsvExtra]
+	mov word [bp + lsvExtra], dx
 %endif
 	jmp freedos_entry.multiboot_entry
 
@@ -266,7 +284,7 @@ mbootgdt:
 		; selector 8: 16-bit real mode CS
 		; base = 00002000h, limit 0FFFFh (1 B Granularity), present
 		; type = 16-bit code execute/read only/conforming, DPL = 0
-	dw 0FFFFh,2000h
+	dw 0FFFFh,MULTIBOOT_TARGET
 	db 0,9Eh,0,0
 
 		; selector 10h: 16-bit real mode DS
@@ -278,7 +296,7 @@ mbootgdt:
 
 mbootgdtdesc:
 	dw mbootgdt_size-1	; limit
-	dd MBOOTBASE+mbootgdt	; address
+	dd MULTIBOOT_BASE+mbootgdt	; address
 
 mbootidtdesc:
 	dw 400h-1		; limit
