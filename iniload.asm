@@ -845,7 +845,7 @@ finish_load:
 	mov bx, word [bp + lsvLoadSeg]
 	mov word [bp + ldLoadingSeg], bx
 	cmp bx, ax
-	jae loaded_all		; (for FreeDOS entrypoint) already loaded -->
+	jae short loaded_all_if_ae	; (for FreeDOS entrypoint) already loaded -->
 
 	mov word [bp + ldLoadingSeg], cs
 
@@ -893,6 +893,7 @@ end_of_chain:
 	jz short error_badchain_j
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
+loaded_all_if_ae:
 	jae loaded_all
 	jmp error_shortfile
 
