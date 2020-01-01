@@ -87,10 +87,9 @@ lsvExtra:		; word
 lsvefNoDataStart	equ 1
 lsvefPartitionNumber	equ 2
 
-	struc LOADCMDLINE, LOADDATA - lsvclBufferLength - 2
+	struc LOADCMDLINE, LOADDATA - lsvclBufferLength
 ldCommandLine:
 .start:		resb lsvclBufferLength
-.signature:	resw 1
 	endstruc
 
 

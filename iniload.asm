@@ -90,10 +90,9 @@ lsvExtra:		; word
 lsvefNoDataStart	equ 1
 lsvefPartitionNumber	equ 2
 
-	struc LOADCMDLINE, LOADDATA - lsvclBufferLength - 2
+	struc LOADCMDLINE, LOADDATA - lsvclBufferLength
 ldCommandLine:
 .start:		resb lsvclBufferLength
-.signature:	resw 1
 	endstruc
 
 	struc LBAPACKET
@@ -1280,6 +1279,13 @@ init_memory:
 	push cx		; top of memory below buffers
 	mov cx, (LOADCMDLINE_size + 1) >> 1
 	rep movsw	; copy cmd line
+%if lsvCommandLine.start + fromwords(words(LOADCMDLINE_size)) != lsvCommandLine.signature
+ %error Unexpected structure layout
+%endif
+	cmp word [si], lsvclSignature
+	je @F
+	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], 0
+@@:
 
 	lea si, [bp + lsvExtra]
 			; ds:si -> lsv + BPB
@@ -1616,10 +1622,7 @@ loaded_all:
 	lea di, [bp + ldCommandLine.start]
 	mov cx, lsvclBufferLength
 	xor ax, ax
-	cmp word [bp + ldCommandLine.signature], lsvclSignature
-	jne @F
 	repne scasb
-@@:
 	rep stosb
 
 	mov ax, cs
