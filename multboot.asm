@@ -19,12 +19,16 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 			; checksum: dword sum of these three = 0
 %endmacro
 
-MULTIBOOT_BASE equ (1024+64)*1024		; one paragraph above the HMA
+MULTIBOOT_CMDLINE_LENGTH equ lsvclBufferLength
+
+MULTIBOOT_BASE equ (1024+64)*1024	; one paragraph above the HMA
+MULTIBOOT_END equ MULTIBOOT_BASE + (payload.actual_end - $$ + 0)
+MULTIBOOT_BSS_END equ MULTIBOOT_END \
+		+ fromdwords(dwords(MULTIBOOT_CMDLINE_LENGTH))
 MULTIBOOT_TARGET_SEGMENT equ 200h
 MULTIBOOT_TARGET equ MULTIBOOT_TARGET_SEGMENT << 4
 MULTIBOOT_BPB equ MULTIBOOT_TARGET - 512 - 16
 MULTIBOOT_CMDLINE_START equ MULTIBOOT_BPB + lsvCommandLine.start
-MULTIBOOT_CMDLINE_LENGTH equ lsvclBufferLength
 MULTIBOOT_STACK_TOP equ MULTIBOOT_CMDLINE_START
 
 		; Multiboot header
@@ -35,9 +39,8 @@ mbootheader:
 			; flags: provides info where to load image
 	dd MULTIBOOT_BASE + mbootheader	; load address of header
 	dd MULTIBOOT_BASE		; load address
-	dd MULTIBOOT_BASE + (payload.actual_end - $$ + 0)
-					; load area end (0 = load whole file)
-	dd 0				; uninitialised area end (0 = none)
+	dd MULTIBOOT_END		; load area end (0 = load whole file)
+	dd MULTIBOOT_BSS_END		; uninitialised area end (0 = none)
 	dd MULTIBOOT_BASE + mbootentry	; entry point
 
 %unmacro mbootchecksummed 1-2.nolist 1BADB002h
@@ -108,8 +111,6 @@ mbootentry:
 	and al, 3			; CPL 0 ?
 	jnz short .halt			; no -->
  %endif
-	mov esp, MULTIBOOT_STACK_TOP	; set a valid stack, at 8 KiB
-					;  (also required by 86M entry later)
 
 		; prepare this and that
 	or edx, -1
@@ -125,7 +126,7 @@ mbootentry:
 @@:
 
 	xor eax, eax
-	mov edi, MULTIBOOT_CMDLINE_START
+	mov edi, MULTIBOOT_END
 	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
 	test byte [ ebx + mbiFlags ], 4	; command line valid ?
 	jz @F
@@ -135,6 +136,9 @@ mbootentry:
 					; (this may truncate the line)
 @@:
 	rep stosd
+
+	mov esp, MULTIBOOT_STACK_TOP	; set a valid stack, at 8 KiB
+					;  (also required by 86M entry later)
 
 		; A20 is on. set up some things
 	xor ecx, ecx
@@ -151,6 +155,14 @@ mbootentry:
 	mov esi, MULTIBOOT_BASE		; -> iniload image
 	mov edi, MULTIBOOT_TARGET
 	mov ecx, (payload.actual_end - $$ + 0 + 3) / 4
+	rep movsd
+
+%if MULTIBOOT_BASE + (payload.actual_end - $$ + 0 + 3) / 4 * 4 \
+	!= MULTIBOOT_END
+	mov esi, MULTIBOOT_END
+%endif
+	mov edi, MULTIBOOT_CMDLINE_START
+	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
 	rep movsd
 
 		; now back to real mode
