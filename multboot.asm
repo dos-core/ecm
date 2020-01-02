@@ -15,7 +15,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %macro mbootchecksummed 1-2.nolist 1BADB002h
 	dd %2		; signature
 	dd %1		; flags
-	dd -(%2+%1)	; checksum: dword sum of these three = 0
+	dd -((%2+%1) & 0FFFF_FFFFh)
+			; checksum: dword sum of these three = 0
 %endmacro
 
 MULTIBOOT_BASE equ (1024+64)*1024		; one paragraph above the HMA
