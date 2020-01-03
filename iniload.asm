@@ -1102,14 +1102,14 @@ checksumheader:
         istruc CHECKSUMHEADER
 at cshSignature,                dw "CS"
 at cshLengthBytesStructure,     dw CHECKSUMHEADER_size
-at cshOffsetStructure,          dw checksumheader - $$ + 0
+at cshOffsetStructure,          dw paras(checksumheader - $$ + 0)
 at cshChecksumStructure,        dw \
         10000h-(("CS" + CHECKSUMHEADER_size \
-                 + (checksumheader - $$ + 0) \
-                 + 8006h + CHECKSUM_SIZE_P \
+                 + paras(checksumheader - $$ + 0) \
+                 + 8106h + CHECKSUM_SIZE_P \
                  + 0 + 0) & 0FFFFh)
 at cshTypeChecksum
-..@checksumtype:                dw 8006h
+..@checksumtype:                dw 8106h
 at cshAmountParagraphsData,     dw CHECKSUM_SIZE_P
 at cshChecksumData
 ..@checksumfield:               dw 0
