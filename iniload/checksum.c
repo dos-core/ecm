@@ -55,6 +55,7 @@ uint16_t get_checksum_structure(const struct checksumheader * csh) {
 }
 
 #define TYPE_CRC16_6 6
+#define TYPE_CRC16_6_PARAGRAPH_OFFSET 0x106
 
 void crc16_5_init(uint16_t * p_crc) {
    *p_crc = 0x1D0F;
@@ -101,7 +102,8 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
   }
 
   type = getword(&csh.type_checksum) & 0x7FFF;
-  if (type != TYPE_CRC16_6) {
+  if (type != TYPE_CRC16_6
+	&& type != TYPE_CRC16_6_PARAGRAPH_OFFSET) {
     fprintf(stderr, "Checksum header has unknown checksum type"
 		" (%04"PRIX16"h)\n",
 		type);
@@ -109,6 +111,9 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
   }
 
   header_offset = getword(&csh.offset_structure);
+  if (type == TYPE_CRC16_6_PARAGRAPH_OFFSET) {
+    header_offset *= 16;
+  }
   setword(&csh.type_checksum, type);
   setword(&csh.checksum_data, 0);
   cs = get_checksum_structure(&csh);
@@ -120,9 +125,9 @@ unsigned int handle_checksum_header(FILE* ff, uint32_t header_start,
 
   if (header_start < header_offset) {
     fprintf(stderr, "Checksum header has invalid structure offset"
-		" maximum=%04"PRIX16"h"
-		" got=%04"PRIX16"h\n",
-		(uint16_t)header_start, header_offset );
+		" maximum=%04"PRIX32"h"
+		" got=%04"PRIX32"h\n",
+		header_start, header_offset );
     return 6;
   }
 
