@@ -338,13 +338,13 @@ mboot2entry:
 	inc ebp
  %endif
 
-	mov eax, dword [bp + 8]
+	mov eax, dword [ebx + 8]
 	cmp eax, 100h
 	jae @F
 	mov dl, al	; get ROM-BIOS unit
 @@:
 
-	mov eax, dword [bp + 12]
+	mov eax, dword [ebx + 12]
 	cmp eax, 100h
 	jae @F
 	mov dh, al	; get partition number (0 = first primary)
