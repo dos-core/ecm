@@ -75,7 +75,8 @@ mboot2_tag_addresses:
 .type:	dw 2
 .flags:	dw 0
 .size:	dd .end - .
-	dd MULTIBOOT_BASE + mbootheader	; load address of header
+	dd MULTIBOOT_BASE + mboot2_header
+					; load address of header
 	dd MULTIBOOT_BASE		; load address
 	dd MULTIBOOT_END		; load area end (0 = load whole file)
 	dd MULTIBOOT_BSS_END		; uninitialised area end (0 = none)
