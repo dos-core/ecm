@@ -19,6 +19,16 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 			; checksum: dword sum of these three = 0
 %endmacro
 
+%macro mboot2checksummed 0-1.nolist 0E852_50D6h
+	dd %1		; signature
+	dd 0		; platform (i386)
+	dd mboot2_header_end - mboot2_header
+			; size of header, including header tags
+	dd -((%1 + (mboot2_header_end - mboot2_header))) & 0FFFF_FFFFh
+			; checksum
+%endmacro
+
+
 MULTIBOOT_CMDLINE_LENGTH equ lsvclBufferLength
 
 MULTIBOOT_BASE equ (1024+64)*1024	; one paragraph above the HMA
@@ -31,6 +41,7 @@ MULTIBOOT_BPB equ MULTIBOOT_TARGET - 512 - 16
 MULTIBOOT_CMDLINE_START equ MULTIBOOT_BPB + lsvCommandLine.start
 MULTIBOOT_STACK_TOP equ MULTIBOOT_CMDLINE_START
 
+%if _MULTIBOOT1
 		; Multiboot header
 		; must be dword aligned and in first 8 KiB!
 	align 4, db 0
@@ -42,8 +53,54 @@ mbootheader:
 	dd MULTIBOOT_END		; load area end (0 = load whole file)
 	dd MULTIBOOT_BSS_END		; uninitialised area end (0 = none)
 	dd MULTIBOOT_BASE + mbootentry	; entry point
+%endif
+
+%if _MULTIBOOT2
+		; Multiboot2 header
+		; qword (64-bit) aligned and in first 32 KiB
+	align 8, db 0
+mboot2_header:
+	mboot2checksummed
+mboot2_tag_information_request:
+.:
+.type:	dw 1
+.flags:	dw 0
+.size:	dd .end - .
+	dd 1		; command line
+	dd 5		; ROM-BIOS boot device
+.end:
+	align 8, db 0
+mboot2_tag_addresses:
+.:
+.type:	dw 2
+.flags:	dw 0
+.size:	dd .end - .
+	dd MULTIBOOT_BASE + mbootheader	; load address of header
+	dd MULTIBOOT_BASE		; load address
+	dd MULTIBOOT_END		; load area end (0 = load whole file)
+	dd MULTIBOOT_BSS_END		; uninitialised area end (0 = none)
+.end:
+	align 8, db 0
+mboot2_tag_entrypoint:
+.:
+.type:	dw 3
+.flags:	dw 0
+.size:	dd .end - .
+	dd MULTIBOOT_BASE + mboot2entry	; entry point
+.end:
+	align 8, db 0
+mboot2_tag_end:
+.:
+.type:	dw 0
+.flags:	dw 0
+.size:	dd .end - .
+.end:
+mboot2_header_end:
+%endif
+
 
 %unmacro mbootchecksummed 1-2.nolist 1BADB002h
+%unmacro mboot2checksummed 0-1.nolist 0E85250D6h
 
 %if ($-$$) > 8192
  %fatal Multiboot header must be in the first 8 KiB
@@ -64,10 +121,13 @@ mbiModuleTable:	resd 1
 
 	numdef MULTIBOOT_CHECKS, 1
 	numdef MULTIBOOT_DEBUG, 0
+	numdef MULTIBOOT_HALT, 0
+	numdef MULTIBOOT_PROGRESS, 0
 
 
- %if _MULTIBOOT_CHECKS
+ %if _MULTIBOOT_CHECKS || _MULTIBOOT_HALT
 mbootentry.halt:
+mboot2entry.halt:
 		; Unfortunately, as the environment is unknown, we can only
 		;  literally halt here, as we don't know how to do I/O.
 	cli
@@ -76,6 +136,7 @@ mbootentry.halt:
 	jmp short @B
  %endif
 
+%if _MULTIBOOT1
 		; INP:	eax = 2BADB002h
 		;	ebx-> multiboot info structure
 		; STT:	loaded and executed according to Multiboot header, ie
@@ -95,6 +156,9 @@ mbootentry.halt:
 		;	 also doesn't tell us whether and if so then
 		;	 how we can switch A20.
 mbootentry:
+ %if _MULTIBOOT_HALT
+	jmp .halt
+ %endif
  %if _MULTIBOOT_CHECKS
 [bits 16]
 	test ax, 0			; (test eax if in 32-bit segment)
@@ -112,6 +176,13 @@ mbootentry:
 	jnz short .halt			; no -->
  %endif
 
+ %if _MULTIBOOT_PROGRESS
+	mov ebp, 0B8000h + 2 * 80 * 20
+	mov word [ebp], 5000h | '1'
+	inc ebp
+	inc ebp
+ %endif
+
 		; prepare this and that
 	or edx, -1
 		; locate boot drive in Multiboot info structure
@@ -125,6 +196,12 @@ mbootentry:
 					;  (edxh = subpartition numbers)
 @@:
 
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | '2'
+	inc ebp
+	inc ebp
+ %endif
+
 	xor eax, eax
 	mov edi, MULTIBOOT_END
 	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
@@ -137,8 +214,162 @@ mbootentry:
 @@:
 	rep stosd
 
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | '3'
+	inc ebp
+	inc ebp
+ %endif
+
+ %if _MULTIBOOT2
+	jmp multiboot_1_2_common
+ %endif
+%endif
+
+%if _MULTIBOOT2
+		; INP:	eax = 36D7_6289h
+		;	ebx-> multiboot2 info structure
+		; STT:	loaded and executed according to Multiboot2 header, ie
+		;	 loaded at MULTIBOOT_BASE
+		;	 eip = MULTIBOOT_BASE+mboot2entry
+		;	in PM32 with paging disabled
+		;	CPL 0
+		;	cs,ds,es,fs,gs,ss = flat 32-bit code/data selectors
+		;	DI
+		;	! stack not set up
+		;	! GDT might not be set up
+		;	! IDT might not be set up
+		;	A20 on
+		;
+		; Note:	Although A20 is on, HMA access without an XMM
+		;	 to manage it might be undesirable. Multiboot
+		;	 also doesn't tell us whether and if so then
+		;	 how we can switch A20.
+mboot2entry:
+ %if _MULTIBOOT_HALT
+	jmp .halt
+ %endif
+ %if _MULTIBOOT_CHECKS
+[bits 16]
+	test ax, 0			; (test eax if in 32-bit segment)
+	jmp short .halt			; (skipped if in 32-bit segment)
+[bits 32]
+	cmp eax, 36D7_6289h		; signature ?
+	jne .halt			; no -->
+	smsw eax
+	rol eax, 1			; 2 = protection, 1 = paging
+	and al, 3			; mask off others
+	cmp al, 2			; PE but not PG ?
+	jne .halt			; no -->
+	mov eax, cs
+	and al, 3			; CPL 0 ?
+	jnz .halt			; no -->
+ %endif
+
+ %if _MULTIBOOT_PROGRESS
+	mov ebp, 0B8000h + 2 * 80 * 20
+	mov word [ebp], 5000h | 'A'
+	inc ebp
+	inc ebp
+ %endif
+
+	or edx, -1	; initialise boot partition info
+
+	xor eax, eax
+	mov edi, MULTIBOOT_END
+	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
+	rep stosd	; initialise command line buffer
+
+	add ebx, 8	; skip fixed header (size, reserved)
+.tags_loop:
+
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'B'
+	inc ebp
+	inc ebp
+ %endif
+
+	mov eax, dword [ebx]
+	test eax, eax	; end of tags ?
+	jz .tags_end	; yes -->
+
+	cmp eax, 1
+	je .cmdline
+
+	cmp eax, 5
+	je .partition
+
+.tags_next:
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'C'
+	inc ebp
+	inc ebp
+ %endif
+
+	add ebx, dword [ebx + 4]
+			; -> after end of tag
+			;  (at padding or next tag)
+	add ebx, 7
+	and ebx, ~7	; skip any padding
+	jmp .tags_loop
+
+.cmdline:
+
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'D'
+	inc ebp
+	inc ebp
+ %endif
+
+	lea esi, [ebx + 8]
+	mov edi, MULTIBOOT_END
+	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
+	rep movsd	; copy command line
+	mov byte [ edi - 1 ], 0
+			; insure it is terminated
+			;  (this may truncate the line)
+	jmp .tags_next
+
+.partition:
+
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'E'
+	inc ebp
+	inc ebp
+ %endif
+
+	mov eax, dword [bp + 8]
+	cmp eax, 100h
+	jae @F
+	mov dl, al	; get ROM-BIOS unit
+@@:
+
+	mov eax, dword [bp + 12]
+	cmp eax, 100h
+	jae @F
+	mov dh, al	; get partition number (0 = first primary)
+@@:
+	jmp .tags_next
+
+.tags_end:
+	xor eax, eax
+
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'F'
+	inc ebp
+	inc ebp
+ %endif
+
+%endif
+
+multiboot_1_2_common:
 	mov esp, MULTIBOOT_STACK_TOP	; set a valid stack, at 8 KiB
 					;  (also required by 86M entry later)
+
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 's'
+	inc ebp
+	inc ebp
+ %endif
 
 		; A20 is on. set up some things
 	xor ecx, ecx
@@ -151,19 +382,37 @@ mbootentry:
 	mov [ edi-40h+eax+1 ], eax	; write jump for CP/M entry hack here
 ; The above writes to 10_00C0h..10_00C4h
 
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 't'
+	inc ebp
+	inc ebp
+ %endif
+
 		; relocate image to a good location, 2000h
 	mov esi, MULTIBOOT_BASE		; -> iniload image
 	mov edi, MULTIBOOT_TARGET
 	mov ecx, (payload.actual_end - $$ + 0 + 3) / 4
 	rep movsd
 
-%if MULTIBOOT_BASE + (payload.actual_end - $$ + 0 + 3) / 4 * 4 \
-	!= MULTIBOOT_END
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'u'
+	inc ebp
+	inc ebp
+ %endif
+
+MULTIBOOT_ESI_AFTER equ MULTIBOOT_BASE + (payload.actual_end - $$ + 0 + 3) / 4 * 4
+%if MULTIBOOT_ESI_AFTER != MULTIBOOT_END
 	mov esi, MULTIBOOT_END
 %endif
 	mov edi, MULTIBOOT_CMDLINE_START
 	mov ecx, MULTIBOOT_CMDLINE_LENGTH / 4
 	rep movsd
+
+ %if _MULTIBOOT_PROGRESS
+	mov word [ebp], 5000h | 'v'
+	inc ebp
+	inc ebp
+ %endif
 
 		; now back to real mode
 	o32 lgdt [ MULTIBOOT_BASE+mbootgdtdesc ]

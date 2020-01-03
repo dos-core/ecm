@@ -137,6 +137,9 @@ ptExtendedLinux:	equ 85h
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
+	numdef MULTIBOOT2,	0	; use Multiboot2 specification loader
+		; Note:	Fails with current grub2 due to unknown reason.
+		;	 So keep it disabled for now.
 	numdef LSVEXTRA,	1	; use lsvExtra field
 		; (needed if to use partition scanner)
 
@@ -2242,7 +2245,7 @@ end_of_handle_lsv_extra_flags:
 	resetdef
 %endif
 
-%if _MULTIBOOT1
+%if _MULTIBOOT1 || _MULTIBOOT2
  %include "multboot.asm"
 %endif
 
