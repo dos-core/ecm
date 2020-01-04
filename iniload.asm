@@ -1288,13 +1288,17 @@ init_memory:
 	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], 0
 @@:
 
-	lea si, [bp + lsvExtra]
+	push ax
+%if lsvCommandLine.signature + 2 != lsvExtra
+ %error Unexpected structure layout
+%endif
+	lodsw
+	; lea si, [bp + lsvExtra]
 			; ds:si -> lsv + BPB
 	mov di, _STACKSIZE - LOADCMDLINE + lsvExtra
 			; es:di -> where to place lsv
 	mov cx, (- lsvExtra + 512 + 1) >> 1
 	rep movsw	; copy lsv (including lsvExtra) and BPB
-	push ax
 	xor ax, ax
 	mov cx, ((ebpbNew - bpbNew + 15) & ~15) >> 1
 	rep stosw	; initialise area behind sector (left so for FAT32)
