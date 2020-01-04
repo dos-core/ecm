@@ -1413,10 +1413,9 @@ init_memory:
 
 	; dx:ax = total sectors
 
-	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
+	cmp word [bp + bsBPB + bpbSectorsPerFAT], 0
 	mov byte [bp + ldFATType], 32
-	test bx, bx
-	jz .got_fat_type
+	je .got_fat_type
 
 	; dx:ax = total amount of sectors
 	sub ax, word [bp + lsvDataStart]
