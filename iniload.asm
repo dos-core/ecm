@@ -1212,8 +1212,9 @@ init_memory:
 	and dx, 0F000h	; 64 KiB chunk of first paragraph of higher buffer
 	and bx, 0F000h	; 64 KiB chunk of last paragraph of higher buffer
 	cmp bx, dx	; in same chunk?
+	mov bx, ax
 	je .gotsectorseg	; yes, use higher buffer as sector buffer ->
-	mov bx, ax	; use higher buffer as FAT buffer
+			; bx = use higher buffer as FAT buffer
 	inc bx		; => 8 KiB buffer (no 16-byte trailer)
 	sub ax, (8192 + 32) >> 4
 			; 32 = leave space for higher buffer MCB + header
@@ -1223,7 +1224,6 @@ init_memory:
 
 .gotsectorseg:
 			; ax = use higher buffer as sector buffer
-	mov bx, ax
 	sub bx, (8192 + 32) >> 4	; use lower buffer as FAT buffer
 			; 32 = leave space for higher buffer MCB + header
 	mov cx, bx
