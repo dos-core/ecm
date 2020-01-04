@@ -1498,7 +1498,6 @@ init_memory:
 load_next_clust:
 	call clust_to_first_sector
 	push cx
-	push bx
 	mov cx, [bp + ldClusterSize]
 	jmp load_next_clust_continue
 
@@ -1509,6 +1508,7 @@ load_next_clust:
 end:
 
 load_next_clust_continue:
+	push bx
 load_next_sect:
 	push cx
 	mov bx, [bp + ldLoadingSeg]
