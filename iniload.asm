@@ -1494,15 +1494,20 @@ init_memory:
 	jmp finish_continue
 
 
+%assign num 1024+512-4-($-$$)
+%warning num bytes in front of end
+	_fill 1024+512-4,38,start
+		; -4 is for the following two instructions.
+		;  they want execution to fall through to
+		;  load_next_clust_continue. placing them
+		;  at the very end of the 3 sectors allows
+		;  not to use a jump here.
+
 load_next_clust:
 	call clust_to_first_sector
 	push cx
-	jmp load_next_clust_continue
-
-%assign num 1024+512-($-$$)
-%warning num bytes in front of end
-	_fill 1024+512,38,start
-	align 16, db 38
+	align 16, nop
+	_fill 1024+512,90h,start	; check that we are at 3 sectors end
 end:
 
 load_next_clust_continue:
