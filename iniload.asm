@@ -1497,7 +1497,6 @@ init_memory:
 load_next_clust:
 	call clust_to_first_sector
 	push cx
-	mov cx, [bp + ldClusterSize]
 	jmp load_next_clust_continue
 
 %assign num 1024+512-($-$$)
@@ -1508,11 +1507,12 @@ end:
 
 load_next_clust_continue:
 	push bx
+	mov cx, [bp + ldClusterSize]
 load_next_sect:
 	push cx
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.3stack
+	jae loaded_all.3stack_j
 
 	call read_sector
 skipped_all_continue:
@@ -1528,6 +1528,12 @@ skipped_all_continue:
 %if ($ - end) > 32
  %error load_next part exceeds end+32
 %endif
+
+		; if we jump to here, then the whole file has
+		;  been loaded, so this jump doesn't have to
+		;  stay in the 32 bytes after the end label.
+loaded_all.3stack_j:
+	jmp loaded_all.3stack_j
 
 
 ms7_entry.continue:
