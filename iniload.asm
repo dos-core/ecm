@@ -1538,7 +1538,7 @@ skipped_all_continue:
 		;  been loaded, so this jump doesn't have to
 		;  stay in the 32 bytes after the end label.
 loaded_all.3stack_j:
-	jmp loaded_all.3stack_j
+	jmp loaded_all.3stack
 
 
 ms7_entry.continue:
