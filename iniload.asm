@@ -200,6 +200,13 @@ ptExtendedLinux:	equ 85h
 	numdef SECOND_PAYLOAD_EXE_MAX, -1
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
 
+
+	strdef INILOAD_CFG, ""
+%ifnidn _INILOAD_CFG, ""
+ %include _INILOAD_CFG
+%endif
+
+
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
 %endif
