@@ -27,7 +27,7 @@ Public domain by C. Masloch, 2012
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
-	numdef LOAD_ADR,	00700h	; where to load
+	numdef LOAD_ADR,	02000h	; where to load
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
@@ -143,7 +143,7 @@ Public domain by C. Masloch, 2012
 %if _COMPAT_LDOS
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"
-	numdef LOAD_ADR,	00700h
+	numdef LOAD_ADR,	02000h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
 	numdef CHECKOFFSET,	1020
