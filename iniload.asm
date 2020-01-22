@@ -165,21 +165,6 @@ ptExtendedLinux:	equ 85h
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	strdef INILOAD_SIGNATURE,	"XX"
-%push
-%define %$string _INILOAD_SIGNATURE
-%strlen %$length %$string
-%if %$length != 2
- %error Invalid signature
-%endif
-%substr %$letter %$string 1
-%if %$letter <= 32 || %$letter >= 127
- %error Invalid signature
-%endif
-%substr %$letter %$string 2
-%if %$letter <= 32 || %$letter >= 127
- %error Invalid signature
-%endif
-%pop
 
 	numdef IMAGE_EXE,	0
 	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
@@ -218,6 +203,22 @@ ptExtendedLinux:	equ 85h
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
 %endif
+
+%push
+%define %$string _INILOAD_SIGNATURE
+%strlen %$length %$string
+%if %$length != 2
+ %error Invalid signature
+%endif
+%substr %$letter %$string 1
+%if %$letter <= 32 || %$letter >= 127
+ %error Invalid signature
+%endif
+%substr %$letter %$string 2
+%if %$letter <= 32 || %$letter >= 127
+ %error Invalid signature
+%endif
+%pop
 
 
 	cpu 8086
