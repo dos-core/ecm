@@ -164,6 +164,22 @@ ptExtendedLinux:	equ 85h
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
+	strdef INILOAD_SIGNATURE,	"XX"
+%push
+%define %$string _INILOAD_SIGNATURE
+%strlen %$length %$string
+%if %$length != 2
+ %error Invalid signature
+%endif
+%substr %$letter %$string 1
+%if %$letter <= 32 || %$letter >= 127
+ %error Invalid signature
+%endif
+%substr %$letter %$string 2
+%if %$letter <= 32 || %$letter >= 127
+ %error Invalid signature
+%endif
+%pop
 
 	numdef IMAGE_EXE,	0
 	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
@@ -1094,9 +1110,21 @@ ms6_continue1:
 	jmp ms7_entry.ms6_common
 
 
-%assign num 1024-($-$$)
+%assign num 1020-($-$$)
 %warning num bytes in front of ldos_entry
-	_fill 1024,38,start
+	_fill 1020,38,start
+	dw "lD"		; always this signature (word [1020] == 446Ch)
+	dw _INILOAD_SIGNATURE
+			; two printable non-blank ASCII characters
+			; (ie both bytes in the range 21h..7Eh)
+			;  Rx = RxDOS kernel
+			;  FD = FreeDOS kernel
+			;  TP = TestPL
+			;  (lD)eb = lDebug
+			;  (lD)Db = lDDebug
+%if ($ - $$) != 1024
+ %error Invalid signature
+%endif
 ldos_entry:
 	cli
 	cld
