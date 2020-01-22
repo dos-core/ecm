@@ -1094,30 +1094,6 @@ ms6_continue1:
 	jmp ms7_entry.ms6_common
 
 
-%if _CHECKSUM
-CHECKSUM_SIZE_P equ (payload.actual_end - $$ + 0) / 16
-
-        align 16
-checksumheader:
-        istruc CHECKSUMHEADER
-at cshSignature,                dw "CS"
-at cshLengthBytesStructure,     dw CHECKSUMHEADER_size
-at cshOffsetStructure,          dw paras(checksumheader - $$ + 0)
-at cshChecksumStructure,        dw \
-        10000h-(("CS" + CHECKSUMHEADER_size \
-                 + paras(checksumheader - $$ + 0) \
-                 + 8106h + CHECKSUM_SIZE_P \
-                 + 0 + 0) & 0FFFFh)
-at cshTypeChecksum
-..@checksumtype:                dw 8106h
-at cshAmountParagraphsData,     dw CHECKSUM_SIZE_P
-at cshChecksumData
-..@checksumfield:               dw 0
-at cshReserved,                 dw 0
-        iend
-%endif
-
-
 %assign num 1024-($-$$)
 %warning num bytes in front of ldos_entry
 	_fill 1024,38,start
@@ -2255,6 +2231,27 @@ end_of_handle_lsv_extra_flags:
 	overridedef STANDALONE, 0
  %include "inicheck.asm"
 	resetdef
+
+CHECKSUM_SIZE_P equ (payload.actual_end - $$ + 0) / 16
+
+        align 16
+checksumheader:
+        istruc CHECKSUMHEADER
+at cshSignature,                dw "CS"
+at cshLengthBytesStructure,     dw CHECKSUMHEADER_size
+at cshOffsetStructure,          dw paras(checksumheader - $$ + 0)
+at cshChecksumStructure,        dw \
+        10000h-(("CS" + CHECKSUMHEADER_size \
+                 + paras(checksumheader - $$ + 0) \
+                 + 8106h + CHECKSUM_SIZE_P \
+                 + 0 + 0) & 0FFFFh)
+at cshTypeChecksum
+..@checksumtype:                dw 8106h
+at cshAmountParagraphsData,     dw CHECKSUM_SIZE_P
+at cshChecksumData
+..@checksumfield:               dw 0
+at cshReserved,                 dw 0
+        iend
 %endif
 
 %if _MULTIBOOT1 || _MULTIBOOT2
