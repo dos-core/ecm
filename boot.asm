@@ -31,6 +31,8 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h	; where to load
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
+	numdef CHECKOFFSET,	1020
+	numdef CHECKVALUE,	"lD"
 
 	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
@@ -95,6 +97,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00600h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+	numdef CHECKVALUE,	0
 
 	numdef SET_BL_UNIT,	1
 	numdef MEMORY_CONTINUE,	0
@@ -107,6 +110,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+	numdef CHECKVALUE,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef MEMORY_CONTINUE,	1
@@ -133,6 +137,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
+	numdef CHECKVALUE,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef SET_DSSI_DPT,	0
@@ -151,6 +156,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+	numdef CHECKVALUE,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef MEMORY_CONTINUE,	1
@@ -177,6 +183,8 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
+	numdef CHECKOFFSET,	1020
+	numdef CHECKVALUE,	"lD"
 
 	numdef SET_DL_UNIT,	0
 	numdef SET_CLUSTER,	1
@@ -193,6 +201,7 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	07E00h
 	numdef EXEC_SEG_ADJ,	-7E0h
 	numdef EXEC_OFS,	7E00h
+	numdef CHECKVALUE,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef SET_BL_UNIT,	0
@@ -1018,6 +1027,18 @@ next_cluster:
 
 ; Set-up registers for and jump to loaded file
 ; Already: ss:bp-> boot sector containing BPB
+%if _CHECKVALUE
+CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
+ %if CHECKLINEAR <= (64 * 1024 - 2)
+		cmp word [CHECKLINEAR], _CHECKVALUE
+ %else
+		mov ax, CHECKLINEAR >> 4
+		mov es, ax
+		cmp word [es:CHECKLINEAR & 15], _CHECKVALUE
+ %endif
+		mov al, 'V'		; check 'V'alue mismatch
+		jne error
+%endif
 %if _SET_DL_UNIT
 		mov dl, [VAR(boot_unit)]; set dl to unit
 %endif
