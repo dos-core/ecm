@@ -565,14 +565,18 @@ d0	mov byte [bp + ?errordata], 0Fh
 		;	 that both reads from the source and writes to
 		;	 the destination cannot corrupt the remaining
 		;	 needed part of the source data.
-	mov ax, word [bp + ?dst + 2]	; get new dst segment (may have grown)
-	cmp ax, word [bp + ?dst_max_segment]
-	jae depack.end
-
 	add word [bp + ?dst_size], 1
 	adc word [bp + ?dst_size + 2], 0
 
 .loop:
+		; Do the max segment check here, so it happens either
+		;  after the func_bx_* call with movsb (for literals)
+		;  or after .end_copy_match (for matches) has been
+		;  executed and eventually has returned here to loop.
+	mov ax, word [bp + ?dst + 2]	; get new dst segment (may have grown)
+	cmp ax, word [bp + ?dst_max_segment]
+	jae depack.end
+
 	mov ax, word [bp + ?dst_size]
 	mov dx, word [bp + ?dst_size + 2]
 
@@ -730,9 +734,6 @@ d0	mov byte [bp + ?errordata], 0Dh
 .end_copy_match:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
-	mov ax, es
-	cmp ax, word [bp + ?dst_max_segment]
-	jae depack.end
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
