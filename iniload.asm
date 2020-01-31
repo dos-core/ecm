@@ -2264,11 +2264,11 @@ end_of_handle_lsv_extra_flags:
 
 
 %if _CHECKSUM
+CHECKSUM_SIZE_P equ (payload.actual_end - $$ + 0) / 16
+
 	overridedef STANDALONE, 0
  %include "inicheck.asm"
 	resetdef
-
-CHECKSUM_SIZE_P equ (payload.actual_end - $$ + 0) / 16
 
         align 16
 checksumheader:
