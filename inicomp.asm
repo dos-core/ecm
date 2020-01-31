@@ -90,6 +90,10 @@ ldLoadUntilSeg:	resw 1
 %elif _SNAPPY
 	strdef PAYLOAD_FILE,	"lDOSLOAD.SZ"
 %endif
+	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
+%if _PAYLOAD_KERNEL_MAX_PARAS && ! _IMAGE_EXE
+ %error Kernel mode max paras requires building dual-mode executable
+%endif
 	numdef COUNTER,		0, 32
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -384,6 +388,8 @@ init1_start:
   %error exemode variable must be directly below bp
  %endif
 	push si
+%else
+	xor bx, bx		; always tell them it is kernel mode
 %endif
 
 	cld
@@ -405,10 +411,21 @@ init1_start:
 %else
 	xor dx, dx
 %endif
+%if _PAYLOAD_KERNEL_MAX_PARAS
+	mov ax, _PAYLOAD_KERNEL_MAX_PARAS
+	test bx, bx
+	jz @F
+%endif
+	mov ax, -1
+@@:
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
 		;	bx = EXE mode flag
+		;	 (1 if EXE mode, 0 if kernel mode)
+		;	 (always 0 if this is a build without EXE mode)
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if unused, meaning entire destination needed)
 		; Note:	The destination reaches up to below the source.
 	call depack
 %ifn _TEST_PROGRAM
