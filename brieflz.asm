@@ -505,6 +505,12 @@ d0	mov byte [bp + ?errordata], 4
 		; OUT:	CY if error
 		;	NC if success,
 		;	 dx:ax = ?dst_size
+		;	Instead of returning, this may jump to depack.end
+		;	 if the destination segment grows up to the value
+		;	 stored in the ?dst_max_segment variable. It is
+		;	 assumed that this will use the stack frame to leave
+		;	 the function, therefore discarding any of the stack
+		;	 contents between the frame and the stack top.
 		; CHG:	ds, si, es, di, bx, (dx), (ax), cx
 blz_depack_safe:
 	and word [bp + ?dst_size], 0
