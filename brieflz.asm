@@ -64,6 +64,10 @@ blzhDecompressedCRC:	resd 1
 		;	es:di -> destination (below source)
 		;	if _IMAGE_EXE:
 		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
 		; OUT:	NC if success
 		;	CY if error,
 		;	 bx = ?errordata (if _DEBUG0)
@@ -111,6 +115,21 @@ d0	 push bx
 	 push dx
 	 push cx
 
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalsied destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
 
 	 push ds
 	 push si
@@ -546,6 +565,9 @@ d0	mov byte [bp + ?errordata], 0Fh
 		;	 that both reads from the source and writes to
 		;	 the destination cannot corrupt the remaining
 		;	 needed part of the source data.
+	mov ax, word [bp + ?dst + 2]	; get new dst segment (may have grown)
+	cmp ax, word [bp + ?dst_max_segment]
+	jae depack.end
 
 	add word [bp + ?dst_size], 1
 	adc word [bp + ?dst_size + 2], 0
@@ -708,6 +730,9 @@ d0	mov byte [bp + ?errordata], 0Dh
 .end_copy_match:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
+	mov ax, es
+	cmp ax, word [bp + ?dst_max_segment]
+	jae depack.end
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
