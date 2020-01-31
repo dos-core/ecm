@@ -31,6 +31,10 @@ snappy_tag_copy_4byteoffset	equ 3
 		;	es:di -> destination (below source)
 		;	if _IMAGE_EXE:
 		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
 		; OUT:	NC if success
 		;	CY if error,
 		;	 bx = ?errordata (if _DEBUG0)
@@ -82,6 +86,21 @@ depack:
 	 push dx
 	 push cx
 
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalsied destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
 
 	 push ds
 	 push si
@@ -543,6 +562,12 @@ snappy_copy_literal_or_uncompressed:
 		;	?length_of_destination shortened
 		;	CY if error (buffer too small)
 		;	NC if success
+		;	Instead of returning, this may jump to depack.end
+		;	 if the destination segment grows up to the value
+		;	 stored in the ?dst_max_segment variable. It is
+		;	 assumed that this will use the stack frame to leave
+		;	 the function, therefore discarding any of the stack
+		;	 contents between the frame and the stack top.
 		; CHG:	cx, dx, ax, es, di, ds, si
 snappy_copy_data:
 d0	inc byte [bp + ?errordata + 1]
@@ -582,6 +607,9 @@ d0	inc byte [bp + ?errordata + 1]
 .end:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
+	mov ax, es
+	cmp ax, word [bp + ?dst_max_segment]
+	jae depack.end
 
 	db __TEST_IMM8			; (NC)
 .error:
