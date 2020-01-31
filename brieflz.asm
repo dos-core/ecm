@@ -123,7 +123,7 @@ d0	 push bx
 @@:
 	mov dx, es
 	add ax, dx		; => paragraph after necessary part
-		; If the normalsied destination pointer's segment grows
+		; If the normalised destination pointer's segment grows
 		;  to this segment then enough has been decompressed.
 d0	mov byte [bp + ?errordata], 40h
 	jc .error		; should not carry
