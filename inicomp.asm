@@ -226,7 +226,7 @@ init0_common:
 init0_movp:
 	cmp ax, dx		; source below destination ?
 	jb .down		; yes, move from top down -->
-	je .return		; same, no need to move --> (NC)
+	je .return		; same, no need to move -->
 
 %if _OPTIMISE_MOVP_DN_ONLY
 @@:
@@ -1056,7 +1056,7 @@ init2_movp:
 	push di
 	cmp ax, dx		; source below destination ?
 	jb .down		; yes, move from top down -->
-	je .return		; same, no need to move --> (NC)
+	je .return		; same, no need to move -->
 	push ax
 	push dx
 .uploop:
