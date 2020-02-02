@@ -52,7 +52,6 @@ ldLoadUntilSeg:	resw 1
 	numdef DEBUG2		; dump_stack_frame before blz_depack_safe call
 	numdef DEBUG3		; dump_stack_frame at start of blz_depack_safe
 
-	numdef OPTIMISE_MOVP_DN_ONLY,	1	; init0_movp always moves DN
 	numdef ALLOW_OVERLAPPING,	1	; allow overlapping src and dst
 	numdef TEST_PROGRAM,		0
 	numdef TEST_PROGRAM_DECOMPRESSED_SIZE,		0,0
@@ -228,11 +227,6 @@ init0_movp:
 	jb .down		; yes, move from top down -->
 	je .return		; same, no need to move -->
 
-%if _OPTIMISE_MOVP_DN_ONLY
-@@:
-	int3
-	jmp @B
-%else
 	push ax
 	push dx
 .uploop:
@@ -258,7 +252,6 @@ init0_movp:
 	pop dx
 	pop ax
 	jmp short .return
-%endif
 
 .down:
 	std			; _AMD_ERRATUM_109_WORKAROUND as below
