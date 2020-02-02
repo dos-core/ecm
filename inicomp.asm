@@ -223,10 +223,18 @@ init0_common:
 		; Note:	Doesn't work correctly on HMA; doesn't always wrap to LMA either.
 		;	Do not provide a wrapped/HMA source or destination!
 init0_movp:
-	cmp ax, dx		; source below destination ?
-	jb .down		; yes, move from top down -->
+	cmp ax, dx		; source above destination ?
+	ja .up			; yes, move up (forwards) -->
 	je .return		; same, no need to move -->
+	push ax
+	add ax, cx		; (expected not to carry)
+	cmp ax, dx		; end of source is above destination ?
+	pop ax
+	ja .down		; yes, move from top down -->
+	; Here, the end of source is below-or-equal the destination,
+	;  so they do not overlap. In this case we prefer moving up.
 
+.up:
 	push ax
 	push dx
 .uploop:
@@ -1047,9 +1055,19 @@ init2_movp:
 	push si
 	push es
 	push di
-	cmp ax, dx		; source below destination ?
-	jb .down		; yes, move from top down -->
+
+	cmp ax, dx		; source above destination ?
+	ja .up			; yes, move up (forwards) -->
 	je .return		; same, no need to move -->
+	push ax
+	add ax, cx		; (expected not to carry)
+	cmp ax, dx		; end of source is above destination ?
+	pop ax
+	ja .down		; yes, move from top down -->
+	; Here, the end of source is below-or-equal the destination,
+	;  so they do not overlap. In this case we prefer moving up.
+
+.up:
 	push ax
 	push dx
 .uploop:
