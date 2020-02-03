@@ -393,7 +393,9 @@ read_bits:
 	clc
 	call bitbuffer_rotate
 	jnz .notzero
+	push ax
 	call read_byte_to_bit_buffer
+	pop ax
 	jc .ret			; if error --> (CY)
 	stc
 	call bitbuffer_rotate
