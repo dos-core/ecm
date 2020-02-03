@@ -164,6 +164,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 	call read_byte_to_bit_buffer
+d0	mov byte [bp + ?errordata], 30h
+	jc .error
 
 	mov di, ?lengths
 	call generate_table_16
@@ -177,35 +179,44 @@ d0	mov byte [bp + ?errordata], 1Bh
 
 .STATE_IMPLICIT_FIRST_LITERAL_BYTE:
 .literal:
+d0	inc byte [bp + ?errordata + 1]
 	call read_write_byte
+d0	mov byte [bp + ?errordata], 31h
 	jc .error
 	; jmp .STATE_NEXT_BYTE
 
 .STATE_NEXT_BYTE:
 	mov cx, 1
 	call read_bits
+d0	mov byte [bp + ?errordata], 32h
 	jc .error
 	test ax, ax
 	jnz .literal
 
 .not_literal:
 	call get_gamma_code
+d0	mov byte [bp + ?errordata], 33h
 	jc .error
 	test bx, bx
+d0	mov byte [bp + ?errordata], 34h
 	jnz .error
 	cmp dx, 17
 	jne .not_literal_data_block
 .literal_data_block:
 	call read_byte
+d0	mov byte [bp + ?errordata], 35h
 	jc .error
 	mov ah, al
 	call read_byte
+d0	mov byte [bp + ?errordata], 36h
 	jc .error
 	xchg ax, cx
+d0	inc byte [bp + ?errordata + 1]
 	; jmp .STATE_NEXT_LITERAL_BYTE
 
 .STATE_NEXT_LITERAL_BYTE:
 	call read_write_byte
+d0	mov byte [bp + ?errordata], 37h
 	jc .error
 	loop .STATE_NEXT_LITERAL_BYTE
 	jmp .STATE_NEXT_BYTE
@@ -213,6 +224,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .not_literal_data_block:
 	cmp dx, 16
 	je .end_check
+d0	mov byte [bp + ?errordata], 38h
 	ja .error
 
 .sequence:
@@ -224,6 +236,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	xor cx, cx
 	mov cl, byte [bp + ?lengths + di + eteBits]
 	call read_bits
+d0	mov byte [bp + ?errordata], 39h
 	jc .error
 	add bx, ax
 	mov word [bp + ?length], bx
@@ -235,18 +248,21 @@ d0	mov byte [bp + ?errordata], 1Bh
 	mov cx, 2
 	call read_bits
 	mov dx, ?offsets1
+d0	mov byte [bp + ?errordata], 3Ah
 	jmp .switch_common
 
 .switch_case2:
 	mov cx, 4
 	call read_bits
 	mov dx, ?offsets2
+d0	mov byte [bp + ?errordata], 3Bh
 	jmp .switch_common
 
 .switch_default:
 	mov cx, 4
 	call read_bits
 	mov dx, ?offsets3
+d0	mov byte [bp + ?errordata], 3Ch
 	; jmp .switch_common
 
 .switch_common:
@@ -259,23 +275,28 @@ d0	mov byte [bp + ?errordata], 1Bh
 	xor cx, cx
 	mov cl, byte [bp + di + eteBits]
 	call read_bits
+d0	mov byte [bp + ?errordata], 3Dh
 	jc .error
 	xchg cx, ax
 	xor bx, bx		; bx:cx = read bits
 	add cx, word [bp + di + eteBase]
 	adc bx, 0		; bx:cx = offset
+d0	inc byte [bp + ?errordata + 1]
         ; jmp .STATE_NEXT_SEQUENCE_BYTE
 
 .STATE_NEXT_SEQUENCE_BYTE:
 	call read_byte_from_window
+d0	mov byte [bp + ?errordata], 3Eh
 	jc .error
 	call write_byte
+d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
 	dec word [bp + ?length]
 	jz .STATE_NEXT_BYTE
 	jmp .STATE_NEXT_SEQUENCE_BYTE
 
 .end_check:
+d0	mov byte [bp + ?errordata], 40h
 	cmp word [bp + ?src_remaining + 2], 0
 	jne .error
 	cmp word [bp + ?src_remaining], 15
