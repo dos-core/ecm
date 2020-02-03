@@ -171,13 +171,21 @@ d0	mov byte [bp + ?errordata], 30h
 
 	mov di, ?lengths
 	call generate_table_16
+d0	mov byte [bp + ?errordata], 41h
+	jc .error
 	mov di, ?offsets3
 	call generate_table_16
+d0	mov byte [bp + ?errordata], 42h
+	jc .error
 	mov di, ?offsets2
 	call generate_table_16
+d0	mov byte [bp + ?errordata], 43h
+	jc .error
 	mov di, ?offsets1
 	mov cl, 4
 	call generate_table_cx
+d0	mov byte [bp + ?errordata], 44h
+	jc .error
 
 .STATE_IMPLICIT_FIRST_LITERAL_BYTE:
 .literal:
@@ -417,7 +425,9 @@ generate_table_16:
 	mov cx, 16
 		; INP:	cx = amount of table entries
 		;	bp + di -> start of table
-		; OUT:	cx = 0
+		; OUT:	CY if error
+		;	NC if success,
+		;	 cx = 0
 		; CHG:	ax, bx, di
 		; STT:	bp -> depack stack frame
 generate_table_cx:
@@ -427,9 +437,11 @@ generate_table_cx:
 	push cx
 	mov cx, 3
 	call read_bits
+	jc .ret
 	mov byte [bp + di + eteBits], al
 	mov cl, 1
 	call read_bits
+	jc .ret
 	shl al, 1
 	shl al, 1
 	shl al, 1
@@ -441,6 +453,8 @@ generate_table_cx:
 	pop cx
 	add di, exo_table_entry_size
 	loop .loop
+	clc
+.ret:
 	retn
 
 
