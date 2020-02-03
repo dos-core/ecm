@@ -207,8 +207,7 @@ d0	mov byte [bp + ?errordata], 37h
 	call disp_al
 @@:
 %endif
-	inc cx				; cx = 1
-	call read_bits			; cx = 0 if NC
+	call read_bits_1		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 32h
 	jc .error
 	test ax, ax
@@ -382,6 +381,9 @@ bitbuffer_rotate:
 	retn
 
 
+read_bits_1:
+	mov cx, 1
+
 		; INP:	cl = cx = number of bits to read (0..15)
 		; OUT:	CY if error (cx too high or source exhausted)
 		;	NC if success,
@@ -470,8 +472,7 @@ get_gamma_code:
 	xor dx, dx
 	xor bx, bx		; bx:dx = gamma = 0
 .loop:
-	mov cx, 1
-	call read_bits		; read_bits(1)
+	call read_bits_1	; read_bits(1)
 	jc .ret
 	shr ax, 1		; returned == 0 ?
 	jc .end			; no, end of loop -->
