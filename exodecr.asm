@@ -78,12 +78,6 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
-	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
-	lvar ?16tablesize, lengths
-	lvar ?16tablesize, offsets3
-	lvar ?16tablesize, offsets2
-	lequ fromwords(words(4 * exo_table_entry_size)), 4tablesize
-	lvar ?4tablesize, offsets1
 	lvar word, length
 	lenter
 
@@ -162,6 +156,14 @@ d0	mov byte [bp + ?errordata], 40h
 d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
+
+	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
+	lvar ?16tablesize, lengths
+	lvar ?16tablesize, offsets3
+	lvar ?16tablesize, offsets2
+	lequ fromwords(words(4 * exo_table_entry_size)), 4tablesize
+	lvar ?4tablesize, offsets1
+	lreserve
 
 	call read_byte_to_bit_buffer
 d0	mov byte [bp + ?errordata], 30h
