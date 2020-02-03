@@ -56,8 +56,7 @@ eteBase:	resw 1
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-%if _IMAGE_EXE || _DEBUG0 || _COUNTER
-	lenter early
+	lenter
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
 	 push bx
@@ -65,21 +64,14 @@ depack:
    %error exemode variable must be directly below bp
   %endif
  %endif
- %if _DEBUG0 || _COUNTER
 	xor bx, bx
- %endif
  %if _DEBUG0
 	lvar word,	errordata
 	 push bx
  %endif
-%endif
 	lvar word, bit_buffer_and_counter
 	lequ ?bit_buffer_and_counter, bit_buffer
-%if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
-%endif
-	lvar word, length
-	lenter
 
 	call normalise_both_pointers
 
@@ -248,8 +240,7 @@ d0	mov byte [bp + ?errordata], 38h
 	call read_bits
 d0	mov byte [bp + ?errordata], 39h
 	jc .error
-	add bx, ax
-	mov word [bp + ?length], bx
+	add bx, ax		; bx = length
 	test bx, bx
 	jz .switch_default
 	cmp bx, 2
@@ -278,20 +269,21 @@ d0	mov byte [bp + ?errordata], 3Ch
 
 .switch_common:
 	jc .error
-	xchg ax, dx
+	xchg ax, dx		; dx = next index, ax -> next table
 	mov di, dx
 	add dx, dx
-	add di, dx
-	add di, ax
+	add di, dx		; di = offset into table
+	add di, ax		; -> table entry
 	xor cx, cx
 	mov cl, byte [bp + di + eteBits]
-	call read_bits
+	call read_bits		; leaves cx = 0 if NC
 d0	mov byte [bp + ?errordata], 3Dh
 	jc .error
-	xchg cx, ax
-	xor bx, bx		; bx:cx = read bits
-	add cx, word [bp + di + eteBase]
-	adc bx, 0		; bx:cx = offset
+	xchg cx, bx		; cx = length that we remembered in bx
+				; bx = 0
+	xchg dx, ax		; bx:dx = read bits
+	add dx, word [bp + di + eteBase]
+	adc bx, 0		; bx:dx = offset
 d0	inc byte [bp + ?errordata + 1]
         ; jmp .STATE_NEXT_SEQUENCE_BYTE
 
@@ -302,9 +294,8 @@ d0	mov byte [bp + ?errordata], 3Eh
 	call write_byte
 d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
-	dec word [bp + ?length]
-	jz .STATE_NEXT_BYTE
-	jmp .STATE_NEXT_SEQUENCE_BYTE
+	loop .STATE_NEXT_SEQUENCE_BYTE
+	jmp .STATE_NEXT_BYTE
 
 .end_check:
 d0	mov byte [bp + ?errordata], 40h
@@ -483,7 +474,7 @@ get_gamma_code:
 	retn
 
 
-		; INP:	bx:cx = offset
+		; INP:	bx:dx = offset
 		; OUT:	CY if error
 		;	NC if success,
 		;	 al = byte read from decompressed data
@@ -494,6 +485,7 @@ read_byte_from_window:
 	push si
 	push bx
 	push cx
+	mov cx, dx
         neg bx
         neg cx
         sbb bx, byte 0          ; neg bx:cx
