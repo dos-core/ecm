@@ -71,6 +71,7 @@ depack:
  %endif
 	lvar word, bit_buffer_and_counter
 	lequ ?bit_buffer_and_counter, bit_buffer
+	lequ ?bit_buffer_and_counter + 1, counter
 	 push bx		; initialise counter (high byte) to zero
 
 	call normalise_both_pointers
@@ -198,6 +199,14 @@ d0	mov byte [bp + ?errordata], 37h
 		; ! cx = 0
 		; All paths to this label must have cx = 0.
 .STATE_NEXT_BYTE:
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al
+@@:
+%endif
 	inc cx				; cx = 1
 	call read_bits			; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 32h
