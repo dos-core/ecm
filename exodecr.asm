@@ -1,258 +1,520 @@
-/*
- * Copyright (c) 2005-2017 Magnus Lind.
- *
- * This software is provided 'as-is', without any express or implied warranty.
- * In no event will the authors be held liable for any damages arising from
- * the use of this software.
- *
- * Permission is granted to anyone to use this software for any purpose,
- * including commercial applications, and to alter it and redistribute it
- * freely, subject to the following restrictions:
- *
- *   1. The origin of this software must not be misrepresented * you must not
- *   claim that you wrote the original software. If you use this software in a
- *   product, an acknowledgment in the product documentation would be
- *   appreciated but is not required.
- *
- *   2. Altered source versions must be plainly marked as such, and must not
- *   be misrepresented as being the original software.
- *
- *   3. This notice may not be removed or altered from any distribution.
- *
- *   4. The names of this software and/or it's copyright holders may not be
- *   used to endorse or promote products derived from this software without
- *   specific prior written permission.
- */
 
-#include "exodecrunch.h"
-#include <stdlib.h>
+%if 0
 
-enum exo_state
-{
-    STATE_IMPLICIT_FIRST_LITERAL_BYTE,
-    STATE_NEXT_BYTE,
-    STATE_NEXT_LITERAL_BYTE,
-    STATE_NEXT_SEQUENCE_BYTE,
-    STATE_EOF
-};
+8086 Assembly lDOS iniload payload exomizer raw depacker
+ by C. Masloch, 2020
 
-struct exo_table_entry
-{
-    unsigned char bits;
-    unsigned short int base;
-};
+Copyright (c) 2005-2017 Magnus Lind.
 
-struct exo_decrunch_ctx
-{
-    struct exo_table_entry *lengths;
-    struct exo_table_entry *offsets1;
-    struct exo_table_entry *offsets2;
-    struct exo_table_entry *offsets3;
-    unsigned char *window;
-    unsigned short int window_length;
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from
+the use of this software.
 
-    enum exo_state state;
-    unsigned short int length;
-    unsigned short int offset;
-    unsigned short int window_pos;
-    unsigned char bit_buffer;
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
 
-    exo_read_crunched_byte *read_byte;
-    void *read_data;
-};
+  1. The origin of this software must not be misrepresented * you must not
+  claim that you wrote the original software. If you use this software in a
+  product, an acknowledgment in the product documentation would be
+  appreciated but is not required.
 
-static int bitbuffer_rotate(struct exo_decrunch_ctx *ctx, int carry)
-{
-    int carry_out;
-    /* rol */
-    carry_out = (ctx->bit_buffer & 0x80) != 0;
-    ctx->bit_buffer <<= 1;
-    if (carry)
-    {
-        ctx->bit_buffer |= 0x01;
-    }
-    return carry_out;
-}
+  2. Altered source versions must be plainly marked as such, and must not
+  be misrepresented as being the original software.
 
-static int
-read_bits(struct exo_decrunch_ctx *ctx, int bit_count)
-{
-    int byte_copy = bit_count & 8;
-    int bits = 0;
-    bit_count &= 7;
-    while(bit_count-- > 0)
-    {
-        int carry = bitbuffer_rotate(ctx, 0);
-        if(ctx->bit_buffer == 0)
-        {
-            ctx->bit_buffer = ctx->read_byte(ctx->read_data);
-            carry = bitbuffer_rotate(ctx, 1);
-        }
-        bits <<= 1;
-        bits |= carry;
-    }
-    if (byte_copy != 0)
-    {
-        bits <<= 8;
-        bits |= ctx->read_byte(ctx->read_data);
-    }
-    return bits;
-}
+  3. This notice may not be removed or altered from any distribution.
 
-static struct exo_table_entry *
-generate_table(struct exo_decrunch_ctx *ctx, int size)
-{
-    int base;
-    int i;
-    struct exo_table_entry *table;
-    table = malloc(size * sizeof(struct exo_table_entry));
-    base = 1;
-    for(i = 0; i < size; ++i)
-    {
-        table[i].base = base;
-        table[i].bits = (unsigned char)read_bits(ctx, 3);
-        table[i].bits |= (unsigned char)read_bits(ctx, 1) << 3;
-        base += 1 << table[i].bits;
-    }
-    return table;
-}
+  4. The names of this software and/or it's copyright holders may not be
+  used to endorse or promote products derived from this software without
+  specific prior written permission.
 
-struct exo_decrunch_ctx *
-exo_decrunch_new(unsigned short int max_offset,
-                 exo_read_crunched_byte *read_byte,
-                 void *read_data)
-{
-    struct exo_decrunch_ctx *ctx;
+%endif
 
-    ctx = malloc(sizeof(struct exo_decrunch_ctx));
 
-    ctx->state = STATE_IMPLICIT_FIRST_LITERAL_BYTE;
-    ctx->window_pos = 0;
-    ctx->bit_buffer = read_byte(read_data);
-    ctx->read_byte = read_byte;
-    ctx->read_data = read_data;
+	struc exo_table_entry
+eteBits:	resb 1
+eteBase:	resw 1
+	endstruc
 
-    ctx->lengths = generate_table(ctx, 16);
-    ctx->offsets3 = generate_table(ctx, 16);
-    ctx->offsets2 = generate_table(ctx, 16);
-    ctx->offsets1 = generate_table(ctx, 4);
-    ctx->window = malloc(max_offset);
-    ctx->window_length = max_offset;
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _IMAGE_EXE || _DEBUG0 || _COUNTER
+	lenter early
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+ %endif
+ %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+ %endif
+%endif
+	lvar word, bit_buffer_and_counter
+	lequ ?bit_buffer_and_counter, bit_buffer
+%if _COUNTER
+	 push bx		; initialise counter (high byte) to zero
+%endif
+	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
+	lvar ?16tablesize, lengths
+	lvar ?16tablesize, offsets3
+	lvar ?16tablesize, offsets2
+	lequ fromwords(words(4 * exo_table_entry_size)), 4tablesize
+	lvar ?4tablesize, offsets1
+	lvar word, length
+	lenter
 
-    return ctx;
-}
+	call normalise_both_pointers
 
-static int
-get_gamma_code(struct exo_decrunch_ctx *ctx)
-{
-    int gamma;
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
+	lvar dword,	dst
+	 push es
+	 push di
+	lvar dword,	src_remaining
+	 push dx
+	 push cx
 
-    gamma = 0;
-    while(read_bits(ctx, 1) == 0)
-    {
-        ++gamma;
-    }
-    return gamma;
-}
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
 
-static
-int read_byte_from_window(struct exo_decrunch_ctx *ctx, int offset)
-{
-    int read_pos;
+	 push ds
+	 push si
+	call pointer_to_linear
 
-    read_pos = ctx->window_pos - offset;
-    if(read_pos < 0)
-    {
-        read_pos += ctx->window_length;
-    }
-    return ctx->window[read_pos];
-}
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
 
-int
-exo_read_decrunched_byte(struct exo_decrunch_ctx *ctx)
-{
-    int c;
-    int length_index;
-    struct exo_table_entry *table_entry;
+	 push es
+	 push di
+	call pointer_to_linear
 
-    switch(ctx->state)
-    {
-    case STATE_IMPLICIT_FIRST_LITERAL_BYTE:
-        /* literal byte */
-        c = ctx->read_byte(ctx->read_data);
-        ctx->state = STATE_NEXT_BYTE;
-        break;
-    case STATE_NEXT_BYTE:
-        if(read_bits(ctx, 1) == 1)
-        {
-            /* literal byte */
-            c = ctx->read_byte(ctx->read_data);
-            break;
-        }
-        /* sequence */
-        length_index = get_gamma_code(ctx);
-        if(length_index == 17)
-        {
-            /* literal data block */
-            ctx->length = ctx->read_byte(ctx->read_data) << 8;
-            ctx->length |= ctx->read_byte(ctx->read_data);
-            ctx->state = STATE_NEXT_LITERAL_BYTE;
-    case STATE_NEXT_LITERAL_BYTE:
-            if(--ctx->length == 0)
-            {
-                ctx->state = STATE_NEXT_BYTE;
-            }
-            c = ctx->read_byte(ctx->read_data);
-            break;
-        }
-        else if(length_index == 16)
-        {
-            /* end of data marker, we're done. */
-            ctx->state = STATE_EOF;
-    case STATE_EOF:
-    default:
-            return -1;
-        }
-        /* sequence */
-        table_entry = ctx->lengths + length_index;
-        ctx->length = table_entry->base + read_bits(ctx, table_entry->bits);
-        switch(ctx->length)
-        {
-        case 1:
-            table_entry = ctx->offsets1 + read_bits(ctx, 2);
-            break;
-        case 2:
-            table_entry = ctx->offsets2 + read_bits(ctx, 4);
-            break;
-        default:
-            table_entry = ctx->offsets3 + read_bits(ctx, 4);
-        }
-        ctx->offset = table_entry->base + read_bits(ctx, table_entry->bits);
-        ctx->state = STATE_NEXT_SEQUENCE_BYTE;
-    case STATE_NEXT_SEQUENCE_BYTE:
-        if(--ctx->length == 0)
-        {
-            ctx->state = STATE_NEXT_BYTE;
-        }
-        c = read_byte_from_window(ctx, ctx->offset);
-        break;
-    }
+%if _ALLOW_OVERLAPPING && 0
+	add cx, word [bp + ?src_remaining]
+	adc bx, word [bp + ?src_remaining + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?dst_remaining variable is set to
+		;  ?src + ?src_remaining - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
 
-    ctx->window[ctx->window_pos++] = (unsigned char)c;
-    if(ctx->window_pos == ctx->window_length)
-    {
-        ctx->window_pos = 0;
-    }
-    return c;
-}
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
 
-void
-exo_decrunch_delete(struct exo_decrunch_ctx *ctx)
-{
-    free(ctx->window);
-    free(ctx->offsets1);
-    free(ctx->offsets2);
-    free(ctx->offsets3);
-    free(ctx->lengths);
-    free(ctx);
-}
+	lvar dword,	dst_remaining
+	 push bx		; push into [bp + ?dst_remaining + 2]
+	 push cx		; push into [bp + ?dst_remaining]
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error
+%endif
+
+	call read_byte_to_bit_buffer
+
+	mov di, ?lengths
+	call generate_table_16
+	mov di, ?offsets3
+	call generate_table_16
+	mov di, ?offsets2
+	call generate_table_16
+	mov di, ?offsets1
+	mov cl, 4
+	call generate_table_cx
+
+.STATE_IMPLICIT_FIRST_LITERAL_BYTE:
+.literal:
+	call read_write_byte
+	jc .error
+	; jmp .STATE_NEXT_BYTE
+
+.STATE_NEXT_BYTE:
+	mov cx, 1
+	call read_bits
+	jc .error
+	test ax, ax
+	jnz .literal
+
+.not_literal:
+	call get_gamma_code
+	jc .error
+	test bx, bx
+	jnz .error
+	cmp dx, 17
+	jne .not_literal_data_block
+.literal_data_block:
+	call read_byte
+	jc .error
+	mov ah, al
+	call read_byte
+	jc .error
+	xchg ax, cx
+	; jmp .STATE_NEXT_LITERAL_BYTE
+
+.STATE_NEXT_LITERAL_BYTE:
+	call read_write_byte
+	jc .error
+	loop .STATE_NEXT_LITERAL_BYTE
+	jmp .STATE_NEXT_BYTE
+
+.not_literal_data_block:
+	cmp dx, 16
+	je .end_check
+	ja .error
+
+.sequence:
+	mov di, dx
+	add dx, dx
+	add di, dx		; * 3 = * exo_table_entry_size
+
+	mov bx, word [bp + ?lengths + di + eteBase]
+	xor cx, cx
+	mov cl, byte [bp + ?lengths + di + eteBits]
+	call read_bits
+	jc .error
+	add bx, ax
+	mov word [bp + ?length], bx
+	test bx, bx
+	jz .switch_default
+	cmp bx, 2
+	je .switch_case2
+.switch_case1:
+	mov cx, 2
+	call read_bits
+	mov dx, ?offsets1
+	jmp .switch_common
+
+.switch_case2:
+	mov cx, 4
+	call read_bits
+	mov dx, ?offsets2
+	jmp .switch_common
+
+.switch_default:
+	mov cx, 4
+	call read_bits
+	mov dx, ?offsets3
+	; jmp .switch_common
+
+.switch_common:
+	jc .error
+	xchg ax, dx
+	mov di, dx
+	add dx, dx
+	add di, dx
+	add di, ax
+	xor cx, cx
+	mov cl, byte [bp + di + eteBits]
+	call read_bits
+	jc .error
+	xchg cx, ax
+	xor bx, bx		; bx:cx = read bits
+	add cx, word [bp + di + eteBase]
+	adc bx, 0		; bx:cx = offset
+        ; jmp .STATE_NEXT_SEQUENCE_BYTE
+
+.STATE_NEXT_SEQUENCE_BYTE:
+	call read_byte_from_window
+	jc .error
+	call write_byte
+	jc .error
+	dec word [bp + ?length]
+	jz .STATE_NEXT_BYTE
+	jmp .STATE_NEXT_SEQUENCE_BYTE
+
+.end_check:
+	cmp word [bp + ?src_remaining + 2], 0
+	jne .error
+	cmp word [bp + ?src_remaining], 15
+	ja .error
+.end:
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
+
+		; INP:	?src
+		;	?src_remaining
+		; OUT:	CY if error (source exhausted)
+		;	NC if success,
+		;	 al = byte read from source
+		;	 ?src
+		;	 ?src_remaining
+		; CHG:	-
+		; STT:	bp -> depack stack frame
+read_byte:
+	push ds
+	push si
+	lds si, [bp + ?src]
+	lodsb
+	push ds
+	push si
+	call normalise_pointer
+	pop word [bp + ?src]
+	pop word [bp + ?src + 2]
+	pop si
+	pop ds
+	sub word [bp + ?src_remaining], 1
+	sbb word [bp + ?src_remaining + 2], 0
+	retn
+
+
+		; as for read_byte
+		; OUT:	CY if error
+		;	NC if succesa,
+		;	 ?bit_buffer
+		; CHG:	al
+read_byte_to_bit_buffer:
+	call read_byte
+	mov byte [bp + ?bit_buffer], al
+	retn
+
+
+		; INP:	CF = carry in
+		;	?bit_buffer
+		; OUT:	CF = carry out
+		;	ZF = whether ?bit_buffer is now zero
+		;	?bit_buffer
+		; CHG:	-
+		; STT:	bp -> depack stack frame
+bitbuffer_rotate:
+	rcl byte [bp + ?bit_buffer], 1
+	dec byte [bp + ?bit_buffer]
+	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
+	retn
+
+
+		; INP:	cl = cx = number of bits to read (0..15)
+		; OUT:	CY if error (cx too high or source exhausted)
+		;	NC if success,
+		;	 ax = read data
+		;	 cx = 0
+		; CHG:	-
+		; STT:	bp -> depack stack frame
+read_bits:
+	cmp cx, 16		; CY if valid
+	cmc			; NC if valid
+	jc .ret			; if error --> (CY)
+	mov al, cl
+	mov ah, cl
+	and ax, (8 << 8) | 7	; al = bit_count, ah = byte_copy
+	mov cl, al		; cl = cx = bit_count
+	mov al, 0		; al = bits
+	jcxz .end
+.loop:
+	clc
+	call bitbuffer_rotate
+	jnz .notzero
+	call read_byte_to_bit_buffer
+	jc .ret			; if error --> (CY)
+	stc
+	call bitbuffer_rotate
+.notzero:
+	rcl al, 1		; bits <<= 1; bits |= carry;
+	loop .loop
+.end:
+	test ah, ah		; NC
+	jz .byte_copy_zero	; (NC)
+	mov ah, al		; bits <<= 8;
+	call read_byte		; bits |= read_byte()
+				; pass CF to caller
+.byte_copy_zero:		; ax = bits
+.ret:
+	retn
+
+
+generate_table_16:
+	mov cx, 16
+		; INP:	cx = amount of table entries
+		;	bp + di -> start of table
+		; OUT:	cx = 0
+		; CHG:	ax, bx, di
+		; STT:	bp -> depack stack frame
+generate_table_cx:
+	mov bx, 1
+.loop:
+	mov word [bp + di + eteBase], ax
+	push cx
+	mov cx, 3
+	call read_bits
+	mov byte [bp + di + eteBits], al
+	mov cl, 1
+	call read_bits
+	shl al, 1
+	shl al, 1
+	shl al, 1
+	or byte [bp + di + eteBits], al
+	mov ax, 1
+	mov cl, byte [bp + di + eteBits]
+	shl ax, cl
+	add bx, ax
+	pop cx
+	add di, exo_table_entry_size
+	loop .loop
+	retn
+
+
+		; INP:	-
+		; OUT:	CY if error
+		;	NC if success,
+		;	 bx:dx = gamma
+		; CHG:	ax, cx
+		; STT:	bp -> depack stack frame
+get_gamma_code:
+	xor dx, dx
+	xor bx, bx		; bx:dx = gamma = 0
+.loop:
+	mov cx, 1
+	call read_bits		; read_bits(1)
+	jc .ret
+	shr ax, 1		; returned == 0 ?
+	jc .end			; no, end of loop -->
+	add dx, 1
+	adc bx, 0		; ++gamma
+	jmp .loop
+.end:
+	clc			; indicate not error
+.ret:
+	retn
+
+
+		; INP:	bx:cx = offset
+		; OUT:	CY if error
+		;	NC if success,
+		;	 al = byte read from decompressed data
+		; CHG:	-
+		; STT:	bp -> depack stack frame
+read_byte_from_window:
+	push ds
+	push si
+	push bx
+	push cx
+        neg bx
+        neg cx
+        sbb bx, byte 0          ; neg bx:cx
+	push word [bp + ?dst + 2]
+	push word [bp + ?dst]
+	call normalise_pointer_with_displacement_bxcx
+	pop cx
+	pop bx
+
+	cmp word [bp + ?original_dst + 2], bx
+				; is source of matching within ?dst ?
+d0	mov byte [bp + ?errordata], 16h
+	ja .error
+	jb @F
+	cmp word [bp + ?original_dst], cx
+d0	mov byte [bp + ?errordata], 17h
+	ja .error		; no, ?original_dst is above it -->
+@@:
+
+	mov si, cx
+	mov ds, bx
+	lodsb
+
+	db __TEST_IMM8		; (NC)
+.error:
+	stc
+	pop cx
+	pop bx
+	pop si
+	pop ds
+	retn
+
+
+		; INP:	al = byte to write to decompressed data
+		; OUT:	CY if error
+		;	NC if success
+		; CHG:	-
+		; STT:	bp -> depack stack frame
+write_byte:
+	push es
+	push di
+	les di, [bp + ?dst]
+	sub word [bp + ?dst_remaining], 1
+	sbb word [bp + ?dst_remaining + 2], 0
+	jc .ret
+	stosb
+	push es
+	push di
+	call normalise_pointer
+	pop word [bp + ?dst]
+	pop word [bp + ?dst + 2]
+	pop di
+	pop es
+	clc
+.ret:
+	retn
+
+
+read_write_byte:
+	call read_byte
+	jc .ret
+	call write_byte
+.ret:
+	retn
