@@ -536,6 +536,12 @@ d0	mov byte [bp + ?errordata], 17h
 		; INP:	al = byte to write to decompressed data
 		; OUT:	CY if error
 		;	NC if success
+		;	Instead of returning, this may jump to depack.end
+		;	 if the destination segment grows up to the value
+		;	 stored in the ?dst_max_segment variable. It is
+		;	 assumed that this will use the stack frame to leave
+		;	 the function, therefore discarding any of the stack
+		;	 contents between the frame and the stack top.
 		; CHG:	-
 		; STT:	bp -> depack stack frame
 write_byte:
@@ -550,7 +556,11 @@ write_byte:
 	 push di
 	call normalise_pointer
 	 pop word [bp + ?dst]
-	 pop word [bp + ?dst + 2]
+	 pop di				; ! this is the *segment*
+	 mov word [bp + ?dst + 2], di
+	cmp di, word [bp + ?dst_max_segment]
+	jae depack.end
+
 	pop di
 	pop es
 	clc
