@@ -269,11 +269,11 @@ d0	mov byte [bp + ?errordata], 3Ch
 .switch_common:
 	call read_bits
 	jc .error
-	xchg ax, dx		; dx = next index, ax -> next table
-	mov di, dx
-	add dx, dx
-	add di, dx		; di = offset into table
-	add di, ax		; -> table entry
+				; ax = next index, dx -> next table
+	mov di, ax
+	add ax, ax
+	add di, ax		; di = offset into table
+	add di, dx		; -> table entry
 	; xor cx, cx		; cx already = 0 after read_bits NC
 	mov cl, byte [bp + di + eteBits]
 	call read_bits		; leaves cx = 0 if NC
