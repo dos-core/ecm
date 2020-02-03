@@ -175,25 +175,29 @@ d0	mov byte [bp + ?errordata], 43h
 	jc .error
 	mov di, ?offsets1
 	mov cl, 4
-	call generate_table_cx
+	call generate_table_cx		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 44h
 	jc .error
 
+		; cx = 0
 .STATE_IMPLICIT_FIRST_LITERAL_BYTE:
 .literal:
 d0	inc byte [bp + ?errordata + 1]
 	call read_write_byte
 d0	mov byte [bp + ?errordata], 31h
 	jc .error
+		; cx = 0 still
 	; jmp .STATE_NEXT_BYTE
 
+		; ! cx = 0
+		; All paths to this label must have cx = 0.
 .STATE_NEXT_BYTE:
-	mov cx, 1
-	call read_bits
+	inc cx				; cx = 1
+	call read_bits			; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 32h
 	jc .error
 	test ax, ax
-	jnz .literal
+	jnz .literal			; (cx = 0 still)
 
 .not_literal:
 	call get_gamma_code
@@ -221,6 +225,7 @@ d0	inc byte [bp + ?errordata + 1]
 d0	mov byte [bp + ?errordata], 37h
 	jc .error
 	loop .STATE_NEXT_LITERAL_BYTE
+		; cx = 0
 	jmp .STATE_NEXT_BYTE
 
 .not_literal_data_block:
@@ -295,6 +300,7 @@ d0	mov byte [bp + ?errordata], 3Eh
 d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
 	loop .STATE_NEXT_SEQUENCE_BYTE
+		; cx = 0
 	jmp .STATE_NEXT_BYTE
 
 .end_check:
