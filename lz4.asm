@@ -64,6 +64,8 @@ depack:
  %endif
 %endif
 	lvar word,	token_and_counter
+	lequ ?token_and_counter, token
+	lequ ?token_and_counter + 1, counter
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
@@ -334,8 +336,8 @@ d0	mov byte [bp + ?errordata], 0Eh
 .loop_sequence:
 
 %if _COUNTER
-	inc byte [bp + ?token_and_counter + 1]
-	test byte [bp + ?token_and_counter + 1], _COUNTER - 1
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
 	jnz @F
 	mov al, '.'
 	call disp_al
@@ -346,7 +348,7 @@ d0	mov byte [bp + ?errordata], 0Eh
 	call lz4_func_bx_with_src	; load token
 d0	mov byte [bp + ?errordata], 11h
 	jc .error_CY_3
-	mov byte [bp + ?token_and_counter], al
+	mov byte [bp + ?token], al
 
 	mov cl, 4
 	shr al, cl
@@ -396,7 +398,7 @@ d0	mov byte [bp + ?errordata], 17h
 	ja .error_A_1			; no, ?original_dst is above it -->
 @@:
 
-	mov al, byte [bp + ?token_and_counter]
+	mov al, byte [bp + ?token]
 	and al, 0Fh			; get match length from token
 	call lz4_get_length		; dx:cx = length of match - 4
 d0	mov byte [bp + ?errordata], 18h
