@@ -344,11 +344,11 @@ read_byte:
 	push si
 	lds si, [bp + ?src]
 	lodsb
-	push ds
-	push si
+	 push ds
+	 push si
 	call normalise_pointer
-	pop word [bp + ?src]
-	pop word [bp + ?src + 2]
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
 	pop si
 	pop ds
 	sub word [bp + ?src_remaining], 1
@@ -500,11 +500,11 @@ read_byte_from_window:
         neg bx
         neg cx
         sbb bx, byte 0          ; neg bx:cx
-	push word [bp + ?dst + 2]
-	push word [bp + ?dst]
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
 	call normalise_pointer_with_displacement_bxcx
-	pop cx
-	pop bx
+	 pop cx
+	 pop bx
 
 	cmp word [bp + ?original_dst + 2], bx
 				; is source of matching within ?dst ?
@@ -543,11 +543,11 @@ write_byte:
 	push di
 	les di, [bp + ?dst]
 	stosb
-	push es
-	push di
+	 push es
+	 push di
 	call normalise_pointer
-	pop word [bp + ?dst]
-	pop word [bp + ?dst + 2]
+	 pop word [bp + ?dst]
+	 pop word [bp + ?dst + 2]
 	pop di
 	pop es
 	clc
