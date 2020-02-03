@@ -516,12 +516,12 @@ d0	mov byte [bp + ?errordata], 17h
 		; CHG:	-
 		; STT:	bp -> depack stack frame
 write_byte:
-	push es
-	push di
-	les di, [bp + ?dst]
 	sub word [bp + ?dst_remaining], 1
 	sbb word [bp + ?dst_remaining + 2], 0
 	jc .ret
+	push es
+	push di
+	les di, [bp + ?dst]
 	stosb
 	push es
 	push di
