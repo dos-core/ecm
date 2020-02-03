@@ -181,12 +181,17 @@ d0	mov byte [bp + ?errordata], 44h
 
 		; cx = 0
 .STATE_IMPLICIT_FIRST_LITERAL_BYTE:
+		; ! cx = 0
+		; All paths to this label must have cx = 0.
 .literal:
+	inc cx				; cx = 1
 d0	inc byte [bp + ?errordata + 1]
+.STATE_NEXT_LITERAL_BYTE:
 	call read_write_byte
-d0	mov byte [bp + ?errordata], 31h
+d0	mov byte [bp + ?errordata], 37h
 	jc .error
-		; cx = 0 still
+	loop .STATE_NEXT_LITERAL_BYTE
+		; cx = 0
 	; jmp .STATE_NEXT_BYTE
 
 		; ! cx = 0
@@ -218,15 +223,7 @@ d0	mov byte [bp + ?errordata], 36h
 	jc .error
 	xchg ax, cx
 d0	inc byte [bp + ?errordata + 1]
-	; jmp .STATE_NEXT_LITERAL_BYTE
-
-.STATE_NEXT_LITERAL_BYTE:
-	call read_write_byte
-d0	mov byte [bp + ?errordata], 37h
-	jc .error
-	loop .STATE_NEXT_LITERAL_BYTE
-		; cx = 0
-	jmp .STATE_NEXT_BYTE
+	jmp .STATE_NEXT_LITERAL_BYTE
 
 .not_literal_data_block:
 	cmp dx, 16
