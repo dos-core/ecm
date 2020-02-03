@@ -254,6 +254,7 @@ d0	mov byte [bp + ?errordata], 39h
 	jz .switch_default
 	cmp bx, 2
 	je .switch_case2
+	ja .switch_default
 .switch_case1:
 	mov cx, 2
 	call read_bits
