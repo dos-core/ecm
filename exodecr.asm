@@ -250,26 +250,24 @@ d0	mov byte [bp + ?errordata], 39h
 	ja .switch_default
 .switch_case1:
 	mov cl, 2		; cx = 2
-	call read_bits
 	mov dx, ?offsets1
 d0	mov byte [bp + ?errordata], 3Ah
 	jmp .switch_common
 
 .switch_case2:
 	mov cl, 4		; cx = 4
-	call read_bits
 	mov dx, ?offsets2
 d0	mov byte [bp + ?errordata], 3Bh
 	jmp .switch_common
 
 .switch_default:
 	mov cl, 4		; cx = 4
-	call read_bits
 	mov dx, ?offsets3
 d0	mov byte [bp + ?errordata], 3Ch
 	; jmp .switch_common
 
 .switch_common:
+	call read_bits
 	jc .error
 	xchg ax, dx		; dx = next index, ax -> next table
 	mov di, dx
