@@ -421,7 +421,7 @@ generate_table_16:
 generate_table_cx:
 	mov bx, 1
 .loop:
-	mov word [bp + di + eteBase], ax
+	mov word [bp + di + eteBase], bx
 	push cx
 	mov cx, 3
 	call read_bits
