@@ -237,7 +237,7 @@ d0	mov byte [bp + ?errordata], 38h
 	add di, dx		; * 3 = * exo_table_entry_size
 
 	mov bx, word [bp + ?lengths + di + eteBase]
-	xor cx, cx
+	; xor cx, cx		; cx = 0 already after get_gamma_code NC
 	mov cl, byte [bp + ?lengths + di + eteBits]
 	call read_bits		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 39h
@@ -455,7 +455,7 @@ generate_table_cx:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 bx:dx = gamma
-		; CHG:	ax, cx
+		;	 ax = cx = 0
 		; STT:	bp -> depack stack frame
 get_gamma_code:
 	xor dx, dx
