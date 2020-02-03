@@ -185,6 +185,7 @@ d0	mov byte [bp + ?errordata], 44h
 		; All paths to this label must have cx = 0.
 .literal:
 	inc cx				; cx = 1
+.STATE_NEXT_LITERAL_BYTE_increment_counter:
 d0	inc byte [bp + ?errordata + 1]
 .STATE_NEXT_LITERAL_BYTE:
 	call read_write_byte
@@ -222,8 +223,7 @@ d0	mov byte [bp + ?errordata], 35h
 d0	mov byte [bp + ?errordata], 36h
 	jc .error
 	xchg ax, cx
-d0	inc byte [bp + ?errordata + 1]
-	jmp .STATE_NEXT_LITERAL_BYTE
+	jmp .STATE_NEXT_LITERAL_BYTE_increment_counter
 
 .not_literal_data_block:
 	cmp dx, 16
