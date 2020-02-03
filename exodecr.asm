@@ -116,7 +116,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push di
 	call pointer_to_linear
 
-%if _ALLOW_OVERLAPPING && 0
+%if _ALLOW_OVERLAPPING
 	add cx, word [bp + ?src_remaining]
 	adc bx, word [bp + ?src_remaining + 2]
 		; In case of allowing overlapping source and destination,
@@ -196,8 +196,6 @@ d0	mov byte [bp + ?errordata], 37h
 		; cx = 0
 	; jmp .STATE_NEXT_BYTE
 
-		; ! cx = 0
-		; All paths to this label must have cx = 0.
 .STATE_NEXT_BYTE:
 %if _COUNTER
 	inc byte [bp + ?counter]
@@ -303,7 +301,12 @@ d0	mov byte [bp + ?errordata], 3Eh
 d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
 	loop .STATE_NEXT_SEQUENCE_BYTE
-		; cx = 0
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+d0	mov byte [bp + ?errordata], 1Ch
+	jc .error
+%endif
 	jmp .STATE_NEXT_BYTE
 
 .end_check:
