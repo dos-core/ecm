@@ -239,7 +239,7 @@ d0	mov byte [bp + ?errordata], 38h
 	mov bx, word [bp + ?lengths + di + eteBase]
 	xor cx, cx
 	mov cl, byte [bp + ?lengths + di + eteBits]
-	call read_bits
+	call read_bits		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 39h
 	jc .error
 	add bx, ax		; bx = length
@@ -249,21 +249,21 @@ d0	mov byte [bp + ?errordata], 39h
 	je .switch_case2
 	ja .switch_default
 .switch_case1:
-	mov cx, 2
+	mov cl, 2		; cx = 2
 	call read_bits
 	mov dx, ?offsets1
 d0	mov byte [bp + ?errordata], 3Ah
 	jmp .switch_common
 
 .switch_case2:
-	mov cx, 4
+	mov cl, 4		; cx = 4
 	call read_bits
 	mov dx, ?offsets2
 d0	mov byte [bp + ?errordata], 3Bh
 	jmp .switch_common
 
 .switch_default:
-	mov cx, 4
+	mov cl, 4		; cx = 4
 	call read_bits
 	mov dx, ?offsets3
 d0	mov byte [bp + ?errordata], 3Ch
@@ -276,7 +276,7 @@ d0	mov byte [bp + ?errordata], 3Ch
 	add dx, dx
 	add di, dx		; di = offset into table
 	add di, ax		; -> table entry
-	xor cx, cx
+	; xor cx, cx		; cx already = 0 after read_bits NC
 	mov cl, byte [bp + di + eteBits]
 	call read_bits		; leaves cx = 0 if NC
 d0	mov byte [bp + ?errordata], 3Dh
