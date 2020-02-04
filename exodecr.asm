@@ -296,19 +296,43 @@ d0	mov byte [bp + ?errordata], 3Dh
 	xchg cx, bx		; cx = length that we remembered in bx
 				; bx = 0
 	xchg dx, ax		; bx:dx = read bits
+
+d0	inc byte [bp + ?errordata + 1]
+
 	add dx, word [bp + di + eteBase]
 	adc bx, 0		; bx:dx = offset
-d0	inc byte [bp + ?errordata + 1]
-        ; jmp .STATE_NEXT_SEQUENCE_BYTE
 
-.STATE_NEXT_SEQUENCE_BYTE:
-	call read_byte_from_window
+	; test bx, bx		; offset 0 ?
+	jnz @F			; no -->
+	test dx, dx		; offset 0 ?
 d0	mov byte [bp + ?errordata], 3Eh
-	jc .error
-	call write_byte
+	jz  .error		; yes, invalid -->
+@@:
+	push cx
+	mov cx, dx
+        neg bx
+        neg cx
+        sbb bx, byte 0          ; neg bx:cx
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop bx			; bx:si = pointer into decompressed data
+	pop cx			; restore match length
+
+	cmp word [bp + ?original_dst + 2], bx
+				; is source of matching within ?dst ?
+d0	mov byte [bp + ?errordata], 16h
+	ja .error
+	jb @F
+	cmp word [bp + ?original_dst], si
+d0	mov byte [bp + ?errordata], 17h
+	ja .error		; no, ?original_dst is above it -->
+@@:
+	mov ds, bx		; -> match source data
+	call copy_data
 d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
-	loop .STATE_NEXT_SEQUENCE_BYTE
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
