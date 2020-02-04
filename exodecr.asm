@@ -188,11 +188,18 @@ d0	mov byte [bp + ?errordata], 44h
 	inc cx				; cx = 1
 .STATE_NEXT_LITERAL_BYTE_increment_counter:
 d0	inc byte [bp + ?errordata + 1]
-.STATE_NEXT_LITERAL_BYTE:
-	call read_write_byte
-d0	mov byte [bp + ?errordata], 37h
+
+	lds si, [bp + ?src]
+	sub word [bp + ?src_remaining], cx
+	sbb word [bp + ?src_remaining + 2], 0
+d0	mov byte [bp + ?errordata], 45h
 	jc .error
-	loop .STATE_NEXT_LITERAL_BYTE
+	call copy_data
+d0	mov byte [bp + ?errordata], 46h
+	jc .error
+	mov word [bp + ?src], si
+	mov word [bp + ?src + 2], ds
+
 		; cx = 0
 	; jmp .STATE_NEXT_BYTE
 
@@ -573,5 +580,43 @@ read_write_byte:
 	call read_byte
 	jc .ret
 	call write_byte
+.ret:
+	retn
+
+
+		; INP:	ds:si -> data (normalised and in bounds)
+		;	?dst (normalised), ?dst_remaining
+		;	cx = number of bytes (entire range valid)
+		; OUT:	CY if error (destination exhausted)
+		;	NC if success,
+		;	 ds:si -> behind copied source (normalised)
+		;	 ?dst -> behind copied destination (normalised)
+		;	 ?dst_remaining decremented
+		;	 ax = cx = 0
+		; CHG:	es, di
+copy_data:
+	sub word [bp + ?dst_remaining], cx
+	sbb word [bp + ?dst_remaining + 2], 0
+	jc .ret
+	les di, [bp + ?dst]
+
+	xor ax, ax			; initialise second step length
+	cmp cx, 0FFF0h			; can copy in one step ?
+	jbe @F				; yes -->
+	mov al, cl
+	and al, 15			; second step length
+	mov cl, 0F0h			; maximum first step = 0FFF0h
+@@:
+	rep movsb			; move first step
+	call normalise_both_pointers	; normalise pointers after
+	xchg ax, cx			; cx = second step length
+	rep movsb			; move second step (may be zero)
+	call normalise_both_pointers	; normalise again if was nonzero
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es	; store to ?dst
+	mov di, es			; ! this is the *segment*
+	cmp di, word [bp + ?dst_max_segment]
+	jae depack.end
+	clc
 .ret:
 	retn
