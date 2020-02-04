@@ -216,6 +216,7 @@ d0	mov byte [bp + ?errordata], 32h
 	test ax, ax
 	jnz .literal			; (cx = 0 still)
 
+		; cx = ax = 0
 .not_literal:
 
 	; call get_gamma_code
@@ -230,19 +231,16 @@ d0	mov byte [bp + ?errordata], 32h
 	xor dx, dx
 	xor bx, bx		; bx:dx = gamma = 0
 .ggc_loop:
+		; cx = 0. ax = 0 initially, else = 1
+	add dx, ax
+	adc bx, cx		; ++gamma (except initially)
 	call read_bits_1	; read_bits(1)
-	jc .ggc_ret
-	shr ax, 1		; returned == 0 ?
-	jc .ggc_end		; no, end of loop -->
-	add dx, 1
-	adc bx, 0		; ++gamma
-	jmp .ggc_loop
-.ggc_end:
-	clc			; indicate not error
-.ggc_ret:
-
 d0	mov byte [bp + ?errordata], 33h
 	jc .error
+	xor al, 1		; returned == 0 ?
+	jnz .ggc_loop		; yes, loop --> (ax = 1 if looping)
+				; no, end of loop
+
 	test bx, bx
 d0	mov byte [bp + ?errordata], 34h
 	jnz .error
