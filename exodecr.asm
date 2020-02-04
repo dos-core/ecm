@@ -187,8 +187,6 @@ d0	mov byte [bp + ?errordata], 44h
 .literal:
 	inc cx				; cx = 1
 .STATE_NEXT_LITERAL_BYTE_increment_counter:
-d0	inc byte [bp + ?errordata + 1]
-
 	lds si, [bp + ?src]
 	sub word [bp + ?src_remaining], cx
 	sbb word [bp + ?src_remaining + 2], 0
@@ -296,8 +294,6 @@ d0	mov byte [bp + ?errordata], 3Dh
 	xchg cx, bx		; cx = length that we remembered in bx
 				; bx = 0
 	xchg dx, ax		; bx:dx = read bits
-
-d0	inc byte [bp + ?errordata + 1]
 
 	add dx, word [bp + di + eteBase]
 	adc bx, 0		; bx:dx = offset
@@ -543,6 +539,8 @@ get_gamma_code:
 		; STT:	bp -> depack stack frame
 		;	UP
 copy_data:
+d0	inc byte [bp + ?errordata + 1]
+
 	sub word [bp + ?dst_remaining], cx
 	sbb word [bp + ?dst_remaining + 2], 0
 	jc .ret
