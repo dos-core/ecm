@@ -846,14 +846,14 @@ init2_start:
 		;  to decompress generally overwrites part of that
 		;  payload which was used as source.
 
-	mov dx, ax		; => payload source to use
+	mov dx, ax		; dx => payload source to use
 	mov ax, cs
 	sub ax, (init1_end - init1_start) >> 4
-				; => INIT1
+				; ax => INIT1
 	mov bx, 1		; say we're in EXE mode
 	push dx
 	push ax
-	push si
+	push si			; si => target
 	push cs
 	call .transfer		; call decompression
 	pop si
@@ -868,6 +868,18 @@ init2_start:
 	jmp init2_error
 
 @@:
+	numdef INCLUDE_UNCOMPRESSED
+%if _INCLUDE_UNCOMPRESSED
+	call checkdecompressed
+	je @F
+
+	mov dx, init2_msg.initial_error_2
+	mov cx, init2_msg.initial_error_2.length
+	jmp init2_error
+
+@@:
+%endif
+
 	lframe
 	lenter
 	lvar word,	upperbound
@@ -917,6 +929,16 @@ init2_start:
 	jmp .loop
 
 @@:
+%if _INCLUDE_UNCOMPRESSED
+	call checkdecompressed
+	je @F
+
+	mov dx, init2_msg.subsequent_error_2
+	mov cx, init2_msg.subsequent_error_2.length
+	jmp init2_error
+
+@@:
+%endif
 		; success: this attempt is the new upper bound
 	mov word [bp + ?upperbound], dx
 	jmp .loop
@@ -944,6 +966,61 @@ init2_start:
 	push ax			; INIT1 segment
 	push di			; zero = init1_start
 	retf
+
+
+
+%if _INCLUDE_UNCOMPRESSED
+		; INP:	si => decompressed image
+		; OUT:	ZR if matching
+		;	NZ if mismatching
+		; CHG:	es, ds, di, bx, cx
+		; STT:	UP
+checkdecompressed:
+	push ax
+	push dx
+	push si
+%if _PAYLOAD_KERNEL_MAX_PARAS
+	mov cx, _PAYLOAD_KERNEL_MAX_PARAS
+	mov bx, 0
+%else
+payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
+	mov cx, payload_uncompressed_size >> 4
+	mov bx, payload_uncompressed_size & 15
+%endif
+	mov di, cs
+	add di, (payload_uncompressed - init2_start) >> 4
+	jcxz .end
+.loop:
+	push cx
+	mov cx, 8
+	mov ds, si
+	mov es, di
+	inc si
+	inc di
+	push si
+	push di
+	xor si, si
+	xor di, di
+	repe cmpsw
+	pop di
+	pop si
+	pop cx
+	jne .ret
+	loop .loop
+.end:
+	mov ds, si
+	mov es, di
+	xor si, si
+	xor di, di		; (ZR)
+	mov cx, bx
+	repe cmpsb
+.ret:
+	pop si
+	pop dx
+	pop ax
+	retn
+%endif
+
 
 init2_error:
 	push cs
@@ -1032,6 +1109,12 @@ init2_disp_ax_dec:			; ax (no leading zeros)
 init2_msg:
 .initial_error:	db "Error: Test program failed to decompress with full buffer.",13,10
 .initial_error.length: equ $ - .initial_error
+%if _INCLUDE_UNCOMPRESSED
+.initial_error_2:	db "Error: Test program decompressed wrongly with full buffer.",13,10
+.initial_error_2.length: equ $ - .initial_error_2
+.subsequent_error_2:	db "Error: Test program decompressed wrongly during test.",13,10
+.subsequent_error_2.length: equ $ - .subsequent_error_2
+%endif
 .error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
 				+ (payload_end - payload) \
 				+ (init1_end - init1_start) \
@@ -1149,11 +1232,11 @@ init2_movp:
 
 	align 16
 
-	numdef INCLUDE_UNCOMPRESSED
 	strdef UNCOMPRESSED_FILE, "lDOSLOAD.BIN"
 %if _INCLUDE_UNCOMPRESSED
 payload_uncompressed:
 	incbin _UNCOMPRESSED_FILE
+.end:
 	db 38
 	align 16, db 38
 %endif
