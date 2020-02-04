@@ -520,94 +520,6 @@ get_gamma_code:
 	retn
 
 
-		; INP:	bx:dx = offset
-		; OUT:	CY if error
-		;	NC if success,
-		;	 al = byte read from decompressed data
-		; CHG:	-
-		; STT:	bp -> depack stack frame
-read_byte_from_window:
-	push ds
-	push si
-	push bx
-	push cx
-	mov cx, dx
-        neg bx
-        neg cx
-        sbb bx, byte 0          ; neg bx:cx
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
-	call normalise_pointer_with_displacement_bxcx
-	 pop cx
-	 pop bx
-
-	cmp word [bp + ?original_dst + 2], bx
-				; is source of matching within ?dst ?
-d0	mov byte [bp + ?errordata], 16h
-	ja .error
-	jb @F
-	cmp word [bp + ?original_dst], cx
-d0	mov byte [bp + ?errordata], 17h
-	ja .error		; no, ?original_dst is above it -->
-@@:
-
-	mov si, cx
-	mov ds, bx
-	lodsb
-
-	db __TEST_IMM8		; (NC)
-.error:
-	stc
-	pop cx
-	pop bx
-	pop si
-	pop ds
-	retn
-
-
-		; INP:	al = byte to write to decompressed data
-		; OUT:	CY if error
-		;	NC if success
-		;	Instead of returning, this may jump to depack.end
-		;	 if the destination segment grows up to the value
-		;	 stored in the ?dst_max_segment variable. It is
-		;	 assumed that this will use the stack frame to leave
-		;	 the function, therefore discarding any of the stack
-		;	 contents between the frame and the stack top.
-		; CHG:	-
-		; STT:	bp -> depack stack frame
-write_byte:
-	sub word [bp + ?dst_remaining], 1
-	sbb word [bp + ?dst_remaining + 2], 0
-	jc .ret
-	push es
-	push di
-	les di, [bp + ?dst]
-	stosb
-	 push es
-	 push di
-	call normalise_pointer
-	 pop word [bp + ?dst]
-	 pop di				; ! this is the *segment*
-	 mov word [bp + ?dst + 2], di
-	cmp di, word [bp + ?dst_max_segment]
-	jae depack.end
-
-	pop di
-	pop es
-	clc
-.ret:
-	retn
-
-
-read_write_byte:
-	call read_byte
-	jc .ret
-	call write_byte
-.ret:
-	retn
-
-
 		; INP:	ds:si -> data (normalised and in bounds)
 		;	?dst (normalised), ?dst_remaining
 		;	cx = number of bytes (entire range valid)
@@ -617,6 +529,12 @@ read_write_byte:
 		;	 ?dst -> behind copied destination (normalised)
 		;	 ?dst_remaining decremented
 		;	 ax = cx = 0
+		;	Instead of returning, this may jump to depack.end
+		;	 if the destination segment grows up to the value
+		;	 stored in the ?dst_max_segment variable. It is
+		;	 assumed that this will use the stack frame to leave
+		;	 the function, therefore discarding any of the stack
+		;	 contents between the frame and the stack top.
 		; CHG:	es, di
 copy_data:
 	sub word [bp + ?dst_remaining], cx
