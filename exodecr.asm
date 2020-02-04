@@ -374,6 +374,7 @@ d0	mov bx, word [bp + ?errordata]
 		;	 ?src_remaining
 		; CHG:	-
 		; STT:	bp -> depack stack frame
+		;	UP
 read_byte:
 	push ds
 	push si
@@ -426,6 +427,7 @@ read_bits_1:
 		;	 cx = 0
 		; CHG:	-
 		; STT:	bp -> depack stack frame
+		;	UP
 read_bits:
 	cmp cx, 16		; CY if valid
 	cmc			; NC if valid
@@ -469,6 +471,7 @@ generate_table_16:
 		;	 cx = 0
 		; CHG:	ax, bx, di
 		; STT:	bp -> depack stack frame
+		;	UP
 generate_table_cx:
 	mov bx, 1
 .loop:
@@ -503,6 +506,7 @@ generate_table_cx:
 		;	 bx:dx = gamma
 		;	 ax = cx = 0
 		; STT:	bp -> depack stack frame
+		;	UP
 get_gamma_code:
 	xor dx, dx
 	xor bx, bx		; bx:dx = gamma = 0
@@ -536,6 +540,8 @@ get_gamma_code:
 		;	 the function, therefore discarding any of the stack
 		;	 contents between the frame and the stack top.
 		; CHG:	es, di
+		; STT:	bp -> depack stack frame
+		;	UP
 copy_data:
 	sub word [bp + ?dst_remaining], cx
 	sbb word [bp + ?dst_remaining + 2], 0
