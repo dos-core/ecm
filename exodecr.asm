@@ -261,16 +261,17 @@ d0	mov byte [bp + ?errordata], 3Ah
 	jmp .switch_common
 
 .switch_case2:
-	mov cl, 4		; cx = 4
 	mov dx, ?offsets2
 d0	mov byte [bp + ?errordata], 3Bh
-	jmp .switch_common
+	jmp .switch_common_cl_4
 
 .switch_default:
-	mov cl, 4		; cx = 4
 	mov dx, ?offsets3
 d0	mov byte [bp + ?errordata], 3Ch
-	; jmp .switch_common
+	; jmp .switch_common_cl_4
+
+.switch_common_cl_4:
+	mov cl, 4		; cx = 4
 
 .switch_common:
 	call read_bits
