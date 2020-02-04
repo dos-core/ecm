@@ -217,7 +217,30 @@ d0	mov byte [bp + ?errordata], 32h
 	jnz .literal			; (cx = 0 still)
 
 .not_literal:
-	call get_gamma_code
+
+	; call get_gamma_code
+		; INP:	-
+		; OUT:	CY if error
+		;	NC if success,
+		;	 bx:dx = gamma
+		;	 ax = cx = 0
+		; STT:	bp -> depack stack frame
+		;	UP
+.get_gamma_code:
+	xor dx, dx
+	xor bx, bx		; bx:dx = gamma = 0
+.ggc_loop:
+	call read_bits_1	; read_bits(1)
+	jc .ggc_ret
+	shr ax, 1		; returned == 0 ?
+	jc .ggc_end		; no, end of loop -->
+	add dx, 1
+	adc bx, 0		; ++gamma
+	jmp .ggc_loop
+.ggc_end:
+	clc			; indicate not error
+.ggc_ret:
+
 d0	mov byte [bp + ?errordata], 33h
 	jc .error
 	test bx, bx
@@ -492,30 +515,6 @@ generate_table_cx:
 	add di, exo_table_entry_size
 	loop .loop
 	clc
-.ret:
-	retn
-
-
-		; INP:	-
-		; OUT:	CY if error
-		;	NC if success,
-		;	 bx:dx = gamma
-		;	 ax = cx = 0
-		; STT:	bp -> depack stack frame
-		;	UP
-get_gamma_code:
-	xor dx, dx
-	xor bx, bx		; bx:dx = gamma = 0
-.loop:
-	call read_bits_1	; read_bits(1)
-	jc .ret
-	shr ax, 1		; returned == 0 ?
-	jc .end			; no, end of loop -->
-	add dx, 1
-	adc bx, 0		; ++gamma
-	jmp .loop
-.end:
-	clc			; indicate not error
 .ret:
 	retn
 
