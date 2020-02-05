@@ -411,7 +411,7 @@ read_byte:
 
 		; as for read_byte
 		; OUT:	CY if error
-		;	NC if succesa,
+		;	NC if success,
 		;	 ?bit_buffer
 		; CHG:	al
 read_byte_to_bit_buffer:
