@@ -496,11 +496,11 @@ generate_table_cx:
 	push cx
 	mov cx, 3
 	call read_bits
-	jc .ret
+	jc .ret_pop
 	mov byte [bp + di + eteBits], al
 	mov cl, 1
 	call read_bits
-	jc .ret
+	jc .ret_pop
 	shl al, 1
 	shl al, 1
 	shl al, 1
@@ -512,8 +512,9 @@ generate_table_cx:
 	pop cx
 	add di, exo_table_entry_size
 	loop .loop
-	clc
-.ret:
+	db __TEST_IMM8		; (skip pop, NC)
+.ret_pop:
+	pop cx
 	retn
 
 
