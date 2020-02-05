@@ -225,6 +225,7 @@ d0	mov byte [bp + ?errordata], 32h
 		;	NC if success,
 		;	 bx:dx = gamma
 		;	 ax = cx = 0
+		; CHG:	ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 .get_gamma_code:
@@ -389,12 +390,10 @@ d0	mov bx, word [bp + ?errordata]
 		;	 al = byte read from source
 		;	 ?src
 		;	 ?src_remaining
-		; CHG:	-
+		; CHG:	ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 read_byte:
-	push ds
-	push si
 	lds si, [bp + ?src]
 	lodsb
 	 push ds
@@ -402,8 +401,6 @@ read_byte:
 	call normalise_pointer
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]
-	pop si
-	pop ds
 	sub word [bp + ?src_remaining], 1
 	sbb word [bp + ?src_remaining + 2], 0
 	retn
@@ -413,7 +410,7 @@ read_byte:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 ?bit_buffer
-		; CHG:	al
+		; CHG:	al, ds, si
 read_byte_to_bit_buffer:
 	call read_byte
 	mov byte [bp + ?bit_buffer], al
@@ -442,7 +439,7 @@ read_bits_1:
 		;	NC if success,
 		;	 ax = read data
 		;	 cx = 0
-		; CHG:	-
+		; CHG:	ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 read_bits:
@@ -486,7 +483,7 @@ generate_table_16:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 cx = 0
-		; CHG:	ax, bx, di
+		; CHG:	ax, bx, di, ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 generate_table_cx:
