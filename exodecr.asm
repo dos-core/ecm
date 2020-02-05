@@ -323,7 +323,7 @@ d0	mov byte [bp + ?errordata], 3Dh
 	jnz @F			; no -->
 	test dx, dx		; offset 0 ?
 d0	mov byte [bp + ?errordata], 3Eh
-	jz  .error		; yes, invalid -->
+	jz .error		; yes, invalid -->
 @@:
 	push cx
 	mov cx, dx
