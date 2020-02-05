@@ -230,10 +230,15 @@ __lvar_list_label %1
  %assign %$varsize 4
 %elifidni %1,qword
  %assign %$varsize 8
-%elifnum %1
- %assign %$varsize %1
 %else
- %fatal Invalid type specified: %1
+	; Previously we checked with %elifnum here that the parameter
+	;  is numeric. That turned out not to be what we want in
+	;  https://hg.ulukai.org/ecm/inicomp/file/dc376b09985e/exodecr.asm#l153
+	; In that case we used lequ as a workaround but it really
+	;  should be allowed directly as lvar size specification.
+	; Therefore, we give the parameter to %assign and let it fail
+	;  in case the expression doesn't result in a scalar number.
+ %assign %$varsize %1
 %endif
 %assign %$ofs %$ofs-%$varsize
 __lvar_define_var %2, %$ofs
