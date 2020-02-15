@@ -263,6 +263,7 @@ d0	mov bx, word [bp + ?errordata]
 	mov word [bp + ?opt_k], 3
 	mov word [bp + ?sum_delta], ax
 	mov word [bp + ?global_N], ax
+	mov word [bp + ?bit_counter], 32
 
 	mov cx, 256
 .init_loop_outer:
