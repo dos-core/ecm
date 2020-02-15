@@ -689,10 +689,12 @@ d0	mov byte [bp + ?errordata], 94h
 	push cx
 	call .get_sidi_1_shl_cx_and_bitbuffer
 	mov cx, bx
+	jcxz @FF
 @@:
 	shl di, 1
 	rcl si, 1
 	loop @B
+@@:
 	or dx, si
 	or ax, di
 
@@ -711,10 +713,12 @@ d0	mov byte [bp + ?errordata], 94h
 		; CHG:	cx
 .shl_bitbuffer_and_add_bitcounter_cx:
 	add word [bp + ?bit_counter], cx
+	jcxz @FF
 @@:
 	shl word [bp + ?bit_buffer], 1
 	rcl word [bp + ?bit_buffer + 2], 1
 	loop @B
+@@:
 	retn
 
 
@@ -724,10 +728,12 @@ d0	mov byte [bp + ?errordata], 94h
 .get_sidi_1_shl_cx_and_bitbuffer:
 	mov di, 1
 	xor si, si		; si:di = 1
+	jcxz @FF
 @@:
 	shl di, 1
 	rcl si, 1
 	loop @B
+@@:
 	sub di, 1
 	sbb si, 0
 	and si, word [bp + ?bit_buffer + 2]
@@ -793,10 +799,12 @@ d0	mov byte [bp + ?errordata], 95h
 	add word [bp + ?bit_counter], cx
 	add di, cx
 	adc bx, 0
+	jcxz @FF
 @@:
 	shr word [bp + ?bit_buffer + 2], 1
 	rcr word [bp + ?bit_buffer], 1
 	loop @B
+@@:
 
 	cmp word [bp + ?bit_counter], 32
 	je .loop
@@ -824,10 +832,12 @@ bio_read_gr:
 d0	mov byte [bp + ?errordata], 97h
 	jc .error
 	push cx
+	jcxz @FF
 @@:
 	shl ax, 1
 	rcl dx, 1
 	loop @B
+@@:
 	mov bx, dx
 	xchg cx, ax		; bx:cx = N = Q << k
 	pop ax
