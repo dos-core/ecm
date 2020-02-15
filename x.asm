@@ -135,7 +135,7 @@ depack:
 		; If the normalised destination pointer's segment grows
 		;  to this segment then enough has been decompressed.
 		; (Only if ?layers is equal to 1 this should be checked.)
-d0	mov byte [bp + ?errordata], 40h
+d0	mov byte [bp + ?errordata], 80h
 	jc .error		; should not carry
 @@:
 	lvar word,	dst_max_segment
@@ -170,7 +170,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
-d0	mov byte [bp + ?errordata], 60h
+d0	mov byte [bp + ?errordata], 81h
 	jb .error		; source linear is below destination linear -->
 
 	lvar dword,	dst_remaining
@@ -191,13 +191,14 @@ d0	mov byte [bp + ?errordata], 60h
 		;	 Doing this check here (as well as after any
 		;	 copied match) allows us to drop the check done
 		;	 after moving literal bytes.
-d0	mov byte [bp + ?errordata], 1Bh
+d0	mov byte [bp + ?errordata], 82h
 	jc .error
 %endif
 
 	xor ax, ax
 	mov bx, .lodsb
 	call x_func_bx_with_src
+d0	mov byte [bp + ?errordata], 83h
 	jc .error
 	mov word [bp + ?layers], ax
 	test al, al
@@ -225,6 +226,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	loop @B
 	mov cx, ax
 	test bx, bx
+d0	mov byte [bp + ?errordata], 84h
 	jnz .error
 
 	call x_mov_p
@@ -283,6 +285,7 @@ d0	mov bx, word [bp + ?errordata]
 	test ah, ah		; ax == 256 ?
 	jz .init_loop_inner	; not yet -->
 	add si, CONTEXT_TABLE_size
+d0	mov byte [bp + ?errordata], 85h
 	jc .error
 	 push ds
 	 push si
@@ -293,8 +296,10 @@ d0	mov bx, word [bp + ?errordata]
 
 	mov ax, ds
 	cmp ax, word [bp + ?dst + 2]
+d0	mov byte [bp + ?errordata], 86h
 	jne .error
 	cmp si, word [bp + ?dst]
+d0	mov byte [bp + ?errordata], 87h
 	jne .error
 
 	push word [bp + ?table + 2]
@@ -303,14 +308,17 @@ d0	mov bx, word [bp + ?errordata]
 	pop word [bp + ?context + 2]
 
 .decompress_loop:
+d0	inc byte [bp + ?errordata + 1]
 	mov ax, word [bp + ?opt_k]
 	call bio_read_gr	; dx:ax = d
 	jc .error
 
 	test dx, dx
+d0	mov byte [bp + ?errordata], 88h
 	jnz .error
 	cmp ax, 256		; d == 256 ?
 	je .decompress_end	;	break;
+d0	mov byte [bp + ?errordata], 89h
 	ja .error		; error if > 256 -->
 
 	lds si, [bp + ?context]
@@ -320,6 +328,7 @@ d0	mov bx, word [bp + ?errordata]
 	les di, [bp + ?dst]
 	sub word [bp + ?dst_remaining], 1
 	sbb word [bp + ?dst_remaining + 2], 0
+d0	mov byte [bp + ?errordata], 8Ah
 	jc .error
 
 	stosb			; *optrc = c
@@ -392,6 +401,7 @@ d0	mov bx, word [bp + ?errordata]
 	loop @B			; convert to paragraphs
 	mov cx, ax
 	test bx, bx
+d0	mov byte [bp + ?errordata], 8Bh
 	jnz .error
 
 	call x_mov_p		; move prior layer's data to source
@@ -430,7 +440,7 @@ d0	mov bx, word [bp + ?errordata]
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
-d0	mov byte [bp + ?errordata], 60h
+d0	mov byte [bp + ?errordata], 8Ch
 	jb .error		; source linear is below destination linear -->
 
 	mov [bp + ?dst_remaining + 2], bx
@@ -443,7 +453,7 @@ d0	mov byte [bp + ?errordata], 60h
 		;	 Doing this check here (as well as after any
 		;	 copied match) allows us to drop the check done
 		;	 after moving literal bytes.
-d0	mov byte [bp + ?errordata], 1Bh
+d0	mov byte [bp + ?errordata], 8Dh
 	jc .error
 %endif
 
@@ -555,9 +565,11 @@ increment_frequency:
 
 	mov bx, cx
 	cmp al, byte [si + ctSorted + bx]
+d0	mov byte [bp + ?errordata], 8Eh
 	jne .error			; context->sorted[ic] == c ?
 	mov bx, di
 	cmp dl, byte [si + ctSorted + bx]
+d0	mov byte [bp + ?errordata], 8Fh
 	jne .error			; context->sorted[id] == d ?
 
 		; bx = id
@@ -590,6 +602,7 @@ increment_frequency:
 update_model:
 	cmp word [bp + ?global_N], RESET_INTERVAL
 	jb .notreset
+d0	mov byte [bp + ?errordata], 90h
 	ja .error
 
 	mov bx, ax
@@ -617,6 +630,7 @@ update_model:
 
 .notreset:
 	add word [bp + ?sum_delta], ax
+d0	mov byte [bp + ?errordata], 91h
 	jc .error
 	inc word [bp + ?global_N]
 	db __TEST_IMM8		; (NC)
@@ -634,6 +648,7 @@ bio_read_bits:
 	push ax
 	call bio_reload_buffer	; CHG: ax, dx, ds, si
 	pop ax
+d0	mov byte [bp + ?errordata], 92h
 	jc .error
 @@:
 
@@ -660,12 +675,14 @@ bio_read_bits:
 	jz .end
 
 	cmp word [bp + ?bit_counter], 32
+d0	mov byte [bp + ?errordata], 93h
 	jne .error
 	push dx
 	push ax
 	call bio_reload_buffer	; CHG: ax, dx, ds, si
 	pop ax
 	pop dx
+d0	mov byte [bp + ?errordata], 94h
 	jc .error
 
 	push cx
@@ -744,6 +761,7 @@ bio_read_unary:
 	cmp word [bp + ?bit_counter], 32
 	jne @F
 	call bio_reload_buffer	; CHG: ax, dx, ds, si
+d0	mov byte [bp + ?errordata], 95h
 	jc .error
 @@:
 	; count trailing zeros in bit_buffer
@@ -779,6 +797,7 @@ bio_read_unary:
 
 	cmp word [bp + ?bit_counter], 32
 	je .loop
+d0	mov byte [bp + ?errordata], 96h
 	ja .error
 
 	inc word [bp + ?bit_counter]
@@ -799,6 +818,7 @@ bio_read_gr:
 	push ax
 	call bio_read_unary	; dx:ax = Q
 	pop cx
+d0	mov byte [bp + ?errordata], 97h
 	jc .error
 	push cx
 @@:
@@ -809,12 +829,14 @@ bio_read_gr:
 	xchg cx, ax		; bx:cx = N = Q << k
 	pop ax
 	cmp ax, 32
+d0	mov byte [bp + ?errordata], 98h
 	ja .error
 	push bx
 	push cx
 	call bio_read_bits
 	pop cx
 	pop bx
+d0	mov byte [bp + ?errordata], 99h
 	jc .error
 	or ax, cx
 	or dx, bx		; dx:ax = N |= bio_read_bits
