@@ -80,7 +80,8 @@ ldLoadUntilSeg:	resw 1
 	numdef LZ4,		0
 	numdef SNAPPY,		0
 	numdef EXODECR,		0
-%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR) != 1
+	numdef X,		0
+%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X) != 1
  %error Exactly one compression method must be selected.
 %endif
 %if _BRIEFLZ
@@ -91,6 +92,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.SZ"
 %elif _EXODECR
 	strdef PAYLOAD_FILE,	"lDOSLOAD.EXO"
+%elif _X
+	strdef PAYLOAD_FILE,	"lDOSLOAD.X"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! _IMAGE_EXE
@@ -617,6 +620,11 @@ msg:
 %endif
 
 
+%if _X
+	%include "x.asm"
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
@@ -817,6 +825,8 @@ init0_end:
 %define which inisz
 %elif _EXODECR
 %define which iniexo
+%elif _X
+%define which inix
 %endif
 %warning which: num bytes used for depacker
 
