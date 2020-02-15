@@ -383,18 +383,26 @@ d0	mov byte [bp + ?errordata], 8Ah
 	mov word [bp + ?src_remaining + 2], bx
 	mov word [bp + ?src_remaining], cx
 				; set up new source
-	 push word [bp + ?src_top + 2]
-	 push word [bp + ?src_top]
+
 	add cx, 15
 	adc bx, 0
 	and cl, 0F0h		; round up to paragraph
+	push bx
+	push cx
+
+	 push word [bp + ?src_top + 2]
+	 push word [bp + ?src_top]
+        neg bx
+        neg cx
+        sbb bx, byte 0          	; neg bx:cx
 	call normalise_pointer_with_displacement_bxcx
 	 pop di
 	 pop es
 	mov word [bp + ?src + 2], es
 	mov word [bp + ?src], di
 
-	mov ax, cx
+	pop ax
+	pop bx
 	mov cx, 4
 @@:
 	shr bx, 1
