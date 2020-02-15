@@ -669,7 +669,7 @@ d0	mov byte [bp + ?errordata], 92h
 	mov ax, di
 
 	mov cx, bx
-	call .shl_bitbuffer_and_add_bitcounter_cx
+	call .shr_bitbuffer_and_add_bitcounter_cx
 
 	pop cx
 	sub cx, bx
@@ -699,7 +699,7 @@ d0	mov byte [bp + ?errordata], 94h
 	or ax, di
 
 	pop cx
-	call .shl_bitbuffer_and_add_bitcounter_cx
+	call .shr_bitbuffer_and_add_bitcounter_cx
 
 .end:
 	db __TEST_IMM8		; (NC)
@@ -711,12 +711,12 @@ d0	mov byte [bp + ?errordata], 94h
 		; INP:	cx = how far to shift
 		; OUT:	-
 		; CHG:	cx
-.shl_bitbuffer_and_add_bitcounter_cx:
+.shr_bitbuffer_and_add_bitcounter_cx:
 	add word [bp + ?bit_counter], cx
 	jcxz @FF
 @@:
-	shl word [bp + ?bit_buffer], 1
-	rcl word [bp + ?bit_buffer + 2], 1
+	shr word [bp + ?bit_buffer + 2], 1
+	rcr word [bp + ?bit_buffer], 1
 	loop @B
 @@:
 	retn
