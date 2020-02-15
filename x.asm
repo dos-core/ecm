@@ -742,11 +742,13 @@ d0	mov byte [bp + ?errordata], 94h
 		;	?bit_counter
 		; CHG:	ax, dx, ds, si
 bio_reload_buffer:
+	push bx
 	mov bx, depack.lodsd_dxax
 	call x_func_bx_with_src
 	mov word [bp + ?bit_buffer], ax
 	mov word [bp + ?bit_buffer + 2], dx
 	mov word [bp + ?bit_counter], 0
+	pop bx
 	retn
 
 
