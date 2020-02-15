@@ -606,7 +606,7 @@ update_model:
 d0	mov byte [bp + ?errordata], 90h
 	ja .error
 
-	mov bx, ax
+	mov bx, word [bp + ?global_N]
 	mov cx, 1
 .loop:
 	cmp bx, word [bp + ?sum_delta]
