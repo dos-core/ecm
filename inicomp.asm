@@ -893,36 +893,7 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	je @F
 
 %if _WRITE_WRONG_FILE
-	push cs
-	pop ds
-	mov dx, init2_msg.wrong_file_name
-	xor cx, cx
-	mov ah, 3Ch
-	int 21h
-	jc .notfile
-
-	mov bx, ax
-	mov cx, payload_uncompressed_size >> 4
-	xor dx, dx
-.loopfile:
-	mov ds, si
-	mov ah, 40h
-	push cx
-	mov cx, 16
-	int 21h
-	pop cx
-	inc si
-	loop .loopfile
-
-	mov ds, si
-	mov cx, payload_uncompressed_size & 15
-	mov ah, 40h
-	int 21h
-
-	mov ah, 3Eh
-	int 21h
-
-.notfile:
+	call writefiles
 %endif
 
 %if _DEBUG0
@@ -989,36 +960,7 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	je @F
 
 %if _WRITE_WRONG_FILE
-	push cs
-	pop ds
-	mov dx, init2_msg.wrong_file_name
-	xor cx, cx
-	mov ah, 3Ch
-	int 21h
-	jc .notfile2
-
-	mov bx, ax
-	mov cx, payload_uncompressed_size >> 4
-	xor dx, dx
-.loopfile2:
-	mov ds, si
-	mov ah, 40h
-	push cx
-	mov cx, 16
-	int 21h
-	pop cx
-	inc si
-	loop .loopfile2
-
-	mov ds, si
-	mov cx, payload_uncompressed_size & 15
-	mov ah, 40h
-	int 21h
-
-	mov ah, 3Eh
-	int 21h
-
-.notfile2:
+	call writefiles
 %endif
 
 %if _DEBUG0
@@ -1061,6 +1003,76 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 
 
 %if _INCLUDE_UNCOMPRESSED
+
+
+%if _WRITE_WRONG_FILE
+writefiles:
+	push cs
+	pop ds
+	mov dx, init2_msg.wrong_file_name
+	xor cx, cx
+	mov ah, 3Ch
+	int 21h
+	jc .notfile
+
+	mov bx, ax
+	mov cx, payload_uncompressed_size >> 4
+	xor dx, dx
+.loopfile:
+	mov ds, si
+	mov ah, 40h
+	push cx
+	mov cx, 16
+	int 21h
+	pop cx
+	inc si
+	loop .loopfile
+
+	mov ds, si
+	mov cx, payload_uncompressed_size & 15
+	mov ah, 40h
+	int 21h
+
+	mov ah, 3Eh
+	int 21h
+
+.notfile:
+
+	push cs
+	pop ds
+	mov dx, init2_msg.wrong_file_name2
+	xor cx, cx
+	mov ah, 3Ch
+	int 21h
+	jc .notfile2
+
+	mov bx, ax
+	mov cx, payload_uncompressed_size >> 4
+	mov si, cs
+	add si, (payload_uncompressed - init2_start) >> 4
+	xor dx, dx
+.loopfile2:
+	mov ds, si
+	mov ah, 40h
+	push cx
+	mov cx, 16
+	int 21h
+	pop cx
+	inc si
+	loop .loopfile2
+
+	mov ds, si
+	mov cx, payload_uncompressed_size & 15
+	mov ah, 40h
+	int 21h
+
+	mov ah, 3Eh
+	int 21h
+
+.notfile2:
+	retn
+%endif
+
 		; INP:	si => decompressed image
 		; OUT:	ZR if matching
 		;	NZ if mismatching
@@ -1268,6 +1280,7 @@ init2_disp_ax_dec:			; ax (no leading zeros)
 init2_msg:
 %if _WRITE_WRONG_FILE
 .wrong_file_name:	asciz "WRONG.BIN"
+.wrong_file_name2:	asciz "WRONG2.BIN"
 %endif
 .initial_error:	db "Error: Test program failed to decompress with full buffer."
 .linebreak:	db 13,10
