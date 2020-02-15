@@ -608,10 +608,12 @@ d0	mov byte [bp + ?errordata], 90h
 
 	mov bx, word [bp + ?global_N]
 	mov cx, 1
+	jmp .add
 .loop:
 	cmp bx, word [bp + ?sum_delta]
 	ja .end
 	inc cx
+.add:
 	add bx, bx		; = 64 Ki ?
 	jz .end			; yes, next cmp \ ja would jump with
 				;  larger registers, so jump here now
