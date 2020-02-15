@@ -885,9 +885,45 @@ init2_start:
 
 @@:
 	numdef INCLUDE_UNCOMPRESSED
+	numdef WRITE_WRONG_FILE
 %if _INCLUDE_UNCOMPRESSED
+payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
+
 	call checkdecompressed
 	je @F
+
+%if _WRITE_WRONG_FILE
+	push cs
+	pop ds
+	mov dx, init2_msg.wrong_file_name
+	xor cx, cx
+	mov ah, 3Ch
+	int 21h
+	jc .notfile
+
+	mov bx, ax
+	mov cx, payload_uncompressed_size >> 4
+	xor dx, dx
+.loopfile:
+	mov ds, si
+	mov ah, 40h
+	push cx
+	mov cx, 16
+	int 21h
+	pop cx
+	inc si
+	loop .loopfile
+
+	mov ds, si
+	mov cx, payload_uncompressed_size & 15
+	mov ah, 40h
+	int 21h
+
+	mov ah, 3Eh
+	int 21h
+
+.notfile:
+%endif
 
 %if _DEBUG0
 	mov bx, -1
@@ -952,6 +988,39 @@ init2_start:
 	call checkdecompressed
 	je @F
 
+%if _WRITE_WRONG_FILE
+	push cs
+	pop ds
+	mov dx, init2_msg.wrong_file_name
+	xor cx, cx
+	mov ah, 3Ch
+	int 21h
+	jc .notfile2
+
+	mov bx, ax
+	mov cx, payload_uncompressed_size >> 4
+	xor dx, dx
+.loopfile2:
+	mov ds, si
+	mov ah, 40h
+	push cx
+	mov cx, 16
+	int 21h
+	pop cx
+	inc si
+	loop .loopfile2
+
+	mov ds, si
+	mov cx, payload_uncompressed_size & 15
+	mov ah, 40h
+	int 21h
+
+	mov ah, 3Eh
+	int 21h
+
+.notfile2:
+%endif
+
 %if _DEBUG0
 	mov bx, -2
 %endif
@@ -1005,7 +1074,6 @@ checkdecompressed:
 	mov cx, _PAYLOAD_KERNEL_MAX_PARAS
 	mov bx, 0
 %else
-payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	mov cx, payload_uncompressed_size >> 4
 	mov bx, payload_uncompressed_size & 15
 %endif
@@ -1198,6 +1266,9 @@ init2_disp_ax_dec:			; ax (no leading zeros)
 
 
 init2_msg:
+%if _WRITE_WRONG_FILE
+.wrong_file_name:	asciz "WRONG.BIN"
+%endif
 .initial_error:	db "Error: Test program failed to decompress with full buffer."
 .linebreak:	db 13,10
 .initial_error.length: equ $ - .initial_error
