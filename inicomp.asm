@@ -431,7 +431,11 @@ init1_start:
 %endif
 %if _IMAGE_EXE
 	pop si			; si
+ %if _TEST_PROGRAM
+	pop ax			; (discard ?exemode, leave bx as returned)
+ %else
 	pop bx			; ?exemode
+ %endif
 	pop bp			; bp
 	pop ax			; ax
 	lleave ctx
@@ -885,6 +889,9 @@ init2_start:
 	call checkdecompressed
 	je @F
 
+%if _DEBUG0
+	mov bx, -1
+%endif
 	mov dx, init2_msg.initial_error_2
 	mov cx, init2_msg.initial_error_2.length
 	jmp init2_error
@@ -945,6 +952,9 @@ init2_start:
 	call checkdecompressed
 	je @F
 
+%if _DEBUG0
+	mov bx, -2
+%endif
 	mov dx, init2_msg.subsequent_error_2
 	mov cx, init2_msg.subsequent_error_2.length
 	jmp init2_error
@@ -1035,18 +1045,87 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 
 
 init2_error:
+%if _DEBUG0
+	push bx
+%endif
 	push cs
 	pop ds
 	mov bx, 2
 	mov ah, 40h
 	int 21h
+
+%if _DEBUG0
+	mov dx, init2_msg.rc
+	mov cx, init2_msg.rc.length
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+	pop ax
+	call init2_error_disp_ax_hex
+	mov dx, init2_msg.linebreak
+	mov cx, init2_msg.linebreak.length
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+%endif
+
 	mov dx, init2_msg.error_stdout
 	mov cx, init2_msg.error_stdout.length
 	mov bx, 1
 	mov ah, 40h
 	int 21h
+
 	mov ax, 4CFFh
 	int 21h
+
+
+%if _DEBUG0
+init2_error_disp_ax_hex:	; ax
+		xchg al,ah
+		call init2_error_disp_al_hex	; display former ah
+		xchg al,ah			;  and fall trough for al
+init2_error_disp_al_hex:	; al
+		push cx
+		mov cl,4
+		ror al,cl
+		call init2_error_disp_al_lownibble_hex
+						; display former high-nibble
+		rol al,cl
+		pop cx
+						;  and fall trough for low-nibble
+init2_error_disp_al_lownibble_hex:
+		push ax			 ; save ax for call return
+		and al,00001111b		; high nibble must be zero
+		add al,'0'			; if number is 0-9, now it's the correct character
+		cmp al,'9'
+		jna .decimalnum		 ; if we get decimal number with this, ok -->
+		add al,7			;  otherwise, add 7 and we are inside our alphabet
+ .decimalnum:
+		call init2_error_disp_al
+		pop ax
+		retn
+
+
+init2_error_disp_al:
+	push dx
+	push cx
+	push bx
+	push ax
+	mov dx, sp
+	push ds
+	 push ss
+	 pop ds
+	mov cx, 1
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+	pop ds
+	pop ax
+	pop bx
+	pop cx
+	pop dx
+	retn
+%endif
 
 
 init2_disp_al:
@@ -1119,8 +1198,14 @@ init2_disp_ax_dec:			; ax (no leading zeros)
 
 
 init2_msg:
-.initial_error:	db "Error: Test program failed to decompress with full buffer.",13,10
+.initial_error:	db "Error: Test program failed to decompress with full buffer."
+.linebreak:	db 13,10
 .initial_error.length: equ $ - .initial_error
+.linebreak.length: equ $ - .linebreak
+%if _DEBUG0
+.rc:	db "Error: Failure code="
+.rc.length: equ $ - .rc
+%endif
 %if _INCLUDE_UNCOMPRESSED
 .initial_error_2:	db "Error: Test program decompressed wrongly with full buffer.",13,10
 .initial_error_2.length: equ $ - .initial_error_2
