@@ -34,6 +34,7 @@ ctOrder:	resb 256
 
 CONTEXTSIZE equ CONTEXT_TABLE_size * 256
 RESET_INTERVAL equ 256
+%assign ADDITIONAL_MEMORY CONTEXTSIZE
 
 
 		; INP:	ds:si -> source

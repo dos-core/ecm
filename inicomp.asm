@@ -84,6 +84,7 @@ ldLoadUntilSeg:	resw 1
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X) != 1
  %error Exactly one compression method must be selected.
 %endif
+%assign ADDITIONAL_MEMORY 0
 %if _BRIEFLZ
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BLZ"
 %elif _LZ4
@@ -802,6 +803,7 @@ init0_msg:
 .error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
 				+ (payload_end - payload) \
 				+ (init1_end - init1_start) \
+				+ ADDITIONAL_MEMORY \
 				)
 		db 13,10
 .error_stdout.length: equ $ - .error_stdout
@@ -1128,6 +1130,7 @@ init2_msg:
 .error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
 				+ (payload_end - payload) \
 				+ (init1_end - init1_start) \
+				+ ADDITIONAL_MEMORY \
 				)
 		db 13,10
 .error_stdout.length: equ $ - .error_stdout
