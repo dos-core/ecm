@@ -273,10 +273,10 @@ d0	mov bx, word [bp + ?errordata]
 
 		; Initialise context tables
 	lds si, [bp + ?table]
-	xor ax, ax
+	xor dx, dx
 	mov word [bp + ?opt_k], 3
-	mov word [bp + ?sum_delta], ax
-	mov word [bp + ?global_N], ax
+	mov word [bp + ?sum_delta], dx
+	mov word [bp + ?global_N], dx
 	mov word [bp + ?bit_counter], 32
 
 	mov cx, 256
@@ -289,7 +289,7 @@ d0	mov bx, word [bp + ?errordata]
 	mov byte [si + ctOrder + bx], al
 
 	add bx, bx
-	and word [si + ctFreq + bx], 0
+	mov word [si + ctFreq + bx], dx
 %if ctFreq_size != 2
  %error Assuming ctFreq size is 2
 %endif
