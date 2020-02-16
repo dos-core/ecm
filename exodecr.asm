@@ -547,12 +547,12 @@ d0	inc byte [bp + ?errordata + 1]
 	mov al, cl
 	and al, 15			; second step length
 	mov cl, 0F0h			; maximum first step = 0FFF0h
-@@:
-	rep movsb			; move first step
+	rep movsb			; move first step of two steps
 	call normalise_both_pointers	; normalise pointers after
 	xchg ax, cx			; cx = second step length
-	rep movsb			; move second step (may be zero)
-	call normalise_both_pointers	; normalise again if was nonzero
+@@:
+	rep movsb			; move last step
+	call normalise_both_pointers	; normalise (again)
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es	; store to ?dst
 	mov di, es			; ! this is the *segment*
