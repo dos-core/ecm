@@ -765,7 +765,7 @@ bio_reload_buffer:
 	call x_func_bx_with_src
 	mov word [bp + ?bit_buffer], ax
 	mov word [bp + ?bit_buffer + 2], dx
-	mov word [bp + ?bit_counter], 0
+	and word [bp + ?bit_counter], 0
 	pop bx
 	retn
 
