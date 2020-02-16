@@ -690,9 +690,7 @@ d0	mov byte [bp + ?errordata], 91h
 bio_read_bits:
 	cmp word [bp + ?bit_counter], 32
 	jne @F
-	push ax
-	call bio_reload_buffer	; CHG: ax, dx, ds, si
-	pop ax
+	call bio_reload_buffer	; CHG: ds, si
 d0	mov byte [bp + ?errordata], 92h
 	jc .error
 @@:
@@ -722,11 +720,7 @@ d0	mov byte [bp + ?errordata], 92h
 	cmp word [bp + ?bit_counter], 32
 d0	mov byte [bp + ?errordata], 93h
 	jne .error
-	push dx
-	push ax
-	call bio_reload_buffer	; CHG: ax, dx, ds, si
-	pop ax
-	pop dx
+	call bio_reload_buffer	; CHG: ds, si
 d0	mov byte [bp + ?errordata], 94h
 	jc .error
 
@@ -790,8 +784,10 @@ d0	mov byte [bp + ?errordata], 94h
 		; OUT:	CF
 		;	?bit_buffer
 		;	?bit_counter
-		; CHG:	ax, dx, ds, si
+		; CHG:	ds, si
 bio_reload_buffer:
+	push dx
+	push ax
 	push bx
 	mov bx, depack.lodsd_dxax
 	call x_func_bx_with_src
@@ -799,6 +795,8 @@ bio_reload_buffer:
 	mov word [bp + ?bit_buffer + 2], dx
 	and word [bp + ?bit_counter], 0
 	pop bx
+	pop ax
+	pop dx
 	retn
 
 
@@ -813,7 +811,7 @@ bio_read_unary:
 .loop:
 	cmp word [bp + ?bit_counter], 32
 	jne @F
-	call bio_reload_buffer	; CHG: ax, dx, ds, si
+	call bio_reload_buffer	; CHG: ds, si
 d0	mov byte [bp + ?errordata], 95h
 	jc .error
 @@:
