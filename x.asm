@@ -75,10 +75,9 @@ depack:
 	 push bx
  %endif
 %endif
-	lvar word,	unused_and_counter
-	lequ ?unused_and_counter + 1, counter
+	lvar word,	counter
 %if _COUNTER
-	 push bx		; initialise counter (high byte) to zero
+	 push bx		; initialise counter to zero
 %endif
 	lvar dword,	bit_buffer
 	lvar word,	bit_counter
@@ -213,6 +212,12 @@ d0	mov byte [bp + ?errordata], 83h
 		; ds:si -> data
 		; bx:ax = length of data
 .final:
+%if _COUNTER
+	push ax
+	mov al, '%'
+	call disp_al
+	pop ax
+%endif
 	les di, [bp + ?final_dst]
 
 	; sub word [bp + ?final_dst_remaining], ax
@@ -260,6 +265,11 @@ d0	mov bx, word [bp + ?errordata]
 		; dst_remaining = length of destination
 		; layers = how often to iterate
 		; final_dst = final destination (in front of dst)
+
+%if _COUNTER
+	mov al, '#'
+	call disp_al
+%endif
 
 		; Initialise context tables
 	lds si, [bp + ?table]
@@ -311,6 +321,14 @@ d0	mov byte [bp + ?errordata], 87h
 
 .decompress_loop:
 d0	inc byte [bp + ?errordata + 1]
+%if _COUNTER
+	inc word [bp + ?counter]
+	test word [bp + ?counter], (_COUNTER * 32) - 1
+	jnz @F
+	mov al, '.'
+	call disp_al
+@@:
+%endif
 	mov ax, word [bp + ?opt_k]
 	call bio_read_gr	; dx:ax = d
 	jc .error
