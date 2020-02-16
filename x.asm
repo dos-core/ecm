@@ -388,6 +388,12 @@ d0	mov byte [bp + ?errordata], 9Ah
 	jmp .decompress_loop
 
 .decompress_end:
+d0	mov byte [bp + ?errordata], 9Bh
+	cmp word [bp + ?src_remaining + 2], 0
+	jne .error
+	cmp word [bp + ?src_remaining], 15
+	ja .error
+
 	lds si, [bp + ?original_dst]
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
