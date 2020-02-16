@@ -385,6 +385,13 @@ d0	mov byte [bp + ?errordata], 9Ah
 	jc .error
 %endif
 
+	cmp word [bp + ?layers], 1
+	jne @F
+	mov ax, word [bp + ?dst + 2]
+	cmp ax, word [bp + ?dst_max_segment]
+	jae .end_no_src_remaining_check
+@@:
+
 	jmp .decompress_loop
 
 .decompress_end:
@@ -394,6 +401,7 @@ d0	mov byte [bp + ?errordata], 9Bh
 	cmp word [bp + ?src_remaining], 15
 	ja .error
 
+.end_no_src_remaining_check:
 	lds si, [bp + ?original_dst]
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
