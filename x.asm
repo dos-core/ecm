@@ -615,11 +615,10 @@ d0	mov byte [bp + ?errordata], 90h
 	ja .error
 
 	mov bx, word [bp + ?global_N]
-	mov cx, 1
-	jmp .add
+	; mov cx, 1
+	; jmp .add
+	xor cx, cx
 .loop:
-	cmp bx, word [bp + ?sum_delta]
-	ja .end
 	inc cx
 .add:
 	add bx, bx		; = 64 Ki ?
@@ -631,7 +630,10 @@ d0	mov byte [bp + ?errordata], 90h
 %if (RESET_INTERVAL * 255) > 65535
  %error Unexpected reset interval and sum_delta maximum
 %endif
-	jmp .loop
+	cmp bx, word [bp + ?sum_delta]
+	; ja .end
+	; jmp .loop
+	jbe .loop
 
 .end:
 	dec cx
