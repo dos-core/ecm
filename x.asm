@@ -34,7 +34,8 @@ ctOrder:	resb 256
 
 CONTEXTSIZE equ CONTEXT_TABLE_size * 256
 RESET_INTERVAL equ 256
-%assign ADDITIONAL_MEMORY CONTEXTSIZE
+%assign ADDITIONAL_MEMORY CONTEXTSIZE + 16384
+	; 16384 is the layer threshold memory
 
 
 		; INP:	ds:si -> source
