@@ -153,7 +153,7 @@ d0	mov byte [bp + ?errordata], 80h
 	 push di
 	call pointer_to_linear
 
-%if _ALLOW_OVERLAPPING && 0
+%if _ALLOW_OVERLAPPING
 	add cx, word [bp + ?src_remaining]
 	adc bx, word [bp + ?src_remaining + 2]
 		; In case of allowing overlapping source and destination,
@@ -378,6 +378,13 @@ d0	mov byte [bp + ?errordata], 8Ah
 	call normalise_pointer_with_displacement_bxcx
 	 pop word [bp + ?context]
 	 pop word [bp + ?context + 2]
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+d0	mov byte [bp + ?errordata], 9Ah
+	jc .error
+%endif
+
 	jmp .decompress_loop
 
 .decompress_end:
@@ -450,7 +457,7 @@ d0	mov byte [bp + ?errordata], 8Bh
 	 push word [bp + ?dst]
 	call pointer_to_linear
 
-%if _ALLOW_OVERLAPPING && 0
+%if _ALLOW_OVERLAPPING
 	add cx, word [bp + ?src_remaining]
 	adc bx, word [bp + ?src_remaining + 2]
 		; In case of allowing overlapping source and destination,
