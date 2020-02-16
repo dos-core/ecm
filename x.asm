@@ -641,12 +641,12 @@ d0	mov byte [bp + ?errordata], 8Fh
 		; INP:	ax = delta
 		; CHG:	bx, cx
 update_model:
-	cmp word [bp + ?global_N], RESET_INTERVAL
+	mov bx, RESET_INTERVAL
+	cmp word [bp + ?global_N], bx
 	jb .notreset
 d0	mov byte [bp + ?errordata], 90h
 	ja .error
 
-	mov bx, word [bp + ?global_N]
 	; mov cx, 1
 	; jmp .add
 	xor cx, cx
