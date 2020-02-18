@@ -36,41 +36,42 @@ Intended for 86 Mode programs.
 %substr %$tb %$adr %$len
 %substr %$adr %$adr 2,-2
 %deftok %$adr %$adr
+%assign %$num %4
 %ifnidn %$tf,"["
  %error Invalid memory access syntax
 %elifnidn %$tb,"]"
  %error Invalid memory access syntax
-%elifn %4
+%elifn %$num
  %error Bit value is zero! Check code.
-%elifn (%4) & ~0FFh
-	%2 byte [%$adr], %1(%4)
-%elifn (%4) & ~0FF00h
-	%2 byte [%$adr+1], %1((%4)>>8)
-%elifn (%4) & ~0FF0000h
-	%2 byte [%$adr+2], %1((%4)>>16)
-%elifn (%4) & ~0FF000000h
-	%2 byte [%$adr+3], %1((%4)>>24)
-%elifn (%4) & ~0FFFFh
+%elifn (%$num) & ~0FFh
+	%2 byte [%$adr], %1(%$num)
+%elifn (%$num) & ~0FF00h
+	%2 byte [%$adr+1], %1((%$num)>>8)
+%elifn (%$num) & ~0FF0000h
+	%2 byte [%$adr+2], %1((%$num)>>16)
+%elifn (%$num) & ~0FF000000h
+	%2 byte [%$adr+3], %1((%$num)>>24)
+%elifn (%$num) & ~0FFFFh
  %ifn %5
   %warning Macro generated word access
  %endif
-	%2 word [%$adr], %1(%4)
-%elifn (%4) & ~0FFFF00h
+	%2 word [%$adr], %1(%$num)
+%elifn (%$num) & ~0FFFF00h
  %ifn %5
   %warning Macro generated word access
  %endif
-	%2 word [%$adr+1], %1((%4)>>8)
-%elifn (%4) & ~0FFFF0000h
+	%2 word [%$adr+1], %1((%$num)>>8)
+%elifn (%$num) & ~0FFFF0000h
  %ifn %5
   %warning Macro generated word access
  %endif
-	%2 word [%$adr+2], %1((%4)>>16)
+	%2 word [%$adr+2], %1((%$num)>>16)
 %else
  %error Unsupported macro usage, requires dword:
  %ifempty %1
-  %error %2 dword [%$adr], %4
+  %error %2 dword [%$adr], %$num
  %else
-  %error %2 dword [%$adr], %1(%4)
+  %error %2 dword [%$adr], %1(%$num)
  %endif
 %endif
 %pop
