@@ -81,7 +81,8 @@ ldLoadUntilSeg:	resw 1
 	numdef SNAPPY,		0
 	numdef EXODECR,		0
 	numdef X,		0
-%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X) != 1
+	numdef HEATSHRINK,	0
+%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK) != 1
  %error Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -95,6 +96,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.EXO"
 %elif _X
 	strdef PAYLOAD_FILE,	"lDOSLOAD.X"
+%elif _HEATSHRINK
+	strdef PAYLOAD_FILE,	"lDOSLOAD.HS"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! _IMAGE_EXE
@@ -630,6 +633,11 @@ msg:
 %endif
 
 
+%if _HEATSHRINK
+	%include "heatshr.asm"
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
@@ -833,6 +841,8 @@ init0_end:
 %define which iniexo
 %elif _X
 %define which inix
+%elif _HEATSHRINK
+%define which inihs
 %endif
 %warning which: num bytes used for depacker
 
