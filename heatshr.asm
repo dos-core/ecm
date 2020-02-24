@@ -257,18 +257,15 @@ d0	mov byte [bp + ?errordata], 78h
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; ds:si -> source of matching
-d0	mov byte [bp + ?errordata], 80h
 	jnc .copy_zeros
 
 	push ax
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax
 	pop ax
-d0	mov byte [bp + ?errordata], 79h
 	ja .copy_zeros
 	jb @F
 	cmp word [bp + ?original_dst], si
-d0	mov byte [bp + ?errordata], 7Ah
 	ja .copy_zeros			; no, ?original_dst is above it -->
 @@:
 
