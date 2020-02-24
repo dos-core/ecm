@@ -243,6 +243,8 @@ d0	mov byte [bp + ?errordata], 78h
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; ds:si -> source of matching
+d0	mov byte [bp + ?errordata], 80h
+	jnc .error
 
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax

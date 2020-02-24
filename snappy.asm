@@ -201,6 +201,8 @@ d0	mov byte [bp + ?errordata], 2
 	call normalise_pointer_with_displacement_bxcx
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]	; ?src += length
+d0	mov byte [bp + ?errordata], 1Dh
+	jc .error
 
 	sub word [bp + ?length_of_source], ax
 	sbb word [bp + ?length_of_source + 2], dx
@@ -241,6 +243,8 @@ d0	mov byte [bp + ?errordata], 8
 					; -> source after chunk
 	 pop word [bp + ?src_behind_block]
 	 pop word [bp + ?src_behind_block + 2]
+d0	mov byte [bp + ?errordata], 1Eh
+	jc .error_CY_1
 
 	push dx
 	push ax
@@ -425,6 +429,8 @@ d0	mov byte [bp + ?errordata], 15h
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; ds:si -> source of matching
+d0	mov byte [bp + ?errordata], 1Fh
+	jnc .error
 
 	push ax
 	mov ax, ds			; is source of matching within ?dst ?

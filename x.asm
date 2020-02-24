@@ -102,6 +102,8 @@ depack:
 	 push si
 	lvar dword,	src_top
 	call normalise_pointer_with_displacement_bxcx
+d0	mov byte [bp + ?errordata], 9Ch
+	jc .error
 	and byte [bp + ?src_top], 0F0h
 				; round down to paragraph boundary
 
@@ -117,6 +119,8 @@ depack:
 	call normalise_pointer_with_displacement_bxcx
 	 pop di
 	 pop es
+d0	mov byte [bp + ?errordata], 9Dh
+	jc .error
 
 	lvar dword,	original_dst
 	 push es
@@ -378,6 +382,8 @@ d0	mov byte [bp + ?errordata], 8Ah
 	call normalise_pointer_with_displacement_bxcx
 	 pop word [bp + ?context]
 	 pop word [bp + ?context + 2]
+d0	mov byte [bp + ?errordata], 9Eh
+	jc .error
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
@@ -443,6 +449,9 @@ d0	mov byte [bp + ?errordata], 9Bh
 
 	pop ax
 	pop bx
+d0	mov byte [bp + ?errordata], 9Fh
+	jnc .error
+
 	mov cx, 4
 @@:
 	shr bx, 1

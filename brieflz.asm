@@ -241,6 +241,7 @@ d0	mov byte [bp + ?errordata + 1], 5
 	 push si
 	call normalise_pointer_with_displacement_bxcx
 					; bx:cx = compressed size used here
+	jc .error_pop_2
 %if _DEBUG2
 	call dump_stack_frame
 %endif
@@ -263,6 +264,7 @@ d0	mov byte [bp + ?errordata + 1], 7
 	clc
 	jmp .ret
 
+.error_pop_2:				; (restores sp from bp anyway)
 .error:
 	call dump_stack_frame
 	stc
@@ -270,6 +272,7 @@ d0	mov byte [bp + ?errordata + 1], 7
 %else
 .end:
 	db __TEST_IMM8			; (NC)
+.error_pop_2:				; (restores sp from bp anyway)
 .error:
 	stc
 %endif
@@ -703,6 +706,7 @@ d0	mov byte [bp + ?errordata], 0Dh
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; ds:si = pp = dst - off
+	jnc .ret_CY
 
 	les di, [bp + ?dst]		; es:di = dst
 

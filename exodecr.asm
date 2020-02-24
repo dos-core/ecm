@@ -337,6 +337,8 @@ d0	mov byte [bp + ?errordata], 3Eh
 	 pop si
 	 pop bx			; bx:si = pointer into decompressed data
 	pop cx			; restore match length
+d0	mov byte [bp + ?errordata], 47h
+	jnc .error
 
 	cmp word [bp + ?original_dst + 2], bx
 				; is source of matching within ?dst ?

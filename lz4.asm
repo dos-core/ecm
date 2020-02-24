@@ -203,6 +203,8 @@ d0	mov byte [bp + ?errordata], 4
 	call normalise_pointer_with_displacement_bxcx
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]	; ?src += length
+d0	mov byte [bp + ?errordata], 1Dh
+	jc .error
 
 	sub word [bp + ?length_of_source], ax
 	sbb word [bp + ?length_of_source + 2], dx
@@ -284,6 +286,8 @@ d0	mov byte [bp + ?errordata], 0Ch
 					; -> source after block
 	 pop word [bp + ?src_behind_block]
 	 pop word [bp + ?src_behind_block + 2]
+d0	mov byte [bp + ?errordata], 1Eh
+	jc .error
 	test dh, 80h			; is it uncompressed ?
 	jz .compressed			; no -->
 
@@ -386,6 +390,8 @@ d0	mov byte [bp + ?errordata], 15h
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; ds:si -> source of matching
+d0	mov byte [bp + ?errordata], 1Fh
+	jnc .error
 
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax
