@@ -2,7 +2,7 @@
 %if 0
 
 lDOS iniload packed payload
- by C. Masloch, 2018
+ by C. Masloch, 2018-2020
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
@@ -11,8 +11,9 @@ that uses the works is notified of this instrument.
 DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
-Includes the BriefLZ depacker, which is under separate usage conditions.
-(Refer to brieflz.asm for the BriefLZ usage conditions.)
+Includes one of several depackers, some of which are under
+separate usage conditions. Refer to the individual depacker
+source files for the applicable usage conditions.
 
 %endif
 
