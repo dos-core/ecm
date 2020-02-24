@@ -722,6 +722,8 @@ normalise_pointer:
 		; INP:	word [ss:sp + 2] = segment
 		;	word [ss:sp] = offset
 		;	bx:cx = add/sub displacement
+		; OUT:	CY if the displacement carries
+		;	NC if not
 normalise_pointer_with_displacement_bxcx:
 	lframe near
 	lpar word,	segment
@@ -729,6 +731,7 @@ normalise_pointer_with_displacement_bxcx:
 	lpar_return
 	lenter
 	push ax
+	push cx
 	push dx
 
 	 push word [bp + ?segment]
@@ -741,8 +744,8 @@ normalise_pointer_with_displacement_bxcx:
 	; cmc				; NC if positive
 	; sbb bx, bx			; 0 if was NC, -1 if was CY
 
-	add ax, cx
-	adc dx, bx			; dx:ax += bx:cx
+	add cx, ax
+	adc dx, bx			; dx:cx = dx:ax + bx:cx
 	; pop bx
 
 %if 0
@@ -751,30 +754,31 @@ normalise_pointer_with_displacement_bxcx:
 	jb @F				; no, linear-to-pointer normally -->
 	; ja .error
 
-	add ax, 10h
+	add cx, 10h
 	; jc .error
-	mov word [bp + ?offset], ax
+	mov word [bp + ?offset], cx
 	or word [bp + ?segment], -1
 	jmp .return
 @@:
 %endif
 
-	push ax
-	and ax, 15
-	mov word [bp + ?offset], ax
-	pop ax
+	push cx
+	and cx, 15
+	mov word [bp + ?offset], cx
+	pop cx
 
 %rep 4
 	shr dx, 1
-	rcr ax, 1
+	rcr cx, 1
 %endrep
-	mov word [bp + ?segment], ax
+	mov word [bp + ?segment], cx
 
 	; test dx, dx
 	; jnz .error
 
 .return:
 	pop dx
+	pop cx
 	pop ax
 	lleave
 	lret
