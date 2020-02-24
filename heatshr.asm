@@ -325,9 +325,15 @@ d0	mov byte [bp + ?errordata], 81h
 	sub di, ax
 	sbb si, dx			; = how many - how many zeros
 					;  = how much to copy from ?original_dst
-d0	mov byte [bp + ?errordata], 82h
-	jc .error
-
+	jnc @F				; = jnb = jae = jump if si:di is >= 0
+	add di, ax
+	adc si, dx			; restore si:di
+	mov dx, si
+	mov ax, di			; dx:ax = full match length
+					;  (below "how many zeros")
+	xor si, si
+	xor di, di			; reset to zero, no copy from ?original_dst
+@@:
 	push si
 	push di				; stack it again
 	call store_zeros		; store zeros
