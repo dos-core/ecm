@@ -212,7 +212,14 @@ d0	mov bx, word [bp + ?errordata]
 	call get_bits
 d0	mov byte [bp + ?errordata], 74h
 	jc .end_check
-	call write_byte
+	push ax
+	 push ss
+	 pop ds
+	mov si, sp
+	mov ax, 1
+	cwd
+	call copy_data
+	pop ax
 d0	mov byte [bp + ?errordata], 75h
 	jc .error
 	jmp .loop
@@ -432,24 +439,6 @@ d0	inc byte [bp + ?errordata + 1]
 	xor ax, ax
 	rep stosb
 	pop ax
-	retn
-
-
-write_byte:
-	les di, [bp + ?dst]
-	sub word [bp + ?dst_remaining], 1
-	sbb word [bp + ?dst_remaining + 2], 0
-	jc .ret
-	stosb
-	 push es
-	 push di
-	call normalise_pointer
-	 pop di
-	 pop es
-	mov word [bp + ?dst], di
-	mov word [bp + ?dst + 2], es
-	clc
-.ret:
 	retn
 
 
