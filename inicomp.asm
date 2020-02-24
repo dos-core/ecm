@@ -747,6 +747,7 @@ normalise_pointer_with_displacement_bxcx:
 	add cx, ax
 	adc dx, bx			; dx:cx = dx:ax + bx:cx
 	; pop bx
+	lahf				; ah = flags
 
 %if 0
 		; Adds in HMA support for this function. Not currently used.
@@ -777,6 +778,8 @@ normalise_pointer_with_displacement_bxcx:
 	; jnz .error
 
 .return:
+
+	sahf				; restore flags from ah
 	pop dx
 	pop cx
 	pop ax
