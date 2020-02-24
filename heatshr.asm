@@ -506,7 +506,7 @@ get_bits:
 read_byte:
 	sub word [bp + ?src_remaining], 1
 	sbb word [bp + ?src_remaining + 2], 0
-	jb .ret
+	jb .empty
 
 	lds si, [bp + ?src]
 
@@ -520,7 +520,10 @@ read_byte:
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 	clc
-.ret:
 	retn
 
-
+.empty:
+	and word [bp + ?src_remaining], 0
+	and word [bp + ?src_remaining + 2], 0
+	stc
+	retn
