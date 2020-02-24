@@ -177,7 +177,7 @@ d0	mov byte [bp + ?errordata], 73h
 %endif
 	mov cx, 1
 	call get_bits
-	jnc .notend
+	jnc .notend			; (cx = 0 if jumping)
 
 d0	mov byte [bp + ?errordata], 7Dh
 .end_check:
@@ -204,7 +204,7 @@ d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
 
-.notend:
+.notend:				; (cx = 0)
 	test al, al
 	jz .notliteral
 
@@ -224,24 +224,26 @@ d0	mov byte [bp + ?errordata], 75h
 	jc .error
 	jmp .loop
 
-.notliteral:
+.notliteral:				; (cx = 0)
 	mov cl, byte [bp + ?window_size_bits]
-	call get_bits_size_cl
+					; cx = -w parameter
+	call get_bits
 d0	mov byte [bp + ?errordata], 76h
 	jc .end_check
-		; dx = output index
-	xchg bx, dx
+		; ax = output index
+		; cx = 0
+	xchg bx, ax
 	mov cl, byte [bp + ?lookahead_size_bits]
-	call get_bits_size_cl
+					; cx = -l parameter
+	call get_bits
 d0	mov byte [bp + ?errordata], 77h
 	jc .end_check
 		; bx = output index less 1
-		; dx = output count less 1
+		; ax = output count less 1
 	inc bx				; = output index
 d0	mov byte [bp + ?errordata], 78h
 	jz .error
 
-	mov ax, dx
 	xor dx, dx			; dx:ax = length of match less one
 	add ax, 1
 	adc dx, 0			; = length of match
@@ -336,30 +338,6 @@ d0	mov byte [bp + ?errordata], 83h
 
 	lds si, [bp + ?original_dst]	; -> ?original_dst
 	jmp .copy_data			; back to common handling -->
-
-
-		; INP:	cx = how many bits to read (1..15)
-		; OUT:	NC if successful,
-		;	 dx = number
-		;	 cx = 0
-		;	CY if error
-		; CHG:	ax, ds, si
-get_bits_size_cl:
-	mov ax, 8
-	xor dx, dx
-	mov ch, 0
-	cmp cx, ax
-	jbe @F
-	sub cx, ax
-	call get_bits
-	jc .ret
-	mov dh, al
-	mov cl, 8
-@@:
-	call get_bits
-	mov dl, al
-.ret:
-	retn
 
 
 		; INP:	?dst -> destination (normalised)
