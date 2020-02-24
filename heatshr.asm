@@ -234,6 +234,11 @@ d0	mov byte [bp + ?errordata], 77h
 d0	mov byte [bp + ?errordata], 78h
 	jz .error
 
+	mov ax, dx
+	xor dx, dx			; dx:ax = length of match less one
+	add ax, 1
+	adc dx, 0			; = length of match
+
 	mov cx, bx
 	neg cx				; -1 .. -65535
 	mov bx, -1			; sign-extend (always negative sense)
@@ -244,23 +249,21 @@ d0	mov byte [bp + ?errordata], 78h
 	 pop si
 	 pop ds				; ds:si -> source of matching
 d0	mov byte [bp + ?errordata], 80h
-	jnc .error
+	jnc .copy_zeros
 
+	push ax
 	mov ax, ds			; is source of matching within ?dst ?
 	cmp word [bp + ?original_dst + 2], ax
+	pop ax
 d0	mov byte [bp + ?errordata], 79h
-.error_A_1:
-	ja .error
+	ja .copy_zeros
 	jb @F
 	cmp word [bp + ?original_dst], si
 d0	mov byte [bp + ?errordata], 7Ah
-	ja .error_A_1			; no, ?original_dst is above it -->
+	ja .copy_zeros			; no, ?original_dst is above it -->
 @@:
 
-	mov ax, dx
-	xor dx, dx			; dx:ax = length of match
-	add ax, 1
-	adc dx, 0
+.copy_data:
 	call copy_data			; give ?dst -> dest, ds:si -> source
 		; returns: ?dst incremented, ds:si -> after match source
 d0	mov byte [bp + ?errordata], 7Bh
@@ -273,6 +276,59 @@ d0	mov byte [bp + ?errordata], 7Ch
 %endif
 
 	jmp .loop
+
+
+		; INP:	bx:cx = negative displacement from ?dst
+		;	dx:ax = length of match
+		;	?dst
+		;	?original_dst
+.copy_zeros:
+	push dx
+	push ax				; stacked = length of match
+
+	neg bx
+	neg cx
+	sbb bx, byte 0			; neg bx:cx
+
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+	mov si, dx
+	mov di, ax
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+	sub di, ax
+	sbb si, dx			; si:di = ?dst - ?original_dst
+					;  = maximum displacement
+
+	sub cx, di
+	sbb bx, si			; = over-long displacement - max
+					;  = how many zeros to insert
+	mov ax, cx
+	mov dx, bx			; dx:ax = how many zeros
+	pop di
+	pop si				; length of match
+d0	mov byte [bp + ?errordata], 81h
+	jb .error
+
+	sub di, ax
+	sbb si, dx			; = how many - how many zeros
+					;  = how much to copy from ?original_dst
+d0	mov byte [bp + ?errordata], 82h
+	jc .error
+
+	push si
+	push di				; stack it again
+	call store_zeros		; store zeros
+	pop ax
+	pop dx				; dx:ax = how much to copy
+d0	mov byte [bp + ?errordata], 83h
+	jc .error
+
+	lds si, [bp + ?original_dst]	; -> ?original_dst
+	jmp .copy_data			; back to common handling -->
 
 
 		; INP:	cx = how many bits to read (1..15)
@@ -313,8 +369,14 @@ get_bits_size_cl:
 		;	 assumed that this will use the stack frame to leave
 		;	 the function, therefore discarding any of the stack
 		;	 contents between the frame and the stack top.
-		; CHG:	cx, dx, ax, es, di, ds, si
+		; CHG:	cx, bx, dx, ax, es, di, ds, si
+store_zeros:
+	mov bx, copy_data.stosb_zeros
+	jmp @F
+
 copy_data:
+	mov bx, .movsb
+@@:
 d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?dst_remaining], ax
 	sbb word [bp + ?dst_remaining + 2], dx
@@ -344,7 +406,7 @@ d0	inc byte [bp + ?errordata + 1]
 	xor ax, ax			; no more remaining
 
 .copy:
-	rep movsb			; move one block (full or partial)
+	call bx				; move one block (full or partial)
 
 	call normalise_both_pointers
 	jmp .loop
@@ -359,6 +421,17 @@ d0	inc byte [bp + ?errordata + 1]
 	db __TEST_IMM8			; (NC)
 .error:
 	stc
+	retn
+
+.movsb:
+	rep movsb
+	retn
+
+.stosb_zeros:
+	push ax
+	xor ax, ax
+	rep stosb
+	pop ax
 	retn
 
 
