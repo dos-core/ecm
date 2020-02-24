@@ -466,10 +466,9 @@ get_bits:
 		;	 al = value read
 		;	 ds:si = ?src = incremented source (normalised)
 		;	 ?src_remaining decremented
-		;	CY if error (source buffer too small)
+		;	CY if error (source buffer too small),
+		;	 ?src_remaining = 0
 		; CHG:	ds, si
-		;
-		; Note:	Always reads four bytes at INP:ds:si -> data.
 read_byte:
 	sub word [bp + ?src_remaining], 1
 	sbb word [bp + ?src_remaining + 2], 0
