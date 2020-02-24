@@ -111,6 +111,9 @@ d0	 push bx
 	lvar dword,	dst
 	 push es
 	 push di
+	lvar dword,	original_dst
+	 push es
+	 push di
 	lvar dword,	length_of_source
 	 push dx
 	 push cx
@@ -707,6 +710,18 @@ d0	mov byte [bp + ?errordata], 0Dh
 	 pop si
 	 pop ds				; ds:si = pp = dst - off
 	jnc .ret_CY
+
+	mov cx, ds			; is source of matching within ?dst ?
+	cmp word [bp + ?original_dst + 2], cx
+d0	mov byte [bp + ?errordata], 11h
+.ret_CY_A_1:
+	ja .ret_CY
+	jb @F
+	cmp word [bp + ?original_dst], si
+d0	mov byte [bp + ?errordata], 12h
+	ja .ret_CY_A_1			; no, ?original_dst is above it -->
+@@:
+
 
 	les di, [bp + ?dst]		; es:di = dst
 
