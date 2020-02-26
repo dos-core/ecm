@@ -308,9 +308,10 @@ d0	mov byte [bp + ?errordata], 39h
 %ifn _P & 16
 	ja .switch_default
 %else
+	jb .switch_case1
 	cmp bx, 4
 	jb .switch_case3
-	jae .switch_default
+	jmp .switch_default
 %endif
 .switch_case1:
 	mov cl, 2		; cx = 2
