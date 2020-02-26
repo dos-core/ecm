@@ -30,6 +30,8 @@ freely, subject to the following restrictions:
 
 %endif
 
+	numdef P, 7, 7
+
 
 	struc exo_table_entry
 eteBits:	resb 1
@@ -73,6 +75,7 @@ depack:
 	lequ ?bit_buffer_and_counter, bit_buffer
 	lequ ?bit_buffer_and_counter + 1, counter
 	 push bx		; initialise counter (high byte) to zero
+				; if _P & 8: initialise bit_buffer to zero
 
 	call normalise_both_pointers
 
@@ -152,20 +155,31 @@ d0	mov byte [bp + ?errordata], 1Bh
 
 	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
 	lvar ?16tablesize, lengths
+%if _P & 16
+	lvar ?16tablesize, offsets4
+%endif
 	lvar ?16tablesize, offsets3
 	lvar ?16tablesize, offsets2
 	lequ fromwords(words(4 * exo_table_entry_size)), 4tablesize
 	lvar ?4tablesize, offsets1
 	lreserve
 
+%ifn _P & 8
 	call read_byte_to_bit_buffer
 d0	mov byte [bp + ?errordata], 30h
 	jc .error
+%endif
 
 	mov di, ?lengths
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 41h
 	jc .error
+%if _P & 16
+	mov di, ?offsets4
+	call generate_table_16
+d0	mov byte [bp + ?errordata], 49h
+	jc .error
+%endif
 	mov di, ?offsets3
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 42h
@@ -179,6 +193,10 @@ d0	mov byte [bp + ?errordata], 43h
 	call generate_table_cx		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 44h
 	jc .error
+
+%ifn _P & 4
+	jmp .STATE_NEXT_BYTE
+%endif
 
 		; cx = 0
 .STATE_IMPLICIT_FIRST_LITERAL_BYTE:
@@ -248,6 +266,7 @@ d0	mov byte [bp + ?errordata], 34h
 	cmp dx, 17
 	jne .not_literal_data_block
 .literal_data_block:
+%if _P & 2
 	call read_byte
 d0	mov byte [bp + ?errordata], 35h
 	jc .error
@@ -255,6 +274,12 @@ d0	mov byte [bp + ?errordata], 35h
 	call read_byte
 d0	mov byte [bp + ?errordata], 36h
 	jc .error
+%else
+	mov cx, 16
+	call read_bits
+d0	mov byte [bp + ?errordata], 48h
+	jc .error
+%endif
 	xchg ax, cx
 	jmp .STATE_NEXT_LITERAL_BYTE_increment_counter
 
@@ -280,7 +305,13 @@ d0	mov byte [bp + ?errordata], 39h
 	jz .switch_default
 	cmp bx, 2
 	je .switch_case2
+%ifn _P & 16
 	ja .switch_default
+%else
+	cmp bx, 4
+	jb .switch_case3
+	jae .switch_default
+%endif
 .switch_case1:
 	mov cl, 2		; cx = 2
 	mov dx, ?offsets1
@@ -292,9 +323,20 @@ d0	mov byte [bp + ?errordata], 3Ah
 d0	mov byte [bp + ?errordata], 3Bh
 	jmp .switch_common_cl_4
 
+%ifn _P & 16
 .switch_default:
 	mov dx, ?offsets3
 d0	mov byte [bp + ?errordata], 3Ch
+%else
+.switch_case3:
+	mov dx, ?offsets3
+d0	mov byte [bp + ?errordata], 4Ah
+	jmp .switch_common_cl_4
+
+.switch_default:
+	mov dx, ?offsets4
+d0	mov byte [bp + ?errordata], 4Bh
+%endif
 	; jmp .switch_common_cl_4
 
 .switch_common_cl_4:
@@ -427,7 +469,11 @@ read_byte_to_bit_buffer:
 		; CHG:	-
 		; STT:	bp -> depack stack frame
 bitbuffer_rotate:
+%if _P & 1
 	rcl byte [bp + ?bit_buffer], 1
+%else
+	rcr byte [bp + ?bit_buffer], 1
+%endif
 	dec byte [bp + ?bit_buffer]
 	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
 	retn
@@ -445,14 +491,22 @@ read_bits_1:
 		; STT:	bp -> depack stack frame
 		;	UP
 read_bits:
+%if _P & 2
 	cmp cx, 16		; CY if valid
+%else
+	cmp cx, 17		; CY if valid
+%endif
 	cmc			; NC if valid
 	jc .ret			; if error --> (CY)
+%if _P & 2
 	mov al, cl
 	mov ah, cl
 	and ax, (8 << 8) | 7	; al = bit_count, ah = byte_copy
 	mov cl, al		; cl = cx = bit_count
 	mov al, 0		; al = bits
+%else
+	xor ax, ax		; ax = bits
+%endif
 	jcxz .end
 .loop:
 	clc
@@ -465,15 +519,21 @@ read_bits:
 	stc
 	call bitbuffer_rotate
 .notzero:
+%if _P & 2
 	rcl al, 1		; bits <<= 1; bits |= carry;
+%else
+	rcl ax, 1
+%endif
 	loop .loop
 .end:
+%if _P & 2
 	test ah, ah		; NC
 	jz .byte_copy_zero	; (NC)
 	mov ah, al		; bits <<= 8;
 	call read_byte		; bits |= read_byte()
 				; pass CF to caller
 .byte_copy_zero:		; ax = bits
+%endif
 .ret:
 	retn
 
@@ -493,6 +553,7 @@ generate_table_cx:
 .loop:
 	mov word [bp + di + eteBase], bx
 	push cx
+%if _P & 2
 	mov cx, 3
 	call read_bits
 	jc .ret_pop
@@ -506,6 +567,14 @@ generate_table_cx:
 	or byte [bp + di + eteBits], al
 	mov ax, 1
 	mov cl, byte [bp + di + eteBits]
+%else
+	mov cx, 4
+	call read_bits
+	jc .ret_pop
+	mov byte [bp + di + eteBits], al
+	mov cl, al
+	mov ax, 1
+%endif
 	shl ax, cl
 	add bx, ax
 	pop cx
