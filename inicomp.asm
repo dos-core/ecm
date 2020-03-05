@@ -59,6 +59,7 @@ ldLoadUntilSeg:	resw 1
 %if _TEST_PROGRAM && ! _TEST_PROGRAM_DECOMPRESSED_SIZE
  %error Test program has to learn of decompressed size.
 %endif
+	numdef TEST_PROGRESS,	0
 
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -933,7 +934,19 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	lvar word,	current_init1
 	 push ax
 
+%if _TEST_PROGRESS
+	mov dx, init2_msg.progress.1
+	mov cx, init2_msg.progress.1.length
 .loop:
+	push cs
+	pop ds
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+%else
+.loop:
+%endif
+
 	mov dx, [bp + ?upperbound]
 	sub dx, [bp + ?lowerbound]
 	jz .found
@@ -970,6 +983,10 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 		; error: this attempt is one below the new lower bound
 	inc dx
 	mov word [bp + ?lowerbound], dx
+%if _TEST_PROGRESS
+	mov dx, init2_msg.progress.fail
+	mov cx, init2_msg.progress.fail.length
+%endif
 	jmp .loop
 
 @@:
@@ -981,6 +998,15 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	call writefiles
 %endif
 
+%if _TEST_PROGRESS
+	push cs
+	pop ds
+	mov dx, init2_msg.progress.linebreak
+	mov cx, init2_msg.progress.linebreak.length
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+%endif
 %if _DEBUG0
 	mov bx, -2
 %endif
@@ -992,9 +1018,22 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 %endif
 		; success: this attempt is the new upper bound
 	mov word [bp + ?upperbound], dx
+%if _TEST_PROGRESS
+	mov dx, init2_msg.progress.success
+	mov cx, init2_msg.progress.success.length
+%endif
 	jmp .loop
 
 .found:
+%if _TEST_PROGRESS
+	push cs
+	pop ds
+	mov dx, init2_msg.progress.linebreak
+	mov cx, init2_msg.progress.linebreak.length
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+%endif
 	mov ax, word [bp + ?upperbound]
 	sub ax, si		; = how many paragraphs in buffer before source
 	add ax, paras( (init1_end - init1_start) \
@@ -1296,6 +1335,16 @@ init2_disp_ax_dec:			; ax (no leading zeros)
 
 
 init2_msg:
+%if _TEST_PROGRESS
+.progress.1:		db "Info: 1"
+.progress.1.length: equ $ - .progress.1
+.progress.fail:		db "F"
+.progress.fail.length: equ $ - .progress.fail
+.progress.success:	db "S"
+.progress.success.length: equ $ - .progress.success
+.progress.linebreak:	db 13,10
+.progress.linebreak.length: equ $ - .progress.linebreak
+%endif
 %if _WRITE_WRONG_FILE
 .wrong_file_name:	asciz "WRONG.BIN"
 .wrong_file_name2:	asciz "WRONG2.BIN"
