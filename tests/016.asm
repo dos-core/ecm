@@ -53,8 +53,9 @@ fun16:
 	lvar word, foo
 	lvar word, bar
 	lenter
-	lvar word, baz
 	lemit
+	lvar word, baz
+	 push dx
 
 	mov bx, word [bp + ?alpha]
 	mov word [bp + ?foo], ax
