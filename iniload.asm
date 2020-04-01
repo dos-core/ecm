@@ -326,6 +326,21 @@ ms6_entry:
 d3	call d3_display_two_characters
 d3	test ax, "00"
 
+;	test dx, dx
+;	jnz @FF
+		; Actual DOS will always put a zero word on top of
+		;  the stack. But when the debugger loads us as
+		;  a flat format binary it may set up another
+		;  stack segment or not initialise the stack slot.
+		;  (So as to avoid corrupting the binary.)
+		; The offset check should suffice anyway.
+	call @F
+@@:
+	pop cx
+	cmp cx, @B + 100h
+	je msdos1_com_entry
+@@:
+
 	mov cx, cs
 	cmp cx, 60h
 	je freedos_entry
@@ -351,13 +366,9 @@ d3	test ax, "00"
 .dssi:
 
 	mov es, cx
-	mov ss, cx
-	mov sp, 7C00h + lsvCommandLine
 	mov bp, 7C00h
 
 	mov word [es:di], si
-	mov word [es:di + 2], ds	; restore old int 1Eh address
-
 	jmp ms6_continue1
 
 
@@ -1106,6 +1117,11 @@ check_clust:
 
 
 ms6_continue1:
+	mov word [es:di + 2], ds	; restore old int 1Eh address
+
+	mov ss, cx
+	mov sp, 7C00h + lsvCommandLine
+
 	mov dx, word [es:500h + 26]
 	mov cx, word [es:500h + 20]
 	mov word [bp + lsvFirstCluster + 0], dx
@@ -2334,6 +2350,16 @@ d3_disp_al:
 	pop bp
 	retn
 %endif
+
+
+msdos1_com_entry:
+	mov dx, .msg + 100h
+	mov ah, 09h
+	int 21h
+	int 20h
+
+.msg:
+	ascic "86-DOS version 1 not supported, aborting.",13,10
 
 
 	align 16, db 38
