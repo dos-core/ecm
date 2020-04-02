@@ -36,7 +36,8 @@ Intended for 86 Mode programs.
 %substr %$tb %$adr %$len
 %substr %$adr %$adr 2,-2
 %deftok %$adr %$adr
-%assign %$num %4
+%%num: equ %4
+%assign %$num %%num
 %ifnidn %$tf,"["
  %error Invalid memory access syntax
 %elifnidn %$tb,"]"
