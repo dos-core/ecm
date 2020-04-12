@@ -488,7 +488,7 @@ Range_decoder.decode_matched:
 	pop dx
 	rcl word [bp + ?symbol], 1
 	rcl word [bp + ?symbol + 2], 1
-	cmp ax, dx		; if( match_bit != bit )
+	cmp al, dh		; if( match_bit != bit )
 	jne .inner_next		; do the following -->
 .next:
 	loop .loop
