@@ -939,7 +939,11 @@ LZ_decoder.decode_member:
 	mov bx, word [bp + ?localvariables]
 	mov ax, word [bx + rep0]
 	mov dx, word [bx + rep0 + 2]
+	push es
+	push di
 	call LZ_decoder.peek
+	pop di
+	pop es
 	mov cx, ax
 	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode_matched
