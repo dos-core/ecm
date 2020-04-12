@@ -944,7 +944,6 @@ LZ_decoder.decode_member:
 	call LZ_decoder.peek
 	pop di
 	pop es
-	mov cx, ax
 	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode_matched
 @@:
