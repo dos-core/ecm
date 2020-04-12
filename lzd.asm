@@ -1509,6 +1509,13 @@ member_min_size equ 6 + 4 + 16
 	jne .error
 	xor ax, ax
 	lodsb
+
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+
 	push ax
 	mov cx, ax
 	mov ax, 1
