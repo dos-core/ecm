@@ -1641,6 +1641,12 @@ member_min_size equ 6 + 4 + 16
 	test ax, ax
 	jnz .error
 
+	add word [bx + lz_decoder.range_decoder + range_decoder.member_pos], 4 + 16
+	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2], 0
+	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 4], 0
+	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 6], 0
+	jc .error
+
 	push si				; does the source length match ?
 	call LZ_decoder.member_position
 	test si, si
