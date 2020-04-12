@@ -1103,6 +1103,9 @@ LZ_decoder.decode_member:
 	mov bx, [bp + ?range_decoder]	; -> range_decoder structure
 	call Range_decoder.decode_len	; dx:ax = length
 	jc .error
+	add ax, min_match_len
+	adc dx, 0
+	jc .error
 	mov word [bp + ?len], ax
 	mov word [bp + ?len + 2], dx
 	jmp .handle_match
