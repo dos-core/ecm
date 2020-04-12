@@ -1307,8 +1307,6 @@ LZ_decoder.decode_member:
 
 .handle_match:
 	mov bx, word [bp + ?localvariables]
-	mov dx, word [bx + rep0 + 2]
-	mov ax, word [bx + rep0]
 
 	cmp word [bp + ?len + 2], 0
 	jne @F
@@ -1317,6 +1315,8 @@ LZ_decoder.decode_member:
 	je .handle_match_empty
 
 @@:
+	mov dx, word [bx + rep0 + 2]
+	mov ax, word [bx + rep0]
 	call LZ_decoder.peek
 	jc .error
 	call LZ_decoder.put_byte
