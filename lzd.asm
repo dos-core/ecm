@@ -1322,7 +1322,6 @@ LZ_decoder.decode_member:
 	mov dx, word [bx + rep0 + 2]
 	mov ax, word [bx + rep0]
 	call LZ_decoder.peek
-	jc .error
 	call LZ_decoder.put_byte
 	jc .error
 	sub word [bp + ?len], 1
