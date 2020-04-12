@@ -803,17 +803,19 @@ get_byte:
 	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
 	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
 	jc .ret
-	push ds
+	push dx
 	push si
+	mov dx, ds
 	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
 	lodsb
 	 push ds
 	 push si
 	call normalise_pointer
+	mov ds, dx
 	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
 	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
 	pop si
-	pop ds
+	pop dx
 	clc
 .ret:
 	retn
