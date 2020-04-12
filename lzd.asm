@@ -1534,14 +1534,24 @@ member_min_size equ 6 + 4 + 16
 	mov cl, ch
 	mov ch, 0
 	jcxz @FF
-@@:
-	shl di, 1
-	rcl bx, 1
+
+	push dx
+	push ax
+
+	mov ax, di			; ax = low word of input
+	mul cx
+	xchg ax, bx			; ax = high word of input
+	mov di, dx			; di:bx = low word + first high word
+	mul cx				; = high word
+	add di, ax			; add into sum
 	jc .error
-	loop @B				; bx:di = dict_size / 16 * fraction
-@@:
-	sub ax, di
-	sbb dx, bx
+	test dx, dx			; overflows ?
+	jnz .error
+					; bx:di = dict_size / 16 * fraction
+	pop ax
+	pop dx
+	sub ax, bx
+	sbb dx, di
 	jc .error
 
 	cmp dx, min_dictionary_size >> 16
