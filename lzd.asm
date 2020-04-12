@@ -447,6 +447,9 @@ Range_decoder.decode_tree_reversed:
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure array
 		;	al = match_byte
+		; OUT:	NC if success,
+		;	 al = return value (symbol & 0FFh)
+		;	CY if error
 Range_decoder.decode_matched:
 	lframe near
 	lenter
@@ -491,7 +494,7 @@ Range_decoder.decode_matched:
 .end:
 	xor ax, ax
 	mov al, byte [bp + ?symbol]
-	db __TEST_IMM8
+	db __TEST_IMM8		; (NC, skip stc)
 .error:
 	stc
 
@@ -941,6 +944,7 @@ LZ_decoder.decode_member:
 	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode_matched
 @@:
+	jc .error
 	mov bx, word [bp + ?localvariables]
 	call LZ_decoder.put_byte
 	jc .error
