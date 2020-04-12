@@ -1629,10 +1629,10 @@ member_min_size equ 6 + 4 + 16
 	add si, 4			; skip CRC
 
 	es lodsw			; does the destination length match ?
-	cmp ax, word [bx + destination_length]
+	cmp ax, word [bx + lz_decoder.pos]
 	jne .error
 	es lodsw
-	cmp ax, word [bx + destination_length + 2]
+	cmp ax, word [bx + lz_decoder.pos + 2]
 	jne .error			; if no -->
 	es lodsw
 	test ax, ax
