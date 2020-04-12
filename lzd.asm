@@ -915,9 +915,11 @@ LZ_decoder.decode_member:
 	shr al, cl			; = literal_state
 	push ds
 	pop es
-	lea di, [bx + bm_literal]
-	add ax, ax
-	add ax, ax			; * bit_model_size
+	lea di, [bx + bm_literal]	; -> 2D array bm_literal
+	mov cx, bit_model_size * 300h
+	mul cx				; first index is literal_state
+	test dx, dx
+	jnz .error
 	add di, ax			; es:di -> bm_literal[literal_state]
 	jc .error
 
