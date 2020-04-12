@@ -1,4 +1,7 @@
-/*  Lzd - Educational decompressor for the lzip format
+
+%if 0
+
+    Lzd - Educational decompressor for the lzip format
     Copyright (C) 2013-2019 Antonio Diaz Diaz.
 
     This program is free software. Redistribution and use in source and
@@ -15,470 +18,1944 @@
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-*/
-/*
-    Exit status: 0 for a normal exit, 1 for environmental problems
-    (file not found, invalid flags, I/O errors, etc), 2 to indicate a
-    corrupt or invalid input file.
-*/
 
-#include <algorithm>
-#include <cerrno>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <stdint.h>
-#include <unistd.h>
-#if defined(__MSVCRT__) || defined(__OS2__) || defined(__DJGPP__)
-#include <fcntl.h>
-#include <io.h>
-#endif
+%endif
 
 
-class State
-  {
-  int st;
+	struc state
+.st:	resw 1		; initialise to zero
+	endstruc
 
-public:
-  enum { states = 12 };
-  State() : st( 0 ) {}
-  int operator()() const { return st; }
-  bool is_char() const { return st < 7; }
+amount_states equ 12
 
-  void set_char()
-    {
-    const int next[states] = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 4, 5 };
-    st = next[st];
-    }
-  void set_match()     { st = ( st < 7 ) ? 7 : 10; }
-  void set_rep()       { st = ( st < 7 ) ? 8 : 11; }
-  void set_short_rep() { st = ( st < 7 ) ? 9 : 11; }
-  };
+	align 2
+next_states:
+.:
+	times 4 db 0
+	db 1, 2, 3, 4, 5, 6, 4, 5
+.amount: equ $ - .
+%if .amount != amount_states
+ %error Invalid next_states array content
+%endif
 
 
-enum {
-  min_dictionary_size = 1 << 12,
-  max_dictionary_size = 1 << 29,
-  literal_context_bits = 3,
-  literal_pos_state_bits = 0,				// not used
-  pos_state_bits = 2,
-  pos_states = 1 << pos_state_bits,
-  pos_state_mask = pos_states - 1,
+State:
+		; INP:	ds:bx -> state structure
+		; OUT:	CY if st < 7 (is_char() == true)
+		;	NC if st >= 7 (is_char() == false)
+.is_char:
+	cmp byte [bx + state.st], 7
+	retn
 
-  len_states = 4,
-  dis_slot_bits = 6,
-  start_dis_model = 4,
-  end_dis_model = 14,
-  modeled_distances = 1 << ( end_dis_model / 2 ),	// 128
-  dis_align_bits = 4,
-  dis_align_size = 1 << dis_align_bits,
+.set_char:
+	push ax
+	push bx
+	mov al, byte [bx + state.st]
+	mov bx, next_states
+	cs xlatb
+	pop bx
+	mov byte [bx + state.st], al
+	pop ax
+	retn
 
-  len_low_bits = 3,
-  len_mid_bits = 3,
-  len_high_bits = 8,
-  len_low_symbols = 1 << len_low_bits,
-  len_mid_symbols = 1 << len_mid_bits,
-  len_high_symbols = 1 << len_high_bits,
-  max_len_symbols = len_low_symbols + len_mid_symbols + len_high_symbols,
+.set_match:
+	call .is_char
+	mov al, 7
+	jc .ret
+	mov al, 10
+.ret:
+	retn
 
-  min_match_len = 2,					// must be 2
+.set_rep:
+	call .is_char
+	mov al, 8
+.common_set_rep:
+	jc .ret
+	mov al, 11
+	retn
 
-  bit_model_move_bits = 5,
-  bit_model_total_bits = 11,
-  bit_model_total = 1 << bit_model_total_bits };
-
-struct Bit_model
-  {
-  int probability;
-  Bit_model() : probability( bit_model_total / 2 ) {}
-  };
-
-struct Len_model
-  {
-  Bit_model choice1;
-  Bit_model choice2;
-  Bit_model bm_low[pos_states][len_low_symbols];
-  Bit_model bm_mid[pos_states][len_mid_symbols];
-  Bit_model bm_high[len_high_symbols];
-  };
+.set_short_rep:
+	call .is_char
+	mov al, 9
+	jmp .common_set_rep
 
 
-class CRC32
-  {
-  uint32_t data[256];		// Table of CRCs of all 8-bit messages.
+  min_dictionary_size:		equ 1 << 12
+  max_dictionary_size:		equ 1 << 29
+  literal_context_bits:		equ 3
+  literal_pos_state_bits:	equ 0		; not used
+  pos_state_bits:		equ 2
+  pos_states:			equ 1 << pos_state_bits
+  pos_state_mask:		equ pos_states - 1
 
-public:
-  CRC32()
-    {
-    for( unsigned n = 0; n < 256; ++n )
-      {
-      unsigned c = n;
-      for( int k = 0; k < 8; ++k )
-        { if( c & 1 ) c = 0xEDB88320U ^ ( c >> 1 ); else c >>= 1; }
-      data[n] = c;
-      }
-    }
+  len_states:			equ 4
+  dis_slot_bits:		equ 6
+  start_dis_model:		equ 4
+  end_dis_model:		equ 14
+  modeled_distances:		equ 1 << ( end_dis_model / 2 )		; 128
+  dis_align_bits:		equ 4
+  dis_align_size:		equ 1 << dis_align_bits
 
-  void update_buf( uint32_t & crc, const uint8_t * const buffer,
-                   const int size ) const
-    {
-    for( int i = 0; i < size; ++i )
-      crc = data[(crc^buffer[i])&0xFF] ^ ( crc >> 8 );
-    }
-  };
+  len_low_bits:			equ 3
+  len_mid_bits:			equ 3
+  len_high_bits:		equ 8
+  len_low_symbols:		equ 1 << len_low_bits
+  len_mid_symbols:		equ 1 << len_mid_bits
+  len_high_symbols:		equ 1 << len_high_bits
+  max_len_symbols:		equ len_low_symbols + len_mid_symbols + len_high_symbols
 
-const CRC32 crc32;
+  min_match_len:		equ 2		; must be 2
 
-
-typedef uint8_t Lzip_header[6];		// 0-3 magic bytes
-					//   4 version
-					//   5 coded_dict_size
-typedef uint8_t Lzip_trailer[20];
-			//  0-3  CRC32 of the uncompressed data
-			//  4-11 size of the uncompressed data
-			// 12-19 member size including header and trailer
-
-class Range_decoder
-  {
-  unsigned long long member_pos;
-  uint32_t code;
-  uint32_t range;
-
-public:
-  Range_decoder() : member_pos( 6 ), code( 0 ), range( 0xFFFFFFFFU )
-    {
-    for( int i = 0; i < 5; ++i ) code = ( code << 8 ) | get_byte();
-    }
-
-  uint8_t get_byte() { ++member_pos; return std::getc( stdin ); }
-  unsigned long long member_position() const { return member_pos; }
-
-  unsigned decode( const int num_bits )
-    {
-    unsigned symbol = 0;
-    for( int i = num_bits; i > 0; --i )
-      {
-      range >>= 1;
-      symbol <<= 1;
-      if( code >= range ) { code -= range; symbol |= 1; }
-      if( range <= 0x00FFFFFFU )			// normalize
-        { range <<= 8; code = ( code << 8 ) | get_byte(); }
-      }
-    return symbol;
-    }
-
-  unsigned decode_bit( Bit_model & bm )
-    {
-    unsigned symbol;
-    const uint32_t bound = ( range >> bit_model_total_bits ) * bm.probability;
-    if( code < bound )
-      {
-      range = bound;
-      bm.probability += ( bit_model_total - bm.probability ) >>
-                        bit_model_move_bits;
-      symbol = 0;
-      }
-    else
-      {
-      range -= bound;
-      code -= bound;
-      bm.probability -= bm.probability >> bit_model_move_bits;
-      symbol = 1;
-      }
-    if( range <= 0x00FFFFFFU )				// normalize
-      { range <<= 8; code = ( code << 8 ) | get_byte(); }
-    return symbol;
-    }
-
-  unsigned decode_tree( Bit_model bm[], const int num_bits )
-    {
-    unsigned symbol = 1;
-    for( int i = 0; i < num_bits; ++i )
-      symbol = ( symbol << 1 ) | decode_bit( bm[symbol] );
-    return symbol - ( 1 << num_bits );
-    }
-
-  unsigned decode_tree_reversed( Bit_model bm[], const int num_bits )
-    {
-    unsigned symbol = decode_tree( bm, num_bits );
-    unsigned reversed_symbol = 0;
-    for( int i = 0; i < num_bits; ++i )
-      {
-      reversed_symbol = ( reversed_symbol << 1 ) | ( symbol & 1 );
-      symbol >>= 1;
-      }
-    return reversed_symbol;
-    }
-
-  unsigned decode_matched( Bit_model bm[], const unsigned match_byte )
-    {
-    unsigned symbol = 1;
-    for( int i = 7; i >= 0; --i )
-      {
-      const unsigned match_bit = ( match_byte >> i ) & 1;
-      const unsigned bit = decode_bit( bm[symbol+(match_bit<<8)+0x100] );
-      symbol = ( symbol << 1 ) | bit;
-      if( match_bit != bit )
-        {
-        while( symbol < 0x100 )
-          symbol = ( symbol << 1 ) | decode_bit( bm[symbol] );
-        break;
-        }
-      }
-    return symbol & 0xFF;
-    }
-
-  unsigned decode_len( Len_model & lm, const int pos_state )
-    {
-    if( decode_bit( lm.choice1 ) == 0 )
-      return decode_tree( lm.bm_low[pos_state], len_low_bits );
-    if( decode_bit( lm.choice2 ) == 0 )
-      return len_low_symbols +
-             decode_tree( lm.bm_mid[pos_state], len_mid_bits );
-    return len_low_symbols + len_mid_symbols +
-           decode_tree( lm.bm_high, len_high_bits );
-    }
-  };
+  bit_model_move_bits:		equ 5
+  bit_model_total_bits:		equ 11
+  bit_model_total:		equ 1 << bit_model_total_bits
 
 
-class LZ_decoder
-  {
-  unsigned long long partial_data_pos;
-  Range_decoder rdec;
-  const unsigned dictionary_size;
-  uint8_t * const buffer;	// output buffer
-  unsigned pos;			// current pos in buffer
-  unsigned stream_pos;		// first byte not yet written to stdout
-  uint32_t crc_;
-  bool pos_wrapped;
+	struc bit_model
+.probability:	resd 1		; initialise to bit_model_total / 2
+	endstruc
 
-  void flush_data();
+	struc len_model
+.choice1:	resb bit_model_size
+.choice2:	resb bit_model_size
+.bm_low:	resb bit_model_size * pos_states * len_low_symbols
+.bm_mid:	resb bit_model_size * pos_states * len_mid_symbols
+.bm_high:	resb bit_model_size * len_high_symbols
+	endstruc
 
-  uint8_t peek( const unsigned distance ) const
-    {
-    if( pos > distance ) return buffer[pos - distance - 1];
-    if( pos_wrapped ) return buffer[dictionary_size + pos - distance - 1];
-    return 0;			// prev_byte of first byte
-    }
+	struc lzip_header
+.magic:			resd 1
+.version:		resb 1
+.coded_dict_size:	resb 1
+	endstruc
 
-  void put_byte( const uint8_t b )
-    {
-    buffer[pos] = b;
-    if( ++pos >= dictionary_size ) flush_data();
-    }
+	struc lzip_trailer
+.uncompressed_checksum:	resd 1
+.uncompressed_size:	resq 1
+.member_size:		resq 1
+	endstruc
 
-public:
-  explicit LZ_decoder( const unsigned dict_size )
-    :
-    partial_data_pos( 0 ),
-    dictionary_size( dict_size ),
-    buffer( new uint8_t[dictionary_size] ),
-    pos( 0 ),
-    stream_pos( 0 ),
-    crc_( 0xFFFFFFFFU ),
-    pos_wrapped( false )
-    {}
+	struc range_decoder
+.member_pos:		resq 1
+.code:			resd 1
+.range:			resd 1
+	endstruc
 
-  ~LZ_decoder() { delete[] buffer; }
+		; INP:	ds:bx -> range_decoder structure
+		; CHG:	es
+		; CHG:	NC if success
+		;	CY if error
+Range_decoder.init:
+	push ds
+	pop es
+	mov ax, 6
+	mov di, bx		; -> .member_pos
+	stosw			; low word of .member_pos
+	xor ax, ax
+	stosw
+	stosw
+	stosw			; high words of .member_pos
+	stosw
+	stosw			; .code
+	dec ax
+	stosw
+	stosw			; .range
+	mov cx, 5
+.loop:
+	call getbyteshiftcode
+	jc .ret
+	loop .loop
+				; (NC)
+.ret:
+	retn
 
-  unsigned crc() const { return crc_ ^ 0xFFFFFFFFU; }
-  unsigned long long data_position() const
-    { return partial_data_pos + pos; }
-  uint8_t get_byte() { return rdec.get_byte(); }
-  unsigned long long member_position() const
-    { return rdec.member_position(); }
+		; CHG:	NC if success
+		;	CY if error
+getbyteshiftcode:
+	push ax
+	mov ax, word [bx + range_decoder.code + 1]
+	mov word [bx + range_decoder.code + 2], ax
+	mov ah, byte [bx + range_decoder.code]
+	call Range_decoder.get_byte
+	mov word [bx + range_decoder.code], ax
+	pop ax
+	retn
 
-  bool decode_member();
-  };
+		; INP:	ds:bx -> range_decoder structure
+		; OUT:	al = byte read
+		; CHG:	NC if success
+		;	CY if error
+Range_decoder.get_byte:
+	add word [bx + range_decoder.member_pos], 1
+	adc word [bx + range_decoder.member_pos + 2], 0
+	adc word [bx + range_decoder.member_pos + 4], 0
+	adc word [bx + range_decoder.member_pos + 6], 0
+	jc .ret
+	call get_byte
+.ret:
+	retn
 
-
-void LZ_decoder::flush_data()
-  {
-  if( pos > stream_pos )
-    {
-    const unsigned size = pos - stream_pos;
-    crc32.update_buf( crc_, buffer + stream_pos, size );
-    errno = 0;
-    if( std::fwrite( buffer + stream_pos, 1, size, stdout ) != size )
-      { std::fprintf( stderr, "Write error: %s\n", std::strerror( errno ) );
-        std::exit( 1 ); }
-    if( pos >= dictionary_size )
-      { partial_data_pos += pos; pos = 0; pos_wrapped = true; }
-    stream_pos = pos;
-    }
-  }
-
-
-bool LZ_decoder::decode_member()	// Returns false if error
-  {
-  Bit_model bm_literal[1<<literal_context_bits][0x300];
-  Bit_model bm_match[State::states][pos_states];
-  Bit_model bm_rep[State::states];
-  Bit_model bm_rep0[State::states];
-  Bit_model bm_rep1[State::states];
-  Bit_model bm_rep2[State::states];
-  Bit_model bm_len[State::states][pos_states];
-  Bit_model bm_dis_slot[len_states][1<<dis_slot_bits];
-  Bit_model bm_dis[modeled_distances-end_dis_model+1];
-  Bit_model bm_align[dis_align_size];
-  Len_model match_len_model;
-  Len_model rep_len_model;
-  unsigned rep0 = 0;		// rep[0-3] latest four distances
-  unsigned rep1 = 0;		// used for efficient coding of
-  unsigned rep2 = 0;		// repeated distances
-  unsigned rep3 = 0;
-  State state;
-
-  while( !std::feof( stdin ) && !std::ferror( stdin ) )
-    {
-    const int pos_state = data_position() & pos_state_mask;
-    if( rdec.decode_bit( bm_match[state()][pos_state] ) == 0 )	// 1st bit
-      {
-      // literal byte
-      const uint8_t prev_byte = peek( 0 );
-      const int literal_state = prev_byte >> ( 8 - literal_context_bits );
-      Bit_model * const bm = bm_literal[literal_state];
-      if( state.is_char() )
-        put_byte( rdec.decode_tree( bm, 8 ) );
-      else
-        put_byte( rdec.decode_matched( bm, peek( rep0 ) ) );
-      state.set_char();
-      continue;
-      }
-    // match or repeated match
-    int len;
-    if( rdec.decode_bit( bm_rep[state()] ) != 0 )		// 2nd bit
-      {
-      if( rdec.decode_bit( bm_rep0[state()] ) == 0 )		// 3rd bit
-        {
-        if( rdec.decode_bit( bm_len[state()][pos_state] ) == 0 ) // 4th bit
-          { state.set_short_rep(); put_byte( peek( rep0 ) ); continue; }
-        }
-      else
-        {
-        unsigned distance;
-        if( rdec.decode_bit( bm_rep1[state()] ) == 0 )		// 4th bit
-          distance = rep1;
-        else
-          {
-          if( rdec.decode_bit( bm_rep2[state()] ) == 0 )	// 5th bit
-            distance = rep2;
-          else
-            { distance = rep3; rep3 = rep2; }
-          rep2 = rep1;
-          }
-        rep1 = rep0;
-        rep0 = distance;
-        }
-      state.set_rep();
-      len = min_match_len + rdec.decode_len( rep_len_model, pos_state );
-      }
-    else					// match
-      {
-      rep3 = rep2; rep2 = rep1; rep1 = rep0;
-      len = min_match_len + rdec.decode_len( match_len_model, pos_state );
-      const int len_state = std::min( len - min_match_len, len_states - 1 );
-      rep0 = rdec.decode_tree( bm_dis_slot[len_state], dis_slot_bits );
-      if( rep0 >= start_dis_model )
-        {
-        const unsigned dis_slot = rep0;
-        const int direct_bits = ( dis_slot >> 1 ) - 1;
-        rep0 = ( 2 | ( dis_slot & 1 ) ) << direct_bits;
-        if( dis_slot < end_dis_model )
-          rep0 += rdec.decode_tree_reversed( bm_dis + ( rep0 - dis_slot ),
-                                             direct_bits );
-        else
-          {
-          rep0 +=
-            rdec.decode( direct_bits - dis_align_bits ) << dis_align_bits;
-          rep0 += rdec.decode_tree_reversed( bm_align, dis_align_bits );
-          if( rep0 == 0xFFFFFFFFU )		// marker found
-            {
-            flush_data();
-            return ( len == min_match_len );	// End Of Stream marker
-            }
-          }
-        }
-      state.set_match();
-      if( rep0 >= dictionary_size || ( rep0 >= pos && !pos_wrapped ) )
-        { flush_data(); return false; }
-      }
-    for( int i = 0; i < len; ++i ) put_byte( peek( rep0 ) );
-    }
-  flush_data();
-  return false;
-  }
+		; INP:	ds:bx -> range_decoder structure
+		;	cx = num_bits
+		; OUT:	NC if success,
+		;	 dx:ax = symbol
+		;	CY if error
+		; CHG:	di, cx
+Range_decoder.decode:
+	xor dx, dx
+	xor ax, ax
+	jcxz .end
+.loop:
+	shr word [bx + range_decoder.range + 2], 1
+	rcr word [bx + range_decoder.range], 1
+	shl ax, 1
+	rcl dx, 1
+	mov di, word [bx + range_decoder.code + 2]
+	cmp di, word [bx + range_decoder.range + 2]
+	jne @F
+	mov di, word [bx + range_decoder.code]
+	cmp di, word [bx + range_decoder.range]
+@@:				; code >= range ?
+	jnae @F			; no, skip -->
+	mov di, word [bx + range_decoder.range]
+	sub word [bx + range_decoder.code], di
+	mov di, word [bx + range_decoder.range + 2]
+	sbb word [bx + range_decoder.code + 2], di
+	inc ax			; symbol |= 1 (lowest bit always was zero)
+@@:
+	call normaliserange
+	jc .ret
+	loop .loop
+.end:
+	clc
+.ret:
+	retn
 
 
-int main( const int argc, const char * const argv[] )
-  {
-  if( argc > 2 || ( argc == 2 && std::strcmp( argv[1], "-d" ) != 0 ) )
-    {
-    std::printf(
-      "Lzd %s - Educational decompressor for the lzip format.\n"
-      "Study the source to learn how a lzip decompressor works.\n"
-      "See the lzip manual for an explanation of the code.\n"
-      "\nUsage: %s [-d] < file.lz > file\n"
-      "Lzd decompresses from standard input to standard output.\n"
-      "\nCopyright (C) 2019 Antonio Diaz Diaz.\n"
-      "This is free software: you are free to change and redistribute it.\n"
-      "There is NO WARRANTY, to the extent permitted by law.\n"
-      "Report bugs to lzip-bug@nongnu.org\n"
-      "Lzd home page: http://www.nongnu.org/lzip/lzd.html\n",
-      PROGVERSION, argv[0] );
-    return 0;
-    }
+		; CHG:	NC if success
+		;	CY if error
+normaliserange:
+	cmp byte [bx + range_decoder.range + 3], 0
+	clc			; (NC)
+	jnz @F
+	push ax
+	mov ax, word [bx + range_decoder.range + 1]
+	mov word [bx + range_decoder.range + 2], ax
+	mov ah, byte [bx + range_decoder.range]
+	mov al, 0
+	mov word [bx + range_decoder.range], ax
+	pop ax
+	call getbyteshiftcode
+@@:
+	retn
 
-#if defined(__MSVCRT__) || defined(__OS2__) || defined(__DJGPP__)
-  setmode( STDIN_FILENO, O_BINARY );
-  setmode( STDOUT_FILENO, O_BINARY );
-#endif
 
-  for( bool first_member = true; ; first_member = false )
-    {
-    Lzip_header header;				// verify header
-    for( int i = 0; i < 6; ++i ) header[i] = std::getc( stdin );
-    if( std::feof( stdin ) || std::memcmp( header, "LZIP\x01", 5 ) != 0 )
-      {
-      if( first_member )
-        { std::fputs( "Bad magic number (file not in lzip format).\n",
-                      stderr ); return 2; }
-      break;					// ignore trailing data
-      }
-    unsigned dict_size = 1 << ( header[5] & 0x1F );
-    dict_size -= ( dict_size / 16 ) * ( ( header[5] >> 5 ) & 7 );
-    if( dict_size < min_dictionary_size || dict_size > max_dictionary_size )
-      { std::fputs( "Invalid dictionary size in member header.\n", stderr );
-        return 2; }
+		; INP:	ds:bx -> range_decoder structure
+		;	es:di -> bit_model structure
+		; OUT:	dx:ax = read bit
+		;	NC if zero read
+		;	CY if one read
+		;	! If an error occurs, skips its own stack frame
+		;	   and returns CY with the next caller's stack frame.
+Range_decoder.decode_bit:
+	xor ax, ax
+	lframe near
+	lvar dword,	bound
+	lenter
+	lvar dword,	symbol
+	 push ax
+	 push ax
 
-    LZ_decoder decoder( dict_size );		// decode LZMA stream
-    if( !decoder.decode_member() )
-      { std::fputs( "Data error\n", stderr ); return 2; }
+	mov dx, word [bx + range_decoder.range + 2]
+	mov ax, word [bx + range_decoder.range]
+	mov cx, bit_model_total_bits
+@@:
+	shr dx, 1
+	rcr ax, 1
+	loop @B
 
-    Lzip_trailer trailer;			// verify trailer
-    for( int i = 0; i < 20; ++i ) trailer[i] = decoder.get_byte();
-    int retval = 0;
-    unsigned crc = 0;
-    for( int i = 3; i >= 0; --i ) crc = ( crc << 8 ) + trailer[i];
-    if( crc != decoder.crc() )
-      { std::fputs( "CRC mismatch\n", stderr ); retval = 2; }
+	push ax
+	push dx
+	mul word [es:di + bit_model.probability]
+				; dx:ax = low word + first high word
+	mov word [bp + ?bound + 2], dx
+	mov word [bp + ?bound], ax
+				; = low word + first high word
+	pop ax
+	mul word [es:di + bit_model.probability]
+				; ax = second high word (dx overflow)
+	add word [bp + ?bound + 2], ax
+	pop ax
+	mul word [es:di + bit_model.probability + 2]
+				; ax = third high word (dx overflow)
+	add word [bp + ?bound + 2], ax
+				; = full uint32_t result
 
-    unsigned long long data_size = 0;
-    for( int i = 11; i >= 4; --i )
-      data_size = ( data_size << 8 ) + trailer[i];
-    if( data_size != decoder.data_position() )
-      { std::fputs( "Data size mismatch\n", stderr ); retval = 2; }
+	mov dx, word [bp + ?bound + 2]
+	mov ax, word [bp + ?bound]
+	mov cx, bit_model_move_bits
 
-    unsigned long long member_size = 0;
-    for( int i = 19; i >= 12; --i )
-      member_size = ( member_size << 8 ) + trailer[i];
-    if( member_size != decoder.member_position() )
-      { std::fputs( "Member size mismatch\n", stderr ); retval = 2; }
-    if( retval ) return retval;
-    }
+	cmp word [bx + range_decoder.code + 2], dx
+	jne @F
+	cmp word [bx + range_decoder.code], ax
+@@:
+	jnb .not_code_below_bound
+	mov word [bx + range_decoder.range], ax
+	mov word [bx + range_decoder.range + 2], dx
+	mov ax, bit_model_total
+	xor dx, dx
+	sub ax, word [es:di + bit_model.probability]
+	sbb dx, word [es:di + bit_model.probability + 2]
+@@:
+	shr dx, 1		; fixme: may need sar
+	rcr ax, 1
+	loop @B
+	add word [es:di + bit_model.probability], ax
+	adc word [es:di + bit_model.probability + 2], dx
+	mov word [bp + ?symbol + 2], cx
+	mov word [bp + ?symbol], cx
+	jmp .after_if
 
-  if( std::fclose( stdout ) != 0 )
-    { std::fprintf( stderr, "Error closing stdout: %s\n",
-                    std::strerror( errno ) ); return 1; }
-  return 0;
-  }
+.not_code_below_bound:
+	sub word [bx + range_decoder.range], ax
+	sbb word [bx + range_decoder.range + 2], dx
+	sub word [bx + range_decoder.code], ax
+	sbb word [bx + range_decoder.code + 2], dx
+
+	mov ax, word [es:di + bit_model.probability]
+	mov dx, word [es:di + bit_model.probability + 2]
+@@:
+	shr dx, 1
+	rcr ax, 1
+	loop @B
+	sub word [es:di + bit_model.probability], ax
+	sbb word [es:di + bit_model.probability + 2], dx
+	mov word [bp + ?symbol + 2], cx
+	inc cx			; = 1
+	mov word [bp + ?symbol], cx
+
+.after_if:
+	call normaliserange
+	jc .error
+	mov ax, word [bp + ?symbol]
+	mov dx, word [bp + ?symbol + 2]
+	cmp al, 1		; CY if 0, NC if 1
+	cmc			; NC if 0, CY if 1
+	lleave
+	lret
+
+.error:
+	mov sp, bp		; drop our stack frame's variables
+	pop bp			; drop our stack frame
+	mov sp, bp		; drop next stack frame's variables
+	pop bp			; drop next stack frame
+	stc			; CY = error
+	retn
+
+
+		; INP:	ds:bx -> range_decoder structure
+		;	es:di -> bit_model structure array
+		;	cx = num_bits
+		; OUT:	NC if success,
+		;	 dx:ax = symbol
+		;	CY if failure
+		; CHG:	cx, si
+Range_decoder.decode_tree:
+	xor ax, ax
+	lframe near
+	lenter
+	lvar dword,	symbol
+	 push ax
+	inc ax
+	 push ax		; ?symbol = 1
+	push cx
+	jcxz .end
+.loop:
+	push cx
+	push di
+	mov ax, bit_model_size
+	cmp word [bp + ?symbol + 2], 0
+	jne .error
+	mul word [bp + ?symbol]
+	test dx, dx
+	jnz .error
+	add di, ax		; index into bit_model array
+	jc .error
+	shl word [bp + ?symbol], 1
+	rcl word [bp + ?symbol + 2], 1
+	call Range_decoder.decode_bit
+	adc word [bp + ?symbol], 0
+	adc word [bp + ?symbol + 2], 0
+				; add in the decoded bit (note *both* adc ops)
+	pop di
+	pop cx
+	loop .loop
+.end:
+	pop cx
+	mov ax, 1
+	xor dx, dx		; = 1
+	jcxz @FF
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+@@:				; = 1 << num_bits
+	sub word [bp + ?symbol], ax
+	sbb word [bp + ?symbol + 2], dx
+				; symbol - ( 1 << num_bits )
+	mov ax, word [bp + ?symbol]
+	mov dx, word [bp + ?symbol + 2]
+				; return symbol
+	db __TEST_IMM8		; (NC, skip stc)
+.error:
+	stc
+	lleave
+	lret
+
+
+		; INP:	ds:bx -> range_decoder structure
+		;	es:di -> bit_model structure array
+		;	cx = num_bits
+		; OUT:	NC if success,
+		;	 dx:ax = reversed_symbol
+		;	CY if failure
+		; CHG:	cx, si
+Range_decoder.decode_tree_reversed:
+	push cx
+	call Range_decoder.decode_tree
+	pop cx
+	jc .ret
+	lframe near
+	lenter
+	lvar dword,	symbol
+	 push dx
+	 push ax
+	xor ax, ax
+	xor dx, dx		; = reversed_symbol
+	jcxz .end
+.loop:
+	shr word [bp + ?symbol + 2], 1
+	rcr word [bp + ?symbol], 1
+	rcl ax, 1
+	rcl dx, 1
+	loop .loop
+.end:
+	clc
+	lleave
+.ret:
+	lret
+
+
+		; INP:	ds:bx -> range_decoder structure
+		;	es:di -> bit_model structure array
+		;	al = match_byte
+Range_decoder.decode_matched:
+	lframe near
+	lenter
+	lvar word,	match_byte
+	 push ax
+	lvar dword,	symbol
+	xor dx, dx
+	 push dx
+	inc dx
+	 push dx		; initialise ?symbol = 1
+
+	mov cx, 8
+.loop:
+	xor dx, dx
+	mov dh, byte [bp + ?match_byte]
+	dec cx
+	shr dh, 1		; match_byte >> i
+	inc cx
+	and dh, 1		; & 1
+	push dx
+	add dx, 100h
+	add dx, word [bp + ?symbol]
+	cmp word [bp + ?symbol + 2], 0
+	jne .error
+	push di
+	push cx
+	mov ax, bit_model_size
+	mul dx
+	test dx, dx
+	jnz .error
+	add di, ax
+	call Range_decoder.decode_bit
+	pop cx
+	pop di
+	pop dx
+	rcl word [bp + ?symbol], 1
+	rcl word [bp + ?symbol + 2], 1
+	cmp ax, dx		; if( match_bit != bit )
+	jne .inner_next		; do the following -->
+.next:
+	loop .loop
+.end:
+	xor ax, ax
+	mov al, byte [bp + ?symbol]
+	db __TEST_IMM8
+.error:
+	stc
+
+	lleave code
+	lret
+
+
+.inner_loop:
+	cmp word [bp + ?symbol + 2], 0
+	jne .error
+	mov ax, bit_model_size
+	mul word [bp + ?symbol]
+	test dx, dx
+	jnz .error
+	call Range_decoder.decode_bit
+	rcl word [bp + ?symbol], 1
+	rcl word [bp + ?symbol + 2], 1
+
+.inner_next:
+	cmp word [bp + ?symbol + 2], 0
+	jne @F
+	cmp word [bp + ?symbol], 100h
+@@:
+	jb .inner_loop
+	jmp .end
+
+	lleave ctx
+
+
+		; INP:	ds:bx -> range_decoder structure
+		;	es:di -> len_model structure
+		;	dx:ax = pos_state
+		; OUT:	NC if success,
+		;	 dx:ax = return
+		;	CY if error
+		; CHG:	cx, si
+Range_decoder.decode_len:
+	lframe near
+	lenter
+	lvar dword,	pos_state
+	 push dx
+	 push ax
+	lvar word,	len_model_struc
+	 push di
+
+	lea di, [di + len_model.choice1]
+	call Range_decoder.decode_bit
+	 pop di
+	 push di
+	jc .not_decode_bit_choice1_equals_zero
+
+	lea di, [di + len_model.bm_low]
+	mov ax, len_low_symbols * bit_model_size
+	mul word [bp + ?pos_state]
+	test dx, dx
+	jnz .error
+	cmp word [bp + ?pos_state + 2], dx
+	jne .error
+	add di, ax
+	jc .error
+	mov cx, len_low_bits
+	call Range_decoder.decode_tree
+	jmp .ret_CF
+
+.not_decode_bit_choice1_equals_zero:
+	lea di, [di + len_model.choice2]
+	call Range_decoder.decode_bit
+	 pop di
+	 push di
+	jc .not_decode_bit_choice2_equals_zero
+
+	lea di, [di + len_model.bm_mid]
+	mov ax, len_mid_symbols * bit_model_size
+	mul word [bp + ?pos_state]
+	test dx, dx
+	jnz .error
+	cmp word [bp + ?pos_state + 2], dx
+	jne .error
+	add di, ax
+	jc .error
+	mov cx, len_mid_bits
+	call Range_decoder.decode_tree
+	pushf
+	add ax, len_low_symbols & 0FFFFh
+	adc dx, len_low_symbols >> 16
+	popf
+	jmp .ret_CF
+
+.not_decode_bit_choice2_equals_zero:
+	lea di, [di + len_model.bm_high]
+	mov cx, len_high_bits
+	call Range_decoder.decode_tree
+	pushf
+	add ax, (len_low_symbols + len_mid_symbols) & 0FFFFh
+	adc dx, (len_low_symbols + len_mid_symbols) >> 16
+	popf
+.ret_CF:
+	 pop di			; pop from ?len_model_struc
+	lleave
+	lret
+
+.error:
+	stc
+	jmp .ret_CF
+
+
+	struc lz_decoder
+.partial_data_pos:	resq 1
+.range_decoder:		resb range_decoder_size
+			alignb 4
+.dictionary_size:	resd 1
+; .buffer:		resd 1
+.pos:			resd 1
+.stream_pos:		resd 1
+.pos_wrapped:		resb 1
+	endstruc
+
+
+		; INP:	ds:bx -> lz_decoder structure, localvariables structure
+		;	dx:ax = distance
+		; OUT:	al = ax = byte from buffer
+		; CHG:	dx, cx, di, es
+LZ_decoder.peek:
+	cmp word [bx + lz_decoder.pos + 2], dx
+	jne @F
+	cmp word [bx + lz_decoder.pos], ax
+@@:
+	jna .not_pos_above_distance
+
+	push bx
+	 push word [bx + destinationbuffer_constant + 2]
+	 push word [bx + destinationbuffer_constant]
+
+	push dx
+	push ax
+
+	mov ax, word [bx + lz_decoder.pos]
+	mov dx, word [bx + lz_decoder.pos + 2]
+
+.common:
+	pop cx
+	pop bx
+	neg bx
+	neg cx
+	sbb bx, byte 0		; neg bx:cx = - distance
+
+	sub cx, 1
+	sbb bx, 0		; - 1
+
+	add cx, ax
+	adc bx, dx		; + pos
+
+	call normalise_pointer_with_displacement_bxcx
+	 pop di
+	 pop es
+	pop bx
+	xor ax, ax
+	mov al, byte [es:di]
+	retn
+
+.not_pos_above_distance:
+	cmp byte [bx + lz_decoder.pos_wrapped], 0
+	je .not_pos_wrapped
+
+	push bx
+	 push word [bx + destinationbuffer_constant + 2]
+	 push word [bx + destinationbuffer_constant]
+
+	push dx
+	push ax
+
+	mov ax, word [bx + lz_decoder.pos]
+	mov dx, word [bx + lz_decoder.pos + 2]
+	add ax, word [bx + lz_decoder.dictionary_size]
+	adc dx, word [bx + lz_decoder.dictionary_size + 2]
+	jmp .common
+
+.not_pos_wrapped:
+	xor ax, ax
+	retn
+
+
+		; INP:	ds:bx -> lz_decoder structure
+		;	al = byte to write to buffer
+		; OUT:	NC if success
+		;	CY if error
+		; CHG:	cx, dx, ax, di, es
+LZ_decoder.put_byte:
+	push bx
+	 push word [bx + destinationbuffer_constant + 2]
+	 push word [bx + destinationbuffer_constant]
+	mov cx, word [bx + lz_decoder.pos]
+	mov bx, word [bx + lz_decoder.pos + 2]
+	mov dx, bx
+	call normalise_pointer_with_displacement_bxcx
+	 pop di
+	 pop es
+	pop bx
+	add cx, 1
+	adc dx, 0
+
+	cmp word [bx + destination_length + 2], dx
+	jne @F
+	cmp word [bx + destination_length], cx
+@@:
+	jb .ret
+
+	stosb
+	mov word [bx + lz_decoder.pos], cx
+	mov word [bx + lz_decoder.pos + 2], dx
+%if 0
+	cmp dx, word [bx + lz_decoder.dictionary_size + 2]
+	jne @F
+	cmp cx, word [bx + lz_decoder.dictionary_size]
+@@:
+	jnae .not_pos_above_equal_dictionary_size
+
+	call LZ_decoder.flush_data
+
+.not_pos_above_equal_dictionary_size:
+%endif
+	clc
+.ret:
+	retn
+
+
+		; INP:	ds:bx -> lz_decoder structure
+		; OUT:	si:di:dx:ax = data position
+LZ_decoder.data_position:
+	xor si, si
+	xor di, di
+	mov dx, word [bx + lz_decoder.pos + 2]
+	mov ax, word [bx + lz_decoder.pos]
+	add ax, word [bx + lz_decoder.partial_data_pos]
+	adc dx, word [bx + lz_decoder.partial_data_pos + 2]
+	adc di, word [bx + lz_decoder.partial_data_pos + 4]
+	adc si, word [bx + lz_decoder.partial_data_pos + 6]
+	retn
+
+
+		; OUT:	NC if success,
+		;	 al = byte
+		;	CY if error
+		; CHG:	-
+LZ_decoder.get_byte:
+	push bx
+	lea bx, [bx + lz_decoder.range_decoder]
+	call Range_decoder.get_byte
+	pop bx
+	retn
+
+
+		; INP:	ds:bx -> lz_decoder structure
+		; OUT:	si:di:dx:ax = member position
+LZ_decoder.member_position:
+	mov ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
+	mov dx, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
+	mov di, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 4]
+	mov si, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 6]
+	retn
+
+
+	struc localvariables
+lz_decoder_struc:
+		resb lz_decoder_size
+		alignb 4
+bit_models_start:
+bm_literal:	resb bit_model_size * (1 << literal_context_bits) * 300h
+bm_match:	resb bit_model_size * amount_states * pos_states
+bm_rep:		resb bit_model_size * amount_states
+bm_rep0:	resb bit_model_size * amount_states
+bm_rep1:	resb bit_model_size * amount_states
+bm_rep2:	resb bit_model_size * amount_states
+bm_len:		resb bit_model_size * amount_states * pos_states
+bm_dis_slot:	resb bit_model_size * len_states * (1 << dis_slot_bits)
+bm_dis:		resb bit_model_size * (modeled_distances - end_dis_model + 1)
+bm_align:	resb bit_model_size * dis_align_size
+match_len_model:resb len_model_size
+rep_len_model:	resb len_model_size
+bit_models_end:
+zeros_start:
+rep0:		resd 1
+rep1:		resd 1
+rep2:		resd 1
+rep3:		resd 1
+state_struc:	resb state_size
+		alignb 16
+zeros_end:
+sourcebuffer_incrementing:	resd 1		; increments
+source_remaining:		resd 1		; decrements
+destinationbuffer_constant:	resd 1		; stays constant
+destination_length:		resd 1		; stays constant
+		alignb 16
+	endstruc
+%if lz_decoder_struc != 0
+ %error Expecting lz_decoder structure at start of localvariables structure
+%endif
+%assign STRUCSIZE localvariables_size
+%warning localvariables has STRUCSIZE bytes
+
+
+		; INP:	ds:bx -> range_decoder structure
+		;	thus ds:(bx - lz_decoder.range_decoder)
+		;	 -> lz_decoder structure, localvariables structure
+		; OUT:	NC if success,
+		;	 al = value read
+		;	CY if error
+get_byte:
+	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
+	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
+	jc .ret
+	push ds
+	push si
+	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	lodsb
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
+	pop si
+	pop ds
+	clc
+.ret:
+	retn
+
+
+		; INP:	ds:bx -> localvariables structure,
+		;	 source_remaining, sourcebuffer_incrementing,
+		;	 destinationbuffer_constant, destination_length
+		;	 all pre-initialised
+		;	dx:ax = dictionary size
+		; OUT:	NC if success
+		;	CY if error
+		; CHG:	all
+LZ_decoder.decode_member:
+	lframe near
+	lvar dword,	distance
+	lvar dword,	len_state
+	lvar dword,	len
+	lvar dword,	dis_slot
+	lvar word,	pos_state
+	lenter
+	lvar dword,	source
+	 push ds
+	 push si
+	lvar dword,	localvariables
+	 push ds
+	 push bx
+	lea cx, [bx + lz_decoder.range_decoder]
+	lvar word,	range_decoder
+	 push cx
+	lea cx, [bx + state_struc]
+	lvar word,	state_struc
+	 push cx
+
+	 push dx
+	 push ax			; preserve dictionary size
+	push ds
+	pop es
+	mov di, bx
+	mov cx, fromdwords(dwords(lz_decoder_size)) / 2
+	xor ax, ax
+	rep stosw			; initialise lz_decoder structure
+
+	mov bx, word [bp + ?range_decoder]
+	call Range_decoder.init		; initialise embedded range_decoder
+	mov bx, word [bp + ?localvariables]
+
+	 pop word [bx + lz_decoder.dictionary_size]
+	 pop word [bx + lz_decoder.dictionary_size + 2]
+					; set dictionary size
+
+	lea di, [bx + bit_models_start]
+	mov cx, (bit_models_end - bit_models_start) / bit_model_size
+	xor dx, dx
+	mov ax, bit_model_total / 2	; initial value for bit_model
+@@:
+	stosw
+	xchg ax, dx
+	stosw
+	xchg ax, dx			; initialise this bit_model
+	loop @B				; loop for all bit_model and len_model
+
+	; lea di, [bx + zeros_start]
+	xor ax, ax
+	mov cl, (zeros_end - zeros_start) / 2
+	rep stosw
+
+.loop:
+	mov bx, word [bp + ?localvariables]
+	call LZ_decoder.data_position
+	and ax, pos_state_mask
+	mov cx, ax			; = pos_state
+	mov word [bp + ?pos_state], cx
+
+	push ds
+	pop es
+	lea di, [bx + bm_match]		; es:di -> bm_match 2D array
+	mov ax, bit_model_size * pos_states
+	mul word [bx + state_struc + state.st]
+					; dx:ax = first index is state
+	test dx, dx
+	jnz .error
+%rep bit_model_size
+	add ax, cx			; = second index is pos_state
+	jc .error
+%endrep
+	add di, ax			; es:di -> bm_match[state()][pos_state]
+	jc .error
+	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
+	call Range_decoder.decode_bit
+	mov bx, [bp + ?localvariables]
+	jc .1st_bit_not_zero
+
+.1st_bit_zero:
+	xor ax, ax
+	xor dx, dx
+	call LZ_decoder.peek		; al = prev_byte
+
+	mov cl, 8 - literal_context_bits
+	shr al, cl			; = literal_state
+	push ds
+	pop es
+	lea di, [bx + bm_literal]
+	add ax, ax
+	add ax, ax			; * bit_model_size
+	add di, ax			; es:di -> bm_literal[literal_state]
+	jc .error
+
+	mov bx, word [bp + ?state_struc]
+	call State.is_char
+	jnc .not_is_char
+.is_char:
+	mov cx, 8
+	mov bx, word [bp + ?range_decoder]
+	call Range_decoder.decode_tree
+	jmp @F
+
+.not_is_char:
+	mov bx, word [bp + ?localvariables]
+	mov ax, word [bx + rep0]
+	mov dx, word [bx + rep0 + 2]
+	call LZ_decoder.peek
+	mov cx, ax
+	mov bx, word [bp + ?range_decoder]
+	call Range_decoder.decode_matched
+@@:
+	mov bx, word [bp + ?localvariables]
+	call LZ_decoder.put_byte
+	jc .error
+	mov bx, word [bp + ?state_struc]
+	call State.set_char
+	jmp .loop
+
+
+.1st_bit_not_zero:
+	mov bx, word [bp + ?localvariables]
+	push ds
+	pop es
+	lea di, [bx + bm_rep]		; es:di -> bm_rep array
+	mov ax, bit_model_size
+	mul word [bx + state_struc + state.st]
+					; dx:ax = index is state
+	test dx, dx
+	jnz .error
+	add di, ax			; es:di -> bm_rep[state()]
+	jc .error
+	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
+	call Range_decoder.decode_bit
+	mov bx, [bp + ?localvariables]
+	jnc .2nd_bit_zero
+
+.2nd_bit_not_zero:
+	push ds
+	pop es
+	lea di, [bx + bm_rep0]		; es:di -> bm_rep0 array
+	mov ax, bit_model_size
+	mul word [bx + state_struc + state.st]
+					; dx:ax = index is state
+	test dx, dx
+	jnz .error
+	add di, ax			; es:di -> bm_rep0[state()]
+	jc .error
+	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
+	call Range_decoder.decode_bit
+	mov bx, [bp + ?localvariables]
+	jc .3rd_bit_not_zero
+
+.3rd_bit_zero:
+	push ds
+	pop es
+	lea di, [bx + bm_len]		; es:di -> bm_len 2D array
+	mov ax, bit_model_size * pos_states
+	mul word [bx + state_struc + state.st]
+					; dx:ax = first index is state
+	test dx, dx
+	jnz .error
+	mov cx, bit_model_size
+@@:
+	add ax, word [bp + ?pos_state]
+	jc .error
+	loop @B
+	add di, ax			; es:di -> bm_len[state()]
+	jc .error
+	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
+	call Range_decoder.decode_bit
+	mov bx, [bp + ?localvariables]
+	jc .4th_bit_not_zero
+
+.4th_bit_zero:
+	mov bx, [bp + ?state_struc]
+	call State.set_short_rep
+	mov bx, word [bp + ?localvariables]
+	mov ax, word [bx + rep0]
+	mov dx, word [bx + rep0 + 2]
+	call LZ_decoder.peek
+	call LZ_decoder.put_byte
+	jc .error
+	jmp .loop
+
+.3rd_bit_not_zero:
+	push ds
+	pop es
+	lea di, [bx + bm_rep1]		; es:di -> bm_rep1 array
+	mov ax, bit_model_size
+	mul word [bx + state_struc + state.st]
+					; dx:ax = index is state
+	test dx, dx
+	jnz .error
+	add di, ax			; es:di -> bm_rep1[state()]
+	jc .error
+	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
+	call Range_decoder.decode_bit
+	mov bx, [bp + ?localvariables]
+	jc .3rd_bit_not_zero.4th_bit_not_zero
+
+.3rd_bit_not_zero.4th_bit_zero:
+	push word [bx + rep1 + 2]
+	push word [bx + rep1]
+	pop word [bp + ?distance]
+	pop word [bp + ?distance + 2]
+	jmp .3rd_bit_not_zero.common
+
+.3rd_bit_not_zero.4th_bit_not_zero:
+	push ds
+	pop es
+	lea di, [bx + bm_rep2]		; es:di -> bm_rep2 array
+	mov ax, bit_model_size
+	mul word [bx + state_struc + state.st]
+					; dx:ax = index is state
+	test dx, dx
+	jnz .error
+	add di, ax			; es:di -> bm_rep2[state()]
+	jc .error
+	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
+	call Range_decoder.decode_bit
+	mov bx, [bp + ?localvariables]
+	jc .3rd_bit_not_zero.4th_bit_not_zero.5th_bit_not_zero
+
+.3rd_bit_not_zero.4th_bit_not_zero.5th_bit_zero:
+	push word [bx + rep2 + 2]
+	push word [bx + rep2]
+	pop word [bp + ?distance]
+	pop word [bp + ?distance + 2]
+	jmp .3rd_bit_not_zero.4th_bit_not_zero.common
+
+.3rd_bit_not_zero.4th_bit_not_zero.5th_bit_not_zero:
+	push word [bx + rep3 + 2]
+	push word [bx + rep3]
+	pop word [bp + ?distance]
+	pop word [bp + ?distance + 2]	; distance = rep3
+	push word [bx + rep2 + 2]
+	push word [bx + rep2]
+	pop word [bx + rep3]
+	pop word [bx + rep3 + 2]	; rep3 = rep2
+
+.3rd_bit_not_zero.4th_bit_not_zero.common:
+	push word [bx + rep1 + 2]
+	push word [bx + rep1]
+	pop word [bx + rep2]
+	pop word [bx + rep2 + 2]	; rep2 = rep1
+
+.3rd_bit_not_zero.common:
+	mov bx, [bp + ?localvariables]
+	push word [bx + rep0 + 2]
+	push word [bx + rep0]
+	pop word [bx + rep1]
+	pop word [bx + rep1 + 2]	; rep1 = rep0
+	push word [bp + ?distance + 2]
+	push word [bp + ?distance]
+	pop word [bx + rep0]
+	pop word [bx + rep0 + 2]	; rep0 = distance
+
+.4th_bit_not_zero:
+	mov bx, [bp + ?state_struc]
+	call State.set_rep
+	mov bx, word [bp + ?localvariables]
+	mov ax, word [bp + ?pos_state]
+	xor dx, dx			; dx:ax = pos_state variable
+	push ds
+	pop es
+	lea di, [bx + rep_len_model]	; -> len_model to use
+	mov bx, [bp + ?range_decoder]	; -> range_decoder structure
+	call Range_decoder.decode_len	; dx:ax = length
+	jc .error
+	mov word [bp + ?len], ax
+	mov word [bp + ?len + 2], dx
+	jmp .handle_match
+
+.2nd_bit_zero:
+	mov bx, [bp + ?localvariables]
+
+	push word [bx + rep2 + 2]
+	push word [bx + rep2]
+	pop word [bx + rep3]
+	pop word [bx + rep3 + 2]	; rep3 = rep2
+
+	push word [bx + rep1 + 2]
+	push word [bx + rep1]
+	pop word [bx + rep2]
+	pop word [bx + rep2 + 2]	; rep2 = rep1
+
+	push word [bx + rep0 + 2]
+	push word [bx + rep0]
+	pop word [bx + rep1]
+	pop word [bx + rep1 + 2]	; rep1 = rep0
+
+	mov ax, word [bp + ?pos_state]
+	xor dx, dx			; dx:ax = pos_state variable
+	push ds
+	pop es
+	lea di, [bx + match_len_model]	; -> len_model to use
+	mov bx, [bp + ?range_decoder]	; -> range_decoder structure
+	call Range_decoder.decode_len	; dx:ax = length
+	jc .error
+
+	mov word [bp + ?len_state], ax
+	mov word [bp + ?len_state + 2], dx
+	test dx, dx
+	jnz @F
+	cmp ax, len_states - 1
+	jb @FF
+@@:
+	mov word [bp + ?len_state], len_states - 1
+	and word [bp + ?len_state + 2], 0
+@@:
+
+	add ax, min_match_len
+	adc dx, 0
+	jc .error
+
+	mov word [bp + ?len], ax
+	mov word [bp + ?len + 2], dx
+
+	mov ax, bit_model_size * (1 << dis_slot_bits)
+	mul word [bp + ?len_state]	; first index is len_state
+	mov bx, dx
+	mov cx, ax
+
+	mov ax, bit_model_size * (1 << dis_slot_bits)
+	mul word [bp + ?len_state + 2]
+	add bx, ax			; bx:cx = first index into array
+	jc .error
+	test dx, dx
+	jnz .error
+
+	push ds
+	pop es
+	mov di, word [bp + ?localvariables]
+	lea di, [di + bm_dis_slot]	; -> 2D array bm_dis_slot
+	 push es
+	 push di
+	call normalise_pointer_with_displacement_bxcx
+	 pop di
+	 pop es				; -> 1D array at bm_dis_slot[len_state]
+	mov bx, word [bp + ?range_decoder]
+	mov cx, dis_slot_bits
+	call Range_decoder.decode_tree
+	mov bx, word [bp + ?localvariables]
+	mov word [bx + rep0], ax
+	mov word [bx + rep0 + 2], dx
+
+	cmp dx, 0
+	jne @F
+	cmp ax, start_dis_model
+@@:
+	jnae .not_rep0_ae_start_dis_model
+
+.rep0_ae_start_dis_model:
+	mov word [bp + ?dis_slot], ax
+	mov word [bp + ?dis_slot + 2], dx
+
+	shr dx, 1
+	rcr ax, 1			; dis_slot >> 1
+	sub ax, 1
+	sbb dx, 0			; - 1
+	jc .error
+	jnz .error
+	mov cx, ax			; = direct_bits
+	xor dx, dx
+	mov ax, 1
+	and al, byte [bp + ?dis_slot]
+	or al, 2
+	push cx
+	jcxz @FF
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+@@:
+	pop cx
+	mov word [bx + rep0], ax
+	mov word [bx + rep0 + 2], dx
+
+	cmp word [bp + ?dis_slot + 2], 0
+	jne @F
+	cmp word [bp + ?dis_slot], end_dis_model
+@@:
+	jnb .not_dis_slot_below_end_dis_model
+
+.dis_slot_below_end_dis_model:
+	sub ax, word [bp + ?dis_slot]
+	sbb dx, word [bp + ?dis_slot + 2]
+					; dx:ax = index into bm_dis array
+					;  = rep0 - dis_slot
+	jc .error
+	 push dx
+	mov si, bit_model_size
+	mul si
+	mov di, ax
+	mov bx, dx			; bx:di = low word + first high word
+	 pop ax
+	mul si				; ax = second high word, dx = overflow
+	add bx, ax
+	jc .error
+	test dx, dx
+	jnz .error
+	push cx
+	mov cx, di
+	push ds
+	pop es
+	mov di, word [bp + ?localvariables]
+	lea di, [di + bm_dis]		; es:di -> bm_dis array
+	 push es
+	 push di
+	call normalise_pointer_with_displacement_bxcx
+	 pop di
+	 pop es				; index into the array
+	pop cx
+	mov bx, word [bp + ?range_decoder]
+	call Range_decoder.decode_tree_reversed
+	mov bx, word [bp + ?localvariables]
+	add word [bx + rep0], ax
+	adc word [bx + rep0 + 2], dx
+	jmp .after_dis_slot_below
+
+.not_dis_slot_below_end_dis_model:
+	sub cx, dis_align_bits
+	mov bx, word [bp + ?range_decoder]
+	call Range_decoder.decode
+	jc .error
+	mov bx, word [bp + ?localvariables]
+	mov cx, dis_align_bits
+@@:
+	shl ax, 1
+	rcl dx, 1
+	jc .error
+	loop @B
+	add word [bx + rep0], ax
+	adc word [bx + rep0 + 2], dx
+
+	mov cx, dis_align_bits
+	push ds
+	pop es
+	lea di, [bx + bm_align]
+	mov bx, word [bp + ?range_decoder]
+	call Range_decoder.decode_tree_reversed
+	jc .error
+	mov bx, word [bp + ?localvariables]
+	add word [bx + rep0], ax
+	adc word [bx + rep0 + 2], dx
+
+	cmp word [bx + rep0 + 2], -1	; rep0 = 0FFFF_FFFFh ?
+	jne @F
+	cmp word [bx + rep0], -1
+@@:
+	je .end				; yes, end -->
+
+.not_rep0_ae_start_dis_model:
+
+.after_dis_slot_below:
+	mov bx, word [bp + ?state_struc]
+	call State.set_match
+	mov bx, word [bp + ?localvariables]
+	mov dx, word [bx + rep0 + 2]
+	mov ax, word [bx + rep0]
+
+	cmp dx, word [bx + lz_decoder.dictionary_size + 2]
+	jne @F
+	cmp ax, word [bx + lz_decoder.dictionary_size]
+@@:
+	jae .error
+		; fixme: not checking (rep0 >= pos && !pos_wrapped)
+
+.handle_match:
+	mov bx, word [bp + ?localvariables]
+	mov dx, word [bx + rep0 + 2]
+	mov ax, word [bx + rep0]
+
+	cmp word [bp + ?len + 2], 0
+	jne @F
+	cmp word [bp + ?len], 0
+@@:
+	je .handle_match_empty
+
+@@:
+	call LZ_decoder.peek
+	jc .error
+	call LZ_decoder.put_byte
+	jc .error
+	sub word [bp + ?len], 1
+	sbb word [bp + ?len + 2], 0
+	jnz @B
+	cmp word [bp + ?len], 0
+	jne @B
+
+.handle_match_empty:
+	jmp .loop
+
+
+.end:
+	cmp word [bp + ?len + 2], min_match_len >> 16
+	jne @F
+	cmp word [bp + ?len], min_match_len & 0FFFFh
+@@:
+	jne .error
+
+.done:
+	db __TEST_IMM8			; (NC, skip stc)
+
+.error:
+	stc
+	lleave
+	lret
+
+
+	align 4
+lzip_header_bytes:
+.:
+	db "LZIP",1
+.length: equ $ - .
+
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _IMAGE_EXE || _DEBUG0 || _COUNTER
+	lenter early
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+ %endif
+ %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+ %endif
+%endif
+	lvar word,	counter
+%if _COUNTER
+	 push bx		; initialise counter (high byte) to zero
+%endif
+	lvar dword,	src_behind_block
+	lvar word,	frame_descriptor_flg_and_bd
+	lenter
+
+	call normalise_both_pointers
+
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	final_dst
+	 push es
+	 push di
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if _ALLOW_OVERLAPPING && 0
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+
+	sub cx, localvariables_size & 0FFFFh
+	sbb bx, localvariables_size >> 16
+	jbe .error		; make variables buffer available
+
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
+
+	push es
+	push di
+	mov bx, localvariables_size >> 16
+	mov cx, localvariables_size & 0FFFFh
+	call normalise_pointer_with_displacement_bxcx
+	pop di
+	pop es
+
+	lvar dword,	original_dst
+	 push es
+	 push di
+	lvar dword,	dst
+	 push es
+	 push di
+
+%if _ALLOW_OVERLAPPING && 0
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error
+%endif
+
+
+member_min_size equ 6 + 4 + 16
+
+.loop_member:
+	cmp word [bp + ?length_of_source + 2], 0
+	jne @F
+	cmp word [bp + ?length_of_source], member_min_size
+@@:
+	ja .got_member
+
+	cmp word [bp + ?length_of_source + 2], 0
+	jne @F
+	cmp word [bp + ?length_of_source], 15
+@@:
+	ja .error
+	jmp .end
+
+.got_member:
+	lds si, [bp + ?src]
+	push cs
+	pop es
+	mov di, lzip_header_bytes
+	mov cx, lzip_header_bytes.length
+	repe cmpsb
+	jne .error
+	xor ax, ax
+	lodsb
+	push ax
+	mov cx, ax
+	mov ax, 1
+	xor dx, dx
+	and cl, 1Fh
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+
+	mov bx, dx
+	mov di, ax			; bx:di = dict_size
+	mov cl, 4
+@@:
+	shr bx, 1
+	rcr di, 1
+	loop @B				; bx:di = dict_size / 16
+	pop cx
+	mov ch, cl
+	mov cl, 5
+	shr ch, cl
+	mov cl, ch
+	mov ch, 0
+	jcxz @FF
+@@:
+	shl di, 1
+	rcl bx, 1
+	jc .error
+	loop @B				; bx:di = dict_size / 16 * fraction
+@@:
+	sub ax, di
+	sbb dx, bx
+	jc .error
+
+	cmp dx, min_dictionary_size >> 16
+	jne @F
+	cmp ax, min_dictionary_size & 0FFFFh
+@@:
+	jb .error
+
+	cmp dx, max_dictionary_size >> 16
+	jne @F
+	cmp ax, max_dictionary_size & 0FFFFh
+@@:
+	ja .error
+
+	lds bx, [bp + ?final_dst]
+	push word [bp + ?dst + 2]
+	push word [bp + ?dst]
+	pop word [bx + destinationbuffer_constant]
+	pop word [bx + destinationbuffer_constant + 2]
+	push word [bp + ?length_of_destination + 2]
+	push word [bp + ?length_of_destination]
+	pop word [bx + destination_length]
+	pop word [bx + destination_length + 2]
+	push word [bp + ?src + 2]
+	push word [bp + ?src]
+	pop word [bx + sourcebuffer_incrementing]
+	pop word [bx + sourcebuffer_incrementing + 2]
+	push word [bp + ?length_of_source + 2]
+	push word [bp + ?length_of_source]
+	pop word [bx + source_remaining]
+	pop word [bx + source_remaining + 2]
+
+	call LZ_decoder.decode_member
+	jc .error
+
+	lds bx, [bp + ?final_dst]
+
+	les si, [bx + sourcebuffer_incrementing]
+	push word [bx + source_remaining + 2]
+	push word [bx + source_remaining]
+	pop ax
+	pop dx
+	sub ax, 4 + 16
+	sbb dx, 0
+	jb .error
+
+	mov word [bp + ?length_of_source], ax
+	mov word [bp + ?length_of_source + 2], dx
+
+	add si, 4			; skip CRC
+
+	es lodsw			; does the destination length match ?
+	cmp ax, word [bx + destination_length]
+	jne .error
+	es lodsw
+	cmp ax, word [bx + destination_length + 2]
+	jne .error			; if no -->
+	es lodsw
+	test ax, ax
+	jnz .error
+	es lodsw
+	test ax, ax
+	jnz .error
+
+	push si				; does the source length match ?
+	call LZ_decoder.member_position
+	test si, si
+	jnz .error
+	pop si
+	test di, di
+	jnz .error
+	cmp word [es:si], ax
+	jne .error
+	inc si
+	inc si
+	cmp word [es:si], dx
+	jne .error			; if no -->
+	inc si
+	inc si
+	es lodsw
+	test ax, ax
+	jnz .error
+	es lodsw
+	test ax, ax
+	jnz .error
+
+	 push es
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	mov cx, word [bx + destination_length]
+	mov bx, word [bx + destination_length + 2]
+
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], bx
+
+	call normalise_pointer_with_displacement_bxcx
+	 pop word [bp + ?dst]
+	 pop word [bp + ?dst + 2]
+
+	jmp .loop_member
+
+.end:
+
+
+		; ds:si -> data
+		; bx:ax = length of data
+.final:
+%if _COUNTER
+	push ax
+	mov al, '%'
+	call disp_al
+	pop ax
+%endif
+	les di, [bp + ?final_dst]
+				; -> destination
+	lds si, [bp + ?original_dst]
+				; -> source
+	 push ds
+	 push si
+	call pointer_to_linear	; dx:ax = linear ?original_dst
+	mov cx, ax
+	mov bx, dx		; bx:cx = linear ?original_dst
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+	sub ax, cx
+	sbb dx, bx		; = linear dst minus linear original_dst
+
+	mov cx, 4
+	add ax, 15
+	adc dx, 0
+@@:
+	shr dx, 1
+	rcr ax, 1
+	loop @B
+	mov cx, ax
+	test dx, dx
+d0	mov byte [bp + ?errordata], 84h
+	jnz .error
+
+	call x_mov_p
+
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
+
+		; INP:	ds:si = pointer
+		;	es:di = pointer
+		; OUT:	ds:si anti normalised
+		;	es:di anti normalised
+anti_normalise_both_pointers:
+	 push ds
+	 push si
+	call anti_normalise_pointer
+	 pop si
+	 pop ds
+
+	 push es
+	 push di
+	call anti_normalise_pointer
+	 pop di
+	 pop es
+	retn
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+		;
+		; Note:	Does not work correctly with pointers that point to
+		;	 a HMA location. Do not use then!
+anti_normalise_pointer:
+	lframe near, nested
+	lpar word,	segment
+	lpar word,	offset
+	lpar_return
+	lenter
+	push bx
+	push cx
+
+	xor bx, bx
+	xor cx, cx
+	 push word [bp + ?segment]
+	 push word [bp + ?offset]
+	call anti_normalise_pointer_with_displacement_bxcx
+	 pop word [bp + ?offset]
+	 pop word [bp + ?segment]
+
+	pop cx
+	pop bx
+	lleave
+	lret
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+		;	bx:cx = add/sub displacement
+		; OUT:	dword [ss:sp] = anti-normalised address
+		;
+		; An anti-normalised pointer has an offset as high as possible,
+		;  which is in the range 0FFF0h to 0FFFFh unless the pointed-to
+		;  location is in the first 64 KiB of memory.
+anti_normalise_pointer_with_displacement_bxcx:
+	lframe near, nested
+	lpar word,	segment
+	lpar word,	offset
+	lpar_return
+	lenter
+	push ax
+	push dx
+
+	 push word [bp + ?segment]
+	 push word [bp + ?offset]
+	call pointer_to_linear
+
+	add ax, cx
+	adc dx, bx			; dx:ax += bx:cx
+
+	cmp dx, 1
+	jb @F
+
+	push ax
+	or ax, 0FFF0h
+	mov word [bp + ?offset], ax
+	pop ax
+
+	sub ax, 0FFF0h
+	sbb dx, 0
+
+%rep 4
+	shr dx, 1
+	rcr ax, 1
+%endrep
+	mov word [bp + ?segment], ax
+
+	jmp .return
+
+		; dx:ax = 0000:offset
+@@:
+	mov word [bp + ?offset], ax
+	and word [bp + ?segment], 0
+
+.return:
+	pop dx
+	pop ax
+	lleave
+	lret
+
+
+		; Move paragraphs
+		;
+		; INP:	ds:si -> source
+		;	es:di -> destination
+		;	cx = number of paragraphs
+		; CHG:	ax, bx, cx, dx
+		; OUT:	ds:si -> after source (normalised)
+		;	es:di -> after destination (normalised)
+		; Note:	Doesn't work correctly on HMA; doesn't always wrap to LMA either.
+		;	Do not provide a wrapped/HMA source or destination!
+x_mov_p:
+	call normalise_both_pointers
+	mov ax, ds
+	mov dx, es
+
+	test cx, cx
+	jz .return
+
+	cmp ax, dx		; source above destination ?
+	ja .up			; yes, move up (forwards) -->
+	jb .check_down
+
+	cmp si, di
+	ja .up
+	je .return		; pointers are the same, no need to move -->
+.check_down:
+	push ax
+	add ax, cx		; (expected not to carry)
+	cmp ax, dx		; end of source is above destination ?
+	pop ax
+	ja .down		; yes, move from top down -->
+	jb .up
+	cmp si, di
+	ja .down
+
+	; Here, the end of source is below-or-equal the destination,
+	;  so they do not overlap. In this case we prefer moving up.
+.up:
+.uploop:
+	sub cx, 0FFFh		; 64 KiB - 16 B left ?
+	jbe .uplast		; no -->
+	push cx
+	mov cx, 0FFF0h /2
+	rep movsw		; move 64 KiB - 16 B
+	pop cx
+	call normalise_both_pointers
+	jmp short .uploop	; proceed for more -->
+.uplast:
+	add cx, 0FFFh		; restore counter
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1		; *8, paragraphs to words
+	rep movsw		; move last part
+	jmp short .return
+
+.down:
+	std			; _AMD_ERRATUM_109_WORKAROUND as below
+
+	mov ax, cx
+	xor bx, bx
+	push cx
+	mov cx, 4
+@@:
+	shl ax, 1
+	rcl bx, 1
+	loop @B
+	sub ax, 2
+	sbb bx, 0		; -> point at last word
+		; (Cannot borrow here because we checked that cx
+		;  was nonzero at the intro to this function, so
+		;  bx:ax is at least 16 prior to this subtraction.)
+	xchg ax, cx		; bx:cx = displacement to point to last word
+	 push ds
+	 push si
+	call anti_normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop ds			; -> last word of source
+	 push es
+	 push di
+	call anti_normalise_pointer_with_displacement_bxcx
+	 pop di
+	 pop es			; -> last word of destination
+	pop cx
+
+.dnloop:
+	sub cx, 0FFFh		; 64 KiB - 16 B left ?
+	jbe .dnlast		; no -->
+	push cx
+	mov cx, 0FFF0h /2
+	rep movsw		; move 64 KiB - 16 B
+	pop cx
+	call anti_normalise_both_pointers
+	jmp short .dnloop	; proceed for more -->
+.dnlast:
+	add cx, 0FFFh		; restore counter
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1		; *8, paragraphs to words
+
+
+	numdef AMD_ERRATUM_109_WORKAROUND, 1
+%if 0
+
+Jack R. Ellis pointed out this erratum:
+
+Quoting from https://www.amd.com/system/files/TechDocs/25759.pdf page 69:
+
+109   Certain Reverse REP MOVS May Produce Unpredictable Behavior
+
+Description
+
+In certain situations a REP MOVS instruction may lead to
+incorrect results. An incorrect address size, data size
+or source operand segment may be used or a succeeding
+instruction may be skipped. This may occur under the
+following conditions:
+
+* EFLAGS.DF=1 (the string is being moved in the reverse direction).
+
+* The number of items being moved (RCX) is between 1 and 20.
+
+* The REP MOVS instruction is preceded by some microcoded instruction
+  that has not completely retired by the time the REP MOVS begins
+  execution. The set of such instructions includes BOUND, CLI, LDS,
+  LES, LFS, LGS, LSS, IDIV, and most microcoded x87 instructions.
+
+Potential Effect on System
+
+Incorrect results may be produced or the system may hang.
+
+Suggested Workaround
+
+Contact your AMD representative for information on a BIOS update.
+
+%endif
+
+%if _AMD_ERRATUM_109_WORKAROUND
+	jcxz @FF
+	cmp cx, 20
+	ja @FF
+@@:
+	movsw
+	loop @B
+@@:
+%endif
+	rep movsw		; move first part
+	cld
+.return:
+	jmp normalise_both_pointers
