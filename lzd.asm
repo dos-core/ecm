@@ -510,7 +510,11 @@ Range_decoder.decode_matched:
 	mul word [bp + ?symbol]
 	test dx, dx
 	jnz .error
+	push di
+	add di, ax
+	jc .error
 	call Range_decoder.decode_bit
+	pop di
 	rcl word [bp + ?symbol], 1
 	rcl word [bp + ?symbol + 2], 1
 
