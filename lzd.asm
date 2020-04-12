@@ -1531,6 +1531,9 @@ member_min_size equ 6 + 4 + 16
 	call normalise_pointer
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]
+	sub word [bp + ?length_of_source], 6
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
 
 	push ax
 	mov cx, ax
