@@ -466,7 +466,7 @@ Range_decoder.decode_matched:
 	xor dx, dx
 	mov dh, byte [bp + ?match_byte]
 	dec cx
-	shr dh, 1		; match_byte >> i
+	shr dh, cl		; match_byte >> i
 	inc cx
 	and dh, 1		; & 1
 	push dx
