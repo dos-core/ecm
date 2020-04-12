@@ -835,9 +835,6 @@ LZ_decoder.decode_member:
 	lvar dword,	dis_slot
 	lvar word,	pos_state
 	lenter
-	lvar dword,	source
-	 push ds
-	 push si
 	lvar dword,	localvariables
 	 push ds
 	 push bx
