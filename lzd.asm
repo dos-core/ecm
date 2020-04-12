@@ -48,31 +48,29 @@ State:
 	retn
 
 .set_char:
-	push ax
 	push bx
 	mov al, byte [bx + state.st]
 	mov bx, next_states
 	cs xlatb
 	pop bx
+.end:
 	mov byte [bx + state.st], al
-	pop ax
 	retn
 
 .set_match:
 	call .is_char
 	mov al, 7
-	jc .ret
+	jc .end
 	mov al, 10
-.ret:
-	retn
+	jmp .end
 
 .set_rep:
 	call .is_char
 	mov al, 8
 .common_set_rep:
-	jc .ret
+	jc .end
 	mov al, 11
-	retn
+	jmp .end
 
 .set_short_rep:
 	call .is_char
