@@ -481,6 +481,7 @@ Range_decoder.decode_matched:
 	test dx, dx
 	jnz .error
 	add di, ax
+	jc .error
 	call Range_decoder.decode_bit
 	pop cx
 	pop di
