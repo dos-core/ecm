@@ -645,7 +645,6 @@ rep3:		resd 1
 state.st:	resw 1		; initialise to zero
 		alignb 16
 zeros_end:
-source_remaining:		resd 1		; decrements
 destinationbuffer_constant:	resd 1		; stays constant
 		alignb 16
 bit_models_start:
@@ -672,7 +671,6 @@ bit_models_end:
 
 
 		; INP:	ds:bx -> localvariables structure,
-		;	 source_remaining,
 		;	 destinationbuffer_constant pre-initialised
 		;	dx:ax = dictionary size
 		;	dword [ss:bp + ?src] (of depack lframe) initialised
@@ -1402,28 +1400,17 @@ member_min_size equ 6 + 4 + 16
 	push word [bp + ?dst]
 	pop word [bx + destinationbuffer_constant]
 	pop word [bx + destinationbuffer_constant + 2]
-	push word [bp + ?length_of_source + 2]
-	push word [bp + ?length_of_source]
-	pop word [bx + source_remaining]
-	pop word [bx + source_remaining + 2]
 
 	call LZ_decoder.decode_member
 	jc .error
 
-	lds bx, [bp + ?final_dst]
+	lds bx, [bp + ?final_dst]	; -> localvariables
+
+	sub word [bp + ?length_of_source], 4 + 16
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
 
 	les si, [bp + ?src]
-	push word [bx + source_remaining + 2]
-	push word [bx + source_remaining]
-	pop ax
-	pop dx
-	sub ax, 4 + 16
-	sbb dx, 0
-	jb .error
-
-	mov word [bp + ?length_of_source], ax
-	mov word [bp + ?length_of_source + 2], dx
-
 	add si, 4			; skip CRC
 
 	es lodsw			; does the destination length match ?
@@ -1541,11 +1528,12 @@ Range_decoder.get_byte:
 	push si
 	push bp
 
-	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
-	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
+	mov bp, word [bx + framepointer]
+
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
 	jc .done			; (CY)
 
-	mov bp, word [bx + framepointer]
 	lds si, [bp + ?src]
 	lodsb
 	 push ds
