@@ -53,25 +53,14 @@ State:
 	mov byte [bx + state.st], al
 	retn
 
-.set_match:
+		; INP:	al = value to use if is_char() == true
+		;	ah = value to use else
+		; OUT:	byte [bx + state.st] = al = value to use
+.select:
 	call .is_char
-	mov al, 7
 	jc .end
-	mov al, 10
+	mov al, ah
 	jmp .end
-
-.set_rep:
-	call .is_char
-	mov al, 8
-.common_set_rep:
-	jc .end
-	mov al, 11
-	jmp .end
-
-.set_short_rep:
-	call .is_char
-	mov al, 9
-	jmp .common_set_rep
 
 
   min_dictionary_size:		equ 1 << 12
@@ -925,7 +914,10 @@ LZ_decoder.decode_member:
 	jc .4th_bit_not_zero
 
 .4th_bit_zero:
-	call State.set_short_rep
+; State.set_short_rep
+	mov ax, 9 | (11 << 8)
+	call State.select
+
 	mov ax, word [bx + rep0]
 	mov dx, word [bx + rep0 + 2]
 	call LZ_decoder.peek
@@ -1002,7 +994,10 @@ LZ_decoder.decode_member:
 	pop word [bx + rep0 + 2]	; rep0 = distance
 
 .4th_bit_not_zero:
-	call State.set_rep
+; State.set_rep
+	mov ax, 8 | (11 << 8)
+	call State.select
+
 	mov ax, word [bp + ?pos_state]
 	xor dx, dx			; dx:ax = pos_state variable
 	push ds
@@ -1191,7 +1186,11 @@ LZ_decoder.decode_member:
 .not_rep0_ae_start_dis_model:
 
 .after_dis_slot_below:
-	call State.set_match
+
+; State.set_match
+	mov ax, 7 | (10 << 8)
+	call State.select
+
 	mov dx, word [bx + rep0 + 2]
 	mov ax, word [bx + rep0]
 
