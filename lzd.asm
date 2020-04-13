@@ -1453,6 +1453,7 @@ member_min_size equ 6 + 4 + 16
 	jne .error
 	es lodsw
 	cmp ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
+	jne .error
 	es lodsw
 	test ax, ax
 	jnz .error
