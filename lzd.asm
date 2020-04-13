@@ -694,14 +694,6 @@ LZ_decoder.get_byte:
 	retn
 
 
-		; INP:	ds:bx -> lz_decoder structure
-		; OUT:	dx:ax = member position
-LZ_decoder.member_position:
-	mov ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
-	mov dx, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
-	retn
-
-
 	struc localvariables
 lz_decoder_struc:
 		resb lz_decoder_size
@@ -1540,8 +1532,9 @@ member_min_size equ 6 + 4 + 16
 	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2], 0
 	jc .error
 
-	call LZ_decoder.member_position	; does the source length match ?
-	cmp word [es:si], ax
+	mov ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
+	mov dx, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
+	cmp word [es:si], ax		; does the source length match ?
 	jne .error
 	inc si
 	inc si
