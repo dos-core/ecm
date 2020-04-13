@@ -1249,7 +1249,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push di
 	call pointer_to_linear
 
-%if _ALLOW_OVERLAPPING && 0
+%if _ALLOW_OVERLAPPING
 	add cx, word [bp + ?length_of_source]
 	adc bx, word [bp + ?length_of_source + 2]
 		; In case of allowing overlapping source and destination,
@@ -1291,13 +1291,14 @@ d0	mov byte [bp + ?errordata], 40h
 	 push es
 	 push di
 
-%if _ALLOW_OVERLAPPING && 0
+%if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 		; Note:	We initially check here that the write pointer is
 		;	 low enough, ie below-or-equal the read pointer.
-		;	 Doing this check here (as well as after any
-		;	 copied match) allows us to drop the check done
-		;	 after moving literal bytes.
+		;	Unlike the other decompressors, this check is done
+		;	 after any copied match or literal too, because
+		;	 literals can presumably be encoded with less than
+		;	 one byte of source data to the range decoder.
 d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
@@ -1574,7 +1575,14 @@ LZ_decoder.put_byte:
 	call normalise_pointer
 	 pop word [bp + ?dst]
 	 pop word [bp + ?dst + 2]
-	clc
+
+%if _ALLOW_OVERLAPPING
+	push bx
+	call check_pointers_not_overlapping
+	pop bx			; returns CF
+%else
+	clc			; (NC)
+%endif
 .ret:
 	pop bp
 	retn
