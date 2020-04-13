@@ -685,17 +685,6 @@ LZ_decoder.put_byte:
 	stosb
 	mov word [bx + lz_decoder.pos], cx
 	mov word [bx + lz_decoder.pos + 2], dx
-%if 0
-	cmp dx, word [bx + lz_decoder.dictionary_size + 2]
-	jne @F
-	cmp cx, word [bx + lz_decoder.dictionary_size]
-@@:
-	jnae .not_pos_above_equal_dictionary_size
-
-	call LZ_decoder.flush_data
-
-.not_pos_above_equal_dictionary_size:
-%endif
 	clc
 .ret:
 	retn
