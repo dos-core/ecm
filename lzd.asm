@@ -189,9 +189,33 @@ Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
 	jc .ret
-	call get_byte
+		; INP:	ds:bx -> range_decoder structure
+		;	thus ds:(bx - lz_decoder.range_decoder)
+		;	 -> lz_decoder structure, localvariables structure
+		; OUT:	NC if success,
+		;	 al = value read
+		;	CY if error
+; get_byte:
+	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
+	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
+	jc .ret
+	push dx
+	push si
+	mov dx, ds
+	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	lodsb
+	 push ds
+	 push si
+	call normalise_pointer
+	mov ds, dx
+	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
+	pop si
+	pop dx
+	clc
 .ret:
 	retn
+
 
 		; INP:	ds:bx -> range_decoder structure
 		;	cx = num_bits
@@ -714,34 +738,6 @@ bit_models_end:
 %endif
 %assign STRUCSIZE localvariables_size
 %warning localvariables has STRUCSIZE bytes
-
-
-		; INP:	ds:bx -> range_decoder structure
-		;	thus ds:(bx - lz_decoder.range_decoder)
-		;	 -> lz_decoder structure, localvariables structure
-		; OUT:	NC if success,
-		;	 al = value read
-		;	CY if error
-get_byte:
-	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
-	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
-	jc .ret
-	push dx
-	push si
-	mov dx, ds
-	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
-	lodsb
-	 push ds
-	 push si
-	call normalise_pointer
-	mov ds, dx
-	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
-	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
-	pop si
-	pop dx
-	clc
-.ret:
-	retn
 
 
 		; INP:	ds:bx -> localvariables structure,
