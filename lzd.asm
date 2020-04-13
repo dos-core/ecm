@@ -603,9 +603,9 @@ Range_decoder.decode_len:
 
 
 	struc lz_decoder
-.partial_data_pos:	resq 1
 .range_decoder:		resb range_decoder_size
-			alignb 4
+			alignb 8
+.partial_data_pos:	resq 1
 .dictionary_size:	resd 1
 ; .buffer:		resd 1
 .pos:			resd 1
