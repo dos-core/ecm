@@ -741,10 +741,7 @@ LZ_decoder.data_position:
 		;	CY if error
 		; CHG:	-
 LZ_decoder.get_byte:
-	push bx
-	lea bx, [bx + lz_decoder.range_decoder]
 	call Range_decoder.get_byte
-	pop bx
 	retn
 
 
@@ -844,9 +841,6 @@ LZ_decoder.decode_member:
 	lvar dword,	localvariables
 	 push ds
 	 push bx
-	lea cx, [bx + lz_decoder.range_decoder]
-	lvar word,	range_decoder
-	 push cx
 
 	 push dx
 	 push ax			; preserve dictionary size
@@ -857,9 +851,7 @@ LZ_decoder.decode_member:
 	xor ax, ax
 	rep stosw			; initialise lz_decoder structure
 
-	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.init		; initialise embedded range_decoder
-	mov bx, word [bp + ?localvariables]
 
 	 pop word [bx + lz_decoder.dictionary_size]
 	 pop word [bx + lz_decoder.dictionary_size + 2]
@@ -902,9 +894,7 @@ LZ_decoder.decode_member:
 %endrep
 	add di, ax			; es:di -> bm_match[state()][pos_state]
 	jc .error
-	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
 	call Range_decoder.decode_bit
-	mov bx, [bp + ?localvariables]
 	jc .1st_bit_not_zero
 
 .1st_bit_zero:
@@ -928,7 +918,6 @@ LZ_decoder.decode_member:
 	jnc .not_is_char
 .is_char:
 	mov cx, 8
-	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode_tree
 	jmp @F
 
@@ -940,11 +929,9 @@ LZ_decoder.decode_member:
 	call LZ_decoder.peek
 	pop di
 	pop es
-	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode_matched
 @@:
 	jc .error
-	mov bx, word [bp + ?localvariables]
 	call LZ_decoder.put_byte
 	jc .error
 	call State.set_char
@@ -962,9 +949,7 @@ LZ_decoder.decode_member:
 	jnz .error
 	add di, ax			; es:di -> bm_rep[state()]
 	jc .error
-	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
 	call Range_decoder.decode_bit
-	mov bx, [bp + ?localvariables]
 	jnc .2nd_bit_zero
 
 .2nd_bit_not_zero:
@@ -978,9 +963,7 @@ LZ_decoder.decode_member:
 	jnz .error
 	add di, ax			; es:di -> bm_rep0[state()]
 	jc .error
-	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
 	call Range_decoder.decode_bit
-	mov bx, [bp + ?localvariables]
 	jc .3rd_bit_not_zero
 
 .3rd_bit_zero:
@@ -999,9 +982,7 @@ LZ_decoder.decode_member:
 	loop @B
 	add di, ax			; es:di -> bm_len[state()]
 	jc .error
-	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
 	call Range_decoder.decode_bit
-	mov bx, [bp + ?localvariables]
 	jc .4th_bit_not_zero
 
 .4th_bit_zero:
@@ -1024,9 +1005,7 @@ LZ_decoder.decode_member:
 	jnz .error
 	add di, ax			; es:di -> bm_rep1[state()]
 	jc .error
-	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
 	call Range_decoder.decode_bit
-	mov bx, [bp + ?localvariables]
 	jc .3rd_bit_not_zero.4th_bit_not_zero
 
 .3rd_bit_not_zero.4th_bit_zero:
@@ -1047,9 +1026,7 @@ LZ_decoder.decode_member:
 	jnz .error
 	add di, ax			; es:di -> bm_rep2[state()]
 	jc .error
-	mov bx, [bp + ?range_decoder]	; ds:bx -> range_decoder structure
 	call Range_decoder.decode_bit
-	mov bx, [bp + ?localvariables]
 	jc .3rd_bit_not_zero.4th_bit_not_zero.5th_bit_not_zero
 
 .3rd_bit_not_zero.4th_bit_not_zero.5th_bit_zero:
@@ -1092,7 +1069,6 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + rep_len_model]	; -> len_model to use
-	mov bx, [bp + ?range_decoder]	; -> range_decoder structure
 	call Range_decoder.decode_len	; dx:ax = length
 	jc .error
 	add ax, min_match_len
@@ -1103,8 +1079,6 @@ LZ_decoder.decode_member:
 	jmp .handle_match
 
 .2nd_bit_zero:
-	mov bx, [bp + ?localvariables]
-
 	push word [bx + rep2 + 2]
 	push word [bx + rep2]
 	pop word [bx + rep3]
@@ -1125,7 +1099,6 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + match_len_model]	; -> len_model to use
-	mov bx, [bp + ?range_decoder]	; -> range_decoder structure
 	call Range_decoder.decode_len	; dx:ax = length
 	jc .error
 
@@ -1149,7 +1122,7 @@ LZ_decoder.decode_member:
 
 	mov ax, bit_model_size * (1 << dis_slot_bits)
 	mul word [bp + ?len_state]	; first index is len_state
-	mov bx, dx
+	mov bx, dx			; ! bx not pointing to local vars
 	mov cx, ax
 
 	mov ax, bit_model_size * (1 << dis_slot_bits)
@@ -1168,10 +1141,9 @@ LZ_decoder.decode_member:
 	call normalise_pointer_with_displacement_bxcx
 	 pop di
 	 pop es				; -> 1D array at bm_dis_slot[len_state]
-	mov bx, word [bp + ?range_decoder]
+	mov bx, word [bp + ?localvariables]
 	mov cx, dis_slot_bits
 	call Range_decoder.decode_tree
-	mov bx, word [bp + ?localvariables]
 	mov word [bx + rep0], ax
 	mov word [bx + rep0 + 2], dx
 
@@ -1224,6 +1196,7 @@ LZ_decoder.decode_member:
 	mul si
 	mov di, ax
 	mov bx, dx			; bx:di = low word + first high word
+					; ! bx not pointing to local vars
 	 pop ax
 	mul si				; ax = second high word, dx = overflow
 	add bx, ax
@@ -1242,19 +1215,16 @@ LZ_decoder.decode_member:
 	 pop di
 	 pop es				; index into the array
 	pop cx
-	mov bx, word [bp + ?range_decoder]
-	call Range_decoder.decode_tree_reversed
 	mov bx, word [bp + ?localvariables]
+	call Range_decoder.decode_tree_reversed
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
 	jmp .after_dis_slot_below
 
 .not_dis_slot_below_end_dis_model:
 	sub cx, dis_align_bits
-	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode
 	jc .error
-	mov bx, word [bp + ?localvariables]
 	mov cx, dis_align_bits
 @@:
 	shl ax, 1
@@ -1268,10 +1238,8 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + bm_align]
-	mov bx, word [bp + ?range_decoder]
 	call Range_decoder.decode_tree_reversed
 	jc .error
-	mov bx, word [bp + ?localvariables]
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
 
@@ -1296,8 +1264,6 @@ LZ_decoder.decode_member:
 		; fixme: not checking (rep0 >= pos && !pos_wrapped)
 
 .handle_match:
-	mov bx, word [bp + ?localvariables]
-
 	cmp word [bp + ?len + 2], 0
 	jne @F
 	cmp word [bp + ?len], 0
