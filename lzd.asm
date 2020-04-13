@@ -924,7 +924,6 @@ LZ_decoder.decode_member:
 	add di, ax			; es:di -> bm_literal[literal_state]
 	jc .error
 
-	mov bx, word [bp + ?localvariables]
 	call State.is_char
 	jnc .not_is_char
 .is_char:
@@ -934,7 +933,6 @@ LZ_decoder.decode_member:
 	jmp @F
 
 .not_is_char:
-	mov bx, word [bp + ?localvariables]
 	mov ax, word [bx + rep0]
 	mov dx, word [bx + rep0 + 2]
 	push es
@@ -949,13 +947,11 @@ LZ_decoder.decode_member:
 	mov bx, word [bp + ?localvariables]
 	call LZ_decoder.put_byte
 	jc .error
-	mov bx, word [bp + ?localvariables]
 	call State.set_char
 	jmp .loop
 
 
 .1st_bit_not_zero:
-	mov bx, word [bp + ?localvariables]
 	push ds
 	pop es
 	lea di, [bx + bm_rep]		; es:di -> bm_rep array
@@ -1009,9 +1005,7 @@ LZ_decoder.decode_member:
 	jc .4th_bit_not_zero
 
 .4th_bit_zero:
-	mov bx, word [bp + ?localvariables]
 	call State.set_short_rep
-	mov bx, word [bp + ?localvariables]
 	mov ax, word [bx + rep0]
 	mov dx, word [bx + rep0 + 2]
 	call LZ_decoder.peek
@@ -1082,7 +1076,6 @@ LZ_decoder.decode_member:
 	pop word [bx + rep2 + 2]	; rep2 = rep1
 
 .3rd_bit_not_zero.common:
-	mov bx, [bp + ?localvariables]
 	push word [bx + rep0 + 2]
 	push word [bx + rep0]
 	pop word [bx + rep1]
@@ -1093,9 +1086,7 @@ LZ_decoder.decode_member:
 	pop word [bx + rep0 + 2]	; rep0 = distance
 
 .4th_bit_not_zero:
-	mov bx, word [bp + ?localvariables]
 	call State.set_rep
-	mov bx, word [bp + ?localvariables]
 	mov ax, word [bp + ?pos_state]
 	xor dx, dx			; dx:ax = pos_state variable
 	push ds
@@ -1293,9 +1284,7 @@ LZ_decoder.decode_member:
 .not_rep0_ae_start_dis_model:
 
 .after_dis_slot_below:
-	mov bx, word [bp + ?localvariables]
 	call State.set_match
-	mov bx, word [bp + ?localvariables]
 	mov dx, word [bx + rep0 + 2]
 	mov ax, word [bx + rep0]
 
