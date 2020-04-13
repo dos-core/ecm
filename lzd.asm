@@ -625,39 +625,6 @@ LZ_decoder.peek:
 	retn
 
 
-		; INP:	ds:bx -> lz_decoder structure
-		;	al = byte to write to buffer
-		; OUT:	NC if success
-		;	CY if error
-		; CHG:	cx, dx, ax, di, es
-LZ_decoder.put_byte:
-	push bx
-	 push word [bx + destinationbuffer_constant + 2]
-	 push word [bx + destinationbuffer_constant]
-	mov cx, word [bx + lz_decoder.pos]
-	mov bx, word [bx + lz_decoder.pos + 2]
-	mov dx, bx
-	call normalise_pointer_with_displacement_bxcx
-	 pop di
-	 pop es
-	pop bx
-	add cx, 1
-	adc dx, 0
-
-	cmp word [bx + destination_length + 2], dx
-	jne @F
-	cmp word [bx + destination_length], cx
-@@:
-	jb .ret
-
-	stosb
-	mov word [bx + lz_decoder.pos], cx
-	mov word [bx + lz_decoder.pos + 2], dx
-	clc
-.ret:
-	retn
-
-
 		; OUT:	NC if success,
 		;	 al = byte
 		;	CY if error
@@ -1603,6 +1570,39 @@ Range_decoder.get_byte:
 	pop bp
 	pop si
 	pop ds
+	clc
+.ret:
+	retn
+
+
+		; INP:	ds:bx -> lz_decoder structure
+		;	al = byte to write to buffer
+		; OUT:	NC if success
+		;	CY if error
+		; CHG:	cx, dx, ax, di, es
+LZ_decoder.put_byte:
+	push bx
+	 push word [bx + destinationbuffer_constant + 2]
+	 push word [bx + destinationbuffer_constant]
+	mov cx, word [bx + lz_decoder.pos]
+	mov bx, word [bx + lz_decoder.pos + 2]
+	mov dx, bx
+	call normalise_pointer_with_displacement_bxcx
+	 pop di
+	 pop es
+	pop bx
+	add cx, 1
+	adc dx, 0
+
+	cmp word [bx + destination_length + 2], dx
+	jne @F
+	cmp word [bx + destination_length], cx
+@@:
+	jb .ret
+
+	stosb
+	mov word [bx + lz_decoder.pos], cx
+	mov word [bx + lz_decoder.pos + 2], dx
 	clc
 .ret:
 	retn
