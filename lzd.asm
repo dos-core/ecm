@@ -95,7 +95,8 @@ State:
 
 
 	struc bit_model
-.probability:	resd 1		; initialise to bit_model_total / 2
+.probability:	resw 1		; initialise to bit_model_total / 2
+				; at most bit_model_total (800h)
 	endstruc
 
 	struc len_model
@@ -252,7 +253,6 @@ Range_decoder.decode_bit:
 	rcr ax, 1
 	loop @B
 
-	push ax
 	push dx
 	mul word [es:di + bit_model.probability]
 				; dx:ax = low word + first high word
@@ -262,10 +262,6 @@ Range_decoder.decode_bit:
 	pop ax
 	mul word [es:di + bit_model.probability]
 				; ax = second high word (dx overflow)
-	add word [bp + ?bound + 2], ax
-	pop ax
-	mul word [es:di + bit_model.probability + 2]
-				; ax = third high word (dx overflow)
 	add word [bp + ?bound + 2], ax
 				; = full uint32_t result
 
@@ -283,13 +279,14 @@ Range_decoder.decode_bit:
 	mov ax, bit_model_total
 	xor dx, dx
 	sub ax, word [es:di + bit_model.probability]
-	sbb dx, word [es:di + bit_model.probability + 2]
+	sbb dx, 0
 @@:
 	shr dx, 1		; fixme: may need sar
 	rcr ax, 1
 	loop @B
 	add word [es:di + bit_model.probability], ax
-	adc word [es:di + bit_model.probability + 2], dx
+	test dx, dx
+	jnz .error
 	mov word [bp + ?symbol + 2], cx
 	mov word [bp + ?symbol], cx
 	jmp .after_if
@@ -301,13 +298,10 @@ Range_decoder.decode_bit:
 	sbb word [bx + range_decoder.code + 2], dx
 
 	mov ax, word [es:di + bit_model.probability]
-	mov dx, word [es:di + bit_model.probability + 2]
-@@:
-	shr dx, 1
-	rcr ax, 1
-	loop @B
+	shr ax, cl
 	sub word [es:di + bit_model.probability], ax
-	sbb word [es:di + bit_model.probability + 2], dx
+	jc .error
+	xor cx, cx
 	mov word [bp + ?symbol + 2], cx
 	inc cx			; = 1
 	mov word [bp + ?symbol], cx
@@ -787,14 +781,9 @@ LZ_decoder.decode_member:
 
 	lea di, [bx + bit_models_start]
 	mov cx, (bit_models_end - bit_models_start) / bit_model_size
-	xor dx, dx
 	mov ax, bit_model_total / 2	; initial value for bit_model
-@@:
-	stosw
-	xchg ax, dx
-	stosw
-	xchg ax, dx			; initialise this bit_model
-	loop @B				; loop for all bit_model and len_model
+	rep stosw			; initialise this bit_model
+					; loop for all bit_model and len_model
 
 	; lea di, [bx + zeros_start]
 	xor ax, ax
