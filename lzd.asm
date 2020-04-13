@@ -829,14 +829,7 @@ LZ_decoder.decode_member:
 
 .loop:
 	mov bx, word [bp + ?localvariables]
-		; INP:	ds:bx -> lz_decoder structure
-		; OUT:	si:di:dx:ax = data position
-; LZ_decoder.data_position:
-	xor si, si
-	xor di, di
-	mov dx, word [bx + lz_decoder.pos + 2]
 	mov ax, word [bx + lz_decoder.pos]
-
 	and ax, pos_state_mask
 	mov cx, ax			; = pos_state
 	mov word [bp + ?pos_state], cx
