@@ -605,7 +605,6 @@ Range_decoder.decode_len:
 	struc lz_decoder
 .range_decoder:		resb range_decoder_size
 			alignb 8
-.partial_data_pos:	resq 1
 .dictionary_size:	resd 1
 .pos:			resd 1
 	endstruc
@@ -709,10 +708,6 @@ LZ_decoder.data_position:
 	xor di, di
 	mov dx, word [bx + lz_decoder.pos + 2]
 	mov ax, word [bx + lz_decoder.pos]
-	add ax, word [bx + lz_decoder.partial_data_pos]
-	adc dx, word [bx + lz_decoder.partial_data_pos + 2]
-	adc di, word [bx + lz_decoder.partial_data_pos + 4]
-	adc si, word [bx + lz_decoder.partial_data_pos + 6]
 	retn
 
 
