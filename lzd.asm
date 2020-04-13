@@ -816,7 +816,7 @@ LZ_decoder.decode_member:
 	call Range_decoder.decode_bit
 	jc .1st_bit_not_zero
 
-.1st_bit_zero:
+.1st_bit_zero:			; literal byte
 	xor ax, ax
 	xor dx, dx
 	call LZ_decoder.peek		; al = prev_byte
@@ -857,7 +857,7 @@ LZ_decoder.decode_member:
 	jmp .loop
 
 
-.1st_bit_not_zero:
+.1st_bit_not_zero:		; match or repeated match
 	push ds
 	pop es
 	lea di, [bx + bm_rep]		; es:di -> bm_rep array
@@ -1003,7 +1003,7 @@ LZ_decoder.decode_member:
 	mov word [bp + ?len + 2], dx
 	jmp .handle_match
 
-.2nd_bit_zero:
+.2nd_bit_zero:			; match
 	push word [bx + rep2 + 2]
 	push word [bx + rep2]
 	pop word [bx + rep3]
@@ -1172,7 +1172,7 @@ LZ_decoder.decode_member:
 	jne @F
 	cmp word [bx + rep0], -1
 @@:
-	je .end				; yes, end -->
+	je .end				; yes, end (marker found) -->
 
 .not_rep0_ae_start_dis_model:
 
@@ -1215,7 +1215,7 @@ LZ_decoder.decode_member:
 	jmp .loop
 
 
-.end:
+.end:				; End Of Stream marker
 	cmp word [bp + ?len + 2], min_match_len >> 16
 	jne @F
 	cmp word [bp + ?len], min_match_len & 0FFFFh
