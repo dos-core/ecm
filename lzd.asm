@@ -668,6 +668,7 @@ LZ_decoder.get_byte: equ Range_decoder.get_byte
 	struc localvariables
 lz_decoder_struc:
 		resb lz_decoder_size
+framepointer:	resw 1		; points to stack frame with ?src and ?dst
 		alignb 4
 zeros_start:
 rep0:		resd 1
@@ -677,7 +678,6 @@ rep3:		resd 1
 state.st:	resw 1		; initialise to zero
 		alignb 16
 zeros_end:
-sourcebuffer_incrementing:	resd 1		; increments
 source_remaining:		resd 1		; decrements
 destinationbuffer_constant:	resd 1		; stays constant
 destination_length:		resd 1		; stays constant
@@ -706,10 +706,11 @@ bit_models_end:
 
 
 		; INP:	ds:bx -> localvariables structure,
-		;	 source_remaining, sourcebuffer_incrementing,
+		;	 source_remaining,
 		;	 destinationbuffer_constant, destination_length
 		;	 all pre-initialised
 		;	dx:ax = dictionary size
+		;	ss:bp + ?src (of depack lframe) initialised
 		; OUT:	NC if success
 		;	CY if error
 		; CHG:	all
@@ -724,6 +725,9 @@ LZ_decoder.decode_member:
 	lvar dword,	localvariables
 	 push ds
 	 push bx
+
+	push word [bp + ?frame_bp]
+	pop word [bx + framepointer]
 
 	 push dx
 	 push ax			; preserve dictionary size
@@ -1436,10 +1440,6 @@ member_min_size equ 6 + 4 + 16
 	push word [bp + ?length_of_destination]
 	pop word [bx + destination_length]
 	pop word [bx + destination_length + 2]
-	push word [bp + ?src + 2]
-	push word [bp + ?src]
-	pop word [bx + sourcebuffer_incrementing]
-	pop word [bx + sourcebuffer_incrementing + 2]
 	push word [bp + ?length_of_source + 2]
 	push word [bp + ?length_of_source]
 	pop word [bx + source_remaining]
@@ -1450,7 +1450,7 @@ member_min_size equ 6 + 4 + 16
 
 	lds bx, [bp + ?final_dst]
 
-	les si, [bx + sourcebuffer_incrementing]
+	les si, [bp + ?src]
 	push word [bx + source_remaining + 2]
 	push word [bx + source_remaining]
 	pop ax
@@ -1589,19 +1589,20 @@ Range_decoder.get_byte:
 	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
 	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
 	jc .ret
-	push dx
+	push ds
 	push si
-	mov dx, ds
-	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	push bp
+	mov bp, word [bx + framepointer]
+	lds si, [bp + ?src]
 	lodsb
 	 push ds
 	 push si
 	call normalise_pointer
-	mov ds, dx
-	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
-	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+	pop bp
 	pop si
-	pop dx
+	pop ds
 	clc
 .ret:
 	retn
