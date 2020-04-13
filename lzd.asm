@@ -163,6 +163,22 @@ Range_decoder.init:
 .ret:
 	retn
 
+
+		; CHG:	NC if success
+		;	CY if error
+normaliserange:
+	cmp byte [bx + range_decoder.range + 3], 0
+	clc			; (NC)
+	jnz @F
+	push ax
+	mov ax, word [bx + range_decoder.range + 1]
+	mov word [bx + range_decoder.range + 2], ax
+	mov ah, byte [bx + range_decoder.range]
+	mov al, 0
+	mov word [bx + range_decoder.range], ax
+	pop ax
+
+
 		; CHG:	NC if success
 		;	CY if error
 getbyteshiftcode:
@@ -173,6 +189,7 @@ getbyteshiftcode:
 	call Range_decoder.get_byte
 	mov word [bx + range_decoder.code], ax
 	pop ax
+@@:
 	retn
 
 		; INP:	ds:bx -> range_decoder structure
@@ -223,24 +240,6 @@ Range_decoder.decode:
 .end:
 	clc
 .ret:
-	retn
-
-
-		; CHG:	NC if success
-		;	CY if error
-normaliserange:
-	cmp byte [bx + range_decoder.range + 3], 0
-	clc			; (NC)
-	jnz @F
-	push ax
-	mov ax, word [bx + range_decoder.range + 1]
-	mov word [bx + range_decoder.range + 2], ax
-	mov ah, byte [bx + range_decoder.range]
-	mov al, 0
-	mov word [bx + range_decoder.range], ax
-	pop ax
-	call getbyteshiftcode
-@@:
 	retn
 
 
