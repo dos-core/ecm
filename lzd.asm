@@ -1529,7 +1529,7 @@ d0	mov bx, word [bp + ?errordata]
 Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
-	jc .ret
+	jc .ret				; (CY)
 		; INP:	ds:bx -> range_decoder structure
 		;	thus ds:(bx - lz_decoder.range_decoder)
 		;	 -> lz_decoder structure, localvariables structure
@@ -1537,12 +1537,14 @@ Range_decoder.get_byte:
 		;	 al = value read
 		;	CY if error
 ; get_byte:
-	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
-	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
-	jc .ret
 	push ds
 	push si
 	push bp
+
+	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
+	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
+	jc .done			; (CY)
+
 	mov bp, word [bx + framepointer]
 	lds si, [bp + ?src]
 	lodsb
@@ -1551,10 +1553,11 @@ Range_decoder.get_byte:
 	call normalise_pointer
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]
+	clc
+.done:
 	pop bp
 	pop si
 	pop ds
-	clc
 .ret:
 	retn
 
