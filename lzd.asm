@@ -682,6 +682,19 @@ LZ_decoder.get_byte:
 lz_decoder_struc:
 		resb lz_decoder_size
 		alignb 4
+zeros_start:
+rep0:		resd 1
+rep1:		resd 1
+rep2:		resd 1
+rep3:		resd 1
+state.st:	resw 1		; initialise to zero
+		alignb 16
+zeros_end:
+sourcebuffer_incrementing:	resd 1		; increments
+source_remaining:		resd 1		; decrements
+destinationbuffer_constant:	resd 1		; stays constant
+destination_length:		resd 1		; stays constant
+		alignb 16
 bit_models_start:
 bm_literal:	resb bit_model_size * (1 << literal_context_bits) * 300h
 bm_match:	resb bit_model_size * amount_states * pos_states
@@ -696,18 +709,6 @@ bm_align:	resb bit_model_size * dis_align_size
 match_len_model:resb len_model_size
 rep_len_model:	resb len_model_size
 bit_models_end:
-zeros_start:
-rep0:		resd 1
-rep1:		resd 1
-rep2:		resd 1
-rep3:		resd 1
-state.st:	resw 1		; initialise to zero
-		alignb 16
-zeros_end:
-sourcebuffer_incrementing:	resd 1		; increments
-source_remaining:		resd 1		; decrements
-destinationbuffer_constant:	resd 1		; stays constant
-destination_length:		resd 1		; stays constant
 		alignb 16
 	endstruc
 %if lz_decoder_struc != 0
@@ -786,7 +787,7 @@ LZ_decoder.decode_member:
 	rep stosw			; initialise this bit_model
 					; loop for all bit_model and len_model
 
-	; lea di, [bx + zeros_start]
+	lea di, [bx + zeros_start]
 	xor ax, ax
 	mov cl, (zeros_end - zeros_start) / 2
 	rep stosw
