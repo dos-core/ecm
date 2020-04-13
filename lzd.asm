@@ -696,12 +696,12 @@ destinationbuffer_constant:	resd 1		; stays constant
 destination_length:		resd 1		; stays constant
 		alignb 16
 bit_models_start:
-bm_literal:	resb bit_model_size * (1 << literal_context_bits) * 300h
 bm_match:	resb bit_model_size * amount_states * pos_states
 bm_rep:		resb bit_model_size * amount_states
 bm_rep0:	resb bit_model_size * amount_states
 bm_rep1:	resb bit_model_size * amount_states
 bm_rep2:	resb bit_model_size * amount_states
+bm_literal:	resb bit_model_size * (1 << literal_context_bits) * 300h
 bm_len:		resb bit_model_size * amount_states * pos_states
 bm_dis_slot:	resb bit_model_size * len_states * (1 << dis_slot_bits)
 bm_dis:		resb bit_model_size * (modeled_distances - end_dis_model + 1)
