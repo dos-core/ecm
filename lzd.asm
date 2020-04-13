@@ -1532,16 +1532,11 @@ member_min_size equ 6 + 4 + 16
 	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2], 0
 	jc .error
 
-	mov ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
-	mov dx, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
-	cmp word [es:si], ax		; does the source length match ?
+	es lodsw			; does the source length match ?
+	cmp ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
 	jne .error
-	inc si
-	inc si
-	cmp word [es:si], dx
-	jne .error			; if no -->
-	inc si
-	inc si
+	es lodsw
+	cmp ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
 	es lodsw
 	test ax, ax
 	jnz .error
