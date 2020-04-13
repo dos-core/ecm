@@ -673,9 +673,7 @@ LZ_decoder.put_byte:
 		;	 al = byte
 		;	CY if error
 		; CHG:	-
-LZ_decoder.get_byte:
-	call Range_decoder.get_byte
-	retn
+LZ_decoder.get_byte: equ Range_decoder.get_byte
 
 
 	struc localvariables
