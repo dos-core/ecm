@@ -181,41 +181,6 @@ getbyteshiftcode:
 @@:
 	retn
 
-		; INP:	ds:bx -> range_decoder structure
-		; OUT:	al = byte read
-		; CHG:	NC if success
-		;	CY if error
-Range_decoder.get_byte:
-	add word [bx + range_decoder.member_pos], 1
-	adc word [bx + range_decoder.member_pos + 2], 0
-	jc .ret
-		; INP:	ds:bx -> range_decoder structure
-		;	thus ds:(bx - lz_decoder.range_decoder)
-		;	 -> lz_decoder structure, localvariables structure
-		; OUT:	NC if success,
-		;	 al = value read
-		;	CY if error
-; get_byte:
-	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
-	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
-	jc .ret
-	push dx
-	push si
-	mov dx, ds
-	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
-	lodsb
-	 push ds
-	 push si
-	call normalise_pointer
-	mov ds, dx
-	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
-	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
-	pop si
-	pop dx
-	clc
-.ret:
-	retn
-
 
 		; INP:	ds:bx -> range_decoder structure
 		;	cx = num_bits
@@ -1604,6 +1569,42 @@ d0	mov byte [bp + ?errordata], 84h
 d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
+
+
+		; INP:	ds:bx -> range_decoder structure
+		; OUT:	al = byte read
+		; CHG:	NC if success
+		;	CY if error
+Range_decoder.get_byte:
+	add word [bx + range_decoder.member_pos], 1
+	adc word [bx + range_decoder.member_pos + 2], 0
+	jc .ret
+		; INP:	ds:bx -> range_decoder structure
+		;	thus ds:(bx - lz_decoder.range_decoder)
+		;	 -> lz_decoder structure, localvariables structure
+		; OUT:	NC if success,
+		;	 al = value read
+		;	CY if error
+; get_byte:
+	sub word [bx - lz_decoder.range_decoder + source_remaining], 1
+	sbb word [bx - lz_decoder.range_decoder + source_remaining + 2], 0
+	jc .ret
+	push dx
+	push si
+	mov dx, ds
+	lds si, [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	lodsb
+	 push ds
+	 push si
+	call normalise_pointer
+	mov ds, dx
+	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing]
+	 pop word [bx - lz_decoder.range_decoder + sourcebuffer_incrementing + 2]
+	pop si
+	pop dx
+	clc
+.ret:
+	retn
 
 
 		; INP:	ds:si = pointer
