@@ -647,7 +647,6 @@ state.st:	resw 1		; initialise to zero
 zeros_end:
 source_remaining:		resd 1		; decrements
 destinationbuffer_constant:	resd 1		; stays constant
-destination_length:		resd 1		; stays constant
 		alignb 16
 bit_models_start:
 bm_match:	resb bit_model_size * amount_states * pos_states
@@ -674,10 +673,10 @@ bit_models_end:
 
 		; INP:	ds:bx -> localvariables structure,
 		;	 source_remaining,
-		;	 destinationbuffer_constant, destination_length
-		;	 all pre-initialised
+		;	 destinationbuffer_constant pre-initialised
 		;	dx:ax = dictionary size
-		;	ss:bp + ?src (of depack lframe) initialised
+		;	dword [ss:bp + ?src] (of depack lframe) initialised
+		;	dword [ss:bp + ?dst] (of depack lframe) initialised
 		; OUT:	NC if success
 		;	CY if error
 		; CHG:	all
@@ -1403,10 +1402,6 @@ member_min_size equ 6 + 4 + 16
 	push word [bp + ?dst]
 	pop word [bx + destinationbuffer_constant]
 	pop word [bx + destinationbuffer_constant + 2]
-	push word [bp + ?length_of_destination + 2]
-	push word [bp + ?length_of_destination]
-	pop word [bx + destination_length]
-	pop word [bx + destination_length + 2]
 	push word [bp + ?length_of_source + 2]
 	push word [bp + ?length_of_source]
 	pop word [bx + source_remaining]
@@ -1466,18 +1461,6 @@ member_min_size equ 6 + 4 + 16
 	call normalise_pointer
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]
-
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
-	mov cx, word [bx + destination_length]
-	mov bx, word [bx + destination_length + 2]
-
-	sub word [bp + ?length_of_destination], cx
-	sbb word [bp + ?length_of_destination + 2], bx
-
-	call normalise_pointer_with_displacement_bxcx
-	 pop word [bp + ?dst]
-	 pop word [bp + ?dst + 2]
 
 	jmp .loop_member
 
@@ -1582,30 +1565,27 @@ Range_decoder.get_byte:
 		;	CY if error
 		; CHG:	cx, dx, ax, di, es
 LZ_decoder.put_byte:
-	push bx
-	 push word [bx + destinationbuffer_constant + 2]
-	 push word [bx + destinationbuffer_constant]
-	mov cx, word [bx + lz_decoder.pos]
-	mov bx, word [bx + lz_decoder.pos + 2]
-	mov dx, bx
-	call normalise_pointer_with_displacement_bxcx
-	 pop di
-	 pop es
-	pop bx
-	add cx, 1
-	adc dx, 0
+	push bp
+	mov bp, word [bx + framepointer]
+	les di, [bp + ?dst]
 
-	cmp word [bx + destination_length + 2], dx
-	jne @F
-	cmp word [bx + destination_length], cx
-@@:
-	jb .ret
+	add word [bx + lz_decoder.pos], 1
+	adc word [bx + lz_decoder.pos + 2], 0
+	jc .ret			; (CY) -->
+
+	sub word [bp + ?length_of_destination], 1
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .ret			; (CY) -->
 
 	stosb
-	mov word [bx + lz_decoder.pos], cx
-	mov word [bx + lz_decoder.pos + 2], dx
+	 push es
+	 push di
+	call normalise_pointer
+	 pop word [bp + ?dst]
+	 pop word [bp + ?dst + 2]
 	clc
 .ret:
+	pop bp
 	retn
 
 
