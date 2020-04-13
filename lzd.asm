@@ -130,7 +130,7 @@ State:
 	endstruc
 
 	struc range_decoder
-.member_pos:		resq 1
+.member_pos:		resd 1
 .code:			resd 1
 .range:			resd 1
 	endstruc
@@ -146,9 +146,7 @@ Range_decoder.init:
 	mov di, bx		; -> .member_pos
 	stosw			; low word of .member_pos
 	xor ax, ax
-	stosw
-	stosw
-	stosw			; high words of .member_pos
+	stosw			; high word of .member_pos
 	stosw
 	stosw			; .code
 	dec ax
@@ -199,8 +197,6 @@ getbyteshiftcode:
 Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
-	adc word [bx + range_decoder.member_pos + 4], 0
-	adc word [bx + range_decoder.member_pos + 6], 0
 	jc .ret
 	call get_byte
 .ret:
@@ -699,12 +695,10 @@ LZ_decoder.get_byte:
 
 
 		; INP:	ds:bx -> lz_decoder structure
-		; OUT:	si:di:dx:ax = member position
+		; OUT:	dx:ax = member position
 LZ_decoder.member_position:
 	mov ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
 	mov dx, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2]
-	mov di, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 4]
-	mov si, word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 6]
 	retn
 
 
@@ -1544,17 +1538,9 @@ member_min_size equ 6 + 4 + 16
 
 	add word [bx + lz_decoder.range_decoder + range_decoder.member_pos], 4 + 16
 	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2], 0
-	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 4], 0
-	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 6], 0
 	jc .error
 
-	push si				; does the source length match ?
-	call LZ_decoder.member_position
-	test si, si
-	jnz .error
-	pop si
-	test di, di
-	jnz .error
+	call LZ_decoder.member_position	; does the source length match ?
 	cmp word [es:si], ax
 	jne .error
 	inc si
