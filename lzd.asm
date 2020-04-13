@@ -607,10 +607,7 @@ Range_decoder.decode_len:
 			alignb 8
 .partial_data_pos:	resq 1
 .dictionary_size:	resd 1
-; .buffer:		resd 1
 .pos:			resd 1
-.stream_pos:		resd 1
-.pos_wrapped:		resb 1
 	endstruc
 
 
@@ -657,23 +654,6 @@ LZ_decoder.peek:
 	retn
 
 .not_pos_above_distance:
-	cmp byte [bx + lz_decoder.pos_wrapped], 0
-	je .not_pos_wrapped
-
-	push bx
-	 push word [bx + destinationbuffer_constant + 2]
-	 push word [bx + destinationbuffer_constant]
-
-	push dx
-	push ax
-
-	mov ax, word [bx + lz_decoder.pos]
-	mov dx, word [bx + lz_decoder.pos + 2]
-	add ax, word [bx + lz_decoder.dictionary_size]
-	adc dx, word [bx + lz_decoder.dictionary_size + 2]
-	jmp .common
-
-.not_pos_wrapped:
 	xor ax, ax
 	retn
 
