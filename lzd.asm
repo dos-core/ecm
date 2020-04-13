@@ -157,7 +157,7 @@ Range_decoder.init:
 normaliserange:
 	cmp byte [bx + range_decoder.range + 3], 0
 	clc			; (NC)
-	jnz @F
+	jnz @F			; (retn)
 	push ax
 	mov ax, word [bx + range_decoder.range + 1]
 	mov word [bx + range_decoder.range + 2], ax
@@ -165,6 +165,7 @@ normaliserange:
 	mov al, 0
 	mov word [bx + range_decoder.range], ax
 	pop ax
+		; fall through
 
 
 		; CHG:	NC if success
