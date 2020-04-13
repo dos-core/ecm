@@ -22,10 +22,6 @@
 %endif
 
 
-	struc state
-.st:	resw 1		; initialise to zero
-	endstruc
-
 amount_states equ 12
 
 	align 2
@@ -785,7 +781,7 @@ rep0:		resd 1
 rep1:		resd 1
 rep2:		resd 1
 rep3:		resd 1
-state_struc:	resb state_size
+state.st:	resw 1		; initialise to zero
 		alignb 16
 zeros_end:
 sourcebuffer_incrementing:	resd 1		; increments
@@ -851,9 +847,6 @@ LZ_decoder.decode_member:
 	lea cx, [bx + lz_decoder.range_decoder]
 	lvar word,	range_decoder
 	 push cx
-	lea cx, [bx + state_struc]
-	lvar word,	state_struc
-	 push cx
 
 	 push dx
 	 push ax			; preserve dictionary size
@@ -899,7 +892,7 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_match]		; es:di -> bm_match 2D array
 	mov ax, bit_model_size * pos_states
-	mul word [bx + state_struc + state.st]
+	mul word [bx + state.st]
 					; dx:ax = first index is state
 	test dx, dx
 	jnz .error
@@ -931,7 +924,7 @@ LZ_decoder.decode_member:
 	add di, ax			; es:di -> bm_literal[literal_state]
 	jc .error
 
-	mov bx, word [bp + ?state_struc]
+	mov bx, word [bp + ?localvariables]
 	call State.is_char
 	jnc .not_is_char
 .is_char:
@@ -956,7 +949,7 @@ LZ_decoder.decode_member:
 	mov bx, word [bp + ?localvariables]
 	call LZ_decoder.put_byte
 	jc .error
-	mov bx, word [bp + ?state_struc]
+	mov bx, word [bp + ?localvariables]
 	call State.set_char
 	jmp .loop
 
@@ -967,7 +960,7 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_rep]		; es:di -> bm_rep array
 	mov ax, bit_model_size
-	mul word [bx + state_struc + state.st]
+	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
 	jnz .error
@@ -983,7 +976,7 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_rep0]		; es:di -> bm_rep0 array
 	mov ax, bit_model_size
-	mul word [bx + state_struc + state.st]
+	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
 	jnz .error
@@ -999,7 +992,7 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_len]		; es:di -> bm_len 2D array
 	mov ax, bit_model_size * pos_states
-	mul word [bx + state_struc + state.st]
+	mul word [bx + state.st]
 					; dx:ax = first index is state
 	test dx, dx
 	jnz .error
@@ -1016,7 +1009,7 @@ LZ_decoder.decode_member:
 	jc .4th_bit_not_zero
 
 .4th_bit_zero:
-	mov bx, [bp + ?state_struc]
+	mov bx, word [bp + ?localvariables]
 	call State.set_short_rep
 	mov bx, word [bp + ?localvariables]
 	mov ax, word [bx + rep0]
@@ -1031,7 +1024,7 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_rep1]		; es:di -> bm_rep1 array
 	mov ax, bit_model_size
-	mul word [bx + state_struc + state.st]
+	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
 	jnz .error
@@ -1054,7 +1047,7 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_rep2]		; es:di -> bm_rep2 array
 	mov ax, bit_model_size
-	mul word [bx + state_struc + state.st]
+	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
 	jnz .error
@@ -1100,7 +1093,7 @@ LZ_decoder.decode_member:
 	pop word [bx + rep0 + 2]	; rep0 = distance
 
 .4th_bit_not_zero:
-	mov bx, [bp + ?state_struc]
+	mov bx, word [bp + ?localvariables]
 	call State.set_rep
 	mov bx, word [bp + ?localvariables]
 	mov ax, word [bp + ?pos_state]
@@ -1300,7 +1293,7 @@ LZ_decoder.decode_member:
 .not_rep0_ae_start_dis_model:
 
 .after_dis_slot_below:
-	mov bx, word [bp + ?state_struc]
+	mov bx, word [bp + ?localvariables]
 	call State.set_match
 	mov bx, word [bp + ?localvariables]
 	mov dx, word [bx + rep0 + 2]
