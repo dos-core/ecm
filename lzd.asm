@@ -1105,7 +1105,7 @@ LZ_decoder.decode_member:
 	jne @F
 	cmp ax, word [bx + lz_decoder.dictionary_size]
 @@:
-	jae .error
+	jae short .error_AE_1
 
 		; check for (rep0 >= pos && !pos_wrapped)
 		;  (pos_wrapped is always false for us)
@@ -1113,7 +1113,8 @@ LZ_decoder.decode_member:
 	jne @F
 	cmp ax, word [bx + lz_decoder.pos]
 @@:
-	jae .error
+.error_AE_1:
+	jae short .error
 
 .handle_match:
 	cmp word [bp + ?len + 2], 0
