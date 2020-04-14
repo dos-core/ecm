@@ -410,15 +410,14 @@ Range_decoder.decode_matched:
 .loop:
 	xor dx, dx
 	mov dh, byte [bp + ?match_byte]
+	push cx
 	dec cx
 	shr dh, cl		; match_byte >> i
-	inc cx
 	and dh, 1		; & 1
 	push dx
 	add dx, 100h
 	add dx, word [bp + ?symbol]
 	push di
-	push cx
 	mov ax, bit_model_size
 	mul dx
 	test dx, dx
@@ -426,9 +425,9 @@ Range_decoder.decode_matched:
 	add di, ax
 	jc .error
 	call Range_decoder.decode_bit
-	pop cx
 	pop di
 	pop dx
+	pop cx
 	rcl word [bp + ?symbol], 1
 	jc .error
 	cmp al, dh		; if( match_bit != bit )
