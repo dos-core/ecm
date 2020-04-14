@@ -961,9 +961,9 @@ LZ_decoder.decode_member:
 	clc				; bx:cx = first index into array
 .error_CY_7:
 	jc short .error_CY_8
-	; test dx, dx
-	; stc
-	; jnz short .error_CY_8
+	test dx, dx
+	stc
+	jnz short .error_CY_8
 
 	 push es
 	 push di
