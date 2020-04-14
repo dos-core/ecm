@@ -1053,8 +1053,10 @@ LZ_decoder.decode_member:
 	add di, ax			; index into the array
 	jc short .error_CY_10
 	call Range_decoder.decode_tree_reversed
+	jc short .error_CY_10
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
+	jc short .error_CY_10
 	jmp .after_dis_slot_below
 
 .not_dis_slot_below_end_dis_model:
@@ -1080,6 +1082,7 @@ LZ_decoder.decode_member:
 	jc short .error_CY_12
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
+	jc short .error_CY_10
 
 	cmp word [bx + rep0 + 2], -1	; rep0 = 0FFFF_FFFFh ?
 	jne @F
