@@ -681,6 +681,9 @@ LZ_decoder.decode_member:
 	lea di, [bx + bit_models_start]
 	mov cx, (bit_models_end - bit_models_start) / bit_model_size
 	mov ax, bit_model_total / 2	; initial value for bit_model
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
 	rep stosw			; initialise this bit_model
 					; loop for all bit_model and len_model
 
@@ -761,12 +764,12 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + bm_rep]		; es:di -> bm_rep array
-	mov ax, bit_model_size
-	mul word [bx + state.st]
-					; dx:ax = index is state
-	test dx, dx
-	stc
-	jnz short .error_CY_2
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	mov ax, word [bx + state.st]
+	add ax, ax			; ax = index is state
+	; jc short .error_CY_2	; (state.st is always < 12)
 	add di, ax			; es:di -> bm_rep[state()]
 .error_CY_2:
 	jc short .error_CY_3
@@ -777,12 +780,12 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + bm_rep0]		; es:di -> bm_rep0 array
-	mov ax, bit_model_size
-	mul word [bx + state.st]
-					; dx:ax = index is state
-	test dx, dx
-	stc
-	jnz short .error_CY_3
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	mov ax, word [bx + state.st]
+	add ax, ax			; ax = index is state
+	; jc short .error_CY_3	; (state.st is always < 12)
 	add di, ax			; es:di -> bm_rep0[state()]
 	jc short .error_CY_3
 	call Range_decoder.decode_bit
@@ -793,18 +796,23 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_len]		; es:di -> bm_len 2D array
 	mov ax, bit_model_size * pos_states
-	mul word [bx + state.st]
+				; (2 * 4 = 8)
+	mul word [bx + state.st]; (< 12)
 					; dx:ax = first index is state
-	test dx, dx
-	stc
-	jnz short .error_CY_3
-	mov cx, bit_model_size
-@@:
+	; test dx, dx
+	; stc
+	; jnz short .error_CY_3	; (dx:ax is always < 12 * 8)
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+%rep bit_model_size
 	add ax, word [bp + ?pos_state]
-.error_CY_3:
-	jc short .error_CY_4
-	loop @B
+	; jc short .error_CY_3	; (pos_state is always < 4
+				;  and state_st is always < 12
+				;  and ax is < 12 * 8 prior to adding)
+%endrep
 	add di, ax			; es:di -> bm_len[state()]
+.error_CY_3:
 	jc short .error_CY_4
 	call Range_decoder.decode_bit
 	jc .4th_bit_not_zero
@@ -825,12 +833,12 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + bm_rep1]		; es:di -> bm_rep1 array
-	mov ax, bit_model_size
-	mul word [bx + state.st]
-					; dx:ax = index is state
-	test dx, dx
-	stc
-	jnz .error_CY_4
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	mov ax, word [bx + state.st]
+	add ax, ax			; ax = index is state
+	; jc short .error_CY_4	; (state.st is always < 12)
 	add di, ax			; es:di -> bm_rep1[state()]
 .error_CY_4:
 	jc short .error_CY_4a
@@ -848,12 +856,12 @@ LZ_decoder.decode_member:
 	push ds
 	pop es
 	lea di, [bx + bm_rep2]		; es:di -> bm_rep2 array
-	mov ax, bit_model_size
-	mul word [bx + state.st]
-					; dx:ax = index is state
-	test dx, dx
-	stc
-	jnz short .error_CY_5
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	mov ax, word [bx + state.st]
+	add ax, ax			; ax = index is state
+	; jc short .error_CY_5	; (state.st is always < 12)
 	add di, ax			; es:di -> bm_rep2[state()]
 .error_CY_4a:
 	jc short .error_CY_5
