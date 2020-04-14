@@ -952,14 +952,12 @@ LZ_decoder.decode_member:
 	mov bx, dx			; ! bx not pointing to local vars
 	mov cx, ax
 
-	xor ax, ax
-	xor dx, dx
-	add bx, ax			; bx:cx = first index into array
+	clc				; bx:cx = first index into array
 .error_CY_7:
 	jc short .error_CY_8
-	test dx, dx
-	stc
-	jnz short .error_CY_8
+	; test dx, dx
+	; stc
+	; jnz short .error_CY_8
 
 	push ds
 	pop es
