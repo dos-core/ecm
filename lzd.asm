@@ -402,10 +402,8 @@ Range_decoder.decode_matched:
 	lenter
 	lvar word,	match_byte
 	 push ax
-	lvar dword,	symbol
-	xor dx, dx
-	 push dx
-	inc dx
+	lvar word,	symbol
+	mov dx, 1
 	 push dx		; initialise ?symbol = 1
 
 	mov cx, 8
@@ -419,8 +417,6 @@ Range_decoder.decode_matched:
 	push dx
 	add dx, 100h
 	add dx, word [bp + ?symbol]
-	cmp word [bp + ?symbol + 2], 0
-	jne .error
 	push di
 	push cx
 	mov ax, bit_model_size
@@ -434,7 +430,7 @@ Range_decoder.decode_matched:
 	pop di
 	pop dx
 	rcl word [bp + ?symbol], 1
-	rcl word [bp + ?symbol + 2], 1
+	jc .error
 	cmp al, dh		; if( match_bit != bit )
 	jne .inner_next		; do the following -->
 .next:
@@ -451,8 +447,6 @@ Range_decoder.decode_matched:
 
 
 .inner_loop:
-	cmp word [bp + ?symbol + 2], 0
-	jne .error
 	mov ax, bit_model_size
 	mul word [bp + ?symbol]
 	test dx, dx
@@ -463,13 +457,10 @@ Range_decoder.decode_matched:
 	call Range_decoder.decode_bit
 	pop di
 	rcl word [bp + ?symbol], 1
-	rcl word [bp + ?symbol + 2], 1
+	jc .error
 
 .inner_next:
-	cmp word [bp + ?symbol + 2], 0
-	jne @F
 	cmp word [bp + ?symbol], 100h
-@@:
 	jb .inner_loop
 	jmp .end
 
