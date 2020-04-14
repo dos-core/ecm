@@ -1028,8 +1028,8 @@ LZ_decoder.decode_member:
 	stc
 	jnz short .error_CY_10		; if dx != 0 -->
 	push ds
-	pop es				; es:di -> local variables
-	lea di, [di + bm_dis]		; es:di -> bm_dis array
+	pop es
+	lea di, [bx + bm_dis]		; es:di -> bm_dis array
 	add di, ax			; index into the array
 	jc short .error_CY_10
 	call Range_decoder.decode_tree_reversed
