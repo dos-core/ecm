@@ -243,13 +243,13 @@ Range_decoder.decode_bit:
 	rcr ax, 1
 	loop @B
 
-	push dx
+	mov cx, dx
 	mul word [es:di + bit_model.probability]
 				; dx:ax = low word + first high word
 	mov word [bp + ?bound + 2], dx
 	mov word [bp + ?bound], ax
 				; = low word + first high word
-	pop ax
+	xchg ax, cx
 	mul word [es:di + bit_model.probability]
 				; ax = second high word (dx overflow)
 	add word [bp + ?bound + 2], ax
