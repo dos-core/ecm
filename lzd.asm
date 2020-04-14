@@ -1069,9 +1069,9 @@ LZ_decoder.decode_member:
 @@:
 	je .end				; yes, end (marker found) -->
 
-.not_rep0_ae_start_dis_model:
-
 .after_dis_slot_below:
+
+.not_rep0_ae_start_dis_model:
 
 ; State.set_match
 	mov ax, 7 | (10 << 8)
