@@ -1038,24 +1038,20 @@ LZ_decoder.decode_member:
 					;  = rep0 - dis_slot
 .error_CY_9:
 	jc short .error_CY_10
-	 push dx
-	mov si, bit_model_size
-	mul si
-	mov di, ax
-	mov bx, dx			; bx:di = low word + first high word
-					; ! bx not pointing to local vars
-	 pop ax
-	mul si				; ax = second high word, dx = overflow
-	add bx, ax
+
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	add ax, ax
+	adc dx, dx			; dx:ax *= 2
 	jc short .error_CY_10
-	test dx, dx
-	stc
-	jnz short .error_CY_10
+
 	push cx
-	mov cx, di
+	mov di, bx			; di -> local variables
+	mov cx, ax
+	mov bx, dx			; ! bx not pointing to local vars
 	push ds
-	pop es
-	mov di, word [bp + ?localvariables]
+	pop es				; es:di -> local variables
 	lea di, [di + bm_dis]		; es:di -> bm_dis array
 	 push es
 	 push di
