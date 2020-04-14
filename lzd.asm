@@ -485,7 +485,7 @@ Range_decoder.decode_len:
 
 	lea di, [di + len_model.choice1]
 	call Range_decoder.decode_bit
-	 pop di
+	 pop di			; reset to ?len_model_struc
 	 push di
 	jc .not_decode_bit_choice1_equals_zero
 
@@ -503,7 +503,7 @@ Range_decoder.decode_len:
 .not_decode_bit_choice1_equals_zero:
 	lea di, [di + len_model.choice2]
 	call Range_decoder.decode_bit
-	 pop di
+	 pop di			; reset to ?len_model_struc
 	 push di
 	jc .not_decode_bit_choice2_equals_zero
 
