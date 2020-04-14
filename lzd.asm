@@ -230,9 +230,6 @@ Range_decoder.decode_bit:
 	xor ax, ax
 	lframe near
 	lenter
-	lvar dword,	symbol
-	 push ax
-	 push ax
 
 	mov dx, word [bx + range_decoder.range + 2]
 	mov ax, word [bx + range_decoder.range]
@@ -277,8 +274,7 @@ Range_decoder.decode_bit:
 	add word [es:di + bit_model.probability], ax
 	test dx, dx
 	jnz .error
-	mov word [bp + ?symbol + 2], cx
-	mov word [bp + ?symbol], cx
+	mov al, 0
 	jmp .after_if
 
 .not_code_below_bound:
@@ -291,16 +287,11 @@ Range_decoder.decode_bit:
 	shr ax, cl
 	sub word [es:di + bit_model.probability], ax
 	jc .error
-	xor cx, cx
-	mov word [bp + ?symbol + 2], cx
-	inc cx			; = 1
-	mov word [bp + ?symbol], cx
+	mov al, 1
 
 .after_if:
 	call normaliserange
 	jc .error
-	mov ax, word [bp + ?symbol]
-	mov dx, word [bp + ?symbol + 2]
 	cmp al, 1		; CY if 0, NC if 1
 	cmc			; NC if 0, CY if 1
 	lleave
