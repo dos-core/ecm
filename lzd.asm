@@ -953,26 +953,19 @@ LZ_decoder.decode_member:
 
 	mov ax, bit_model_size * (1 << dis_slot_bits)
 	mul word [bp + ?len_state]	; first index is len_state
-
-	push bx
-	mov bx, dx			; ! bx not pointing to local vars
-	mov cx, ax
-
-	clc				; bx:cx = first index into array
-.error_CY_7:
-	jc short .error_CY_8
+					; dx:ax = first index into array
 	test dx, dx
 	stc
-	jnz short .error_CY_8
+	jnz short .error_CY_7
 
-	add di, cx			; -> 1D array at bm_dis_slot[len_state]
+	add di, ax			; -> 1D array at bm_dis_slot[len_state]
+.error_CY_7:
 	jc short .error_CY_8
 	 push es
 	 push di
 	call normalise_pointer
 	 pop di
 	 pop es
-	pop bx
 	mov cx, dis_slot_bits
 	call Range_decoder.decode_tree
 	mov word [bx + rep0], ax
