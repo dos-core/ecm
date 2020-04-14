@@ -402,9 +402,7 @@ Range_decoder.decode_matched:
 	lenter
 	lvar word,	match_byte
 	 push ax
-	lvar word,	symbol
-	mov dx, 1
-	 push dx		; initialise ?symbol = 1
+	mov ax, 1		; initialise ?symbol = 1
 
 	mov cx, 8
 .loop:
@@ -416,8 +414,9 @@ Range_decoder.decode_matched:
 	and dh, 1		; & 1
 	push dx
 	add dx, 100h
-	add dx, word [bp + ?symbol]
+	add dx, ax
 	push di
+	push ax
 	mov ax, bit_model_size
 	mul dx
 	test dx, dx
@@ -425,18 +424,19 @@ Range_decoder.decode_matched:
 	add di, ax
 	jc .error
 	call Range_decoder.decode_bit
+	xchg ax, cx		; cl = result (1 or 0)
+	pop ax			; = symbol
 	pop di
-	pop dx
-	pop cx
-	rcl word [bp + ?symbol], 1
+	pop dx			; = match_bit << 8
+	rcl ax, 1		; shift symbol, OR in the bit
 	jc .error
-	cmp al, dh		; if( match_bit != bit )
+	cmp cl, dh		; if( match_bit != bit )
+	pop cx			; = loop counter
 	jne .inner_next		; do the following -->
 .next:
 	loop .loop
 .end:
-	xor ax, ax
-	mov al, byte [bp + ?symbol]
+	mov ah, 0		; return ax = symbol & 0FFh
 	db __TEST_IMM8		; (NC, skip stc)
 .error:
 	stc
@@ -446,8 +446,9 @@ Range_decoder.decode_matched:
 
 
 .inner_loop:
-	mov ax, bit_model_size
-	mul word [bp + ?symbol]
+	push ax
+	mov dx, bit_model_size
+	mul dx
 	test dx, dx
 	jnz .error
 	push di
@@ -455,11 +456,12 @@ Range_decoder.decode_matched:
 	jc .error
 	call Range_decoder.decode_bit
 	pop di
-	rcl word [bp + ?symbol], 1
+	pop ax
+	rcl ax, 1
 	jc .error
 
 .inner_next:
-	cmp word [bp + ?symbol], 100h
+	cmp ax, 100h
 	jb .inner_loop
 	jmp .end
 
