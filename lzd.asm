@@ -703,13 +703,14 @@ LZ_decoder.decode_member:
 	mul word [bx + state.st]
 					; dx:ax = first index is state
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_1
 %rep bit_model_size
 	add ax, cx			; = second index is pos_state
-	jc .error
+	jc short .error_CY_1
 %endrep
 	add di, ax			; es:di -> bm_match[state()][pos_state]
-	jc .error
+	jc short .error_CY_1
 	call Range_decoder.decode_bit
 	jc .1st_bit_not_zero
 
@@ -726,9 +727,11 @@ LZ_decoder.decode_member:
 	mov cx, bit_model_size * 300h
 	mul cx				; first index is literal_state
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_1
 	add di, ax			; es:di -> bm_literal[literal_state]
-	jc .error
+.error_CY_1:
+	jc short .error_CY_2
 
 	call State.is_char
 	jnc .not_is_char
@@ -747,9 +750,9 @@ LZ_decoder.decode_member:
 	pop es
 	call Range_decoder.decode_matched
 @@:
-	jc .error
+	jc short .error_CY_2
 	call LZ_decoder.put_byte
-	jc .error
+	jc short .error_CY_2
 	call State.set_char
 	jmp .loop
 
@@ -762,9 +765,11 @@ LZ_decoder.decode_member:
 	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_2
 	add di, ax			; es:di -> bm_rep[state()]
-	jc .error
+.error_CY_2:
+	jc short .error_CY_3
 	call Range_decoder.decode_bit
 	jnc .2nd_bit_zero
 
@@ -776,9 +781,10 @@ LZ_decoder.decode_member:
 	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_3
 	add di, ax			; es:di -> bm_rep0[state()]
-	jc .error
+	jc short .error_CY_3
 	call Range_decoder.decode_bit
 	jc .3rd_bit_not_zero
 
@@ -790,14 +796,16 @@ LZ_decoder.decode_member:
 	mul word [bx + state.st]
 					; dx:ax = first index is state
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_3
 	mov cx, bit_model_size
 @@:
 	add ax, word [bp + ?pos_state]
-	jc .error
+.error_CY_3:
+	jc short .error_CY_4
 	loop @B
 	add di, ax			; es:di -> bm_len[state()]
-	jc .error
+	jc short .error_CY_4
 	call Range_decoder.decode_bit
 	jc .4th_bit_not_zero
 
@@ -810,7 +818,7 @@ LZ_decoder.decode_member:
 	mov dx, word [bx + rep0 + 2]
 	call LZ_decoder.peek
 	call LZ_decoder.put_byte
-	jc .error
+	jc short .error_CY_4
 	jmp .loop
 
 .3rd_bit_not_zero:
@@ -821,9 +829,11 @@ LZ_decoder.decode_member:
 	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
-	jnz .error
+	stc
+	jnz .error_CY_4
 	add di, ax			; es:di -> bm_rep1[state()]
-	jc .error
+.error_CY_4:
+	jc short .error_CY_4a
 	call Range_decoder.decode_bit
 	jc .3rd_bit_not_zero.4th_bit_not_zero
 
@@ -842,9 +852,11 @@ LZ_decoder.decode_member:
 	mul word [bx + state.st]
 					; dx:ax = index is state
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_5
 	add di, ax			; es:di -> bm_rep2[state()]
-	jc .error
+.error_CY_4a:
+	jc short .error_CY_5
 	call Range_decoder.decode_bit
 	jc .3rd_bit_not_zero.4th_bit_not_zero.5th_bit_not_zero
 
@@ -891,10 +903,11 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + rep_len_model]	; -> len_model to use
 	call Range_decoder.decode_len	; dx:ax = length
-	jc .error
+.error_CY_5:
+	jc short .error_CY_6
 	add ax, min_match_len
 	adc dx, 0
-	jc .error
+	jc short .error_CY_6
 	mov word [bp + ?len], ax
 	mov word [bp + ?len + 2], dx
 	jmp .handle_match
@@ -920,7 +933,8 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + match_len_model]	; -> len_model to use
 	call Range_decoder.decode_len	; dx:ax = length
-	jc .error
+.error_CY_6:
+	jc short .error_CY_7
 
 	mov word [bp + ?len_state], ax
 	mov word [bp + ?len_state + 2], dx
@@ -935,7 +949,7 @@ LZ_decoder.decode_member:
 
 	add ax, min_match_len
 	adc dx, 0
-	jc .error
+	jc short .error_CY_7
 
 	mov word [bp + ?len], ax
 	mov word [bp + ?len + 2], dx
@@ -948,9 +962,11 @@ LZ_decoder.decode_member:
 	mov ax, bit_model_size * (1 << dis_slot_bits)
 	mul word [bp + ?len_state + 2]
 	add bx, ax			; bx:cx = first index into array
-	jc .error
+.error_CY_7:
+	jc short .error_CY_8
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_8
 
 	push ds
 	pop es
@@ -981,8 +997,10 @@ LZ_decoder.decode_member:
 	rcr ax, 1			; dis_slot >> 1
 	sub ax, 1
 	sbb dx, 0			; - 1
-	jc .error
-	jnz .error
+.error_CY_8:
+	jc short .error_CY_9
+	stc
+	jnz short .error_CY_9
 	mov cx, ax			; = direct_bits
 	xor dx, dx
 	mov ax, 1
@@ -1010,7 +1028,8 @@ LZ_decoder.decode_member:
 	sbb dx, word [bp + ?dis_slot + 2]
 					; dx:ax = index into bm_dis array
 					;  = rep0 - dis_slot
-	jc .error
+.error_CY_9:
+	jc short .error_CY_10
 	 push dx
 	mov si, bit_model_size
 	mul si
@@ -1020,9 +1039,10 @@ LZ_decoder.decode_member:
 	 pop ax
 	mul si				; ax = second high word, dx = overflow
 	add bx, ax
-	jc .error
+	jc short .error_CY_10
 	test dx, dx
-	jnz .error
+	stc
+	jnz short .error_CY_10
 	push cx
 	mov cx, di
 	push ds
@@ -1044,12 +1064,13 @@ LZ_decoder.decode_member:
 .not_dis_slot_below_end_dis_model:
 	sub cx, dis_align_bits
 	call Range_decoder.decode
-	jc .error
+.error_CY_10:
+	jc short .error_CY_11
 	mov cx, dis_align_bits
 @@:
 	shl ax, 1
 	rcl dx, 1
-	jc .error
+	jc short .error_CY_11
 	loop @B
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
@@ -1059,7 +1080,8 @@ LZ_decoder.decode_member:
 	pop es
 	lea di, [bx + bm_align]
 	call Range_decoder.decode_tree_reversed
-	jc .error
+.error_CY_11:
+	jc short .error_CY_12
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
 
@@ -1099,7 +1121,8 @@ LZ_decoder.decode_member:
 	mov ax, word [bx + rep0]
 	call LZ_decoder.peek
 	call LZ_decoder.put_byte
-	jc .error
+.error_CY_12:
+	jc short .error
 	sub word [bp + ?len], 1
 	sbb word [bp + ?len + 2], 0
 	jnz @B
@@ -1115,7 +1138,7 @@ LZ_decoder.decode_member:
 	jne @F
 	cmp word [bp + ?len], min_match_len & 0FFFFh
 @@:
-	jne .error
+	jne short .error
 
 .done:
 	db __TEST_IMM8			; (NC, skip stc)
