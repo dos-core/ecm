@@ -224,13 +224,9 @@ Range_decoder.decode:
 		; OUT:	dx:ax = read bit
 		;	NC if zero read
 		;	CY if one read
-		;	! If an error occurs, skips its own stack frame
-		;	   and returns CY with the next caller's stack frame.
+		;	! If an error occurs, returns CY
+		;	 with the next caller's stack frame.
 Range_decoder.decode_bit:
-	xor ax, ax
-	lframe near
-	lenter
-
 	mov dx, word [bx + range_decoder.range + 2]
 	mov ax, word [bx + range_decoder.range]
 	mov cx, bit_model_total_bits
@@ -258,6 +254,8 @@ Range_decoder.decode_bit:
 	cmp word [bx + range_decoder.code], ax
 @@:
 	jnb .not_code_below_bound
+
+.code_below_bound:
 	mov word [bx + range_decoder.range], ax
 	mov word [bx + range_decoder.range + 2], dx
 	mov ax, bit_model_total
@@ -291,12 +289,9 @@ Range_decoder.decode_bit:
 	jc .error
 	cmp al, 1		; CY if 0, NC if 1
 	cmc			; NC if 0, CY if 1
-	lleave
-	lret
+	retn
 
 .error:
-	mov sp, bp		; drop our stack frame's variables
-	pop bp			; drop our stack frame
 	mov sp, bp		; drop next stack frame's variables
 	pop bp			; drop next stack frame
 	stc			; CY = error
