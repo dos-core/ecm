@@ -229,7 +229,6 @@ Range_decoder.decode:
 Range_decoder.decode_bit:
 	xor ax, ax
 	lframe near
-	lvar dword,	bound
 	lenter
 	lvar dword,	symbol
 	 push ax
@@ -246,8 +245,9 @@ Range_decoder.decode_bit:
 	mov cx, dx
 	mul word [es:di + bit_model.probability]
 				; dx:ax = low word + first high word
-	mov word [bp + ?bound + 2], dx
-	mov word [bp + ?bound], ax
+	lvar dword,	bound
+	 push dx
+	 push ax
 				; = low word + first high word
 	xchg ax, cx
 	mul word [es:di + bit_model.probability]
