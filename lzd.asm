@@ -953,6 +953,8 @@ LZ_decoder.decode_member:
 
 	mov ax, bit_model_size * (1 << dis_slot_bits)
 	mul word [bp + ?len_state]	; first index is len_state
+
+	push bx
 	mov bx, dx			; ! bx not pointing to local vars
 	mov cx, ax
 
@@ -968,7 +970,7 @@ LZ_decoder.decode_member:
 	call normalise_pointer_with_displacement_bxcx
 	 pop di
 	 pop es				; -> 1D array at bm_dis_slot[len_state]
-	mov bx, word [bp + ?localvariables]
+	pop bx
 	mov cx, dis_slot_bits
 	call Range_decoder.decode_tree
 	mov word [bx + rep0], ax
