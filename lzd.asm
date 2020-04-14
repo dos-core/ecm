@@ -965,11 +965,13 @@ LZ_decoder.decode_member:
 	stc
 	jnz short .error_CY_8
 
+	add di, cx			; -> 1D array at bm_dis_slot[len_state]
+	jc short .error_CY_8
 	 push es
 	 push di
-	call normalise_pointer_with_displacement_bxcx
+	call normalise_pointer
 	 pop di
-	 pop es				; -> 1D array at bm_dis_slot[len_state]
+	 pop es
 	pop bx
 	mov cx, dis_slot_bits
 	call Range_decoder.decode_tree
