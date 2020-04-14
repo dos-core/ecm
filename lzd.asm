@@ -638,9 +638,9 @@ bit_models_end:
 LZ_decoder.decode_member:
 	lframe near
 	lvar dword,	distance
-	lvar dword,	len_state
 	lvar dword,	len
 	lvar dword,	dis_slot
+	lvar word,	len_state
 	lvar word,	pos_state
 	lenter
 	lvar dword,	localvariables
@@ -932,14 +932,12 @@ LZ_decoder.decode_member:
 	jc short .error_CY_7
 
 	mov word [bp + ?len_state], ax
-	mov word [bp + ?len_state + 2], dx
 	test dx, dx
 	jnz @F
 	cmp ax, len_states - 1
 	jb @FF
 @@:
 	mov word [bp + ?len_state], len_states - 1
-	and word [bp + ?len_state + 2], 0
 @@:
 
 	add ax, min_match_len
@@ -954,8 +952,8 @@ LZ_decoder.decode_member:
 	mov bx, dx			; ! bx not pointing to local vars
 	mov cx, ax
 
-	mov ax, bit_model_size * (1 << dis_slot_bits)
-	mul word [bp + ?len_state + 2]
+	xor ax, ax
+	xor dx, dx
 	add bx, ax			; bx:cx = first index into array
 .error_CY_7:
 	jc short .error_CY_8
