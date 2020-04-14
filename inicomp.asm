@@ -86,7 +86,7 @@ ldLoadUntilSeg:	resw 1
 	numdef HEATSHRINK,	0
 	numdef LZD,		0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK + !!_LZD) != 1
- %error Exactly one compression method must be selected.
+ %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
 %if _BRIEFLZ
