@@ -947,6 +947,10 @@ LZ_decoder.decode_member:
 	mov word [bp + ?len], ax
 	mov word [bp + ?len + 2], dx
 
+	push ds
+	pop es
+	lea di, [bx + bm_dis_slot]	; -> 2D array bm_dis_slot
+
 	mov ax, bit_model_size * (1 << dis_slot_bits)
 	mul word [bp + ?len_state]	; first index is len_state
 	mov bx, dx			; ! bx not pointing to local vars
@@ -959,10 +963,6 @@ LZ_decoder.decode_member:
 	; stc
 	; jnz short .error_CY_8
 
-	push ds
-	pop es
-	mov di, word [bp + ?localvariables]
-	lea di, [di + bm_dis_slot]	; -> 2D array bm_dis_slot
 	 push es
 	 push di
 	call normalise_pointer_with_displacement_bxcx
