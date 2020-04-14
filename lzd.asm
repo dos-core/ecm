@@ -1289,7 +1289,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 
-member_min_size equ 6 + 4 + 16
+member_min_size equ lzip_header_size + lzip_trailer_size
 
 .loop_member:
 	cmp word [bp + ?length_of_source + 2], 0
@@ -1306,7 +1306,7 @@ member_min_size equ 6 + 4 + 16
 	jmp .end
 
 .got_member:
-	lds si, [bp + ?src]
+	lds si, [bp + ?src]		; ds:si -> lzip_header.magic, .version
 	push cs
 	pop es
 	mov di, lzip_header_bytes
@@ -1314,7 +1314,7 @@ member_min_size equ 6 + 4 + 16
 	repe cmpsb
 	jne .error
 	xor ax, ax
-	lodsb
+	lodsb				; ax = lzip_header.coded_dict_size
 
 	 push ds
 	 push si
@@ -1392,13 +1392,14 @@ member_min_size equ 6 + 4 + 16
 
 	lds bx, [bp + ?final_dst]	; -> localvariables
 
-	sub word [bp + ?length_of_source], 4 + 16
+	sub word [bp + ?length_of_source], lzip_trailer_size
 	sbb word [bp + ?length_of_source + 2], 0
 	jc .error
 
-	les si, [bp + ?src]
+	les si, [bp + ?src]	; es:si -> lzip_trailer.uncompressed_checksum
 	add si, 4			; skip CRC
 
+				; es:si -> lzip_trailer.uncompressed_size
 	es lodsw			; does the destination length match ?
 	cmp ax, word [bx + lz_decoder.pos]
 	jne .error
@@ -1412,10 +1413,11 @@ member_min_size equ 6 + 4 + 16
 	test ax, ax
 	jnz .error
 
-	add word [bx + lz_decoder.range_decoder + range_decoder.member_pos], 4 + 16
+	add word [bx + lz_decoder.range_decoder + range_decoder.member_pos], lzip_trailer_size
 	adc word [bx + lz_decoder.range_decoder + range_decoder.member_pos + 2], 0
 	jc .error
 
+				; es:si -> lzip_trailer.member_size
 	es lodsw			; does the source length match ?
 	cmp ax, word [bx + lz_decoder.range_decoder + range_decoder.member_pos]
 	jne .error
@@ -1429,6 +1431,7 @@ member_min_size equ 6 + 4 + 16
 	test ax, ax
 	jnz .error
 
+				; es:si -> behind lzip_trailer
 	 push es
 	 push si
 	call normalise_pointer
