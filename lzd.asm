@@ -1046,6 +1046,7 @@ LZ_decoder.decode_member:
 	adc dx, dx			; dx:ax *= 2
 	jc short .error_CY_10
 
+	push bx
 	push cx
 	mov di, bx			; di -> local variables
 	mov cx, ax
@@ -1059,7 +1060,7 @@ LZ_decoder.decode_member:
 	 pop di
 	 pop es				; index into the array
 	pop cx
-	mov bx, word [bp + ?localvariables]
+	pop bx
 	call Range_decoder.decode_tree_reversed
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
