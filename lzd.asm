@@ -259,16 +259,10 @@ Range_decoder.decode_bit:
 	mov word [bx + range_decoder.range], ax
 	mov word [bx + range_decoder.range + 2], dx
 	mov ax, bit_model_total
-	xor dx, dx
 	sub ax, word [es:di + bit_model.probability]
-	sbb dx, 0
-@@:
-	shr dx, 1		; fixme: may need sar
-	rcr ax, 1
-	loop @B
+	jc .error
+	shr ax, cl
 	add word [es:di + bit_model.probability], ax
-	test dx, dx
-	jnz .error
 	mov al, 0
 	jmp .after_if
 
