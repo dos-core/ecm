@@ -961,11 +961,6 @@ LZ_decoder.decode_member:
 	add di, ax			; -> 1D array at bm_dis_slot[len_state]
 .error_CY_7:
 	jc short .error_CY_8
-	 push es
-	 push di
-	call normalise_pointer
-	 pop di
-	 pop es
 	mov cx, dis_slot_bits
 	call Range_decoder.decode_tree
 	mov word [bx + rep0], ax
