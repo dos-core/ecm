@@ -242,18 +242,15 @@ Range_decoder.decode_bit:
 	mov cx, dx
 	mul word [es:di + bit_model.probability]
 				; dx:ax = low word + first high word
-	lvar dword,	bound
 	 push dx
-	 push ax
-				; = low word + first high word
+	 push ax		; on stack = low word + first high word
 	xchg ax, cx
 	mul word [es:di + bit_model.probability]
 				; ax = second high word (dx overflow)
-	add word [bp + ?bound + 2], ax
-				; = full uint32_t result
-
-	mov dx, word [bp + ?bound + 2]
-	mov ax, word [bp + ?bound]
+	xchg ax, cx		; cx
+	 pop ax
+	 pop dx
+	add dx, cx		; = full uint32_t result
 	mov cx, bit_model_move_bits
 
 	cmp word [bx + range_decoder.code + 2], dx
