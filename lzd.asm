@@ -1045,22 +1045,13 @@ LZ_decoder.decode_member:
 	add ax, ax
 	adc dx, dx			; dx:ax *= 2
 	jc short .error_CY_10
-
-	push bx
-	push cx
-	mov di, bx			; di -> local variables
-	mov cx, ax
-	mov bx, dx			; ! bx not pointing to local vars
+	stc
+	jnz short .error_CY_10		; if dx != 0 -->
 	push ds
 	pop es				; es:di -> local variables
 	lea di, [di + bm_dis]		; es:di -> bm_dis array
-	 push es
-	 push di
-	call normalise_pointer_with_displacement_bxcx
-	 pop di
-	 pop es				; index into the array
-	pop cx
-	pop bx
+	add di, ax			; index into the array
+	jc short .error_CY_10
 	call Range_decoder.decode_tree_reversed
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
