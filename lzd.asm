@@ -221,7 +221,7 @@ Range_decoder.decode:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure
-		; OUT:	dx:ax = read bit
+		; OUT:	al = read bit
 		;	NC if zero read
 		;	CY if one read
 		;	! If an error occurs, returns CY
