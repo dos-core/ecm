@@ -470,7 +470,7 @@ Range_decoder.decode_matched:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> len_model structure
-		;	dx:ax = pos_state
+		;	dx = pos_state
 		; OUT:	NC if success,
 		;	 dx:ax = return
 		;	CY if error
@@ -478,8 +478,7 @@ Range_decoder.decode_matched:
 Range_decoder.decode_len:
 	lframe near
 	lenter
-	lvar dword,	pos_state
-	 push dx
+	lvar word,	pos_state
 	 push ax
 	lvar word,	len_model_struc
 	 push di
@@ -495,8 +494,6 @@ Range_decoder.decode_len:
 	mul word [bp + ?pos_state]
 	test dx, dx
 	jnz .error
-	cmp word [bp + ?pos_state + 2], dx
-	jne .error
 	add di, ax
 	jc .error
 	mov cx, len_low_bits
@@ -515,8 +512,6 @@ Range_decoder.decode_len:
 	mul word [bp + ?pos_state]
 	test dx, dx
 	jnz .error
-	cmp word [bp + ?pos_state + 2], dx
-	jne .error
 	add di, ax
 	jc .error
 	mov cx, len_mid_bits
@@ -891,8 +886,7 @@ LZ_decoder.decode_member:
 	mov ax, 8 | (11 << 8)
 	call State.select
 
-	mov ax, word [bp + ?pos_state]
-	xor dx, dx			; dx:ax = pos_state variable
+	mov ax, word [bp + ?pos_state]	; ax = pos_state variable
 	push ds
 	pop es
 	lea di, [bx + rep_len_model]	; -> len_model to use
@@ -921,8 +915,7 @@ LZ_decoder.decode_member:
 	pop word [bx + rep1]
 	pop word [bx + rep1 + 2]	; rep1 = rep0
 
-	mov ax, word [bp + ?pos_state]
-	xor dx, dx			; dx:ax = pos_state variable
+	mov ax, word [bp + ?pos_state]	; ax = pos_state variable
 	push ds
 	pop es
 	lea di, [bx + match_len_model]	; -> len_model to use
