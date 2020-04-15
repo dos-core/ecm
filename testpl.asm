@@ -543,7 +543,7 @@ listnames:
 	mov si, msg.cmdline_after
 	call disp_msg
 
-	jmp @F
+	jmp .after_cmdline
 
 .skip_psp_dos:
 	test byte [cs:loadmode], 2
@@ -557,10 +557,23 @@ listnames:
 	push es
 	pop ds
 	mov si, di
-	mov al, 13
-	mov cx, -1
-	repne scasb
-	dec di				; -> at 13
+
+		; Writing MS-DOS Device Drivers, second edition, page 349
+		;  specifies the following as to the command line termination:
+		; "Note that the DEVICE= command string is terminated by an
+		;  Ah when there are no arguments. When there are arguments,
+		;  the string is terminated with the following sequence:
+		;  0h, Dh, Ah."
+	db __TEST_IMM8
+@@:
+	inc di
+	cmp byte [di], 0
+	je @F
+	cmp byte [di], 13
+	je @F
+	cmp byte [di], 10
+	jne @B
+@@:					; di -> at terminator
 	sub di, si
 	mov cx, di
 	call disp_msg_length
@@ -570,7 +583,7 @@ listnames:
 	mov si, msg.cmdline_after
 	call disp_msg
 
-	jmp @F
+	jmp .after_cmdline
 
 .skip_device:
 	mov si, msg.cmdline_before.kern
@@ -586,7 +599,7 @@ listnames:
 	mov si, msg.cmdline_after
 	call disp_msg
 
-@@:
+.after_cmdline:
 	int3
 
 	test byte [cs:loadmode], 2
