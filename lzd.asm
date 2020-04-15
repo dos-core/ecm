@@ -36,13 +36,20 @@ next_states:
 
 
 State:
-		; INP:	ds:bx -> state structure
+		; INP:	ds:bx -> localvariables
+		;	byte [bx + state.st]
 		; OUT:	CY if st < 7 (is_char() == true)
 		;	NC if st >= 7 (is_char() == false)
+		; CHG:	-
 .is_char:
 	cmp byte [bx + state.st], 7
 	retn
 
+
+		; INP:	ds:bx -> localvariables
+		;	byte [bx + state.st]
+		; OUT:	byte [bx + state.st] = al = next state
+		; CHG:	al
 .set_char:
 	push bx
 	mov al, byte [bx + state.st]
@@ -53,9 +60,13 @@ State:
 	mov byte [bx + state.st], al
 	retn
 
-		; INP:	al = value to use if is_char() == true
+
+		; INP:	ds:bx -> localvariables
+		;	byte [bx + state.st]
+		;	al = value to use if is_char() == true
 		;	ah = value to use else
 		; OUT:	byte [bx + state.st] = al = value to use
+		; CHG:	al
 .select:
 	call .is_char
 	jc .end
@@ -126,9 +137,9 @@ State:
 	endstruc
 
 		; INP:	ds:bx -> range_decoder structure
-		; CHG:	es
-		; CHG:	NC if success
+		; OUT:	NC if success
 		;	CY if error
+		; CHG:	es, di, ax, cx
 Range_decoder.init:
 	push ds
 	pop es
@@ -152,8 +163,10 @@ Range_decoder.init:
 	retn
 
 
-		; CHG:	NC if success
+		; INP:	ds:bx -> range_decoder structure
+		; OUT:	NC if success
 		;	CY if error
+		; CHG:	-
 normaliserange:
 	cmp byte [bx + range_decoder.range + 3], 0
 	clc			; (NC)
@@ -168,8 +181,10 @@ normaliserange:
 		; fall through
 
 
-		; CHG:	NC if success
+		; INP:	ds:bx -> range_decoder structure
+		; OUT:	NC if success
 		;	CY if error
+		; CHG:	-
 getbyteshiftcode:
 	push ax
 	mov ax, word [bx + range_decoder.code + 1]
@@ -226,6 +241,7 @@ Range_decoder.decode:
 		;	CY if one read
 		;	! If an error occurs, returns CY
 		;	 with the next caller's stack frame.
+		; CHG:	cx, dx, ax
 Range_decoder.decode_bit:
 	mov dx, word [bx + range_decoder.range + 2]
 	mov ax, word [bx + range_decoder.range]
@@ -391,6 +407,7 @@ Range_decoder.decode_tree_reversed:
 		; OUT:	NC if success,
 		;	 al = return value (symbol & 0FFh)
 		;	CY if error
+		; CHG:	cx, dx, ax
 Range_decoder.decode_matched:
 	lframe near
 	lenter
@@ -630,8 +647,11 @@ bit_models_end:
 		; INP:	ds:bx -> localvariables structure,
 		;	 destinationbuffer_constant pre-initialised
 		;	dx:ax = dictionary size
-		;	dword [ss:bp + ?src] (of depack lframe) initialised
-		;	dword [ss:bp + ?dst] (of depack lframe) initialised
+		;	Following variables of depack frame initialised:
+		;	 dword [ss:bp + ?src] -> source buffer
+		;	 dword [ss:bp + ?length_of_source] = remaining length
+		;	 dword [ss:bp + ?dst] -> destination buffer
+		;	 dword [ss:bp + ?length_of_destination] = remaining
 		; OUT:	NC if success
 		;	CY if error
 		; CHG:	all
@@ -1487,9 +1507,10 @@ d0	mov bx, word [bp + ?errordata]
 
 
 		; INP:	ds:bx -> range_decoder structure
-		; OUT:	al = byte read
-		; CHG:	NC if success
+		; OUT:	NC if success,
+		;	 al = byte read
 		;	CY if error
+		; CHG:	-
 Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
@@ -1500,6 +1521,7 @@ Range_decoder.get_byte:
 		; OUT:	NC if success,
 		;	 al = value read
 		;	CY if error
+		; CHG:	-
 ; get_byte:
 	push ds
 	push si
