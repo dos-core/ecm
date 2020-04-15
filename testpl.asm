@@ -102,17 +102,34 @@ ldCommandLine:
 	cpu 8086
 	org 0
 payload:
-		; S0 +28
-	pushf	; +26
-	push ax	; +24
-	push cs	; +22
-	call .push_ip
-.push_ip:
-	pop ax
-	sub ax, .push_ip
-	push ax	; +20 IP
+		; The device header is of a fixed format.
+		;  For our purposes, the 4-byte code for
+		;  each the strategy entry and the
+		;  interrupt entry is part of this format.
+		; (DOS may read the attributes or entrypoint
+		;  offsets before calling either, so the
+		;  inicomp stage needs to recreate in its
+		;  entrypoints part exactly what we have here.)
+device_header:
+.next:
+	fill 2, -1, jmp strict short j_zero_entrypoint
+	dw -1
+.attributes:
+	dw 8000h			; character device
+.strategy:
+	dw .strategy_entry		; -> strategy entry
+.interrupt:
+	dw .interrupt_entry		; -> interrupt entry
+.name:
+	fill 8, 32, db "TESTPL$$"	; character device name
+.strategy_entry:
+	fill 4, 90h, jmp device_entrypoint
+.interrupt_entry:
+	fill 4, 90h, retf
 
-	jmp common_entrypoint
+
+j_zero_entrypoint:
+	jmp zero_entrypoint
 
 
 	nop
@@ -134,6 +151,8 @@ kernel_entrypoint:
 	push ax	; +20 IP
 
 common_entrypoint:
+	push es	; +18 ES
+	push bx	; +16 BX
 	cmp word [cs:signature], 2638h
 	je sig1_valid
 	jmp sig_invalid
@@ -157,6 +176,7 @@ dos_exe_entrypoint:
 	sub ax, .push_ip - dos_exe_entrypoint
 	push ax	; +20 IP
 
+dos_com_entrypoint:
 	mov byte [cs:100h + loadmode], 1
 	mov ax, cs
 	add ax, 10h	; simulate kernel loading
@@ -164,6 +184,38 @@ dos_exe_entrypoint:
 	mov ax, common_entrypoint
 	push ax
 	retf		; jump to cs + 10h : common_entrypoint
+
+
+zero_entrypoint:
+		; S0 +28
+	pushf	; +26
+	push ax	; +24
+	push cs	; +22
+	call .push_ip
+.push_ip:
+	pop ax
+	sub ax, .push_ip
+	push ax	; +20 IP
+
+	cmp ax, 100h
+	je dos_com_entrypoint
+
+	jmp common_entrypoint
+
+
+device_entrypoint:
+	pushf
+	push ax
+	push cs
+	call .push_ip
+.push_ip:
+	pop ax
+	sub ax, .push_ip - device_header.strategy_entry
+	push ax
+	mov byte [cs:loadmode], 2
+	mov word [cs:dev_sp], sp
+	mov word [cs:dev_exit], dev_exit.1
+	jmp common_entrypoint
 
 
 sig_invalid:
@@ -189,7 +241,9 @@ msg:
 .psp_and_size_before:	asciz "PSP at "
 .psp_and_size_between:	asciz "h, size of memory block is "
 .psp_and_size_after:	asciz "h paragraphs.",13,10
-.cmdline_before:	asciz "Kernel command line = ",'"'
+.cmdline_before.kern:	asciz "Kernel command line = ",'"'
+.cmdline_before.app:	asciz "Application command line = ",'"'
+.cmdline_before.device:	asciz "Device command line = ",'"'
 .cmdline_after:		asciz '"',13,10
 
 	align 4
@@ -215,8 +269,42 @@ msg:
 .name_quote:	asciz '"'
 .name_after:	asciz 13,10
 
-	align 2
-loadmode:	dw 0		; 0 = loaded as boot payload, 1 = loaded in DOS
+	align 4
+dev_request_header:
+		dd 0
+loadmode:	dw 0		; 0 = loaded as boot payload,
+				; 1 = loaded as DOS application,
+				; 2 = loaded as DOS device driver
+dev_sp:		dw 0
+dev_exit:	dw 0
+.1:
+	mov sp, word [cs:dev_sp]
+	jmp .common_1
+
+.2:	mov sp, word [cs:dev_sp]
+	jmp .common_2
+
+.common_2:
+	pop ax			; ss
+	pop ds
+	pop ax			; sp
+	pop bp
+	pop di
+	pop si
+	pop dx
+	pop cx
+
+.common_1:
+	pop bx			; bx
+	pop es			; es
+	pop ax			; (IP)
+	pop ax			; (CS)
+	pop ax			; ax
+	mov word [es:bx + 3], 8103h
+				; error, done, error code: unknown command
+	popf			; flags
+	retf			; far return to DOS
+
 
 error:
 	push cs
@@ -225,6 +313,11 @@ error:
 	call disp_msg
 	pop si
 	call disp_msg
+	test byte [cs:loadmode], 2
+	jz .dos_or_bios
+	jmp near [cs:dev_exit]
+
+.dos_or_bios:
 	test byte [cs:loadmode], 1
 	jz .bios
 
@@ -262,7 +355,7 @@ disp_al:
 	push bx
 	push dx
 	push bp
-	test byte [cs:loadmode], 1
+	test byte [cs:loadmode], 1 | 2
 	jz .bios
 
 	mov dl, al
@@ -283,6 +376,18 @@ disp_al:
 @@:
 	retn
 
+disp_msg_length:
+	push cx
+	jcxz .ret
+.loop:
+	lodsb
+	call disp_al
+	loop .loop
+.ret:
+	pop cx
+	retn
+
+
 sig_valid:
 		; S0 +28
 ;	pushf	; +26
@@ -293,20 +398,39 @@ sig_valid:
 ;	pop ax
 ;	sub ax, .push_ip
 ;	push ax	; +20 IP
+;	push es	; +18
+;	push bx	; +16
 	sti
 	cld
-	push bx	; +18
-	push cx	; +16
-	push dx	; +14
-	push si	; +12
-	push di	; +10
-	push bp	; +8
+	push cx	; +14
+	push dx	; +12
+	push si	; +10
+	push di	; +8
+	push bp	; +6
 	mov ax, sp
-	add ax, 20
-	push ax	; +6 SP
-	push ds	; +4
-	push es	; +2
+	add ax, 22
+	push ax	; +4 SP
+	push ds	; +2
 	push ss	; +0
+
+	test byte [cs:loadmode], 2
+	jz @F
+
+	mov word [cs:dev_sp], sp
+	mov word [cs:dev_exit], dev_exit.2
+	mov word [cs:dev_request_header], bx
+	mov word [cs:dev_request_header + 2], es
+
+	cmp byte [es:bx + 2], 0		; command code 0 (init) ?
+	jne dev_exit.2			; else immediately return -->
+
+	mov byte [es:bx + 13], 0	; number of units = 0
+	mov word [es:bx + 14 + 2], cs
+	and word [es:bx + 14], 0	; -> after end of memory to allocate
+	or word [cs:device_header.next], -1
+					; fill in offset of device header link
+@@:
+
 	mov si, sp
 	 push ss
 	 pop ds
@@ -333,7 +457,7 @@ loop_table:
 	jb loop_table
 
 listnames:
-	test byte [cs:loadmode], 1
+	test byte [cs:loadmode], 1 | 2
 	jnz .skip
 
 	mov bx, msg.names
@@ -402,11 +526,54 @@ listnames:
 	mov si, msg.psp_and_size_after
 	call disp_msg
 
+
+	mov si, msg.cmdline_before.app
+	call disp_msg
+
+	mov ah, 51h
+	int 21h
+	mov ds, bx
+	mov si, 81h
+	xor cx, cx
+	mov cl, byte [si - 1]
+	call disp_msg_length
+
+	push cs
+	pop ds
+	mov si, msg.cmdline_after
+	call disp_msg
+
 	jmp @F
 
 .skip_psp_dos:
+	test byte [cs:loadmode], 2
+	jz .skip_device
 
-	mov si, msg.cmdline_before
+	mov si, msg.cmdline_before.device
+	call disp_msg
+
+	les bx, [cs:dev_request_header]
+	les di, [es:bx + 18]
+	push es
+	pop ds
+	mov si, di
+	mov al, 13
+	mov cx, -1
+	repne scasb
+	dec di				; -> at 13
+	sub di, si
+	mov cx, di
+	call disp_msg_length
+
+	push cs
+	pop ds
+	mov si, msg.cmdline_after
+	call disp_msg
+
+	jmp @F
+
+.skip_device:
+	mov si, msg.cmdline_before.kern
 	call disp_msg
 
 	push ss
@@ -422,6 +589,12 @@ listnames:
 @@:
 	int3
 
+	test byte [cs:loadmode], 2
+	jz .dos_or_bios
+
+	jmp near [cs:dev_exit]
+
+.dos_or_bios:
 	test byte [cs:loadmode], 1
 	jz .bios
 
@@ -608,21 +781,21 @@ convert_name_to_asciz:
 	align 4
 table:
 	dw  +0, "SS"
-	dw  +8, "BP"
-	dw  +6, "SP"
+	dw  +6, "BP"
+	dw  +4, "SP"
 	dw +22, "CS"
 	dw +20, "IP"
 	dw +26, "FL"
 	db -1, -1, 13,10
-	dw  +4, "DS"
-	dw +12, "SI"
-	dw  +2, "ES"
-	dw +10, "DI"
+	dw  +2, "DS"
+	dw +10, "SI"
+	dw +18, "ES"
+	dw  +8, "DI"
 	db -1, -1, 13,10
 	dw +24, "AX"
-	dw +18, "BX"
-	dw +16, "CX"
-	dw +14, "DX"
+	dw +16, "BX"
+	dw +14, "CX"
+	dw +12, "DX"
 	db -1, -1, 13,10
 	dw +28, "S0"
 	dw +30, "S1"
