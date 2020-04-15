@@ -78,7 +78,7 @@ ldLoadUntilSeg:	resw 1
 		;  keep the stack given to us by iniload; if zero, set up the
 		;  stack specified by _IMAGE_EXE_SS and _IMAGE_EXE_SP.
 	numdef DEVICE,			0
-	strdef DEVICE_NAME,		""
+	gendef DEVICE_NAME,		""
 	numdef DEVICE_ATTRIBUTE,	8000h
 	numdef DEVICE_ZERO_ENTRYPOINT,	0
 %if _DEVICE
