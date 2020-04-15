@@ -77,6 +77,15 @@ ldLoadUntilSeg:	resw 1
 		;  the same name. This one is only used as a flag; if non-zero,
 		;  keep the stack given to us by iniload; if zero, set up the
 		;  stack specified by _IMAGE_EXE_SS and _IMAGE_EXE_SP.
+	numdef DEVICE,			0
+	strdef DEVICE_NAME,		""
+	numdef DEVICE_ATTRIBUTE,	8000h
+	numdef DEVICE_ZERO_ENTRYPOINT,	0
+%if _DEVICE
+ %ifidn _DEVICE_NAME, ""
+  %error Device name must be set
+ %endif
+%endif
 
 	numdef BRIEFLZ,		0
 	numdef LZ4,		0
@@ -117,8 +126,41 @@ ldLoadUntilSeg:	resw 1
 	cpu 8086
 	section INIT0 start=0 vstart=0
 init0_start:
+%if _DEVICE
+		; The device header is of a fixed format.
+		;  For our purposes, the 4-byte code for
+		;  each the strategy entry and the
+		;  interrupt entry is part of this format.
+		; (DOS may read the attributes or entrypoint
+		;  offsets before calling either, so in the inicomp
+		;  stage we need to recreate in the entrypoints part
+		;  exactly what the application has here.)
+device_header:
+.next:
+ %if _DEVICE_ZERO_ENTRYPOINT
+	fill 2, -1, jmp strict short j_zero_entrypoint
+	dw -1
+ %else
+	dd -1
+ %endif
+.attributes:
+	dw _DEVICE_ATTRIBUTE		; character device
+.strategy:
+	dw .strategy_entry		; -> strategy entry
+.interrupt:
+	dw .interrupt_entry		; -> interrupt entry
+.name:
+	fill 8, 32, db _DEVICE_NAME	; character device name
+.strategy_entry:
+	fill 4, 90h, jmp device_entrypoint
+.interrupt_entry:
+	fill 4, 90h, retf
+%endif
 
-%if _IMAGE_EXE
+
+j_zero_entrypoint:
+
+%if _IMAGE_EXE || _DEVICE
 	nop
 	align 32, nop
 init0_kernel_entry:
@@ -141,6 +183,7 @@ init0_kernel_entry:
 	mov si, 60h		; => destination
 	jmp init0_common
 
+ %if _IMAGE_EXE
 	align 64, nop
 init0_exe_entry:
 		; NOTE:	This part is called with ip = 256 + 64, cs = PSP.
@@ -154,6 +197,7 @@ init0_exe_entry:
 	add ax, (256 + (init0_end - init0_start)) >> 4	; => source
 	mov si, cs
 	add si, 256 >> 4	; => destination
+ %endif
 
 init0_common:
 		; NOTE:	This part must be position-independent, as it is
@@ -225,6 +269,114 @@ init0_common:
 	int 21h
 	mov ax, 4CFFh
 	int 21h
+%endif
+
+
+%if _DEVICE
+device_entrypoint:
+%if _TEST_PROGRAM
+@@:
+	int3
+	sti
+	hlt
+	jmp @B
+%endif
+	cmp byte [es:bx + 2], 0		; command code 0 (init) ?
+	je @F
+
+	mov word [es:bx + 3], 8103h	; error, done, code: unknown command
+	retf
+
+@@:
+	or word [cs:device_header.next], -1
+	push cs
+	push word [cs:device_header.strategy]
+					; -> far return to payload's strategy
+	push bp
+	push ds
+	push si
+	push di
+	push dx
+	push cx
+	push ax
+	push bx
+	push es
+
+	mov ax, word [es:bx + 14 + 2]
+	xor dx, dx
+	mov cx, 4
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+	add ax, word [es:bx + 14]
+	adc dx, 0		; dx:ax = linear address behind end
+
+	mov cl, 4
+@@:
+	shr dx, 1
+	rcr ax, 1
+	loop @B			; ax => behind end
+
+	mov di, cs
+image_size: equ  ( (init0_end - init0_start) \
+		+ (payload_end - payload) \
+		+ (init1_end - init1_start) \
+		)
+	add di, image_size >> 4		; di => end of image
+
+	cmp ax, di			; enough memory to hold all of us ?
+	jae .have_some_memory		; yes -->
+
+	push cs
+	pop ds
+	mov dx, .msg_no_memory
+	mov ah, 09h
+	int 21h
+
+	mov ax, 3000h
+	int 21h
+	cmp al, 5
+	jae @F
+	mov dx, .msg_dos_below_5
+	mov ah, 09h
+	int 21h
+@@:
+
+	mov dx, .msg_linebreak
+	mov ah, 09h
+	int 21h
+
+		; tear down the stack frame and modify the request header
+	pop es
+	pop bx
+	mov word [es:bx + 3], 8103h	; set error, done, invalid command
+	mov byte [es:bx + 13], 0	; set number of units = 0
+	mov word [es:bx + 14 + 2], cs
+	and word [es:bx + 14], 0	; -> after end of memory to allocate
+	pop ax
+	pop cx
+	pop dx
+	pop di
+	pop si
+	pop ds
+	pop bp
+	add sp, 4		; discard far return to payload's strategy
+	retf			; return to DOS
+
+.msg_no_memory:		ascic "Load error: Not enough memory."
+.msg_dos_below_5:	ascic " Note: DOS must be at least version 5."
+.msg_linebreak:		ascic 13,10
+
+
+.have_some_memory:
+	mov dx, ax		; => after end of memory
+	mov bx, 2		; device mode
+	push ax
+	mov ax, cs
+	add ax, (init0_end - init0_start) >> 4
+	mov si, cs		; => destination
+	jmp init0_common
 %endif
 
 
@@ -372,20 +524,27 @@ payload_end:
 init1_start:
 		; INP:	ax = cs = INIT1
 		;	dx = cs - (payload_end - payload) >> 4 => source data
-		;	if not _IMAGE_EXE, or if kernel mode:
+		;	if kernel mode:
 		;	 ss:bp -> LOADDATA and LOADSTACKVARS
 		;	 ss:sp -> valid stack above [bp + ldLoadTop]
 		;	 60h => destination
-		;	if _IMAGE_EXE, either mode:
+		;	any mode:
 		;	 word [ss:sp] = value for ax
-		;	 bx = 1 if EXE mode, 0 if kernel mode
+		;	 bx = 2 if device mode, 1 if EXE mode, 0 if kernel mode
 		;	 si => destination (60h for kernel mode,
-		;				after PSP for EXE mode)
+		;		after PSP for EXE mode,
+		;		at device header for device mode)
 		;	 if EXE mode:
 		;	  ss:sp -> valid stack above INIT1
 		;	  bp = unset
+		;	 if device mode:
+		;	  ss:sp -> device entrypoint stack
+		;	  holds: es, bx, ax, cx, dx, di, si, ds, bp,
+		;		  far address of payload strategy entrypoint,
+		;		  far return address to DOS
+		;	  bp = unset
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
-%if _IMAGE_EXE
+%if _IMAGE_EXE || _DEVICE
 	lframe
 	lenter
 	lvar word,	exemode		; must be bp - 2!
@@ -453,10 +612,33 @@ init1_start:
 	nop
 %endif
 
+%if _DEVICE
+	test bl, 2
+	jz .jmp_exe_or_kernel_mode
+
+.jmp_device_mode:
+	mov ds, si
+	or word [device_header.next], -1
+	pop es
+	pop bx
+	pop ax
+	pop cx
+	pop dx
+	pop di
+	pop si
+	pop ds
+	pop bp
+	retf			; transfer to payload strategy entrypoint
+				; still on stack: far return address to DOS
+
+.jmp_exe_or_kernel_mode:
+%endif
+
 %if _IMAGE_EXE
-	test bx, 1
+	test bl, 1
 	jz .jmp_kernel_mode
 
+.jmp_exe_mode:
 %if ! _IMAGE_EXE_AUTO_STACK
 	mov cx, cs
 	lea dx, [si + _IMAGE_EXE_SS]
@@ -500,8 +682,8 @@ init1_start:
 	push cx
 	retf			; jump to EXE mode of image
 
-.jmp_kernel_mode:
 %endif
+.jmp_kernel_mode:
 	jmp 60h + _EXEC_SEGMENT:_EXEC_OFFSET
 
 
@@ -519,6 +701,46 @@ error:
 %endif
 	call disp_error
 
+%if _DEVICE
+	test byte [bp - 2], 2
+	jz .exit_app_or_kernel
+
+	pop si				; => device segment
+	pop bx				; mode word
+	pop bp
+	pop ax
+	mov es, si
+	xor di, di			; -> device header
+	 push cs
+	 pop ds
+	mov si, device_header_copy	; -> to reset header
+	mov cx, words(device_header_copy.length)
+	rep movsw		; overwrite device header with default
+				;  (reset to a valid state after unsuccessful
+				;  decompression, which may have partially
+				;  written the header already)
+	 push es
+	 pop ds				; -> device segment
+	pop es
+	pop bx
+	mov word [es:bx + 3], 8103h	; set error, done, invalid command
+	mov byte [es:bx + 13], 0	; set number of units = 0
+	mov word [es:bx + 14 + 2], ds
+	and word [es:bx + 14], 0	; -> after end of memory to allocate
+	pop ax
+	pop cx
+	pop dx
+	pop di
+	pop si
+	pop ds
+	pop bp
+	add sp, 4		; discard far return to payload's strategy
+	retf			; return to DOS
+
+
+.exit_app_or_kernel:
+%endif
+
 %if _IMAGE_EXE
 	test byte [bp - 2], 1
 	jz .exit_kernel_mode
@@ -531,6 +753,33 @@ error:
 	xor ax, ax
 	int 16h
 	int 19h
+
+
+%if _DEVICE
+	align 16
+device_header_copy:
+.:
+.next:
+	dd -1				; already initialised
+.attributes:
+	dw _DEVICE_ATTRIBUTE		; character device
+.strategy:
+	dw .strategy_entry		; -> strategy entry
+.interrupt:
+	dw .interrupt_entry		; -> interrupt entry
+.name:
+	fill 8, 32, db _DEVICE_NAME	; character device name
+.strategy_entry:
+	fill 4, 90h, jmp .set_error
+.interrupt_entry:
+	fill 4, 90h, retf
+
+.set_error:
+	mov word [es:bx + 3], 8103h	; set error, done, invalid command
+	retf
+.length: equ $ - .
+%endif
+
 
 disp_error:
 .:
@@ -574,10 +823,10 @@ disp_al:
 %endif
 	push bx
 	push bp
-%if _IMAGE_EXE
+%if _IMAGE_EXE || _DEVICE
 	push dx
 
-	test byte [bp - 2], 1
+	test byte [bp - 2], 1 | 2
 	jz .display_kernel_mode
 
 	mov dl, al
