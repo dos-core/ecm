@@ -764,13 +764,13 @@ device_header_copy:
 .next:
 	dd -1				; already initialised
 .attributes:
-	dw _DEVICE_ATTRIBUTE		; character device
+	dw _DEVICE_ATTRIBUTE
 .strategy:
 	dw .strategy_entry		; -> strategy entry
 .interrupt:
 	dw .interrupt_entry		; -> interrupt entry
 .name:
-	fill 8, 32, db _DEVICE_NAME	; character device name
+	fill 8, 32, db _DEVICE_NAME
 .strategy_entry:
 	fill 4, 90h, jmp .set_error
 .interrupt_entry:
