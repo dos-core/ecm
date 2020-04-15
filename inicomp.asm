@@ -141,16 +141,18 @@ device_header:
 	fill 2, -1, jmp strict short j_zero_entrypoint
 	dw -1
  %else
-	dd -1
+	dd -1				; link to next device
  %endif
 .attributes:
-	dw _DEVICE_ATTRIBUTE		; character device
+	dw _DEVICE_ATTRIBUTE		; attributes
 .strategy:
 	dw .strategy_entry		; -> strategy entry
 .interrupt:
 	dw .interrupt_entry		; -> interrupt entry
 .name:
-	fill 8, 32, db _DEVICE_NAME	; character device name
+	fill 8, 32, db _DEVICE_NAME	; character device name,
+					;  or block device number of units
+					;  + optional name
 .strategy_entry:
 	fill 4, 90h, jmp device_entrypoint
 .interrupt_entry:
