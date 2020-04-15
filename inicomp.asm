@@ -766,9 +766,9 @@ device_header_copy:
 .attributes:
 	dw _DEVICE_ATTRIBUTE
 .strategy:
-	dw .strategy_entry		; -> strategy entry
+	dw .strategy_entry - .		; -> strategy entry
 .interrupt:
-	dw .interrupt_entry		; -> interrupt entry
+	dw .interrupt_entry - .		; -> interrupt entry
 .name:
 	fill 8, 32, db _DEVICE_NAME
 .strategy_entry:
