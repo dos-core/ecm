@@ -562,7 +562,7 @@ Range_decoder.decode_len:
 		; INP:	ds:bx -> lz_decoder structure, localvariables structure
 		;	dx:ax = distance
 		; OUT:	al = ax = byte from buffer
-		; CHG:	dx, cx, di, es
+		; CHG:	dx, cx, di, si, es
 LZ_decoder.peek:
 	cmp word [bx + lz_decoder.pos + 2], dx
 	jne @F
@@ -570,6 +570,24 @@ LZ_decoder.peek:
 @@:
 	jna .not_pos_above_distance
 
+	call calculate_peek_pointer_disi
+
+	xchg si, di			; si:di -> peek address
+	mov es, si			; es:di -> peek address
+	xor ax, ax
+	mov al, byte [es:di]
+	retn
+
+.not_pos_above_distance:
+	xor ax, ax
+	retn
+
+
+		; INP:	dx:ax = peek distance
+		;	ds:bx -> local variables
+		; OUT:	di:si -> peek address
+		; CHG:	cx, dx, ax
+calculate_peek_pointer_disi:
 	push bx
 	 push word [bx + destinationbuffer_constant + 2]
 	 push word [bx + destinationbuffer_constant]
@@ -579,23 +597,17 @@ LZ_decoder.peek:
 	xchg bx, dx
 	neg bx
 	neg cx
-	sbb bx, byte 0		; neg bx:cx = - distance
+	sbb bx, byte 0			; neg bx:cx = - distance
 	sub cx, 1
-	sbb bx, 0		; - 1
+	sbb bx, 0			; - 1
 	add cx, word [di + lz_decoder.pos]
 	adc bx, word [di + lz_decoder.pos + 2]
-				; + pos
+					; + pos
 
 	call normalise_pointer_with_displacement_bxcx
-	 pop di
-	 pop es
+	 pop si
+	 pop di				; di:si -> source
 	pop bx
-	xor ax, ax
-	mov al, byte [es:di]
-	retn
-
-.not_pos_above_distance:
-	xor ax, ax
 	retn
 
 
@@ -1115,26 +1127,7 @@ LZ_decoder.decode_member:
 	mov dx, word [bx + rep0 + 2]
 	mov ax, word [bx + rep0]
 
-	push bx
-	 push word [bx + destinationbuffer_constant + 2]
-	 push word [bx + destinationbuffer_constant]
-
-	mov di, bx
-	xchg cx, ax
-	xchg bx, dx
-	neg bx
-	neg cx
-	sbb bx, byte 0		; neg bx:cx = - distance
-	sub cx, 1
-	sbb bx, 0		; - 1
-	add cx, word [di + lz_decoder.pos]
-	adc bx, word [di + lz_decoder.pos + 2]
-				; + pos
-
-	call normalise_pointer_with_displacement_bxcx
-	 pop si
-	 pop di				; di:si -> source
-	pop bx
+	call calculate_peek_pointer_disi
 
 	mov ax, word [bp + ?len]
 	mov dx, word [bp + ?len + 2]	; dx:ax = length
