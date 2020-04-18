@@ -1112,26 +1112,35 @@ LZ_decoder.decode_member:
 	jae short .error
 
 .handle_match:
-	cmp word [bp + ?len + 2], 0
-	jne @F
-	cmp word [bp + ?len], 0
-@@:
-	je .handle_match_empty
-
-@@:
 	mov dx, word [bx + rep0 + 2]
 	mov ax, word [bx + rep0]
-	call LZ_decoder.peek
-	call LZ_decoder.put_byte
-.error_CY_12:
-	jc short .error
-	sub word [bp + ?len], 1
-	sbb word [bp + ?len + 2], 0
-	jnz @B
-	cmp word [bp + ?len], 0
-	jne @B
 
-.handle_match_empty:
+	push bx
+	 push word [bx + destinationbuffer_constant + 2]
+	 push word [bx + destinationbuffer_constant]
+
+	mov di, bx
+	xchg cx, ax
+	xchg bx, dx
+	neg bx
+	neg cx
+	sbb bx, byte 0		; neg bx:cx = - distance
+	sub cx, 1
+	sbb bx, 0		; - 1
+	add cx, word [di + lz_decoder.pos]
+	adc bx, word [di + lz_decoder.pos + 2]
+				; + pos
+
+	call normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop di				; di:si -> source
+	pop bx
+
+	mov ax, word [bp + ?len]
+	mov dx, word [bp + ?len + 2]	; dx:ax = length
+	call handle_match
+.error_CY_12:
+	jc short .error			; error -->
 	jmp .loop
 
 
@@ -1582,6 +1591,78 @@ LZ_decoder.put_byte:
 	clc			; (NC)
 %endif
 .ret:
+	pop bp
+	retn
+
+
+		; INP:	dx:ax = length of match
+		;	di:si -> source (normalised)
+		;	ds:bx -> local variables structure
+		;	ss:word [bx + framepointer] -> depack stack frame
+		;		with ?length_of_destination, ?dst
+		; OUT:	NC if success,
+		;	 ?length_of_destination and ?dst updated
+		;	CY if error
+		;	 (destination buffer too small or overlap error)
+		; CHG:	ax, cx, dx, di, si, es
+handle_match:
+	push bp
+	push ds
+	mov bp, word [bx + framepointer]
+
+	add word [bx + lz_decoder.pos], ax
+	adc word [bx + lz_decoder.pos + 2], dx
+	jc short .ret_pop		; (CY) -->
+
+	sub word [bp + ?length_of_destination], ax
+	sbb word [bp + ?length_of_destination + 2], dx
+					; enough space left ?
+	jb short .ret_pop		; no --> (below == CY)
+
+	mov ds, di			; ds:si -> source
+	les di, [bp + ?dst]		; es:di -> destination
+.loop:
+	mov cx, 64 * 1024 - 16		; block size
+		; If both pointers are normalised, moving 0FFF0h bytes is
+		;  valid and results in a maximum offset of 0FFFFh in either.
+
+	test dx, dx			; >= 1_0000h ?
+	jnz @F				; yes, full block -->
+	test ax, ax			; == 0 ?
+	jz .end				; yes, done -->
+	cmp ax, cx			; can move in one (last) block ?
+	jbe .last			; yes -->
+@@:
+					; no, move one block and continue
+	sub ax, cx
+	sbb dx, 0			; left over remaining
+	jmp .copy
+
+.last:
+	xchg cx, ax			; cx = remaining length
+	xor ax, ax			; no more remaining
+
+.copy:
+	rep movsb			; move one block (full or partial)
+
+	call normalise_both_pointers
+	jmp .loop
+
+.end:
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es
+	;	mov ax, es
+	;	cmp ax, word [bp + ?dst_max_segment]
+	;	jae depack.end
+%if _ALLOW_OVERLAPPING
+	push bx
+	call check_pointers_not_overlapping
+	pop bx				; returns CF
+%else
+	clc				; (NC)
+%endif
+.ret_pop:
+	pop ds
 	pop bp
 	retn
 
