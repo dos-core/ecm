@@ -1594,6 +1594,7 @@ LZ_decoder.put_byte:
 		;	 ?length_of_destination and ?dst updated
 		;	CY if error
 		;	 (destination buffer too small or overlap error)
+		;	! may jump to depack.end if ?dst_max_segment reached
 		; CHG:	ax, cx, dx, di, si, es
 handle_match:
 	push bp
