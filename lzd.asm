@@ -1641,9 +1641,11 @@ handle_match:
 .end:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
-	;	mov ax, es
-	;	cmp ax, word [bp + ?dst_max_segment]
-	;	jae depack.end
+	mov ax, es
+	cmp ax, word [bp + ?dst_max_segment]
+	jae depack.end
+		; note that we have the depack stack frame pointed to by
+		;  ss:bp here, which is needed for running depack.end
 %if _ALLOW_OVERLAPPING
 	push bx
 	call check_pointers_not_overlapping
