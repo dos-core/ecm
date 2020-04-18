@@ -1452,9 +1452,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 
 .end:
 
-
-		; ds:si -> data
-		; bx:ax = length of data
 .final:
 %if _COUNTER
 	push ax
