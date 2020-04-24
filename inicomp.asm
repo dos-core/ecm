@@ -94,7 +94,9 @@ ldLoadUntilSeg:	resw 1
 	numdef X,		0
 	numdef HEATSHRINK,	0
 	numdef LZD,		0
-%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK + !!_LZD) != 1
+	numdef LZO,		0
+%if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
+	+ !!_LZD + !!_LZO) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -112,6 +114,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.HS"
 %elif _LZD
 	strdef PAYLOAD_FILE,	"lDOSLOAD.LZ"
+%elif _LZO
+	strdef PAYLOAD_FILE,	"lDOSLOAD.LZO"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! _IMAGE_EXE
@@ -899,6 +903,11 @@ msg:
 %endif
 
 
+%if _LZO
+	%include "lzo.asm"
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
@@ -1113,6 +1122,8 @@ init0_end:
 %define which inihs
 %elif _LZD
 %define which inilz
+%elif _LZO
+%define which inilzo
 %endif
 %warning which: num bytes used for depacker
 
