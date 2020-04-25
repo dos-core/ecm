@@ -119,7 +119,6 @@ depack:
 	 push bx		; initialise both to zero
 %endif
 	lvar word,	state
-	lvar word,	instruction
 	lvar dword,	length_of_uncompressed
 	lvar dword,	length_of_compressed
 	lvar dword,	after_end_length_of_source
@@ -478,7 +477,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov cx, 1
 	call read_le_data_src
 	mov ah, 0
-	mov word [bp + ?instruction], ax
 	cmp al, 16
 	jae .not_normal
 
@@ -552,6 +550,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	ja .not_0001
 
 .0001:
+	push ax
 	mov dx, 7
 	mov bx, ax
 	call get_length
@@ -562,7 +561,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 
 	call read_le_data_src		; read D{14} S S
 	jc .error
-	mov dx, word [bp + ?instruction]
+	pop dx
 	and dx, 0000_0000_0000_1000b
 	mov cl, 14 - 3
 	shl dx, cl
