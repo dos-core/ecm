@@ -983,6 +983,7 @@ read_be_data_src:
 
 	lds si, [bp + ?src]
 
+	push si
 	cmp cx, 3
 	jb .1_or_2
 	je .3
@@ -1023,7 +1024,7 @@ read_be_data_src:
 	lodsb
 .common:
 
-	sub si, 4
+	pop si
 	add si, cx
 
 	 push ds
