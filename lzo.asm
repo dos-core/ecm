@@ -247,6 +247,12 @@ d0	mov bx, word [bp + ?errordata]
 	repe cmpsb
 	jne .error
 
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+
 	mov cl, 2
 	call read_be_data_src		; get version
 d0	mov byte [bp + ?errordata], 1
