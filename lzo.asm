@@ -15,6 +15,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %include "lmacros3.mac"
 
+	numdef LZO_SUPPORT_RLE,	0
+
 
 lzop_signature:
 .:
@@ -425,7 +427,9 @@ d0	mov byte [bp + ?errordata], 1
 
 	xor ax, ax
 	mov word [bp + ?state], ax
+%if _LZO_SUPPORT_RLE
 	mov byte [bp + ?version], al
+%endif
 
 .first:
 	mov cx, 1
@@ -435,7 +439,11 @@ d0	mov byte [bp + ?errordata], 1
 	je .error
 	cmp al, 17
 	jb .normal
+%if _LZO_SUPPORT_RLE
 	je .version
+%else
+	je .error
+%endif
 
 %if 0
 
@@ -466,11 +474,13 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jmp .literals
 
 
+%if _LZO_SUPPORT_RLE
 .version:
 	call read_le_data_src
 	cmp al, 1
 	ja .error
 	mov byte [bp + ?version], al
+%endif
 
 
 .loop:
@@ -578,6 +588,13 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	cmp ax, 16384
 	je .end_frame
 
+
+		; Note: We already parsed the length here. If the length
+		;  was initially zero, then this implementation may differ
+		;  from the Linux kernel one's described in the text, which
+		;  seems to not parse the length the normal way at all if
+		;  there appears to be a zero run (H and all D bits = 1).
+%if _LZO_SUPPORT_RLE
 	cmp byte [bp + ?version], 1
 	jb @F
 	cmp ax, 0BFFFh
@@ -594,6 +611,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jmp .zeros_run
 
 @@:
+%endif
 	jmp .match
 
 
@@ -688,6 +706,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jmp .match
 
 
+%if _LZO_SUPPORT_RLE
 		; INP:	ax = length
 .zeros_run:
 	les di, [bp + ?dst]
@@ -718,6 +737,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	 pop word [bp + ?dst]
 	 pop word [bp + ?dst + 2]
 	jmp .next
+%endif
 
 
 		; INP:	ax = length
