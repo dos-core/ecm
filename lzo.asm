@@ -70,6 +70,10 @@ lzopfCompressedSize:		resd 1
 		; actual stream follows
 	endstruc
 
+; The stream format was implemented going by the description
+;  in https://www.kernel.org/doc/Documentation/lzo.txt
+; The header and frame format was gleaned from lzop.
+
 
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
