@@ -437,6 +437,29 @@ d0	mov byte [bp + ?errordata], 1
 	cmp al, 17
 	jb .normal
 	je .version
+
+%if 0
+
+The description text specifies the following for this value:
+
+      18..21  : copy 0..3 literals
+                state = (byte - 17) = 0..3  [ copy <state> literals ]
+                skip byte
+
+      22..255 : copy literal string
+                length = (byte - 17) = 4..238
+                state = 4 [ don't copy extra literals ]
+                skip byte
+
+The "byte - 17" part is correct. Listing "18..21" as copying "0..3 literals"
+is incorrect. 17 would encode copying "zero" literals, but does not occur.
+18 encodes copying 1 literal, 19 then 2 literals, 20 for 3 literals, 21
+for 4 literals. The description should read "18..21" as "copy 1..4 literals".
+Likewise, 22 indicates "copying 5 literals", not "4 literals". However, the
+state is indeed always set to "byte - 17" (which for 21 results in 4 too).
+
+%endif
+
 	sub al, 17
 	cmp al, 4
 	jae .literals_and_state_4
