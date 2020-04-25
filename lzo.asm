@@ -463,6 +463,7 @@ d0	mov byte [bp + ?errordata], 1
 	mov dx, 15
 	mov bx, ax
 	call get_length
+	mov ax, bx
 	jc .error
 	add ax, 3
 	jc .error
@@ -529,9 +530,8 @@ d0	mov byte [bp + ?errordata], 1
 	call get_length
 	mov cx, 2			; cx = 2
 	jc .error
-	add ax, cx			; length = 2 + encoded length
+	add bx, cx			; length = 2 + encoded length
 	jc .error
-	mov bx, ax
 
 	call read_le_data_src		; read D{14} S S
 	jc .error
@@ -581,9 +581,8 @@ d0	mov byte [bp + ?errordata], 1
 	call get_length
 	mov cx, 2
 	jc .error
-	add ax, cx			; length = 2 + encoded length
+	add bx, cx			; length = 2 + encoded length
 	jc .error
-	mov bx, ax
 
 	call read_le_data_src
 	jc .error
@@ -810,7 +809,6 @@ check_limits:
 		; CHG:	ax, cx, dx
 get_length:
 	and bx, dx		; (NC)
-	mov ax, bx
 	jnz .ret
 
 .loop:
