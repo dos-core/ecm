@@ -639,7 +639,7 @@ d0	mov byte [bp + ?errordata], 1
 
 	mov bx, ax
 	mov cl, 5
-	shl bx, cl
+	shr bx, cl
 	and bl, 3
 	add bl, 5
 
