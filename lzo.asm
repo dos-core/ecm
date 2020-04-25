@@ -306,6 +306,10 @@ d0	mov byte [bp + ?errordata], 1
 	call read_be_data_src		; skip filename
 	jc .error
 
+	mov cl, 4
+	call read_be_data_src		; skip header checksum
+	jc .error
+
 .loop_frame:
 	mov cx, 4
 	call read_be_data_src		; uncompressed size
