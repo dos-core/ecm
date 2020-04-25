@@ -987,8 +987,6 @@ read_le_data_src:
 		;	CY if error (source buffer too small, or cx zero)
 		;	NC if success
 		; CHG:	ds, si, dx, ax
-		;
-		; Note:	Always reads four bytes at INP:ds:si -> data.
 read_be_data_src:
 	jcxz .error
 
