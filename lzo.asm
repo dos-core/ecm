@@ -121,6 +121,7 @@ depack:
 	lvar dword,	after_end_length_of_source
 	lvar dword,	after_end_length_of_destination
 	lvar dword,	flags
+	lvar dword,	original_dst
 	lenter
 
 	call normalise_both_pointers
@@ -128,9 +129,6 @@ depack:
 	lvar dword,	src
 	 push ds
 	 push si
-	lvar dword,	original_dst
-	 push es
-	 push di
 	lvar dword,	dst
 	 push es
 	 push di
@@ -200,6 +198,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 .loop_header:
+	push word [bp + ?dst + 2]
+	push word [bp + ?dst]
+	pop word [bp + ?original_dst]
+	pop word [bp + ?original_dst + 2]
+
 	xor cx, cx
 	cmp word [bp + ?length_of_source + 2], cx
 	jne @F
@@ -766,10 +769,12 @@ d0	mov byte [bp + ?errordata], 1Ch
 	push word [bp + ?after_end_length_of_destination]
 	pop word [bp + ?length_of_destination]
 	pop word [bp + ?length_of_destination + 2]
+
 	push word [bp + ?after_end_length_of_source + 2]
 	push word [bp + ?after_end_length_of_source]
 	pop word [bp + ?length_of_source]
 	pop word [bp + ?length_of_source + 2]
+
 	jmp .loop_frame
 
 
