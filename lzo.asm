@@ -320,21 +320,9 @@ d0	mov byte [bp + ?errordata], 1
 	or bx, dx
 	jz .loop_header
 
-	cmp dx, word [bp + ?length_of_destination + 2]
-	jne @F
-	cmp ax, word [bp + ?length_of_destination]
-@@:
-	ja .error
-
 	call read_be_data_src		; compressed size
 	mov word [bp + ?length_of_compressed], ax
 	mov word [bp + ?length_of_compressed + 2], dx
-
-	cmp dx, word [bp + ?length_of_source + 2]
-	jne @F
-	cmp ax, word [bp + ?length_of_source]
-@@:
-	ja .error
 
 	cmp dx, word [bp + ?length_of_uncompressed + 2]
 	jne @F
@@ -345,8 +333,6 @@ d0	mov byte [bp + ?errordata], 1
 
 		; equal: is uncompressed block
 .uncompressed:
-	push dx
-	push ax
 	xor cx, cx
 	testopt [bp + ?flags], F_ADLER32_D
 	jz @F
@@ -358,8 +344,9 @@ d0	mov byte [bp + ?errordata], 1
 @@:
 
 	call read_be_data_src		; skip checksums
-	pop ax
-	pop dx
+	jc .error
+
+	call check_limits
 	jc .error
 
 	call copy_literal_or_uncompressed
@@ -369,9 +356,6 @@ d0	mov byte [bp + ?errordata], 1
 
 
 .compressed:
-	push dx
-	push ax				; compressed size
-
 	xor cx, cx
 	testopt [bp + ?flags], F_ADLER32_D
 	jz @F
@@ -392,11 +376,11 @@ d0	mov byte [bp + ?errordata], 1
 
 	call read_be_data_src		; skip checksums
 
-	pop ax
-	pop dx
+	call check_limits
+	jc .error
 
 	push dx
-	push ax				; compressed size
+	push ax				; ?length_of_compressed
 
 	neg dx
 	neg ax
@@ -786,6 +770,35 @@ d0	mov byte [bp + ?errordata], 1Ch
 	pop word [bp + ?length_of_source + 2]
 
 	jmp .loop_frame
+
+
+		; INP:	?length_of_compressed|uncompressed|source|destination
+		; OUT:	NC if success,
+		;	 dx:ax = ?length_of_compressed
+		;	CY if error
+check_limits:
+	mov ax, word [bp + ?length_of_uncompressed]
+	mov dx, word [bp + ?length_of_uncompressed + 2]
+
+	cmp dx, word [bp + ?length_of_destination + 2]
+	jne @F
+	cmp ax, word [bp + ?length_of_destination]
+@@:
+	ja .error
+
+	mov ax, word [bp + ?length_of_compressed]
+	mov dx, word [bp + ?length_of_compressed + 2]
+
+	cmp dx, word [bp + ?length_of_source + 2]
+	jne @F
+	cmp ax, word [bp + ?length_of_source]
+@@:
+	ja .error
+
+	db __TEST_IMM8			; (NC, skip stc)
+.error:
+	stc
+	retn
 
 
 		; INP:	bx = initial length value (needs to be masked)
