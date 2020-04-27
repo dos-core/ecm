@@ -487,11 +487,8 @@ Range_decoder.decode_matched:
 		;	CY if error
 		; CHG:	cx, si
 Range_decoder.decode_len:
-	lframe near
-	lenter
 	mov si, ax		; = pos_state
-	lvar word,	len_model_struc
-	 push di
+	 push di		; = len_model_struc (on stack)
 
 	lea di, [di + len_model.choice1]
 	call Range_decoder.decode_bit
@@ -541,9 +538,8 @@ Range_decoder.decode_len:
 	adc dx, (len_low_symbols + len_mid_symbols) >> 16
 	popf
 .ret_CF:
-	 pop di			; pop from ?len_model_struc
-	lleave
-	lret
+	 pop di
+	retn
 
 .error:
 	stc
