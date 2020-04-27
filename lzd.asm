@@ -1234,14 +1234,12 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 
 	mov ax, bit_model_size * (1 << dis_slot_bits)
 	mul word [bp + ?len_state]	; first index is len_state
+		; bit_model_size = 2
+		; 1 << dis_slot_bits = 1 << 6 = 64
+		; ?len_state < 4
+		; multiplication 2 * 64 * 3 = 384
 					; dx:ax = first index into array
-	test dx, dx
-	stc
-	jnz short .error_CY_7
-
 	add di, ax			; -> 1D array at bm_dis_slot[len_state]
-.error_CY_7:
-	jc short .error_CY_8
 	mov cx, dis_slot_bits
 	call Range_decoder.decode_tree
 	mov word [bx + rep0], ax
@@ -1261,6 +1259,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	rcr ax, 1			; dis_slot >> 1
 	sub ax, 1
 	sbb dx, 0			; - 1
+.error_CY_7:
 .error_CY_8:
 	jc short .error_CY_9
 	stc
