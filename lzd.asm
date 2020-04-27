@@ -428,11 +428,12 @@ Range_decoder.decode_matched:
 	add dx, ax
 	push di
 	push ax
-	mov ax, bit_model_size
-	mul dx
-	test dx, dx
-	jnz .error
-	add di, ax
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	add dx, dx
+	jc .error
+	add di, dx
 	jc .error
 	call Range_decoder.decode_bit
 	xchg ax, cx		; cl = result (1 or 0)
