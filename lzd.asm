@@ -603,7 +603,7 @@ rep1:		resd 1
 rep2:		resd 1
 rep3:		resd 1
 state.st:	resw 1		; initialise to zero
-		alignb 16
+		alignb 4
 zeros_end:
 destinationbuffer_constant:	resd 1		; stays constant
 		alignb 16
