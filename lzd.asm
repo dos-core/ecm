@@ -631,6 +631,280 @@ bit_models_end:
 %warning localvariables has STRUCSIZE bytes
 
 
+	align 4
+lzip_header_bytes:
+.:
+	db "LZIP",1
+.length: equ $ - .
+
+
+%if _DEBUG0 || _COUNTER
+depack:
+d0	lframe near
+d0	lvar word,	errordata
+d0	lenter
+d0	and word [bp + ?errordata], 0
+	call .inner
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
+d0	pop bx				; pop from ?errordata
+d0	lleave
+	retn
+%endif
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+%if _DEBUG0 || _COUNTER
+.inner:
+%else
+depack:
+%endif
+	lframe near
+d0	lpar word,	errordata
+d0	lpar_return
+%if _IMAGE_EXE || _COUNTER
+	lenter early
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _COUNTER
+	xor bx, bx
+ %endif
+%endif
+	lvar word,	counter
+%if _COUNTER
+	 push bx		; initialise counter (high byte) to zero
+%endif
+	lvar word,	frame_descriptor_flg_and_bd
+	lvar dword,	src_behind_block
+	lvar dword,	distance
+	lvar dword,	len
+	lvar dword,	dis_slot
+	lvar word,	len_state
+	lvar word,	pos_state
+	lvar dword,	localvariables
+	lenter
+
+	call normalise_both_pointers
+
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	final_dst
+	 push es
+	 push di
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if _ALLOW_OVERLAPPING
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+
+	sub cx, localvariables_size & 0FFFFh
+	sbb bx, localvariables_size >> 16
+	jbe .error		; make variables buffer available
+
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
+
+	push es
+	push di
+	mov bx, localvariables_size >> 16
+	mov cx, localvariables_size & 0FFFFh
+	call normalise_pointer_with_displacement_bxcx
+	pop di
+	pop es
+
+	lvar dword,	original_dst
+	 push es
+	 push di
+	lvar dword,	dst
+	 push es
+	 push di
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	Unlike the other decompressors, this check is done
+		;	 after any copied match or literal too, because
+		;	 literals can presumably be encoded with less than
+		;	 one byte of source data to the range decoder.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error
+%endif
+
+
+member_min_size equ lzip_header_size + lzip_trailer_size
+
+.loop_member:
+	cmp word [bp + ?length_of_source + 2], 0
+	jne @F
+	cmp word [bp + ?length_of_source], member_min_size
+@@:
+	ja .got_member
+
+	cmp word [bp + ?length_of_source + 2], 0
+	jne @F
+	cmp word [bp + ?length_of_source], 15
+@@:
+	ja .error
+	jmp .end
+
+.got_member:
+	lds si, [bp + ?src]		; ds:si -> lzip_header.magic, .version
+	push cs
+	pop es
+	mov di, lzip_header_bytes
+	mov cx, lzip_header_bytes.length
+	repe cmpsb
+	jne .error
+	xor ax, ax
+	lodsb				; ax = lzip_header.coded_dict_size
+
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop word [bp + ?src]
+	 pop word [bp + ?src + 2]
+	sub word [bp + ?length_of_source], 6
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
+
+	push ax
+	mov cx, ax
+	mov ax, 1
+	xor dx, dx
+	and cl, 1Fh
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+
+	mov bx, dx
+	mov di, ax			; bx:di = dict_size
+	mov cl, 4
+@@:
+	shr bx, 1
+	rcr di, 1
+	loop @B				; bx:di = dict_size / 16
+	pop cx
+	mov ch, cl
+	mov cl, 5
+	shr ch, cl
+	mov cl, ch
+	mov ch, 0
+	jcxz @FF
+
+	push dx
+	push ax
+
+	mov ax, di			; ax = low word of input
+	mul cx
+	xchg ax, bx			; ax = high word of input
+	mov di, dx			; di:bx = low word + first high word
+	mul cx				; = high word
+	add di, ax			; add into sum
+	jc .error
+	test dx, dx			; overflows ?
+	jnz .error
+					; bx:di = dict_size / 16 * fraction
+	pop ax
+	pop dx
+	sub ax, bx
+	sbb dx, di
+	jc .error
+
+	cmp dx, min_dictionary_size >> 16
+	jne @F
+	cmp ax, min_dictionary_size & 0FFFFh
+@@:
+	jb .error
+
+	cmp dx, max_dictionary_size >> 16
+	jne @F
+	cmp ax, max_dictionary_size & 0FFFFh
+@@:
+	ja .error
+
+	lds bx, [bp + ?final_dst]
+	push word [bp + ?dst + 2]
+	push word [bp + ?dst]
+	pop word [bx + destinationbuffer_constant]
+	pop word [bx + destinationbuffer_constant + 2]
+
+
+		; decode_member start (inlined)
 		; INP:	ds:bx -> localvariables structure,
 		;	 destinationbuffer_constant pre-initialised
 		;	dx:ax = dictionary size
@@ -642,19 +916,11 @@ bit_models_end:
 		; OUT:	NC if success
 		;	CY if error
 		; CHG:	all
-LZ_decoder.decode_member:
-	lframe near
-	lvar dword,	distance
-	lvar dword,	len
-	lvar dword,	dis_slot
-	lvar word,	len_state
-	lvar word,	pos_state
-	lenter
-	lvar dword,	localvariables
-	 push ds
-	 push bx
+; LZ_decoder.decode_member:
+	mov word [bp + ?localvariables], bx
+	mov word [bp + ?localvariables + 2], ds
 
-	push word [bp + ?frame_bp]
+	push word bp
 	pop word [bx + framepointer]
 
 	 push dx
@@ -1070,7 +1336,7 @@ LZ_decoder.decode_member:
 	jne @F
 	cmp word [bx + rep0], -1
 @@:
-	je .end				; yes, end (marker found) -->
+	je .end_member			; yes, end (marker found) -->
 
 .after_dis_slot_below:
 
@@ -1096,7 +1362,7 @@ LZ_decoder.decode_member:
 	cmp ax, word [bx + lz_decoder.pos]
 @@:
 .error_AE_1:
-	jae short .error
+	jae short .error_1
 
 .handle_match:
 	mov dx, word [bx + rep0 + 2]
@@ -1108,294 +1374,21 @@ LZ_decoder.decode_member:
 	mov dx, word [bp + ?len + 2]	; dx:ax = length
 	call handle_match
 .error_CY_12:
-	jc short .error			; error -->
+	jc short .error_1		; error -->
 	jmp .loop
 
+.error_1:
+	jmp .error
 
-.end:				; End Of Stream marker
+
+.end_member:			; End Of Stream marker
 	cmp word [bp + ?len + 2], min_match_len >> 16
 	jne @F
 	cmp word [bp + ?len], min_match_len & 0FFFFh
 @@:
-	jne short .error
+	jne short .error_1
 
-.done:
-	db __TEST_IMM8			; (NC, skip stc)
-
-.error:
-	stc
-	lleave
-	lret
-
-
-	align 4
-lzip_header_bytes:
-.:
-	db "LZIP",1
-.length: equ $ - .
-
-
-%if _DEBUG0 || _COUNTER
-depack:
-d0	lframe near
-d0	lvar word,	errordata
-d0	lenter
-d0	and word [bp + ?errordata], 0
-	call .inner
-%if _COUNTER
-	lahf
-	mov al, 13
-	call disp_al
-	mov al, 10
-	call disp_al
-	sahf
-%endif
-d0	pop bx				; pop from ?errordata
-d0	lleave
-	retn
-%endif
-
-		; INP:	ds:si -> source
-		;	dx:cx = length of source
-		;	es:di -> destination (below source)
-		;	if _IMAGE_EXE:
-		;	 bx = EXE mode flag (bit 0)
-		;	else:
-		;	 bx = 0
-		;	ax = maximum amount in paragraphs of destination needed
-		;	 (-1 if full source should be decompressed)
-		; OUT:	NC if success
-		;	CY if error,
-		;	 bx = ?errordata (if _DEBUG0)
-		; CHG:	ax, (bx), cx, dx, es, ds, si, di
-		; STT:	UP
-		;
-		; Note:	The destination reaches up to below the source.
-		; Note:	The input pointers need not be normalised yet.
-		;	 Normalised means that the offset part is below 16.
-%if _DEBUG0 || _COUNTER
-.inner:
-%else
-depack:
-%endif
-	lframe near
-d0	lpar word,	errordata
-d0	lpar_return
-%if _IMAGE_EXE || _COUNTER
-	lenter early
- %if _IMAGE_EXE
-	lvar word,	exemode	; must be bp - 2!
-	 push bx
-  %if ?exemode != -2
-   %error exemode variable must be directly below bp
-  %endif
- %endif
- %if _COUNTER
-	xor bx, bx
- %endif
-%endif
-	lvar word,	counter
-%if _COUNTER
-	 push bx		; initialise counter (high byte) to zero
-%endif
-	lvar dword,	src_behind_block
-	lvar word,	frame_descriptor_flg_and_bd
-	lenter
-
-	call normalise_both_pointers
-
-	lvar dword,	src
-	 push ds
-	 push si
-	lvar dword,	final_dst
-	 push es
-	 push di
-	lvar dword,	length_of_source
-	 push dx
-	 push cx
-
-	cmp ax, -1		; no maximum specified ?
-	je @FF			; retain -1 in ax -->
-	test di, di		; do we need an additional paragraph ?
-	jz @F			; no -->
-	inc ax			; es + ax => paragraph after necessary part
-@@:
-	mov dx, es
-	add ax, dx		; => paragraph after necessary part
-		; If the normalised destination pointer's segment grows
-		;  to this segment then enough has been decompressed.
-d0	mov byte [bp + ?errordata], 40h
-	jc .error		; should not carry
-@@:
-	lvar word,	dst_max_segment
-	 push ax
-
-	 push ds
-	 push si
-	call pointer_to_linear
-
-	mov bx, dx
-	mov cx, ax		; bx:cx = source linear
-
-	 push es
-	 push di
-	call pointer_to_linear
-
-%if _ALLOW_OVERLAPPING
-	add cx, word [bp + ?length_of_source]
-	adc bx, word [bp + ?length_of_source + 2]
-		; In case of allowing overlapping source and destination,
-		;  the ?length_of_destination variable is set to
-		;  ?src + ?length_of_source - ?dst, allowing to write to
-		;  all of the source buffer (with the checks already in place
-		;  from the default handling). Additional checks are done by
-		;  calling check_pointers_not_overlapping. This is done after
-		;  every change of ?dst to verify that the write pointer stays
-		;  below-or-equal the read pointer.
-		; This means the remaining source data may be corrupted by a
-		;  write, but nothing after the source data is written to,
-		;  so the error handling (in INIT1 after the data) still works.
-%endif
-
-	sub cx, ax
-	sbb bx, dx		; bx:cx = source linear - destination linear
-
-	sub cx, localvariables_size & 0FFFFh
-	sbb bx, localvariables_size >> 16
-	jbe .error		; make variables buffer available
-
-	lvar dword,	length_of_destination
-	 push bx		; push into [bp + ?length_of_destination + 2]
-	 push cx		; push into [bp + ?length_of_destination]
-
-	push es
-	push di
-	mov bx, localvariables_size >> 16
-	mov cx, localvariables_size & 0FFFFh
-	call normalise_pointer_with_displacement_bxcx
-	pop di
-	pop es
-
-	lvar dword,	original_dst
-	 push es
-	 push di
-	lvar dword,	dst
-	 push es
-	 push di
-
-%if _ALLOW_OVERLAPPING
-	call check_pointers_not_overlapping
-		; Note:	We initially check here that the write pointer is
-		;	 low enough, ie below-or-equal the read pointer.
-		;	Unlike the other decompressors, this check is done
-		;	 after any copied match or literal too, because
-		;	 literals can presumably be encoded with less than
-		;	 one byte of source data to the range decoder.
-d0	mov byte [bp + ?errordata], 1Bh
-	jc .error
-%endif
-
-
-member_min_size equ lzip_header_size + lzip_trailer_size
-
-.loop_member:
-	cmp word [bp + ?length_of_source + 2], 0
-	jne @F
-	cmp word [bp + ?length_of_source], member_min_size
-@@:
-	ja .got_member
-
-	cmp word [bp + ?length_of_source + 2], 0
-	jne @F
-	cmp word [bp + ?length_of_source], 15
-@@:
-	ja .error
-	jmp .end
-
-.got_member:
-	lds si, [bp + ?src]		; ds:si -> lzip_header.magic, .version
-	push cs
-	pop es
-	mov di, lzip_header_bytes
-	mov cx, lzip_header_bytes.length
-	repe cmpsb
-	jne .error
-	xor ax, ax
-	lodsb				; ax = lzip_header.coded_dict_size
-
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop word [bp + ?src]
-	 pop word [bp + ?src + 2]
-	sub word [bp + ?length_of_source], 6
-	sbb word [bp + ?length_of_source + 2], 0
-	jc .error
-
-	push ax
-	mov cx, ax
-	mov ax, 1
-	xor dx, dx
-	and cl, 1Fh
-@@:
-	shl ax, 1
-	rcl dx, 1
-	loop @B
-
-	mov bx, dx
-	mov di, ax			; bx:di = dict_size
-	mov cl, 4
-@@:
-	shr bx, 1
-	rcr di, 1
-	loop @B				; bx:di = dict_size / 16
-	pop cx
-	mov ch, cl
-	mov cl, 5
-	shr ch, cl
-	mov cl, ch
-	mov ch, 0
-	jcxz @FF
-
-	push dx
-	push ax
-
-	mov ax, di			; ax = low word of input
-	mul cx
-	xchg ax, bx			; ax = high word of input
-	mov di, dx			; di:bx = low word + first high word
-	mul cx				; = high word
-	add di, ax			; add into sum
-	jc .error
-	test dx, dx			; overflows ?
-	jnz .error
-					; bx:di = dict_size / 16 * fraction
-	pop ax
-	pop dx
-	sub ax, bx
-	sbb dx, di
-	jc .error
-
-	cmp dx, min_dictionary_size >> 16
-	jne @F
-	cmp ax, min_dictionary_size & 0FFFFh
-@@:
-	jb .error
-
-	cmp dx, max_dictionary_size >> 16
-	jne @F
-	cmp ax, max_dictionary_size & 0FFFFh
-@@:
-	ja .error
-
-	lds bx, [bp + ?final_dst]
-	push word [bp + ?dst + 2]
-	push word [bp + ?dst]
-	pop word [bx + destinationbuffer_constant]
-	pop word [bx + destinationbuffer_constant + 2]
-
-	call LZ_decoder.decode_member
-	jc .error
+		; decode_member succeeded
 
 	lds bx, [bp + ?final_dst]	; -> localvariables
 
