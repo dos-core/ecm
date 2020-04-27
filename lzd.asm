@@ -323,12 +323,15 @@ Range_decoder.decode_tree:
 	jcxz .end
 .loop:
 	push di
-	mov ax, bit_model_size
 		; Here si (symbol) is at most 1 << 14.
-	mul si
-	add di, ax		; index into bit_model array
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	shl si, 1		; Note that this shift is both used instead of
+				;  multiplying symbol (si) by bit_model_size
+				;  and to actually shift symbol (si) left!
+	add di, si		; index into bit_model array
 	jc .error_pop_2
-	shl si, 1
 	push cx
 	call Range_decoder.decode_bit
 	pop cx
