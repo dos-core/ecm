@@ -1380,16 +1380,16 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 		;	! may jump to depack.end if ?dst_max_segment reached
 		; CHG:	ax, cx, dx, di, si, es
 ; handle_match:
-	push ds
-
 	add word [bx + lz_decoder.pos], ax
 	adc word [bx + lz_decoder.pos + 2], dx
-	jc short .hm_ret_pop		; (CY) -->
+	jc short .error_CY_12		; (CY) -->
 
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
 					; enough space left ?
-	jb short .hm_ret_pop		; no --> (below == CY)
+	jb short .error_CY_12		; no --> (below == CY)
+
+	push ds
 
 	mov ds, di			; ds:si -> source
 	les di, [bp + ?dst]		; es:di -> destination
@@ -1428,20 +1428,19 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	jae depack.end
 		; note that we have the depack stack frame pointed to by
 		;  ss:bp here, which is needed for running depack.end
+	pop ds
 %if _ALLOW_OVERLAPPING
 	push bx
 	call check_pointers_not_overlapping
 	pop bx				; returns CF
-%else
-	clc				; (NC)
-%endif
-.hm_ret_pop:
-	pop ds
-
 .error_CY_12:
-	jc short .error_1		; error -->
+	jc short .error_1
+%endif
 	jmp .loop
 
+%if ! _ALLOW_OVERLAPPING
+.error_CY_12:
+%endif
 .error_1:
 	jmp .error
 
