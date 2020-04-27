@@ -310,7 +310,7 @@ Range_decoder.decode_bit:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure array
-		;	cx = num_bits
+		;	cx = num_bits, <= 15
 		; OUT:	NC if success,
 		;	 dx:ax = symbol
 		;	CY if failure
@@ -372,7 +372,7 @@ Range_decoder.decode_tree:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure array
-		;	cx = num_bits
+		;	cx = num_bits, <= 15
 		; OUT:	NC if success,
 		;	 dx:ax = reversed_symbol
 		;	CY if failure
