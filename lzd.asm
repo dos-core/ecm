@@ -409,52 +409,56 @@ Range_decoder.decode_tree_reversed:
 		;	CY if error
 		; CHG:	cx, dx, ax
 Range_decoder.decode_matched:
-	lframe near
-	lenter
-	lvar word,	match_byte
-	 push ax
-	mov ax, 1		; initialise ?symbol = 1
+	mov dh, al		; = match_byte
+
+	mov ax, 1		; initialise symbol = 1
 
 	mov cx, 8
 .loop:
-	xor dx, dx
-	mov dh, byte [bp + ?match_byte]
-	push cx
+	push dx			; preserve dh = match_byte
+	push cx			; preserve loop counter
 	dec cx
 	shr dh, cl		; match_byte >> i
-	and dh, 1		; & 1
+	and dx, 100h		; dh &= 1 = match_bit, dl = 0
 	push dx
-	add dx, 100h
-	add dx, ax
+	add dx, 100h		; = (match_bit << 8) + 100h
+	add dx, ax		; = symbol + (match_bit << 8) + 100h
 	push di
 	push ax
 %if bit_model_size != 2
  %error Assuming word size for bit_model_size
 %endif
 	add dx, dx
-	jc .error
+	jc .error_pop_5
 	add di, dx
-	jc .error
+	jc .error_pop_5
 	call Range_decoder.decode_bit
 	xchg ax, cx		; cl = result (1 or 0)
 	pop ax			; = symbol
 	pop di
 	pop dx			; = match_bit << 8
 	rcl ax, 1		; shift symbol, OR in the bit
-	jc .error
-	cmp cl, dh		; if( match_bit != bit )
+	jc .error_pop_2
+	cmp cl, dh		; if( match_bit != bit ) ...-
 	pop cx			; = loop counter
-	jne .inner_next		; do the following -->
+	pop dx			; = dh = match_byte
+	jne .inner_next		; -... do the following -->
 .next:
 	loop .loop
 .end:
-	mov ah, 0		; return ax = symbol & 0FFh
-	db __TEST_IMM8		; (NC, skip stc)
+	xor ah, ah		; return ax = symbol & 0FFh (NC)
+	retn
+
+.error_pop_5:
+	pop ax
+	pop ax
+	pop ax
+.error_pop_2:
+	pop ax
+	pop ax
 .error:
 	stc
-
-	lleave code
-	lret
+	retn
 
 
 .inner_loop:
@@ -465,7 +469,7 @@ Range_decoder.decode_matched:
 	add ax, ax
 	push di
 	add di, ax
-	jc .error
+	jc .error_pop_2
 	call Range_decoder.decode_bit
 	pop di
 	pop ax
@@ -476,8 +480,6 @@ Range_decoder.decode_matched:
 	cmp ax, 100h
 	jb .inner_loop
 	jmp .end
-
-	lleave ctx
 
 
 		; INP:	ds:bx -> range_decoder structure
