@@ -735,7 +735,7 @@ d0	lpar_return
 		; If the normalised destination pointer's segment grows
 		;  to this segment then enough has been decompressed.
 d0	mov byte [bp + ?errordata], 40h
-	jc short .error_CY_a	; should not carry
+	jc .error_CY_a1		; should not carry
 @@:
 	lvar word,	dst_max_segment
 	 push ax
@@ -802,7 +802,10 @@ d0	mov byte [bp + ?errordata], 40h
 		;	 literals can presumably be encoded with less than
 		;	 one byte of source data to the range decoder.
 d0	mov byte [bp + ?errordata], 1Bh
+.error_CY_a1:
 	jc short .error_CY_a
+%else
+ .error_CY_a1 equ .error_CY_a
 %endif
 
 
