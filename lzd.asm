@@ -323,6 +323,8 @@ Range_decoder.decode_tree:
 	 push ax
 	inc ax
 	 push ax		; ?symbol = 1
+	cmp cx, 15
+	ja .error
 	push cx
 	jcxz .end
 .loop:
