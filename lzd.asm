@@ -596,7 +596,6 @@ LZ_decoder.get_byte: equ Range_decoder.get_byte
 	struc localvariables
 lz_decoder_struc:
 		resb lz_decoder_size
-framepointer:	resw 1		; points to stack frame with ?src and ?dst
 		alignb 4
 zeros_start:
 rep0:		resd 1
@@ -917,9 +916,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 		;	CY if error
 		; CHG:	all
 ; LZ_decoder.decode_member:
-
-	push word bp
-	pop word [bx + framepointer]
 
 	 push dx
 	 push ax			; preserve dictionary size
@@ -1485,6 +1481,7 @@ d0	mov byte [bp + ?errordata], 84h
 
 
 		; INP:	ds:bx -> range_decoder structure
+		;	ss:bp -> depack.inner stack frame
 		; OUT:	NC if success,
 		;	 al = byte read
 		;	CY if error
@@ -1496,6 +1493,7 @@ Range_decoder.get_byte:
 		; INP:	ds:bx -> range_decoder structure
 		;	thus ds:(bx - lz_decoder.range_decoder)
 		;	 -> lz_decoder structure, localvariables structure
+		;	ss:bp -> depack.inner stack frame
 		; OUT:	NC if success,
 		;	 al = value read
 		;	CY if error
@@ -1503,9 +1501,6 @@ Range_decoder.get_byte:
 ; get_byte:
 	push ds
 	push si
-	push bp
-
-	mov bp, word [bx + framepointer]
 
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
@@ -1520,7 +1515,6 @@ Range_decoder.get_byte:
 	 pop word [bp + ?src + 2]
 	clc
 .done:
-	pop bp
 	pop si
 	pop ds
 .ret:
@@ -1529,12 +1523,11 @@ Range_decoder.get_byte:
 
 		; INP:	ds:bx -> lz_decoder structure
 		;	al = byte to write to buffer
+		;	ss:bp -> depack.inner stack frame
 		; OUT:	NC if success
 		;	CY if error
 		; CHG:	cx, dx, ax, di, es
 LZ_decoder.put_byte:
-	push bp
-	mov bp, word [bx + framepointer]
 	les di, [bp + ?dst]
 
 	add word [bx + lz_decoder.pos], 1
@@ -1560,14 +1553,13 @@ LZ_decoder.put_byte:
 	clc			; (NC)
 %endif
 .ret:
-	pop bp
 	retn
 
 
 		; INP:	dx:ax = length of match
 		;	di:si -> source (normalised)
 		;	ds:bx -> local variables structure
-		;	ss:word [bx + framepointer] -> depack stack frame
+		;	ss:bp -> depack.inner stack frame,
 		;		with ?length_of_destination, ?dst
 		; OUT:	NC if success,
 		;	 ?length_of_destination and ?dst updated
@@ -1576,9 +1568,7 @@ LZ_decoder.put_byte:
 		;	! may jump to depack.end if ?dst_max_segment reached
 		; CHG:	ax, cx, dx, di, si, es
 handle_match:
-	push bp
 	push ds
-	mov bp, word [bx + framepointer]
 
 	add word [bx + lz_decoder.pos], ax
 	adc word [bx + lz_decoder.pos + 2], dx
@@ -1635,7 +1625,6 @@ handle_match:
 %endif
 .ret_pop:
 	pop ds
-	pop bp
 	retn
 
 
