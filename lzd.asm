@@ -400,7 +400,7 @@ Range_decoder.decode_matched:
 	shr dh, cl		; match_byte >> i
 	and dx, 100h		; dh &= 1 = match_bit, dl = 0
 	push dx
-	add dx, 100h		; = (match_bit << 8) + 100h
+	inc dh			; = (match_bit << 8) + 100h
 	add dx, ax		; = symbol + (match_bit << 8) + 100h
 		; As symbol is below 256, this is at most 255 + 100h + 100h,
 		;  which is 2FFh. As such, the bm_literal array's
