@@ -312,7 +312,7 @@ Range_decoder.decode_bit:
 		;	es:di -> bit_model structure array
 		;	cx = num_bits, <= 15
 		; OUT:	NC if success,
-		;	 dx:ax = symbol
+		;	 dx:ax = ax = symbol
 		;	CY if failure
 		; CHG:	cx, si
 Range_decoder.decode_tree:
@@ -374,7 +374,7 @@ Range_decoder.decode_tree:
 		;	es:di -> bit_model structure array
 		;	cx = num_bits, <= 15
 		; OUT:	NC if success,
-		;	 dx:ax = reversed_symbol
+		;	 dx:ax = ax = reversed_symbol
 		;	CY if failure
 		; CHG:	cx, si
 Range_decoder.decode_tree_reversed:
@@ -382,21 +382,15 @@ Range_decoder.decode_tree_reversed:
 	call Range_decoder.decode_tree
 	pop cx
 	jc .ret
-	push bx
-	xchg si, ax
-	xchg bx, dx		; bx:si = symbol
-	xor ax, ax
-	xor dx, dx		; = reversed_symbol
+	xchg dx, ax		; dx = symbol
+	xor ax, ax		; = reversed_symbol
 	jcxz .end
 .loop:
-	shr bx, 1
-	rcr si, 1
+	shr dx, 1
 	rcl ax, 1
-	rcl dx, 1
 	loop .loop
 .end:
-	clc
-	pop bx
+	xor dx, dx
 .ret:
 	retn
 
