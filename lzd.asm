@@ -1572,16 +1572,16 @@ handle_match:
 
 	add word [bx + lz_decoder.pos], ax
 	adc word [bx + lz_decoder.pos + 2], dx
-	jc short .ret_pop		; (CY) -->
+	jc short .hm_ret_pop		; (CY) -->
 
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
 					; enough space left ?
-	jb short .ret_pop		; no --> (below == CY)
+	jb short .hm_ret_pop		; no --> (below == CY)
 
 	mov ds, di			; ds:si -> source
 	les di, [bp + ?dst]		; es:di -> destination
-.loop:
+.hm_loop:
 	mov cx, 64 * 1024 - 16		; block size
 		; If both pointers are normalised, moving 0FFF0h bytes is
 		;  valid and results in a maximum offset of 0FFFFh in either.
@@ -1589,26 +1589,26 @@ handle_match:
 	test dx, dx			; >= 1_0000h ?
 	jnz @F				; yes, full block -->
 	test ax, ax			; == 0 ?
-	jz .end				; yes, done -->
+	jz .hm_end			; yes, done -->
 	cmp ax, cx			; can move in one (last) block ?
-	jbe .last			; yes -->
+	jbe .hm_last			; yes -->
 @@:
 					; no, move one block and continue
 	sub ax, cx
 	sbb dx, 0			; left over remaining
-	jmp .copy
+	jmp .hm_copy
 
-.last:
+.hm_last:
 	xchg cx, ax			; cx = remaining length
 	xor ax, ax			; no more remaining
 
-.copy:
+.hm_copy:
 	rep movsb			; move one block (full or partial)
 
 	call normalise_both_pointers
-	jmp .loop
+	jmp .hm_loop
 
-.end:
+.hm_end:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
 	mov ax, es
@@ -1623,7 +1623,7 @@ handle_match:
 %else
 	clc				; (NC)
 %endif
-.ret_pop:
+.hm_ret_pop:
 	pop ds
 	retn
 
