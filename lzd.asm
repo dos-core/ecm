@@ -971,10 +971,12 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	test dx, dx
 	stc
 	jnz short .error_CY_1
-%rep bit_model_size
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	add cx, cx			; = second index (from pos_state)
 	add ax, cx			; = second index is pos_state
 	jc short .error_CY_1
-%endrep
 	add di, ax			; es:di -> bm_match[state()][pos_state]
 .error_CY_d:
 	jc short .error_CY_1
