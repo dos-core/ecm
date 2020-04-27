@@ -735,7 +735,7 @@ d0	lpar_return
 		; If the normalised destination pointer's segment grows
 		;  to this segment then enough has been decompressed.
 d0	mov byte [bp + ?errordata], 40h
-	jc .error		; should not carry
+	jc short .error_CY_a	; should not carry
 @@:
 	lvar word,	dst_max_segment
 	 push ax
@@ -802,7 +802,7 @@ d0	mov byte [bp + ?errordata], 40h
 		;	 literals can presumably be encoded with less than
 		;	 one byte of source data to the range decoder.
 d0	mov byte [bp + ?errordata], 1Bh
-	jc .error
+	jc short .error_CY_a
 %endif
 
 
@@ -819,7 +819,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	jne @F
 	cmp word [bp + ?length_of_source], 15
 @@:
-	ja .error
+	ja short .error_NZ_a		; (NZ if jumping)
 	jmp .end
 
 .got_member:
@@ -829,6 +829,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	mov di, lzip_header_bytes
 	mov cx, lzip_header_bytes.length
 	repe cmpsb
+.error_NZ_a:
 	jne .error
 	xor ax, ax
 	lodsb				; ax = lzip_header.coded_dict_size
@@ -840,7 +841,8 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	 pop word [bp + ?src + 2]
 	sub word [bp + ?length_of_source], 6
 	sbb word [bp + ?length_of_source + 2], 0
-	jc .error
+.error_CY_a:
+	jc short .error_CY_b
 
 	push ax
 	mov cx, ax
@@ -876,7 +878,8 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	mov di, dx			; di:bx = low word + first high word
 	mul cx				; = high word
 	add di, ax			; add into sum
-	jc .error
+.error_CY_b:
+	jc short .error_CY_c
 	test dx, dx			; overflows ?
 	jnz .error
 					; bx:di = dict_size / 16 * fraction
@@ -884,13 +887,14 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop dx
 	sub ax, bx
 	sbb dx, di
-	jc .error
+	jc short .error_CY_c
 
 	cmp dx, min_dictionary_size >> 16
 	jne @F
 	cmp ax, min_dictionary_size & 0FFFFh
 @@:
-	jb .error
+.error_CY_c:
+	jb short .error_CY_d
 
 	cmp dx, max_dictionary_size >> 16
 	jne @F
@@ -969,6 +973,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	jc short .error_CY_1
 %endrep
 	add di, ax			; es:di -> bm_match[state()][pos_state]
+.error_CY_d:
 	jc short .error_CY_1
 	call Range_decoder.decode_bit
 	jc .1st_bit_not_zero
