@@ -481,7 +481,7 @@ Range_decoder.decode_matched:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> len_model structure
-		;	dx = pos_state
+		;	ax = pos_state
 		; OUT:	NC if success,
 		;	 dx:ax = return
 		;	CY if error
