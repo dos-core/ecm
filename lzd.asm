@@ -316,58 +316,40 @@ Range_decoder.decode_bit:
 		;	CY if failure
 		; CHG:	cx, si
 Range_decoder.decode_tree:
-	xor ax, ax
-	lframe near
-	lenter
-	lvar dword,	symbol
-	 push ax
-	inc ax
-	 push ax		; ?symbol = 1
+	mov si, 1		; symbol = 1
 	cmp cx, 15
 	ja .error
 	push cx
 	jcxz .end
 .loop:
-	push cx
 	push di
 	mov ax, bit_model_size
-	cmp word [bp + ?symbol + 2], 0
-	jne .error
-	mul word [bp + ?symbol]
-	test dx, dx
-	jnz .error
+		; Here si (symbol) is at most 1 << 14.
+	mul si
 	add di, ax		; index into bit_model array
-	jc .error
-	shl word [bp + ?symbol], 1
-	rcl word [bp + ?symbol + 2], 1
+	jc .error_pop_2
+	shl si, 1
+	push cx
 	call Range_decoder.decode_bit
-	adc word [bp + ?symbol], 0
-	adc word [bp + ?symbol + 2], 0
-				; add in the decoded bit (note *both* adc ops)
-	pop di
 	pop cx
+	adc si, 0		; add in the decoded bit
+	pop di
 	loop .loop
 .end:
 	pop cx
 	mov ax, 1
-	xor dx, dx		; = 1
-	jcxz @FF
-@@:
-	shl ax, 1
-	rcl dx, 1
-	loop @B
-@@:				; = 1 << num_bits
-	sub word [bp + ?symbol], ax
-	sbb word [bp + ?symbol + 2], dx
-				; symbol - ( 1 << num_bits )
-	mov ax, word [bp + ?symbol]
-	mov dx, word [bp + ?symbol + 2]
-				; return symbol
-	db __TEST_IMM8		; (NC, skip stc)
+	shl ax, cl		; = 1 << num_bits
+	sub si, ax		; symbol - ( 1 << num_bits )
+	xchg ax, si
+	xor dx, dx		; return symbol (NC)
+	retn
+
+.error_pop_2:
+	pop ax
+	pop ax
 .error:
 	stc
-	lleave
-	lret
+	retn
 
 
 		; INP:	ds:bx -> range_decoder structure
