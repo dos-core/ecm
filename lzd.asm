@@ -422,7 +422,6 @@ Range_decoder.decode_matched:
 	rcl ax, 1		; shift symbol, OR in the bit
 		; As the loop counter is initialised to 8,
 		;  the symbol variable stays below 256.
-	jc .error_pop_2
 	cmp cl, dh		; if( match_bit != bit ) ...-
 	pop cx			; = loop counter
 	pop dx			; = dh = match_byte
