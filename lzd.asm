@@ -966,17 +966,19 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop es
 	lea di, [bx + bm_match]		; es:di -> bm_match 2D array
 	mov ax, bit_model_size * pos_states
-	mul word [bx + state.st]
-					; dx:ax = first index is state
-	test dx, dx
-	stc
-	jnz short .error_CY_1
+	mul word [bx + state.st]	; dx:ax = first index is state
+		; bit_model_size = 2
+		; pos_states = 4
+		; state.st < 12
+		; multiplication 2 * 4 * 11 = 88
 %if bit_model_size != 2
  %error Assuming word size for bit_model_size
 %endif
 	add cx, cx			; = second index (from pos_state)
+		; pos_state < 4
+		; cx < 8
+		; ax <= 88
 	add ax, cx			; = second index is pos_state
-	jc short .error_CY_1
 	add di, ax			; es:di -> bm_match[state()][pos_state]
 .error_CY_d:
 	jc short .error_CY_1
