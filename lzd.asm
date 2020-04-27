@@ -459,10 +459,10 @@ Range_decoder.decode_matched:
 
 .inner_loop:
 	push ax
-	mov dx, bit_model_size
-	mul dx
-	test dx, dx
-	jnz .error
+%if bit_model_size != 2
+ %error Assuming word size for bit_model_size
+%endif
+	add ax, ax
 	push di
 	add di, ax
 	jc .error
