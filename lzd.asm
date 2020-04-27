@@ -1320,11 +1320,11 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop es
 	lea di, [bx + bm_align]
 	call Range_decoder.decode_tree_reversed
-.error_CY_11:
-	jc short .error_CY_12
+	jc short .error_CY_11
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
-	jc short .error_CY_10
+.error_CY_11:
+	jc .error_CY_12
 
 	cmp word [bx + rep0 + 2], -1	; rep0 = 0FFFF_FFFFh ?
 	jne @F
@@ -1366,7 +1366,78 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 
 	mov ax, word [bp + ?len]
 	mov dx, word [bp + ?len + 2]	; dx:ax = length
-	call handle_match
+
+
+		; INP:	dx:ax = length of match
+		;	di:si -> source (normalised)
+		;	ds:bx -> local variables structure
+		;	ss:bp -> depack.inner stack frame,
+		;		with ?length_of_destination, ?dst
+		; OUT:	NC if success,
+		;	 ?length_of_destination and ?dst updated
+		;	CY if error
+		;	 (destination buffer too small or overlap error)
+		;	! may jump to depack.end if ?dst_max_segment reached
+		; CHG:	ax, cx, dx, di, si, es
+; handle_match:
+	push ds
+
+	add word [bx + lz_decoder.pos], ax
+	adc word [bx + lz_decoder.pos + 2], dx
+	jc short .hm_ret_pop		; (CY) -->
+
+	sub word [bp + ?length_of_destination], ax
+	sbb word [bp + ?length_of_destination + 2], dx
+					; enough space left ?
+	jb short .hm_ret_pop		; no --> (below == CY)
+
+	mov ds, di			; ds:si -> source
+	les di, [bp + ?dst]		; es:di -> destination
+.hm_loop:
+	mov cx, 64 * 1024 - 16		; block size
+		; If both pointers are normalised, moving 0FFF0h bytes is
+		;  valid and results in a maximum offset of 0FFFFh in either.
+
+	test dx, dx			; >= 1_0000h ?
+	jnz @F				; yes, full block -->
+	test ax, ax			; == 0 ?
+	jz .hm_end			; yes, done -->
+	cmp ax, cx			; can move in one (last) block ?
+	jbe .hm_last			; yes -->
+@@:
+					; no, move one block and continue
+	sub ax, cx
+	sbb dx, 0			; left over remaining
+	jmp .hm_copy
+
+.hm_last:
+	xchg cx, ax			; cx = remaining length
+	xor ax, ax			; no more remaining
+
+.hm_copy:
+	rep movsb			; move one block (full or partial)
+
+	call normalise_both_pointers
+	jmp .hm_loop
+
+.hm_end:
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es
+	mov ax, es
+	cmp ax, word [bp + ?dst_max_segment]
+	jae depack.end
+		; note that we have the depack stack frame pointed to by
+		;  ss:bp here, which is needed for running depack.end
+%if _ALLOW_OVERLAPPING
+	push bx
+	call check_pointers_not_overlapping
+	pop bx				; returns CF
+%else
+	clc				; (NC)
+%endif
+.hm_ret_pop:
+	pop ds
+
 .error_CY_12:
 	jc short .error_1		; error -->
 	jmp .loop
@@ -1553,78 +1624,6 @@ LZ_decoder.put_byte:
 	clc			; (NC)
 %endif
 .ret:
-	retn
-
-
-		; INP:	dx:ax = length of match
-		;	di:si -> source (normalised)
-		;	ds:bx -> local variables structure
-		;	ss:bp -> depack.inner stack frame,
-		;		with ?length_of_destination, ?dst
-		; OUT:	NC if success,
-		;	 ?length_of_destination and ?dst updated
-		;	CY if error
-		;	 (destination buffer too small or overlap error)
-		;	! may jump to depack.end if ?dst_max_segment reached
-		; CHG:	ax, cx, dx, di, si, es
-handle_match:
-	push ds
-
-	add word [bx + lz_decoder.pos], ax
-	adc word [bx + lz_decoder.pos + 2], dx
-	jc short .hm_ret_pop		; (CY) -->
-
-	sub word [bp + ?length_of_destination], ax
-	sbb word [bp + ?length_of_destination + 2], dx
-					; enough space left ?
-	jb short .hm_ret_pop		; no --> (below == CY)
-
-	mov ds, di			; ds:si -> source
-	les di, [bp + ?dst]		; es:di -> destination
-.hm_loop:
-	mov cx, 64 * 1024 - 16		; block size
-		; If both pointers are normalised, moving 0FFF0h bytes is
-		;  valid and results in a maximum offset of 0FFFFh in either.
-
-	test dx, dx			; >= 1_0000h ?
-	jnz @F				; yes, full block -->
-	test ax, ax			; == 0 ?
-	jz .hm_end			; yes, done -->
-	cmp ax, cx			; can move in one (last) block ?
-	jbe .hm_last			; yes -->
-@@:
-					; no, move one block and continue
-	sub ax, cx
-	sbb dx, 0			; left over remaining
-	jmp .hm_copy
-
-.hm_last:
-	xchg cx, ax			; cx = remaining length
-	xor ax, ax			; no more remaining
-
-.hm_copy:
-	rep movsb			; move one block (full or partial)
-
-	call normalise_both_pointers
-	jmp .hm_loop
-
-.hm_end:
-	mov word [bp + ?dst], di
-	mov word [bp + ?dst + 2], es
-	mov ax, es
-	cmp ax, word [bp + ?dst_max_segment]
-	jae depack.end
-		; note that we have the depack stack frame pointed to by
-		;  ss:bp here, which is needed for running depack.end
-%if _ALLOW_OVERLAPPING
-	push bx
-	call check_pointers_not_overlapping
-	pop bx				; returns CF
-%else
-	clc				; (NC)
-%endif
-.hm_ret_pop:
-	pop ds
 	retn
 
 
