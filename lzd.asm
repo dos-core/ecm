@@ -708,7 +708,6 @@ d0	lpar_return
 	lvar dword,	dis_slot
 	lvar word,	len_state
 	lvar word,	pos_state
-	lvar dword,	localvariables
 	lenter
 
 	call normalise_both_pointers
@@ -719,6 +718,7 @@ d0	lpar_return
 	lvar dword,	final_dst
 	 push es
 	 push di
+	lequ ?final_dst,	localvariables
 	lvar dword,	length_of_source
 	 push dx
 	 push cx
@@ -905,7 +905,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 
 
 		; decode_member start (inlined)
-		; INP:	ds:bx -> localvariables structure,
+		; INP:	?localvariables = ds:bx -> localvariables structure,
 		;	 destinationbuffer_constant pre-initialised
 		;	dx:ax = dictionary size
 		;	Following variables of depack frame initialised:
@@ -917,8 +917,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 		;	CY if error
 		; CHG:	all
 ; LZ_decoder.decode_member:
-	mov word [bp + ?localvariables], bx
-	mov word [bp + ?localvariables + 2], ds
 
 	push word bp
 	pop word [bx + framepointer]
