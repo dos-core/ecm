@@ -489,8 +489,7 @@ Range_decoder.decode_matched:
 Range_decoder.decode_len:
 	lframe near
 	lenter
-	lvar word,	pos_state
-	 push ax
+	mov si, ax		; = pos_state
 	lvar word,	len_model_struc
 	 push di
 
@@ -502,7 +501,7 @@ Range_decoder.decode_len:
 
 	lea di, [di + len_model.bm_low]
 	mov ax, len_low_symbols * bit_model_size
-	mul word [bp + ?pos_state]
+	mul si
 	test dx, dx
 	jnz .error
 	add di, ax
@@ -520,7 +519,7 @@ Range_decoder.decode_len:
 
 	lea di, [di + len_model.bm_mid]
 	mov ax, len_mid_symbols * bit_model_size
-	mul word [bp + ?pos_state]
+	mul si
 	test dx, dx
 	jnz .error
 	add di, ax
