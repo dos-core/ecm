@@ -423,21 +423,26 @@ Range_decoder.decode_matched:
 	push dx
 	add dx, 100h		; = (match_bit << 8) + 100h
 	add dx, ax		; = symbol + (match_bit << 8) + 100h
+		; As symbol is below 256, this is at most 255 + 100h + 100h,
+		;  which is 2FFh. As such, the bm_literal array's
+		;  entries are arrays of 300h bit_model each.
 	push di
 	push ax
 %if bit_model_size != 2
  %error Assuming word size for bit_model_size
 %endif
 	add dx, dx
-	jc .error_pop_5
+		; As dx was < 300h before this addition, it cannot carry.
 	add di, dx
-	jc .error_pop_5
+		; We assume that this does not carry.
 	call Range_decoder.decode_bit
 	xchg ax, cx		; cl = result (1 or 0)
 	pop ax			; = symbol
 	pop di
 	pop dx			; = match_bit << 8
 	rcl ax, 1		; shift symbol, OR in the bit
+		; As the loop counter is initialised to 8,
+		;  the symbol variable stays below 256.
 	jc .error_pop_2
 	cmp cl, dh		; if( match_bit != bit ) ...-
 	pop cx			; = loop counter
@@ -449,10 +454,6 @@ Range_decoder.decode_matched:
 	xor ah, ah		; return ax = symbol & 0FFh (NC)
 	retn
 
-.error_pop_5:
-	pop ax
-	pop ax
-	pop ax
 .error_pop_2:
 	pop ax
 	pop ax
