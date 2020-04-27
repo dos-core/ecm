@@ -380,25 +380,23 @@ Range_decoder.decode_tree_reversed:
 	call Range_decoder.decode_tree
 	pop cx
 	jc .ret
-	lframe near
-	lenter
-	lvar dword,	symbol
-	 push dx
-	 push ax
+	push bx
+	xchg si, ax
+	xchg bx, dx		; bx:si = symbol
 	xor ax, ax
 	xor dx, dx		; = reversed_symbol
 	jcxz .end
 .loop:
-	shr word [bp + ?symbol + 2], 1
-	rcr word [bp + ?symbol], 1
+	shr bx, 1
+	rcr si, 1
 	rcl ax, 1
 	rcl dx, 1
 	loop .loop
 .end:
 	clc
-	lleave
+	pop bx
 .ret:
-	lret
+	retn
 
 
 		; INP:	ds:bx -> range_decoder structure
