@@ -852,7 +852,7 @@ check_limits:
 		;	 bx = cumulated length value
 		;	 ?src incremented, ?length_of_source decremented
 		;	CY if error
-		; CHG:	ax, cx, dx
+		; CHG:	ax, cx, dx, ds, si
 get_length:
 	and bx, dx		; (NC)
 	jnz .ret
