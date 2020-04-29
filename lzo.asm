@@ -531,9 +531,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jc .error
 	inc ax				; ax = (H << 2) + D + 1
 	jz .error
-	mov bx, 2
-	xor dx, dx			; dx:bx = length
-	jmp .match
+	mov bx, 2			; bx = length
+	jmp .match_dx_0
 
 
 .normal_state_4:
@@ -554,9 +553,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jc .error
 	add ax, 2049			; ax = distance
 	jc .error
-	mov bx, 3
-	xor dx, dx			; dx:bx = length
-	jmp .match
+	mov bx, 3			; bx = length
+	jmp .match_dx_0
 
 
 .not_normal:
@@ -686,8 +684,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jc .error
 	inc ax				; ax = distance
 	jz .error
-	xor dx, dx			; dx:bx = length
-	jmp .match
+					; bx = length
+	jmp .match_dx_0
 
 
 .not_01:
@@ -718,8 +716,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jc .error
 	inc ax				; ax = distance
 	jz .error
-	xor dx, dx			; dx:bx = length
-	jmp .match
+					; bx = length
+	jmp .match_dx_0
 
 
 %if _LZO_SUPPORT_RLE
@@ -771,6 +769,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jmp .loop
 
 
+.match_dx_0:
+	xor dx, dx
 
 		; INP:	dx:bx = length
 		;	ax = distance
