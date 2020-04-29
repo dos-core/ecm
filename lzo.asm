@@ -15,7 +15,10 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %include "lmacros3.mac"
 
-	numdef LZO_SUPPORT_RLE,	0
+	numdef LZO_SUPPORT_RLE,	0	; DO NOT ENABLE
+					; Our implementation doesn't match
+					;  the Linux kernel's one. lzop does
+					;  not use the LZO-RLE extension.
 
 
 lzop_signature:
