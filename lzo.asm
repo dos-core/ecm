@@ -467,10 +467,11 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 
 %endif
 
-	sub al, 17
-	cmp al, 4
-	jae .literals_and_state_4
-	mov word [bp + ?state], ax
+	xor dx, dx
+	sub al, 17			; dx:ax = length
+	cmp al, 4			; below 4 ?
+	jae .literals_and_state_4	; no -->
+	mov word [bp + ?state], ax	; set state to below 4 value
 	jmp .literals
 
 
@@ -498,9 +499,10 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov dx, 15
 	mov bx, ax
 	call get_length
-	mov ax, bx
+	mov ax, bx			; dx:ax = length
 	jc .error
 	add ax, 3
+	adc dx, 0
 	jc .error
 
 .literals_and_state_4:
@@ -530,6 +532,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	inc ax				; ax = (H << 2) + D + 1
 	jz .error
 	mov bx, 2
+	xor dx, dx			; dx:bx = length
 	jmp .match
 
 
@@ -549,9 +552,10 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shl ax, 1
 	add ax, bx
 	jc .error
-	add ax, 2049
+	add ax, 2049			; ax = distance
 	jc .error
 	mov bx, 3
+	xor dx, dx			; dx:bx = length
 	jmp .match
 
 
@@ -566,22 +570,25 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	call get_length
 	mov cx, 2			; cx = 2
 	jc .error
-	add bx, cx			; length = 2 + encoded length
+	add bx, cx
+	adc dx, 0			; dx:bx = length = 2 + encoded length
 	jc .error
 
+	push dx
 	call read_le_data_src		; read D{14} S S
-	jc .error
 	pop dx
-	and dx, 0000_0000_0000_1000b
+	jc .error
+	pop si
+	and si, 0000_0000_0000_1000b
 	mov cl, 14 - 3
-	shl dx, cl
+	shl si, cl
 	mov cx, ax
 	and cx, 3
 	mov word [bp + ?state], cx
 
 	shr ax, 1
 	shr ax, 1			; ax = D{14}
-	add ax, dx			; ax = D + (H << 14)
+	add ax, si			; ax = D + (H << 14)
 	jc .error
 	add ax, 16384
 	jc .error
@@ -600,13 +607,17 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	cmp ax, 0BFFFh
 	jne @F
 	mov cx, 1
+	push dx
 	call read_le_data_src
+	pop dx
 	mov ah, 0
 	mov cl, 3
 	shl ax, cl
 	add ax, bx
+	adc dx, 0
 	jc .error
 	add ax, 4
+	adc dx, 0
 	jc .error
 	jmp .zeros_run
 
@@ -625,10 +636,13 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	call get_length
 	mov cx, 2
 	jc .error
-	add bx, cx			; length = 2 + encoded length
+	add bx, cx
+	adc dx, 0			; dx:bx = length = 2 + encoded length
 	jc .error
 
+	push dx
 	call read_le_data_src
+	pop dx
 	jc .error
 
 	mov cx, ax
@@ -653,7 +667,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov bx, 3
 	test al, 0010_0000b
 	jz @F
-	inc bx
+	inc bx				; bx = length
 @@:
 
 	and al, 000_111_00b
@@ -670,8 +684,9 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shl ax, cl
 	add ax, dx
 	jc .error
-	inc ax
+	inc ax				; ax = distance
 	jz .error
+	xor dx, dx			; dx:bx = length
 	jmp .match
 
 
@@ -685,7 +700,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov cl, 5
 	shr bx, cl
 	and bl, 3
-	add bl, 5
+	add bl, 5			; bx = length
 
 	and al, 000_111_00b
 	shr ax, 1
@@ -701,59 +716,67 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shl ax, cl
 	add ax, dx
 	jc .error
-	inc ax
+	inc ax				; ax = distance
 	jz .error
+	xor dx, dx			; dx:bx = length
 	jmp .match
 
 
 %if _LZO_SUPPORT_RLE
-		; INP:	ax = length
+		; INP:	dx:ax = length
 .zeros_run:
 	les di, [bp + ?dst]
 	sub word [bp + ?length_of_destination], ax
-	sbb word [bp + ?length_of_destination + 2], 0
+	sbb word [bp + ?length_of_destination + 2], dx
 	jc .error
 
-	mov dx, ax
-	mov bx, 0FFF0h
-	sub dx, bx			; dx >= bx ?
-	mov cx, bx			; if large
-	jae @F				; yes -->
-	add dx, bx			; restore dx
-	xor cx, cx			; first empty
-@@:
+.zr_loop:
+	mov cx, 0FFF0h			; how much we can do per step
+					;  (?dst is always normalised)
+	test dx, dx			; a lot ?
+	jnz .zr_do			; yes, skip check -->
+	cmp ax, cx			; more than one step ?
+	ja .zr_do			; yes, do --> (subtracts cx from ax)
+	test ax, ax			; is it zero ?
+	jz .zr_end			; yes -->
+	mov cx, ax			; set up to get 0 from the subtraction
+					;  (meaning this is the last step)
+					;  (and set step length to remainder)
+.zr_do:
+	sub ax, cx
+	sbb dx, 0			; determine how much after this step
+	jb .error			; (must not carry)
+	push ax
 	mov al, 0
 	rep stosb
+	pop ax
 	 push es
 	 push di
 	call normalise_pointer
 	 pop di
 	 pop es
-	mov cx, dx
-	rep stosb
-	 push es
-	 push di
-	call normalise_pointer
-	 pop word [bp + ?dst]
-	 pop word [bp + ?dst + 2]
+	jmp .zr_loop
+
+.zr_end:
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es
 	jmp .next
 %endif
 
 
-		; INP:	ax = length
+		; INP:	dx:ax = length
 .literals:
-	xor dx, dx			; dx:ax = length
-
 	call copy_literal_or_uncompressed
 	jc .error
 	jmp .loop
 
 
 
-		; INP:	bx = length
+		; INP:	dx:bx = length
 		;	ax = distance
 .match:
-	push bx
+	push dx
+	push bx				; on stack: dword length
 	xor dx, dx			; dx:ax = distance
 
 	neg dx
@@ -769,6 +792,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	 pop si
 	 pop ds				; -> source
 	pop ax
+	pop dx				; dx:ax = length
 	jnc .error			; must carry !
 	mov cx, ds
 	cmp cx, word [bp + ?original_dst + 2]
@@ -777,7 +801,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 @@:
 	jb .error			; must not be before buffer !
 
-	xor dx, dx			; dx:ax = length
 	call copy_data
 	jc .error
 
@@ -790,6 +813,7 @@ d0	mov byte [bp + ?errordata], 1Ch
 
 .next:
 	mov ax, word [bp + ?state]
+	xor dx, dx
 	jmp .literals
 
 
@@ -849,28 +873,34 @@ check_limits:
 		; INP:	bx = initial length value (needs to be masked)
 		;	dx = initial length value mask
 		; OUT:	NC if success,
-		;	 bx = cumulated length value
+		;	 dx:bx = cumulated length value
 		;	 ?src incremented, ?length_of_source decremented
 		;	CY if error
-		; CHG:	ax, cx, dx, ds, si
+		; CHG:	ax, cx, ds, si
 get_length:
+	xor si, si
 	and bx, dx		; (NC)
 	jnz .ret
 
 .loop:
 	add bx, dx
+	adc si, 0
 	jc .ret
 	mov cx, 1
+	push si
 	call read_le_data_src
+	pop si
 	jc .ret
 	mov dx, 255
 	test al, al
 	jz .loop
 	mov ah, 0
 	add bx, ax
+	adc si, 0
 	jc .ret
 	clc
 .ret:
+	mov dx, si
 	retn
 
 
