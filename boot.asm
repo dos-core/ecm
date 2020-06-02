@@ -43,6 +43,7 @@ Public domain by C. Masloch, 2012
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 
+	numdef RELOCATE,	0	; relocate the loader to top of memory
 	numdef SET_BL_UNIT,	0	; if to pass unit in bl as well
 	numdef SET_DL_UNIT,	0	; if to pass unit in dl
 	numdef SET_AXBX_DATA,	0	; if to pass first data sector in ax:bx
@@ -59,7 +60,8 @@ Public domain by C. Masloch, 2012
 	numdef SET_LOAD_SEG,	1	; if to set load_seg (word [ss:bp - 6])
 	numdef SET_FAT_SEG,	1	; if to set fat_seg (word [ss:bp - 8])
 	numdef SET_CLUSTER,	1	; if to set first_cluster (word [ss:bp - 16])
-	numdef ZERO_ES,		0	; if to set es = ss (= 0) before jump
+	numdef ZERO_ES,		0	; if to set es = 0 before jump
+	numdef ZERO_DS,		0	; if to set ds = 0 before jump
 
 	numdef FIX_SECTOR_SIZE, 0	; fix sector size (0 = disable, else = sector size)
 	numdef FIX_SECTOR_SIZE_SKIP_CHECK,	0	; don't check sector size
@@ -101,6 +103,7 @@ Public domain by C. Masloch, 2012
 
 	numdef SET_BL_UNIT,	1
 	numdef MEMORY_CONTINUE,	0
+	numdef RELOCATE,	1
 	; The FreeDOS load protocol mandates that the entire file be loaded.
 %endif
 
@@ -223,7 +226,9 @@ Public domain by C. Masloch, 2012
 Notes about partial load compatibilities
 
 * FreeDOS:
- * Does not relocate to 27A00h (1FE0h:7C00h), so the kernel doesn't fit
+ * Relocates to an address other than 27A00h (1FE0h:7C00h)
+ * A lot of options between _USE_PART_INFO, _QUERY_GEOMETRY, _CHS, _LBA,
+   and/or _RPL need to be disabled to make the loader fit
 * IBMDOS:
 * MS-DOS 6:
  * Does not search for IBMDOS (MSDOS) file, only IBMBIO (IO)
@@ -277,9 +282,16 @@ Notes about partial load compatibilities
 ; 512-byte stack (minus the variables).
 ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 
+%if _DIRBUF_500
+	gendef _ADR_DIRBUF,	500h
+%elif _RELOCATE
+	gendef _ADR_DIRBUF,	_LOAD_ADR
+%endif
+
 ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
 ADR_DIRBUF	equ	__ADR_DIRBUF
 
+%if ! _RELOCATE
 ; this used to be a two-sector FAT buffer -- two sectors because FAT12
 ;  entries are 12 bits and may straddle a sector boundary.
 ; however, with the FAT12 loaded completely, the buffer only needs to hold
@@ -288,30 +300,37 @@ ADR_DIRBUF	equ	__ADR_DIRBUF
 ; this shares its area with the directory buffer as they
 ;  are not simultaneously used. (if not _DIRBUF_500.)
 ADR_FATBUF	equ	__ADR_FATBUF
+%endif
 
 ; start of unused memory after loader:
 ADR_END		equ	end -start+7C00h
-%if (ADR_FATBUF + 8192) > ADR_END
-ADR_FREE_FROM	equ	(ADR_FATBUF + 8192)	; 09E00h
-%else
-ADR_FREE_FROM	equ	ADR_END			; 07E00h
-%endif
+%if ! _RELOCATE
+ %if (ADR_FATBUF + 8192) > ADR_END
+  ADR_FREE_FROM	equ	(ADR_FATBUF + 8192)	; 09E00h
+ %else
+  ADR_FREE_FROM	equ	ADR_END			; 07E00h
+ %endif
 
 ; end of unused memory before loader:
-%if ADR_FATBUF < ADR_STACK_LOW
+ %if ADR_FATBUF < ADR_STACK_LOW
 ADR_FREE_UNTIL	equ	ADR_FATBUF
-%else
+ %else
 ADR_FREE_UNTIL	equ	ADR_STACK_LOW
-%endif
+ %endif
 
-%if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
- %warning Possibly crossing 64 KiB boundary while reading FAT
+ %if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
+  %warning Possibly crossing 64 KiB boundary while reading FAT
+ %endif
 %endif
 
 %if ((ADR_DIRBUF + 8192 - 1) & ~0FFFFh) != (ADR_DIRBUF & ~0FFFFh)
  %warning Possibly crossing 64 KiB boundary while reading directory
 %endif
 
+%if _RELOCATE
+ ADR_FREE_FROM	equ 0				; make next conditional true
+ ADR_FREE_UNTIL	equ 0
+%endif
 %if _LOAD_ADR >= ADR_FREE_FROM
 	; if reading on a 8 KiB boundary, no crossing can occur.
  %if _LOAD_ADR & (8192 - 1)
@@ -330,16 +349,20 @@ ADR_FREE_UNTIL	equ	ADR_STACK_LOW
  %error Load address must be in LMA
 %elif _LOAD_ADR < 00500h
  %error Load address must not overlap IVT or BDA
-%elif _LOAD_ADR > (POSITION-512) && _LOAD_ADR < (POSITION+512)
- %error Load address must not overlap loader
 %endif
 
-%if ADR_FATBUF > LOADLIMIT
- %error FAT buffer address must be in LMA
-%elif ADR_FATBUF < 00500h
- %error FAT buffer address must not overlap IVT or BDA
-%elif (ADR_FATBUF + 8192) > (POSITION-512) && ADR_FATBUF < (POSITION+512)
- %error FAT buffer address must not overlap loader
+%if ! _RELOCATE
+ %if _LOAD_ADR > (POSITION-512) && _LOAD_ADR < (POSITION+512)
+  %error Load address must not overlap loader
+ %endif
+
+ %if ADR_FATBUF > LOADLIMIT
+  %error FAT buffer address must be in LMA
+ %elif ADR_FATBUF < 00500h
+  %error FAT buffer address must not overlap IVT or BDA
+ %elif (ADR_FATBUF + 8192) > (POSITION-512) && ADR_FATBUF < (POSITION+512)
+  %error FAT buffer address must not overlap loader
+ %endif
 %endif
 
 %if ADR_DIRBUF > LOADLIMIT
@@ -347,7 +370,7 @@ ADR_FREE_UNTIL	equ	ADR_STACK_LOW
 %elif ADR_DIRBUF < 00500h
  %error Dir buffer address must not overlap IVT or BDA
 %elif (ADR_DIRBUF + 8192) > (POSITION-512) && ADR_DIRBUF < (POSITION+512)
- %error Dir buffer address must not overlap loader
+ %error Dir buffer address must not overlap loader at initial position
 %endif
 
 %if ((_EXEC_SEG_ADJ<<4)+_EXEC_OFS) < 0
@@ -465,9 +488,15 @@ start:
 
 
 %define _LASTVARIABLE start
-	%macro nextvariable 2.nolist
+	%macro nextvariable 2-3.nolist
 %1	equ (_LASTVARIABLE - %2)
 %define _LASTVARIABLE %1
+%ifidn %3, relocatestart
+ %define _RELOCATESTART %1
+%elifempty %3
+%else
+ %error Invalid third parameter
+%endif
 	%endmacro
 
 ; Variables
@@ -488,21 +517,21 @@ start:
 	nextvariable fat_sector, 4
 
 ; (word for FAT12/FAT16) first cluster of load file
-	nextvariable first_cluster, 4
+	nextvariable first_cluster, 4, relocatestart
 
 ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 
 %ifn _FIX_CLUSTER_SIZE
 ; (word) actual sectors per cluster
-	nextvariable adj_sectors_per_cluster, 2
+	nextvariable adj_sectors_per_cluster, 2, relocatestart
 %endif
 
 %ifn _FIX_SECTOR_SIZE
 ; (word) number of 16-byte paragraphs per sector
-	nextvariable para_per_sector, 2
+	nextvariable para_per_sector, 2, relocatestart
 %endif
 
-%ifn _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+%ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
 %endif
@@ -717,8 +746,13 @@ skip_bpb:
 		; number of root entries in si here
 next_sect:
 	mov cx, bx		; entries per sector as loop counter
-%if ADR_DIRBUF == ADR_FATBUF
+%if ! _RELOCATE
+ %if ADR_DIRBUF == ADR_FATBUF
 	call read_sector_dirbuf
+ %else
+	mov bx, ADR_DIRBUF>>4
+	call read_sector
+ %endif
 %else
 	mov bx, ADR_DIRBUF>>4
 	call read_sector
@@ -769,8 +803,13 @@ found_it:
 	 pop ds
 	xchg si, di	; es:di -> behind (second) directory entry
 %endif
+%if _RELOCATE
+	push word [es:di + deClusterLow - DIRENTRY_size \
+		- (DIRENTRY_size * !!_DIR_ENTRY_520)]
+			; (word on stack) = first cluster number
+%endif
 
-%if _LOAD_ADR >= ADR_FREE_FROM
+%if _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
@@ -795,7 +834,68 @@ found_it:
 	pop ds
 	xchg ax, dx
  %endif
+ %if _RELOCATE
+	sub ax, (20 * 1024 + 8192 + (8192-16) + 512 + 7C00h) >> 4
+		; 20 KiB:	reserved for iniload
+		; 8 KiB:	FAT buffer
+		; 8 KiB - 16 B:	to allow rounding down FAT buffer position
+		; 512:		sector
+		; 7C00h:	stack and to allow addressing with 7C00h in bp
+		;
+		; Note also that by addressing the stack and sector
+		;  with bp at 7C00h, and insuring this subtraction doesn't
+		;  underflow, makes sure that we do not overwrite the IVT or
+		;  BDA. (However, we assume that ax is at least 60h or so.)
+		;
+		; The FAT buffer segment is masked so that the actual buffer
+		;  is stored on an 8 KiB boundary. This is to ensure that
+		;  the buffer doesn't possibly cross a 64 KiB DMA boundary.
+	jc .error_memory_j_CY
+	cmp ax, (end -start+7C00h - ADR_STACK_LOW + 15) >> 4
+		; This check is to ensure that the start of the destination
+		;  for the relocation (stack, sector) is
+		;  above-or-equal the end of the source for the relocation.
+		;  That is, to avoid overwriting any of the source with the
+		;  string move instruction (which for simplicity is always UP).
+.error_memory_j_CY:
+	jb error_memory
+	mov bx, ((8192 - 16) + 512 + 7C00h)>>4
+	add bx, ax
+;  this is like calculating the following for the bx value:
+;  ((LMA_top - 20 KiB - 8 KiB - (8 KiB - 16 B) - 512 - 7C00h) + \
+;	((8 KiB - 16 B) + 512 + 7C00h))>>4
+;  == (LMA_top - 20 KiB - 8 KiB)>>4
+	and bx, ~ ((8192>>4) - 1)
+	mov word [VAR(fat_seg)], bx
+
+	mov bx, .relocated
+	push ax
+	push bx				; -> relocation target .relocated
+		; (We cannot use a near call here to push the target IP
+		;  because we do not control whether the ROM-BIOS loader
+		;  entered us at 0:7C00h or 7C0h:0. So we need to create
+		;  the correct offset manually here.)
+
+	mov es, ax			; => destination
+	mov si, sp			; ds:si = ss:_RELOCATESTART - 2 - 4
+	mov di, si			; es:di -> destination for stack low
+	mov cx, (end - (_RELOCATESTART - 2 - 4)) >> 1
+		; end is the top of used memory
+		; _RELOCATESTART is the lowest filled stack frame slot
+		; 2 is for the first cluster word on the stack
+		; 4 is for the additional slots taken by the return address
+	rep movsw			; relocate stack, sector
+	mov ss, ax
+	mov ds, ax			; relocate these
+	add ax, (ADR_STACK_LOW) >> 4	; (rounding down) => behind available
+
+	retf				; jump to relocated code
+
+.relocated:
+	pop si
+ %else
 	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
+ %endif
 %elif _LOAD_ADR < ADR_FREE_UNTIL
  %if !_FIX_SECTOR_SIZE
 	mov ax, ADR_FREE_UNTIL >> 4	; rounding *down*
@@ -803,7 +903,7 @@ found_it:
 %else
  %error Load address within used memory
 %endif
-%if _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+%if ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 	; user of last_available_sector will hardcode the value!
 %else
  %if _FIX_SECTOR_SIZE
@@ -815,8 +915,10 @@ found_it:
 %endif
 
 ; get starting cluster of file
+%if ! _RELOCATE
 		mov si,[es:di + deClusterLow - DIRENTRY_size \
 			- (DIRENTRY_size * !!_DIR_ENTRY_520)]
+%endif
 %if _SET_CLUSTER
 		mov word [VAR(first_cluster)], si
 %endif
@@ -842,7 +944,7 @@ found_it:
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [VAR(sectors_per_fat)]
 					; maximum size of this FS's FAT
-%if _LOAD_ADR < ADR_FREE_UNTIL && !_FIX_SECTOR_SIZE
+%if ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && !_FIX_SECTOR_SIZE
 			; Under these conditions, ax here is
 			;  below ADR_FREE_UNTIL >> 4 so the
 			;  following cwd instruction zeros dx.
@@ -851,10 +953,14 @@ found_it:
 		xor dx, dx
 %endif
 		mov ax, [VAR(fat_start)]; = first FAT sector
+ %if _RELOCATE
+		mov bx, [VAR(fat_seg)]
+ %else
 		mov bx, ADR_FATBUF>>4
-%if _SET_FAT_SEG
+  %if _SET_FAT_SEG
 		mov word [VAR(fat_seg)], bx
-%endif
+  %endif
+ %endif
 @@:
 		call read_sector	; read next FAT sector
 %if _FIX_SECTOR_SIZE
@@ -873,7 +979,9 @@ found_it:
 %if _FAT16
 		mov di, -1		; = no FAT sector read yet
  %if _SET_FAT_SEG
+  %if ! _RELOCATE
 		mov word [VAR(fat_seg)], ADR_FATBUF>>4
+  %endif
 		mov word [VAR(fat_sector)], di
  %endif
 %endif
@@ -934,7 +1042,12 @@ next_cluster:
 		cwd
 		add ax, [VAR(fat_start)]
 		adc dx, dx		; (account for overflow)
+ %if _RELOCATE
+		mov bx, word [VAR(fat_seg)]
+		call read_sector
+ %else
 		call read_sector_fatbuf
+ %endif
 		pop bx
 @@:
 
@@ -950,6 +1063,11 @@ next_cluster:
 					; CF = whether to use high 12 bits
 		sbb cx, cx		; = -1 iff CY, else 0
 
+ %if _RELOCATE
+		mov es, word [VAR(fat_seg)]
+		xchg ax, si
+		es lodsw
+ %else
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
 		add ax, ADR_FATBUF	; -> 16-bit word in FAT to load
@@ -957,6 +1075,7 @@ next_cluster:
 
 ; get 16 bits from FAT
 		lodsw
+ %endif
 
 		and cl, 4	; = 4 iff CY after shift, else 0
 		shr ax, cl	; shift down iff odd entry, else unchanged
@@ -1029,7 +1148,7 @@ next_cluster:
 ; Already: ss:bp-> boot sector containing BPB
 %if _CHECKVALUE
 CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
- %if CHECKLINEAR <= (64 * 1024 - 2)
+ %if ! _RELOCATE && CHECKLINEAR <= (64 * 1024 - 2)
 		cmp word [CHECKLINEAR], _CHECKVALUE
  %else
 		mov ax, CHECKLINEAR >> 4
@@ -1058,28 +1177,61 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 		mov bl, [VAR(boot_unit)]; set bl to unit
  %endif
 %endif
-%if _SET_AXBX_DATA
-		mov bx, [VAR(data_start)]
-		mov ax, [VAR(data_start+2)]
-%endif
 %if _PUSH_DPT || _SET_DSSI_DPT
  %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
+  %if _RELOCATE
+		xor ax, ax
+		mov es, ax
+		mov di, 1Eh * 4
+		les si, [es:di]
+		push es
+		push si
+		push ax
+		push di
+  %else
 		mov di, 1Eh*4
 		les si, [di]		; -> original (also current) DPT
 		push es
 		push si			; original (also current) DPT address
 		push ss
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %endif
  %else
+  %if _RELOCATE
+		xor ax, ax
+		mov ds, ax
+  %endif
 		mov di, 1Eh*4
 		lds si, [di]		; -> original (also current) DPT
   %if _PUSH_DPT
 		push ds
 		push si			; original (also current) DPT address
+   %if _RELOCATE
+		push ax
+		push di
+   %else
 		push ss
 		push di			; 0000h:0078h (address of 1Eh IVT entry)
+   %endif
   %endif
  %endif
+%else
+ %if _RELOCATE && (_ZERO_ES || _ZERO_DS)
+		xor ax, ax
+ %endif
+%endif
+%if _RELOCATE
+ %if _ZERO_ES
+		mov es, ax
+ %endif
+ %if _ZERO_DS
+		mov ds, ax
+ %endif
+%endif
+
+%if _SET_AXBX_DATA
+		mov bx, [VAR(data_start)]
+		mov ax, [VAR(data_start+2)]
 %endif
 %if _SET_DI_CLUSTER
  %if _PUSH_DPT || _SET_DSSI_DPT
@@ -1088,9 +1240,11 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 		pop di
  %endif
 %endif
-%if _ZERO_ES
+%if ! _RELOCATE
+ %if _ZERO_ES
 		push ss
 		pop es
+ %endif
 %endif
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
@@ -1098,15 +1252,22 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
-%ifn _MEMORY_CONTINUE
+%if ! _MEMORY_CONTINUE || _RELOCATE
 	db __TEST_IMM16	; (skip mov)
 error_filetoobig:
+error_memory:
 	mov al,'M'	; Not enough 'M'emory
 %endif
 
 error:
+%if _RELOCATE
+	mov bx, 7
+	mov ds, bx
+	mov bh, [462h - 70h]
+%else
 	mov bh, [462h]
 	mov bl, 7
+%endif
 	mov ah, 0Eh
 	int 10h		; display character
 	mov al, 07h
@@ -1124,11 +1285,13 @@ error:
 		;	bx => behind read sector
 		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
 		; CHG:	-
-%if ADR_DIRBUF == ADR_FATBUF
+%if ! _RELOCATE
+ %if ADR_DIRBUF == ADR_FATBUF
 read_sector_dirbuf:
-%endif
+ %endif
 read_sector_fatbuf:
 	mov bx, ADR_FATBUF>>4
+%endif
 
 		; Read a sector using Int13.02 or Int13.42
 		;
