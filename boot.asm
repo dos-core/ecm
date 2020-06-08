@@ -1154,6 +1154,12 @@ found_it:
 	rep movsw			; relocate stack, sector
 	retf				; jump to relocated code
 
+
+	readhandler
+
+	errorhandler
+
+
 relocated:
 	mov ss, ax
 	mov ds, ax			; relocate these
@@ -1517,9 +1523,11 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
 
+%if ! _RELOCATE
 	errorhandler
 
 	readhandler
+%endif
 
 
 %if !_NO_LIMIT
