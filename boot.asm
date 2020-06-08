@@ -1376,6 +1376,7 @@ read_sector:
 %endif
 	add sp, 10h
 	pop bx
+	mov es, bx
 	jmp short .chs_done
 
  %if _LBA_SKIP_CHECK
@@ -1495,7 +1496,6 @@ read_sector:
 %endif
 
 .chs_done:
-	mov es, bx
 %if _FIX_SECTOR_SIZE
 	add bx, _FIX_SECTOR_SIZE >> 4
 %else
