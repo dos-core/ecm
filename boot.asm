@@ -1363,7 +1363,7 @@ read_sector:
 
 	mov ah, 42h
 	int 13h
- %if _LBA_SKIP_CHECK
+ %if _LBA_SKIP_CHECK && _CHS
 	jc .lba_check_error_1
  %else
 .cy_err:
@@ -1377,8 +1377,15 @@ read_sector:
 	add sp, 10h
 	pop bx
 	mov es, bx
+%if _CHS
 	jmp short .chs_done
+%endif
 
+.lba_error: equ .err
+
+ %if !_CHS
+.no_lba: equ .err
+ %else
  %if _LBA_SKIP_CHECK
 .lba_check_error_1:
 	cmp ah, 1	; invalid function?
@@ -1386,15 +1393,6 @@ read_sector:
 			; try CHS instead
 .cy_err: equ .err
  %endif
-
-.lba_error: equ .err
-
- %if !_CHS
-  %if _LBA_SKIP_CHECK
-	jmp .no_lba
-  %endif
-.no_lba: equ .err
- %else
 .no_lba:
 	add sp, 8
 	pop ax

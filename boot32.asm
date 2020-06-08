@@ -871,7 +871,7 @@ read_sector:
 
 	mov ah, 42h
 	int 13h
- %if _LBA_SKIP_CHECK
+ %if _LBA_SKIP_CHECK && _CHS
 	jnc .lba_done
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
@@ -888,7 +888,9 @@ read_sector:
 %endif
 	add sp, 10h
 	pop bx
+%if _CHS
 	jmp short .chs_done
+%endif
 
 .lba_error: equ .err
 
