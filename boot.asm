@@ -1135,7 +1135,7 @@ found_it:
 	and bx, ~ ((8192>>4) - 1)
 	mov word [VAR(fat_seg)], bx
 
-	mov di, .relocated
+	mov di, relocated
 	push ax
 	push di				; -> relocation target .relocated
 		; (We cannot use a near call here to push the target IP
@@ -1154,7 +1154,7 @@ found_it:
 	rep movsw			; relocate stack, sector
 	retf				; jump to relocated code
 
-.relocated:
+relocated:
 	mov ss, ax
 	mov ds, ax			; relocate these
 	add ax, (ADR_STACK_LOW) >> 4	; (rounding down) => behind available
