@@ -599,6 +599,273 @@ load_name:
 	fill 3,32,db _LOAD_EXT
 
 
+		%imacro errorhandler 0
+read_sector.err:
+	mov al, 'R'	; Disk 'R'ead error
+%if ! _MEMORY_CONTINUE || _RELOCATE
+	db __TEST_IMM16	; (skip mov)
+error_filetoobig:
+error_memory:
+	mov al,'M'	; Not enough 'M'emory
+%endif
+
+error:
+%if _RELOCATE
+	mov bx, 7
+	mov ds, bx
+	mov bh, [462h - 70h]
+%else
+	mov bh, [462h]
+	mov bl, 7
+%endif
+	mov ah, 0Eh
+	int 10h		; display character
+	mov al, 07h
+	int 10h		; beep!
+
+	xor ax, ax	; await key pressed
+	int 16h
+
+	int 19h		; re-start the boot process
+		%endmacro
+
+
+		%imacro readhandler 0
+		; INP:	dx:ax = sector
+		; OUT:	only if successful
+		;	dx:ax = incremented
+		;	bx => behind read sector
+		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
+		; CHG:	-
+%if ! _RELOCATE
+ %if ADR_DIRBUF == ADR_FATBUF
+read_sector_dirbuf:
+ %endif
+read_sector_fatbuf:
+	mov bx, ADR_FATBUF>>4
+%endif
+
+		; Read a sector using Int13.02 or Int13.42
+		;
+		; INP:	dx:ax = sector number within partition
+		;	bx => buffer
+		;	(_LBA) ds = ss
+		; OUT:	If unable to read,
+		;	 ! jumps to error instead of returning
+		;	If sector has been read,
+		;	 dx:ax = next sector number (has been incremented)
+		;	 bx => next buffer (bx = es+word[para_per_sector])
+		;	 es = input bx
+		; CHG:	-
+read_sector:
+	push dx
+	push cx
+	push ax
+	push si
+
+	push bx
+
+; DX:AX==LBA sector number
+; add partition start (= number of hidden sectors)
+		add ax,[VAR(hidden_sectors + 0)]
+		adc dx,[VAR(hidden_sectors + 2)]
+
+%if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
+	xor cx, cx
+	push cx
+	push cx
+	push dx
+	push ax		; qword sector number
+	push bx
+	push cx		; bx => buffer
+	inc cx
+	push cx		; word number of sectors to read
+	mov cl, 10h
+	push cx		; word size of disk address packet
+	mov si, sp	; ds:si -> disk address packet (on stack)
+
+ %if _LBA_SKIP_CHECK		; -14 bytes
+	mov dl, [VAR(boot_unit)]
+ %else
+	mov ah, 41h
+	mov dl, [VAR(boot_unit)]
+	mov bx, 55AAh
+	stc
+	int 13h		; 13.41.bx=55AA extensions installation check
+	jc .no_lba
+	cmp bx, 0AA55h
+	jne .no_lba
+	test cl, 1	; support bitmap bit 0
+	jz .no_lba
+ %endif
+
+%if _LBA_RETRY
+	mov ah, 42h
+	int 13h		; 13.42 extensions read
+	jnc .lba_done
+
+	xor ax, ax
+	int 13h
+
+		; have to reset the LBAPACKET's lpCount, as the handler may
+		;  set it to "the number of blocks successfully transferred".
+		; (in any case, the high byte is still zero.)
+	mov byte [si + 2], 1
+%endif
+
+	mov ah, 42h
+	int 13h
+ %if _LBA_SKIP_CHECK && _CHS
+	jc .lba_check_error_1
+ %else
+.cy_err:
+	jc .lba_error
+ %endif
+
+.lba_done:
+%if _CHS && _LBA_SET_TYPE
+	mov byte [bp + 2], 0Eh	; LBA-enabled FAT16 FS partition type
+%endif
+	add sp, 10h
+	pop bx
+	mov es, bx
+%if _CHS
+	jmp short .chs_done
+%endif
+
+.lba_error: equ .err
+
+ %if !_CHS
+.no_lba: equ .err
+ %else
+ %if _LBA_SKIP_CHECK
+.lba_check_error_1:
+	cmp ah, 1	; invalid function?
+	jne .lba_error	; no, other error -->
+			; try CHS instead
+.cy_err: equ .err
+ %endif
+.no_lba:
+	add sp, 8
+	pop ax
+	pop dx
+	pop cx
+	pop cx		; cx = 0 (needed as input for next cwd instruction)
+ %endif
+%endif
+
+%if !_LBA
+.cy_err:	equ .err
+%endif
+
+%if _CHS		; +70 bytes
+; dx:ax = LBA sector number, (if _LBA) cx = 0
+; divide by number of sectors per track to get sector number
+; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
+; Use two-step 32:16 divide to avoid overflow
+ %if !_LBA
+			xchg cx, ax	; cx = low word of sector, clobbers ax
+			mov ax, dx	; ax = high word of sector
+			xor dx, dx	; dx:ax = high word of sector
+ %else
+			xchg cx, ax	; cx = low word of sector, ax = 0
+			push dx		; stack = high word of sector
+			cwd		; dx = 0 (because ax was 0)
+			pop ax		; ax = high word of sector
+					; dx:ax = high word of sector
+ %endif
+			div word [VAR(sectors_per_track)]
+			xchg cx,ax
+			div word [VAR(sectors_per_track)]
+			xchg cx,dx
+
+; DX:AX=quotient, CX=remainder=sector (S) - 1
+; divide quotient by number of heads
+			mov bx, ax
+			xchg ax, dx
+			xor dx, dx
+			div word [VAR(heads)]
+			xchg bx, ax
+			div word [VAR(heads)]
+
+; bx:ax=quotient=cylinder (C), dx=remainder=head (H)
+; move variables into registers for INT 13h AH=02h
+			mov dh, dl	; dh = head
+			inc cx		; cl5:0 = sector
+			xchg ch, al	; ch = cylinder 7:0, al = 0
+			shr ax, 1
+			shr ax, 1	; al7:6 = cylinder 9:8
+	; bx has bits set iff it's > 0, indicating a cylinder >= 65536.
+			 or bl, bh	; collect set bits from bh
+			or cl, al	; cl7:6 = cylinder 9:8
+	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
+			 or bl, ah	; collect set bits from ah
+			mov dl,[VAR(boot_unit)] ; dl = drive
+.nz_err:
+			 jnz .err	; error if cylinder >= 1024 -->
+					; ! bx = 0 (for 13.02 call)
+
+; we call INT 13h AH=02h once for each sector. Multi-sector reads
+; may fail if we cross a track or 64K boundary
+			pop es
+%if _CHS_RETRY_REPEAT
+			mov si, _CHS_RETRY_REPEAT + 1
+			db __TEST_IMM16	; (skip int)
+.loop_chs_retry_repeat:
+			int 13h
+			mov ax, 0201h
+			int 13h		; read one sector
+			jnc .done
+			xor ax, ax	; in next iteration, reset disk
+			dec si		; another attempt ?
+			jnz .loop_chs_retry_repeat	; yes -->
+			jmp .err
+%else
+ %if _CHS_RETRY
+			mov ax, 0201h
+			int 13h		; read one sector
+			jnc .done
+; reset drive
+			xor ax, ax
+			int 13h
+ %endif
+; try read again
+			mov ax, 0201h
+			int 13h
+ %if _LBA_SKIP_CHECK
+			inc bx
+			jc .nz_err
+ %else
+			jc .cy_err
+ %endif
+%endif
+
+.done:
+; increment segment
+	mov bx, es
+%endif
+
+.chs_done:
+%if _FIX_SECTOR_SIZE
+	add bx, _FIX_SECTOR_SIZE >> 4
+%else
+	add bx, [VAR(para_per_sector)]
+%endif
+
+	pop si
+	pop ax
+	pop cx
+	pop dx
+; increment LBA sector number
+	inc ax
+	jne @F
+	inc dx
+@@:
+
+	retn
+		%endmacro
+
+
 ; Code
 
 skip_bpb:
@@ -1248,273 +1515,6 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 %endif
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
-
-
-		%imacro errorhandler 0
-read_sector.err:
-	mov al, 'R'	; Disk 'R'ead error
-%if ! _MEMORY_CONTINUE || _RELOCATE
-	db __TEST_IMM16	; (skip mov)
-error_filetoobig:
-error_memory:
-	mov al,'M'	; Not enough 'M'emory
-%endif
-
-error:
-%if _RELOCATE
-	mov bx, 7
-	mov ds, bx
-	mov bh, [462h - 70h]
-%else
-	mov bh, [462h]
-	mov bl, 7
-%endif
-	mov ah, 0Eh
-	int 10h		; display character
-	mov al, 07h
-	int 10h		; beep!
-
-	xor ax, ax	; await key pressed
-	int 16h
-
-	int 19h		; re-start the boot process
-		%endmacro
-
-
-		%imacro readhandler 0
-		; INP:	dx:ax = sector
-		; OUT:	only if successful
-		;	dx:ax = incremented
-		;	bx => behind read sector
-		;	es = ADR_FATBUF>>4 = ADR_DIRBUF>>4
-		; CHG:	-
-%if ! _RELOCATE
- %if ADR_DIRBUF == ADR_FATBUF
-read_sector_dirbuf:
- %endif
-read_sector_fatbuf:
-	mov bx, ADR_FATBUF>>4
-%endif
-
-		; Read a sector using Int13.02 or Int13.42
-		;
-		; INP:	dx:ax = sector number within partition
-		;	bx => buffer
-		;	(_LBA) ds = ss
-		; OUT:	If unable to read,
-		;	 ! jumps to error instead of returning
-		;	If sector has been read,
-		;	 dx:ax = next sector number (has been incremented)
-		;	 bx => next buffer (bx = es+word[para_per_sector])
-		;	 es = input bx
-		; CHG:	-
-read_sector:
-	push dx
-	push cx
-	push ax
-	push si
-
-	push bx
-
-; DX:AX==LBA sector number
-; add partition start (= number of hidden sectors)
-		add ax,[VAR(hidden_sectors + 0)]
-		adc dx,[VAR(hidden_sectors + 2)]
-
-%if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
-	xor cx, cx
-	push cx
-	push cx
-	push dx
-	push ax		; qword sector number
-	push bx
-	push cx		; bx => buffer
-	inc cx
-	push cx		; word number of sectors to read
-	mov cl, 10h
-	push cx		; word size of disk address packet
-	mov si, sp	; ds:si -> disk address packet (on stack)
-
- %if _LBA_SKIP_CHECK		; -14 bytes
-	mov dl, [VAR(boot_unit)]
- %else
-	mov ah, 41h
-	mov dl, [VAR(boot_unit)]
-	mov bx, 55AAh
-	stc
-	int 13h		; 13.41.bx=55AA extensions installation check
-	jc .no_lba
-	cmp bx, 0AA55h
-	jne .no_lba
-	test cl, 1	; support bitmap bit 0
-	jz .no_lba
- %endif
-
-%if _LBA_RETRY
-	mov ah, 42h
-	int 13h		; 13.42 extensions read
-	jnc .lba_done
-
-	xor ax, ax
-	int 13h
-
-		; have to reset the LBAPACKET's lpCount, as the handler may
-		;  set it to "the number of blocks successfully transferred".
-		; (in any case, the high byte is still zero.)
-	mov byte [si + 2], 1
-%endif
-
-	mov ah, 42h
-	int 13h
- %if _LBA_SKIP_CHECK && _CHS
-	jc .lba_check_error_1
- %else
-.cy_err:
-	jc .lba_error
- %endif
-
-.lba_done:
-%if _CHS && _LBA_SET_TYPE
-	mov byte [bp + 2], 0Eh	; LBA-enabled FAT16 FS partition type
-%endif
-	add sp, 10h
-	pop bx
-	mov es, bx
-%if _CHS
-	jmp short .chs_done
-%endif
-
-.lba_error: equ .err
-
- %if !_CHS
-.no_lba: equ .err
- %else
- %if _LBA_SKIP_CHECK
-.lba_check_error_1:
-	cmp ah, 1	; invalid function?
-	jne .lba_error	; no, other error -->
-			; try CHS instead
-.cy_err: equ .err
- %endif
-.no_lba:
-	add sp, 8
-	pop ax
-	pop dx
-	pop cx
-	pop cx		; cx = 0 (needed as input for next cwd instruction)
- %endif
-%endif
-
-%if !_LBA
-.cy_err:	equ .err
-%endif
-
-%if _CHS		; +70 bytes
-; dx:ax = LBA sector number, (if _LBA) cx = 0
-; divide by number of sectors per track to get sector number
-; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
-; Use two-step 32:16 divide to avoid overflow
- %if !_LBA
-			xchg cx, ax	; cx = low word of sector, clobbers ax
-			mov ax, dx	; ax = high word of sector
-			xor dx, dx	; dx:ax = high word of sector
- %else
-			xchg cx, ax	; cx = low word of sector, ax = 0
-			push dx		; stack = high word of sector
-			cwd		; dx = 0 (because ax was 0)
-			pop ax		; ax = high word of sector
-					; dx:ax = high word of sector
- %endif
-			div word [VAR(sectors_per_track)]
-			xchg cx,ax
-			div word [VAR(sectors_per_track)]
-			xchg cx,dx
-
-; DX:AX=quotient, CX=remainder=sector (S) - 1
-; divide quotient by number of heads
-			mov bx, ax
-			xchg ax, dx
-			xor dx, dx
-			div word [VAR(heads)]
-			xchg bx, ax
-			div word [VAR(heads)]
-
-; bx:ax=quotient=cylinder (C), dx=remainder=head (H)
-; move variables into registers for INT 13h AH=02h
-			mov dh, dl	; dh = head
-			inc cx		; cl5:0 = sector
-			xchg ch, al	; ch = cylinder 7:0, al = 0
-			shr ax, 1
-			shr ax, 1	; al7:6 = cylinder 9:8
-	; bx has bits set iff it's > 0, indicating a cylinder >= 65536.
-			 or bl, bh	; collect set bits from bh
-			or cl, al	; cl7:6 = cylinder 9:8
-	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
-			 or bl, ah	; collect set bits from ah
-			mov dl,[VAR(boot_unit)] ; dl = drive
-.nz_err:
-			 jnz .err	; error if cylinder >= 1024 -->
-					; ! bx = 0 (for 13.02 call)
-
-; we call INT 13h AH=02h once for each sector. Multi-sector reads
-; may fail if we cross a track or 64K boundary
-			pop es
-%if _CHS_RETRY_REPEAT
-			mov si, _CHS_RETRY_REPEAT + 1
-			db __TEST_IMM16	; (skip int)
-.loop_chs_retry_repeat:
-			int 13h
-			mov ax, 0201h
-			int 13h		; read one sector
-			jnc .done
-			xor ax, ax	; in next iteration, reset disk
-			dec si		; another attempt ?
-			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err
-%else
- %if _CHS_RETRY
-			mov ax, 0201h
-			int 13h		; read one sector
-			jnc .done
-; reset drive
-			xor ax, ax
-			int 13h
- %endif
-; try read again
-			mov ax, 0201h
-			int 13h
- %if _LBA_SKIP_CHECK
-			inc bx
-			jc .nz_err
- %else
-			jc .cy_err
- %endif
-%endif
-
-.done:
-; increment segment
-	mov bx, es
-%endif
-
-.chs_done:
-%if _FIX_SECTOR_SIZE
-	add bx, _FIX_SECTOR_SIZE >> 4
-%else
-	add bx, [VAR(para_per_sector)]
-%endif
-
-	pop si
-	pop ax
-	pop cx
-	pop dx
-; increment LBA sector number
-	inc ax
-	jne @F
-	inc dx
-@@:
-
-	retn
-		%endmacro
 
 
 	errorhandler
