@@ -1250,6 +1250,7 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
 
+		%imacro errorhandler 0
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
 %if ! _MEMORY_CONTINUE || _RELOCATE
@@ -1277,8 +1278,10 @@ error:
 	int 16h
 
 	int 19h		; re-start the boot process
+		%endmacro
 
 
+		%imacro readhandler 0
 		; INP:	dx:ax = sector
 		; OUT:	only if successful
 		;	dx:ax = incremented
@@ -1511,6 +1514,12 @@ read_sector:
 @@:
 
 	retn
+		%endmacro
+
+
+	errorhandler
+
+	readhandler
 
 
 %if !_NO_LIMIT
