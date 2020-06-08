@@ -888,6 +888,7 @@ read_sector:
 %endif
 	add sp, 10h
 	pop bx
+	mov es, bx
 %if _CHS
 	jmp short .chs_done
 %endif
@@ -991,7 +992,6 @@ read_sector:
 %endif
 
 .chs_done:
-	mov es, bx
 %if _FIX_SECTOR_SIZE
 	add bx, _FIX_SECTOR_SIZE >> 4
 %else
