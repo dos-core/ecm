@@ -1459,7 +1459,7 @@ read_sector:
 ; may fail if we cross a track or 64K boundary
 			pop es
 %if _CHS_RETRY_REPEAT
-			mov si, _CHS_RETRY_REPEAT
+			mov si, _CHS_RETRY_REPEAT + 1
 			db __TEST_IMM16	; (skip int)
 .loop_chs_retry_repeat:
 			int 13h
