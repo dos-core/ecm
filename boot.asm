@@ -1152,13 +1152,13 @@ found_it:
 		; 2 is for the first cluster word on the stack
 		; 4 is for the additional slots taken by the return address
 	rep movsw			; relocate stack, sector
+	retf				; jump to relocated code
+
+.relocated:
 	mov ss, ax
 	mov ds, ax			; relocate these
 	add ax, (ADR_STACK_LOW) >> 4	; (rounding down) => behind available
 
-	retf				; jump to relocated code
-
-.relocated:
 	pop si
  %else
 	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
