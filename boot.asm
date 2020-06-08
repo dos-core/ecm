@@ -868,9 +868,9 @@ found_it:
 	and bx, ~ ((8192>>4) - 1)
 	mov word [VAR(fat_seg)], bx
 
-	mov bx, .relocated
+	mov di, .relocated
 	push ax
-	push bx				; -> relocation target .relocated
+	push di				; -> relocation target .relocated
 		; (We cannot use a near call here to push the target IP
 		;  because we do not control whether the ROM-BIOS loader
 		;  entered us at 0:7C00h or 7C0h:0. So we need to create
@@ -954,7 +954,7 @@ found_it:
 %endif
 		mov ax, [VAR(fat_start)]; = first FAT sector
  %if _RELOCATE
-		mov bx, [VAR(fat_seg)]
+			; bx already = FAT buffer segment here
  %else
 		mov bx, ADR_FATBUF>>4
   %if _SET_FAT_SEG
