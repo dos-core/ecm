@@ -599,7 +599,17 @@ load_name:
 	fill 3,32,db _LOAD_EXT
 
 
+	numdef TMPINC, 0
+
+%if _TMPINC
+ [list -]
+%endif
 		%imacro errorhandler 0
+%if _TMPINC
+ %include "error.tmp"
+ [list -]
+%else
+; === error.tmp ===
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
 %if ! _MEMORY_CONTINUE || _RELOCATE
@@ -627,10 +637,20 @@ error:
 	int 16h
 
 	int 19h		; re-start the boot process
+; === eof ===
+%endif
+%if _TMPINC
+ [list +]
+%endif
 		%endmacro
 
 
 		%imacro readhandler 0
+%if _TMPINC
+ %include "read.tmp"
+ [list -]
+%else
+; === read.tmp ===
 		; INP:	dx:ax = sector
 		; OUT:	only if successful
 		;	dx:ax = incremented
@@ -863,7 +883,15 @@ read_sector:
 @@:
 
 	retn
+; === eof ===
+%endif
+%if _TMPINC
+ [list +]
+%endif
 		%endmacro
+%if _TMPINC
+ [list +]
+%endif
 
 
 ; Code
