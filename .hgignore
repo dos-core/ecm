@@ -2,6 +2,7 @@ syntax: regexp
 (?i)\.bin$
 (?i)\.map$
 (?i)\.lst$
+(?i)\.tmp$
 (?i)\.img$
 (?i)\.cfg$
 (?i)\.sys$
