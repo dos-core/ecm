@@ -1365,7 +1365,7 @@ init_memory:
 
 	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
 	test bx, bx
-	jz .not_fat32
+	jz .is_fat32
 
 	lea si, [bp + 510]			; -> last source word
 	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
@@ -1386,7 +1386,7 @@ init_memory:
 	mov word [bp + bsBPB + ebpbFSFlags], cx
 	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
 	;  uninitialised here (initialised by loaded_all later)
-.not_fat32:
+.is_fat32:
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	call query_geometry
 		; The ebpbNew BPBN needs to be initialised
