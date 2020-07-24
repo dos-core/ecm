@@ -776,7 +776,7 @@ device_header_copy:
 .name:
 	fill 8, 32, db _DEVICE_NAME
 .strategy_entry:
-	fill 4, 90h, jmp .set_error
+	fill 4, 90h, jmp .set_error	; rel8 or rel16 jump, not minus .
 .interrupt_entry:
 	fill 4, 90h, retf
 
