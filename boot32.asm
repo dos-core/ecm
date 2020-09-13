@@ -958,16 +958,15 @@ read_sector:
 			pop es
 %if _CHS_RETRY_REPEAT
 			mov si, _CHS_RETRY_REPEAT + 1
-			db __TEST_IMM16	; (skip int)
 .loop_chs_retry_repeat:
-			int 13h
 			mov ax, 0201h
 			int 13h		; read one sector
 			jnc .done
-			mov ax, bx	; in next iteration, reset disk (= 0)
+			xor ax, ax
+			int 13h		; reset disk
 			dec si		; another attempt ?
 			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err_CY	; (CY)
+			jmp .err
 %else
  %if _CHS_RETRY
 			mov ax, 0201h
