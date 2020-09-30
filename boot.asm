@@ -99,7 +99,11 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00600h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+
 	numdef CHECKVALUE,	0
+	numdef SET_LOAD_SEG,	0
+	numdef SET_FAT_SEG,	0
+	numdef SET_CLUSTER,	0
 
 	numdef SET_BL_UNIT,	1
 	numdef MEMORY_CONTINUE,	0
@@ -113,7 +117,11 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+
 	numdef CHECKVALUE,	0
+	numdef SET_LOAD_SEG,	0
+	numdef SET_FAT_SEG,	0
+	numdef SET_CLUSTER,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef MEMORY_CONTINUE,	1
@@ -140,7 +148,11 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
+
 	numdef CHECKVALUE,	0
+	numdef SET_LOAD_SEG,	0
+	numdef SET_FAT_SEG,	0
+	numdef SET_CLUSTER,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef SET_DSSI_DPT,	0
@@ -159,7 +171,11 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_ADR,	00700h
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+
 	numdef CHECKVALUE,	0
+	numdef SET_LOAD_SEG,	0
+	numdef SET_FAT_SEG,	0
+	numdef SET_CLUSTER,	0
 
 	numdef SET_DL_UNIT,	1
 	numdef MEMORY_CONTINUE,	1
