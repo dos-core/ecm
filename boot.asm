@@ -1321,11 +1321,11 @@ next_cluster:
 		;	 (_FAT16) di = currently buffered FAT sector
 		; CHG:	cx
 
-		push si			; preserve cluster number for later
-
 ; prepare to load entry from FAT
 
 %if _FAT16
+		push si			; preserve cluster number for later
+
 ; Multiply cluster number by 2.
 		xchg ax, si
 		; xor dx, dx		; dx:ax = entry to load (0..FFF6h)
@@ -1373,10 +1373,12 @@ next_cluster:
 ; get 16 bits from FAT
 		es lodsw
 		xchg ax, si
+		pop ax		; restore cluster number
 %else
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ;  so multiply cluster number by 3 first, then divide by 2.
 		mov ax, si		; = cluster number (up to 12 bits set)
+			; (remember cluster number in ax)
 		shl si, 1		; = 2n (up to 13 bits set)
 		add si, ax		; = 2n+n = 3n (up to 14 bits set)
 		shr si, 1		; si = byte offset into FAT (0..6129)
@@ -1403,8 +1405,10 @@ next_cluster:
 		shl si, cl	; shift up iff even entry
 @@:
 		shr si, cl	; shift down (clears top 4 bits)
+
+			; (ax holds cluster number)
 %endif
-		pop ax		; restore cluster number
+
 ; adjust cluster number to make it 0-based
 		dec ax
 		dec ax
