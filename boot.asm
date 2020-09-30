@@ -1380,8 +1380,6 @@ next_cluster:
 		add si, ax		; = 2n+n = 3n (up to 14 bits set)
 		shr si, 1		; si = byte offset into FAT (0..6129)
 					; CF = whether to use high 12 bits
-		sbb cx, cx		; = -1 iff CY, else 0
-
  %if _RELOCATE
 		mov es, word [VAR(fat_seg)]
 		es lodsw
@@ -1396,9 +1394,11 @@ next_cluster:
 				; = 16-bit word in FAT to load
  %endif
 
-		and cl, 4	; = 4 iff CY after shift, else 0
-		shr ax, cl	; shift down iff odd entry, else unchanged
-		and ax, 0FFFh	; insure it's only 12 bits
+		mov cl, 4
+		jc @F		; iff CY after shift -->
+		shl ax, cl	; shift up iff even entry
+@@:
+		shr ax, cl	; shift down (clears top 4 bits)
 %endif
 		xchg ax, si
 		pop ax		; restore cluster number
