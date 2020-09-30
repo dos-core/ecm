@@ -534,7 +534,7 @@ fsiboot_table:		; this table is used by the FSIBOOT3 stage
 			;  dword [ss:sp] = current cluster number,
 			;  dword [ss:sp + 4] = first cluster, refer to .success
 %else
-.memory_full:	dw error_filetoobig
+.memory_full:	dw error
 			; refer to previous .memory_full comment
 %endif
 .read_sector:	dw read_sector
@@ -775,12 +775,6 @@ error_fsiboot:
 	db __TEST_IMM16	; (skip mov)
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
-
-%if !_MEMORY_CONTINUE
-	db __TEST_IMM16	; (skip mov)
-error_filetoobig:
-	mov al,'M'	; Not enough 'M'emory
-%endif
 
 error:
 %if _RELOCATE
