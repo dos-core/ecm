@@ -1388,10 +1388,11 @@ next_cluster:
  %else
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
-		add si, ADR_FATBUF	; -> 16-bit word in FAT to load
-
+		; add si, ADR_FATBUF	; -> 16-bit word in FAT to load
 ; get 16 bits from FAT
-		lodsw
+		; lodsw
+		mov ax, [ADR_FATBUF + si]
+				; = 16-bit word in FAT to load
  %endif
 
 		and cl, 4	; = 4 iff CY after shift, else 0
