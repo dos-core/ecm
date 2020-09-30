@@ -1383,6 +1383,7 @@ next_cluster:
  %if _RELOCATE
 		mov es, word [VAR(fat_seg)]
 		es lodsw
+		xchg ax, si
  %else
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
@@ -1390,17 +1391,17 @@ next_cluster:
 				; -> 16-bit word in FAT to load
 ; get 16 bits from FAT
 		; lodsw
-		mov ax, [ADR_FATBUF + si]
+		; xchg ax, si
+		mov si, [ADR_FATBUF + si]
 				; = 16-bit word in FAT to load
  %endif
 
 		mov cl, 4
 		jc @F		; iff CY after shift -->
-		shl ax, cl	; shift up iff even entry
+		shl si, cl	; shift up iff even entry
 @@:
-		shr ax, cl	; shift down (clears top 4 bits)
+		shr si, cl	; shift down (clears top 4 bits)
 %endif
-		xchg ax, si
 		pop ax		; restore cluster number
 ; adjust cluster number to make it 0-based
 		dec ax
