@@ -518,7 +518,7 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 ; Initialised data
 
 	align 2
-fsiboot_table:		; this table is used by the FSIBOOT2 stage
+fsiboot_table:		; this table is used by the FSIBOOT3 stage
 .error:		dw error
 			; INP: al = error condition letter
 			; ('B' = bad chain / FS error, 'F' = file not found,
@@ -564,7 +564,7 @@ fsiboot_table:		; this table is used by the FSIBOOT2 stage
 	fill 3,32,db _LOAD_EXT
 
 fsiboot_name:
-	db "FSIBOOT2"
+	db "FSIBOOT3"
 
 
 ; Code
@@ -1167,7 +1167,7 @@ end:
 fsiboot:
 	dd "RRaA"
 .signature:
-	db "FSIBOOT2"
+	db "FSIBOOT3"
 
 .start:
 		; INP:	ax => after last segment to be used for loading
