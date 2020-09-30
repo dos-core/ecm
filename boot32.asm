@@ -530,7 +530,8 @@ fsiboot_table:		; this table is used by the FSIBOOT2 stage
 			;  affects usage in the primary loader.
 %if _MEMORY_CONTINUE
 .memory_full:	dw load_finish_mc
-			; INP: dword [ss:sp] = current cluster number,
+			; INP: al = error condition letter ('M'),
+			;  dword [ss:sp] = current cluster number,
 			;  dword [ss:sp + 4] = first cluster, refer to .success
 %else
 .memory_full:	dw error_filetoobig
@@ -1208,6 +1209,7 @@ fsiboot:
 		;	Jumps to fsiboot_table.success if loaded entirely:
 		;	 dword [ss:sp] = first cluster
 		;	Jumps to fsiboot_table.memory_full if loaded partially:
+		;	 al = error condition letter ('M')
 		;	 dword [ss:sp] = current cluster number
 		;	 dword [ss:sp + 4] = first cluster
 
@@ -1502,6 +1504,7 @@ next_load_cluster:
 		mov bx, [VAR(load_seg)]	; => where to read next sector
 		cmp bx, [VAR(last_available_sector)]
 		jbe @F
+		mov al, 'M'		; (! _MEMORY_CONTINUE: error code)
 		jmp near word [VAR(fsiboot_table.memory_full)]
 
 @@:
