@@ -1328,9 +1328,12 @@ next_cluster:
 %if _FAT16
 ; Multiply cluster number by 2.
 		xchg ax, si
-		xor dx, dx		; dx:ax = entry to load (0..FFF6h)
-		add ax, ax
-		adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
+		; xor dx, dx		; dx:ax = entry to load (0..FFF6h)
+		; add ax, ax
+		; adc dx, dx		; dx:ax = byte offset into FAT (0..131052)
+		cwd			; dx = FFFFh if ax >= 8000h, else = 0
+		add ax, ax		; ax = (2 * ax) & FFFFh
+		neg dx			; dx = 1 if 2 * ax overflowed, else = 0
 
 ; Divide by sector size to split dx:ax into the remainder as the byte offset
 ;  into the FAT sector, and quotient as the sector offset into the FAT.
