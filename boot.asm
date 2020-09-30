@@ -1382,8 +1382,9 @@ next_cluster:
 					; CF = whether to use high 12 bits
  %if _RELOCATE
 		mov es, word [VAR(fat_seg)]
-		es lodsw
-		xchg ax, si
+		; es lodsw
+		; xchg ax, si
+		mov si, word [es:si]
  %else
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
