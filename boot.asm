@@ -1372,6 +1372,7 @@ next_cluster:
 
 ; get 16 bits from FAT
 		es lodsw
+		xchg ax, si
 %else
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ;  so multiply cluster number by 3 first, then divide by 2.
