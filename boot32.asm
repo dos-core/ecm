@@ -1496,10 +1496,10 @@ next_load_cluster:
 
 		mov cx, [VAR(adj_sectors_per_cluster)]
 
-		mov bx, [VAR(load_seg)]
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 @@:
+		mov bx, [VAR(load_seg)]	; => where to read next sector
 		cmp bx, [VAR(last_available_sector)]
 		jbe @F
 		jmp near word [VAR(fsiboot_table.memory_full)]
@@ -1508,10 +1508,8 @@ next_load_cluster:
 		call near word [VAR(fsiboot_table.read_sector)]
 		mov [VAR(load_seg)], bx	; => after last read data
 
-		push ax
-		mov ax, [VAR(para_per_sector)]
-		sub word [VAR(paras_left)], ax
-		pop ax
+		mov bx, [VAR(para_per_sector)]
+		sub word [VAR(paras_left)], bx
 		jbe @F		; read enough -->
 
 		loop @BB
