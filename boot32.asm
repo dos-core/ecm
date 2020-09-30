@@ -530,7 +530,7 @@ fsiboot_table:		; this table is used by the FSIBOOT2 stage
 			;  affects usage in the primary loader.
 %if _MEMORY_CONTINUE
 .memory_full:	dw load_finish_mc
-			; INP: dword [ss:sp] = next cluster number,
+			; INP: dword [ss:sp] = current cluster number,
 			;  dword [ss:sp + 4] = first cluster, refer to .success
 %else
 .memory_full:	dw error_filetoobig
@@ -1208,7 +1208,7 @@ fsiboot:
 		;	Jumps to fsiboot_table.success if loaded entirely:
 		;	 dword [ss:sp] = first cluster
 		;	Jumps to fsiboot_table.memory_full if loaded partially:
-		;	 dword [ss:sp] = next cluster number
+		;	 dword [ss:sp] = current cluster number
 		;	 dword [ss:sp + 4] = first cluster
 
 	sub ax, word [VAR(para_per_sector)]
@@ -1475,7 +1475,7 @@ found_it:
 		pop di			; restore si:di = loaded FAT sector
 		pop bx			; (discard sectors per cluster counter)
 		pop bx
-		pop bx			; (discard next cluster number)
+		pop bx			; (discard current cluster number)
 
 		push cx			; push into word [VAR(paras_left)]
 
