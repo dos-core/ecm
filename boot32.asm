@@ -24,6 +24,9 @@ Public domain by C. Masloch, 2012
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"lDOS"
+	strdef FSIBOOTNAME,	"FSIBOOT3"
+	; used to set experimental name
+	; strdef FSIBOOTNAME,	"FSIBEX00"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -518,7 +521,7 @@ filesystem_identifier:	fill 8,32,db "FAT32"
 ; Initialised data
 
 	align 2
-fsiboot_table:		; this table is used by the FSIBOOT3 stage
+fsiboot_table:		; this table is used by the FSIBOOT stage
 .error:		dw error
 			; INP: al = error condition letter
 			; ('B' = bad chain / FS error, 'F' = file not found,
@@ -564,7 +567,7 @@ fsiboot_table:		; this table is used by the FSIBOOT3 stage
 	fill 3,32,db _LOAD_EXT
 
 fsiboot_name:
-	db "FSIBOOT3"
+	fill 8, 32, db _FSIBOOTNAME
 
 
 ; Code
@@ -671,7 +674,7 @@ load_fsiboot:
 	pop es
 	mov di, fsiboot.signature
 	mov si, fsiboot_name
-	mov cx, 4
+	mov cx, 4		; size of fsiboot_name
 	repe cmpsw
 	jne error_fsiboot
 		; Note that now es:di -> fsiboot.start
@@ -1161,8 +1164,11 @@ end:
 fsiboot:
 	dd "RRaA"
 .signature:
-	db "FSIBOOT3"
+	fill 8, 32, db _FSIBOOTNAME
 
+%if ($ - .signature) != 8
+ %error Unexpected name size
+%endif
 .start:
 		; INP:	ax => after last segment to be used for loading
 		;	ss:bp -> boot sector, with EBPB
