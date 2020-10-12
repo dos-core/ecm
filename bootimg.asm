@@ -53,7 +53,7 @@ Some things are not supported yet:
 
 * Long file names.
 
-* FSINFO sector for FAT32.
+* Initialise the FSINFO sector entries for FAT32.
 
 * Backup boot sectors for FAT32.
 
@@ -88,9 +88,13 @@ along with a default loader (which aborts with an error).
 	numdef SPC, 1		; sectors per cluster
 	numdef SPF, 9		; sectors per FAT
 	numdef BPE, 12		; bits per entry
+	numdef FSINFO, 1	; (only if FAT32) include an FSINFO sector
 	numdef NUMFATS, 2	; number of FATs
 	numdef NUMROOT, 224	; number of root directory entries
 	numdef NUMRESERVED, 1	; number of reserved sectors
+%if _BPE == 32 && _FSINFO
+	numdef NUMRESERVED, 8	; number of reserved sectors
+%endif
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
@@ -243,7 +247,11 @@ fsversion:		; offset 2Ah (42)
 root_cluster:		; offset 2Ch (44)
 	dd rootcluster
 fsinfo_sector:		; offset 30h (48)
+%if _FSINFO
+	dw 1
+%else
 	dw 0
+%endif
 backup_sector:		; offset 32h (50)
 	dw 0
 
@@ -312,6 +320,41 @@ boot_end:
  %error Boot file has wrong size
 %endif
 	align _BPS
+
+%if _BPE == 32 && _FSINFO
+	struc FSINFO	; FAT32 FSINFO sector layout
+.signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
+.reserved1:			; former unused, initialized to zero by FORMAT
+.fsiboot:	resb 480	; now used for FSIBOOT
+.signature2:	resd 1		; 61417272h ("rrAa") for valid FSINFO
+.numberfree:	resd 1		; FSINFO: number of free clusters or -1
+.nextfree:	resd 1		; FSINFO: first free cluster or -1
+.reserved2:	resd 3		; unused, initialized to zero by FORMAT
+.signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
+	endstruc
+
+fsinfo:
+	istruc FSINFO
+at FSINFO.signature1
+	dd "RRaA"
+at FSINFO.reserved1
+	_fill 480 + 4, 0, fsinfo
+at FSINFO.signature2
+	dd "rrAa"
+at FSINFO.numberfree
+	dd -1		; number of free clusters
+at FSINFO.nextfree
+	dd -1		; first free cluster
+at FSINFO.reserved2
+	times 3 dd 0
+at FSINFO.signature3
+	dd 0_AA55_0000h
+	iend
+ %if _BPS > 512
+	times (_BPS - 512 - 4) db 0
+	dd 0_AA55_0000h
+ %endif
+%endif
 
 	times (_NUMRESERVED * _BPS) - ($ - $$) db 0
 
