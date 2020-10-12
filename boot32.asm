@@ -26,7 +26,7 @@ Public domain by C. Masloch, 2012
 	strdef DEFAULT_LABEL,	"lDOS"
 	strdef FSIBOOTNAME,	"FSIBOOT3"
 	; used to set experimental name
-	; strdef FSIBOOTNAME,	"FSIBEX00"
+	strdef FSIBOOTNAME,	"FSIBEX00"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -546,15 +546,6 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 			; OUT: dx:ax incremented, bx => incremented,
 			;  es = input bx, does not return if error occurred
 			; CHG: none
-%if _RELOCATE
-.fatbuf:	dw ((8192 - 16) + 1024 + 7C00h)>>4
-			; With _RELOCATE enabled, this is fixed up by the
-			;  primary loader before FSIBOOT is executed. The
-			;  initial value is used as an operand in the fixup.
-%else
-.fatbuf:	dw ADR_FATBUF>>4
-%endif
-			; => FAT sector buffer (one sector)
 .dirbuf:	dw ADR_DIRBUF>>4
 			; => directory sector buffer (one sector)
 			;  These two must not overlap! However, the directory
@@ -728,14 +719,19 @@ load_fsiboot:
 		;  That is, to avoid overwriting any of the source with the
 		;  string move instruction (which for simplicity is always UP).
 	jb error_fsiboot
-; fsiboot_table.fatbuf is pre-initialised to the value
+
+			; With _RELOCATE enabled, the FAT buffer segment
+			;  is fixed up by the primary loader here before
+			;  FSIBOOT is executed.
+	mov bx, ((8192 - 16) + 1024 + 7C00h)>>4
+; bx is initialised to the value
 ;  ((8192 - 16) + 1024 + 7C00h)>>4
 ;  so this is like calculating the following for its value:
 ;  ((LMA_top - 20 KiB - 8 KiB - (8 KiB - 16 B) - 1 KiB - 7C00h) + \
 ;	((8 KiB - 16 B) + 1 KiB + 7C00h))>>4
 ;  == (LMA_top - 20 KiB - 8 KiB)>>4
-	add word [VAR(fsiboot_table.fatbuf)], ax
-	and word [VAR(fsiboot_table.fatbuf)], ~ ((8192>>4) - 1)
+	add bx, ax
+	and bx, ~ ((8192>>4) - 1)	; => FAT sector buffer (one sector)
 
 	push ax
 	push di				; -> reloc destination of fsiboot.start
@@ -756,6 +752,7 @@ load_fsiboot:
  %else
 	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
 	jc error_fsiboot
+	mov bx, ADR_FATBUF >> 4		; => FAT sector buffer (one sector)
 	push es
 	push di				; -> fsiboot.start
 	retf
@@ -763,6 +760,7 @@ load_fsiboot:
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
 	mov ax, (ADR_STACK_LOW >> 4)
+	mov bx, ADR_FATBUF >> 4		; => FAT sector buffer (one sector)
 	push es
 	push di				; -> fsiboot.start
 	retf
@@ -1171,6 +1169,7 @@ fsiboot:
 %endif
 .start:
 		; INP:	ax => after last segment to be used for loading
+		;	bx => FAT buffer (8 KiB)
 		;	ss:bp -> boot sector, with EBPB
 		;	dwo [ss:bp -  4] = data_start (uninit)
 		;	wo [ss:bp -  6] = load_seg (uninit)
@@ -1198,7 +1197,7 @@ fsiboot:
 		;	Else:
 		;	data_start (within partition) initialised
 		;	load_seg => behind last loaded data
-		;	fat_seg initialised (from fsiboot_table.fatbuf)
+		;	fat_seg initialised (from bx)
 		;	fat_sector initialised
 		;	 (-1 initially, loaded sector-in-FAT later)
 		;	first_cluster initialised
@@ -1213,6 +1212,8 @@ fsiboot:
 		;	 dword [ss:sp] = current cluster number
 		;	 dword [ss:sp + 4] = first cluster
 
+	mov word [VAR(fat_seg)], bx	; initialise => FAT buffer
+
 	sub ax, word [VAR(para_per_sector)]
 	jc .CY_fsiboot_error_badchain
 	push ax			; push into word [VAR(last_available_sector)]
@@ -1221,9 +1222,6 @@ fsiboot:
 	mov word [VAR(load_seg)], bx	; initialise => load address
 	cmp ax, bx
 	jb .CY_fsiboot_error_badchain
-
-	push word [VAR(fsiboot_table.fatbuf)]
-	pop word [VAR(fat_seg)]		; initialise => FAT buffer
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
