@@ -319,7 +319,7 @@ boot_end:
 %if (boot_end - boot_start) != 512
  %error Boot file has wrong size
 %endif
-	align _BPS
+	align _BPS, db 0
 
 %if _BPE == 32 && _FSINFO
 	struc FSINFO	; FAT32 FSINFO sector layout
@@ -712,7 +712,7 @@ at deSize,		dd filesize
 %assign ii 0
 %rep %0 - 1
 	usesection data %+ ii
-	align _BPS * _SPC
+	align _BPS * _SPC, db 0
  %assign clusters ($ - data %+ ii %+ _start) / (_BPS * _SPC)
 	addfatchain %1,clusters
  %assign ii ii + 1
@@ -727,7 +727,7 @@ at deSize,		dd filesize
 %assign ii 0
 %rep filescount
 	usesection data %+ ii
-	align _BPS * _SPC
+	align _BPS * _SPC, db 0
 data %+ ii %+ _end:
  %assign data_used data_used \
 	+ (data %+ ii %+ _end - data %+ ii %+ _start)
