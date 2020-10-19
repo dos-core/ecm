@@ -82,6 +82,7 @@ along with a default loader (which aborts with an error).
 %include "lmacros3.mac"
 
 	defaulting
+	sectalign off
 
 	numdef SPI, 2880	; sectors per image
 	numdef BPS, 512		; bytes per sector
@@ -111,6 +112,58 @@ along with a default loader (which aborts with an error).
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"NO NAME"
 	numdef VOLUMEID,	0
+
+	numdef MBR,			0
+	gendef MBR_PART_TYPE,		fat12
+	numdef MBR_DOSEMU_IMAGE_HEADER,	0
+	numdef MBR_GAP_SIZE_SECTORS,	0, 2048
+	numdef MBR_GAP_SIZE_CYLINDERS,	1
+	numdef MBR_ADD_GAP_TO_HIDDEN,	1
+
+ptEmpty:		equ 0
+ptFAT12:		equ 1
+ptFAT16_16BIT_CHS:	equ 4
+ptExtendedCHS:		equ 5
+ptFAT16_CHS:		equ 6
+ptFAT32_CHS:		equ 0Bh
+ptFAT32:		equ 0Ch
+ptFAT16:		equ 0Eh
+ptExtended:		equ 0Fh
+ptLinux:		equ 83h
+ptExtendedLinux:	equ 85h
+
+%if _MBR
+ %if _MBR_GAP_SIZE_SECTORS == 0
+  %if _MBR_GAP_SIZE_CYLINDERS == 0
+   %error Invalid gap size specified
+  %else
+   %assign _MBR_GAP_SIZE_SECTORS _MBR_GAP_SIZE_CYLINDERS * _CHS_HEADS * _CHS_SECTORS
+  %endif
+ %endif
+ %if _MBR_ADD_GAP_TO_HIDDEN
+  %assign _HIDDEN _HIDDEN + _MBR_GAP_SIZE_SECTORS
+ %endif
+ %ifidni _MBR_PART_TYPE,	fat12
+  %assign _MBR_PART_TYPE	ptFAT12
+ %elifidni _MBR_PART_TYPE,	fat16_16bit_chs
+  %assign _MBR_PART_TYPE	ptFAT16_16BIT_CHS
+ %elifidni _MBR_PART_TYPE,	fat16_chs
+  %assign _MBR_PART_TYPE	ptFAT16_CHS
+ %elifidni _MBR_PART_TYPE,	fat32_chs
+  %assign _MBR_PART_TYPE	ptFAT32_CHS
+ %elifidni _MBR_PART_TYPE,	fat32
+  %assign _MBR_PART_TYPE	ptFAT32
+ %elifidni _MBR_PART_TYPE,	fat16
+  %assign _MBR_PART_TYPE	ptFAT16
+ %endif
+ %assign _MBR_PART_TYPE _MBR_PART_TYPE
+ %ifnnum _MBR_PART_TYPE
+  %error Invalid partition type specified
+ %endif
+ %if _MBR_PART_TYPE == 0
+  %error Invalid partition type specified
+ %endif
+%endif
 
 
 %ifnidn _MAP, ""
@@ -168,6 +221,38 @@ along with a default loader (which aborts with an error).
 %assign EOFENTRY MAXENTRY - 15 + _EOF
 
 
+	struc PARTINFO_CHS_TUPLE
+pictHead:		resb 1
+pictSectorLow6:
+pictCylinderHigh2:	resb 1
+pictCylinderLow8:	resb 1
+	endstruc
+
+	%macro chs_tuple 1.nolist
+%assign %%sector (%1) % _CHS_SECTORS
+%assign %%i (%1) / _CHS_SECTORS
+%assign %%head %%i % _CHS_HEADS
+%assign %%cylinder %%i / _CHS_HEADS
+%if %%cylinder >= 1024
+ %assign %%cylinder 1023
+%endif
+		istruc PARTINFO_CHS_TUPLE
+at pictHead,		db %%head
+at pictSectorLow6
+at pictCylinderHigh2,	db (%%sector + 1) | (%%cylinder >> 8)
+at pictCylinderLow8,	db (%%cylinder & 0FFh)
+		iend
+	%endmacro
+
+	struc PARTINFO
+piBoot:		resb 1
+piStartCHS:	resb 3		; PARTINFO_CHS_TUPLE
+piType:		resb 1
+piEndCHS:	resb 3		; PARTINFO_CHS_TUPLE
+piStart:	resd 1
+piLength:	resd 1
+	endstruc
+
 	struc DIRENTRY
 deName:		resb 8
 deExt:		resb 3
@@ -187,8 +272,107 @@ ATTR_VOLLABEL	equ 8
 ATTR_DIRECTORY	equ 10h
 ATTR_ARCHIVE	equ 20h
 
+	struc DOSEMU_IMAGE_HEADER
+; This structure is parsed when determining the geometry for
+;  a hard disk image. It is documented in the dosemu2 sources at:
+; https://github.com/dosemu2/dosemu2/blob/f41c0f267fec/src/include/disks.h#L132
+dihSig:		resb 7		; "DOSEMU",0 or 0Eh,"DEXE"
+dihCHSHeads:	resd 1		; (note the misalignment for these)
+dihCHSSectors:	resd 1
+dihCHSCylinders:resd 1
+dihHeaderSize:	resd 1
+dihDummy:	resb 1
+dihDEXEFlags:	resd 1
+	endstruc
+dih_our_size:	equ 8192	; (16 * 512)
 
-	addsection boot, start=0 vstart=7C00h
+
+%define STARTSFOLLOWS start=0
+
+%if _MBR
+CYLINDERS equ (_MBR_GAP_SIZE_SECTORS + _SPI + _CHS_HEADS * _CHS_SECTORS - 1) \
+	/ (_CHS_HEADS * _CHS_SECTORS)
+
+
+ %if _MBR_DOSEMU_IMAGE_HEADER
+	addsection dosemu_image_header, STARTSFOLLOWS
+  %define STARTSFOLLOWS follows=dosemu_image_header
+	istruc DOSEMU_IMAGE_HEADER
+at dihSig,		asciz "DOSEMU"
+at dihCHSHeads,		dd _CHS_HEADS
+at dihCHSSectors,	dd _CHS_SECTORS
+at dihCHSCylinders,	dd CYLINDERS
+at dihHeaderSize,	dd dih_our_size
+	iend
+	times dih_our_size - ($ - $$) db 0
+ %endif
+
+
+	addsection mbr, STARTSFOLLOWS vstart=7C00h
+ %define STARTSFOLLOWS follows=mbr
+
+mbr_start:
+	cli
+	cld
+	xor ax, ax
+	mov es, ax
+	mov ds, ax
+	mov ss, ax
+	mov sp, 7C00h
+	sti
+	mov si, mbr_message
+@@:
+	lodsb
+	test al, al
+	jz @F
+	mov ah, 0Eh
+	mov bh, [462h]
+	mov bl, 7
+	int 10h
+	jmp @B
+
+@@:
+	xor ax, ax
+	int 13h
+	xor ax, ax
+	int 16h
+	int 19h
+
+mbr_message:
+	db "Unable to boot, MBR loader not written.",13,10
+	db 13,10
+	db "Press any key to reboot.",13,10
+	db 0
+
+	times (512 - 2 - 4 * 16) - ($ - $$) db 0
+
+%assign TOTAL_MBR_SECTORS CYLINDERS * _CHS_HEADS * _CHS_SECTORS
+mbr_partition_table:
+	istruc PARTINFO
+at piBoot,	db 80h			; active primary partition
+at piStartCHS
+		chs_tuple _MBR_GAP_SIZE_SECTORS
+at piType,	db _MBR_PART_TYPE
+at piEndCHS
+		chs_tuple (TOTAL_MBR_SECTORS - 1)
+at piStart,	dd _MBR_GAP_SIZE_SECTORS
+at piLength,	dd TOTAL_MBR_SECTORS - _MBR_GAP_SIZE_SECTORS
+	iend
+
+	times (512 - 2) - ($ - $$) db 0
+mbr_signature:
+	dw 0AA55h
+	align _BPS, db 0
+
+
+	addsection gap, STARTSFOLLOWS
+ %define STARTSFOLLOWS follows=gap
+
+	times (_MBR_GAP_SIZE_SECTORS - 1) * _BPS db 0
+%endif
+
+
+	addsection boot, STARTSFOLLOWS vstart=7C00h
 boot_start:
 %ifnidn _BOOTFILE, ""
 	incbin _BOOTFILE
@@ -400,7 +584,6 @@ at FSINFO.signature3
 
 
 	addsection fixed_root, follows=fat align=_BPS
-	sectalign off
 
 
 		; %1 = directory name ("" if is root)
@@ -741,8 +924,17 @@ data %+ ii %+ _end:
 %endif
 	times ROOTSECTORS * _BPS - ($ - $$)	db 0
 
+
 	usesection empty
 	times DATASECTORS * _BPS - data_used	db 0
+
+
+%if _MBR
+	addsection partition_end_padding, follows=empty
+	times (CYLINDERS * _CHS_HEADS * _CHS_SECTORS \
+			- _MBR_GAP_SIZE_SECTORS - _SPI) \
+		* _BPS db 0
+%endif
 
 
 %if _BPE == 32
