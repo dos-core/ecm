@@ -159,13 +159,16 @@ ptExtendedLinux:	equ 85h
 
 	struc FSINFO	; FAT32 FSINFO sector layout
 .signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
+.signature1_value:	equ 41615252h
 .reserved1:			; former unused, initialized to zero by FORMAT
 .fsiboot:	resb 480	; now used for FSIBOOT
 .signature2:	resd 1		; 61417272h ("rrAa") for valid FSINFO
+.signature2_value:	equ 61417272h
 .numberfree:	resd 1		; FSINFO: number of free clusters or -1
 .nextfree:	resd 1		; FSINFO: first free cluster or -1
 .reserved2:	resd 3		; unused, initialized to zero by FORMAT
 .signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
+.signature3_value:	equ 0AA550000h
 	endstruc
 
 	struc FSIBOOTG	; FSIBOOT general layout
@@ -418,6 +421,7 @@ NUM_REPLACEMENTS equ 4
 	call uppercase
 	cmp al, 'O'
 	jne @F
+	clropt [cmd_line_flags], clfZeroInfo
 	setopt [cmd_line_flags], clfLeaveInfo
 .loop_1:
 	jmp .loop
@@ -425,7 +429,26 @@ NUM_REPLACEMENTS equ 4
 @@:
 	cmp al, 'R'
 	jne @F
+	clropt [cmd_line_flags], clfLeaveInfo | clfZeroInfo
+	jmp .loop_1
+
+@@:
+	cmp al, 'Z'
+	jne @F
 	clropt [cmd_line_flags], clfLeaveInfo
+	setopt [cmd_line_flags], clfZeroInfo
+	jmp .loop_1
+
+@@:
+	cmp al, 'I'
+	jne @F
+	setopt [cmd_line_flags], clfAllowInvalidInfo
+	jmp .loop_1
+
+@@:
+	cmp al, 'V'
+	jne @F
+	clropt [cmd_line_flags], clfAllowInvalidInfo
 	jmp .loop_1
 
 @@:
@@ -921,6 +944,32 @@ error_badchain: equ $
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
+	testopt [cmd_line_flags], clfZeroInfo
+	jz @F
+
+	mov di, sector_buffer + 512
+	mov cx, 512 >> 1
+	xor ax, ax
+	rep stosw				; zero entire sector
+
+	mov si, second_sector_buffer + 512 + FSINFO.signature1
+	mov cx, 4 >> 1
+	mov di, sector_buffer + 512
+	rep movsw				; copy over first signature
+
+	mov si, second_sector_buffer + 512 + FSINFO.signature2
+	mov di, sector_buffer + 512 + FSINFO.signature2
+	mov cx, (FSINFO.reserved2 - FSINFO.signature2) >> 1
+	rep movsw				; copy signature and entries
+
+	mov si, second_sector_buffer + 512 + FSINFO.signature3
+	mov di, sector_buffer + 512 + FSINFO.signature3
+	mov cx, 4 >> 1
+	rep movsw				; copy final signature
+	jmp .no_fsinfo
+
+@@:
+
 	testopt [cmd_line_flags], clfLeaveInfo
 	jz @F
 
@@ -1174,6 +1223,51 @@ set_unit:
 	mov dx, msg.using_fix_unit_after
 .auto:
 	call disp_msg_asciz
+
+
+validate_fsinfo:
+%if _FAT32_TWO_SECTORS
+	test byte [bp + ldHasLBA], 2
+	jz .no_fsinfo
+
+	mov di, sector_buffer + 512
+	mov dx, msg.info_valid
+
+	cmp word [di + FSINFO.signature1], FSINFO.signature1_value & 0FFFFh
+	jne @F
+	cmp word [di + FSINFO.signature1 + 2], FSINFO.signature1_value >> 16
+	jne @F
+	cmp word [di + FSINFO.signature2], FSINFO.signature2_value & 0FFFFh
+	jne @F
+	cmp word [di + FSINFO.signature2 + 2], FSINFO.signature2_value >> 16
+	jne @F
+	cmp word [di + FSINFO.signature3], FSINFO.signature3_value & 0FFFFh
+	jne @F
+	cmp word [di + FSINFO.signature3 + 2], FSINFO.signature3_value >> 16
+	je .end
+
+@@:
+	mov dx, msg.info_invalid_allowing
+	testopt [cmd_line_flags], clfAllowInvalidInfo
+	jnz .end
+
+	mov dx, msg.info_invalid_resetting
+	mov si, info_reset_struc
+	mov cx, info_reset_struc.signature1_size >> 1
+	rep movsw
+	mov cl, info_reset_struc.signature2_plus_entries_size >> 1
+	mov di, sector_buffer + 512 + FSINFO.signature2
+	rep movsw
+	mov cl, info_reset_struc.signature3_size >> 1
+	mov di, sector_buffer + 512 + FSINFO.signature3
+	rep movsw
+
+.end:
+	call disp_msg_asciz
+
+.no_fsinfo:
+
+%endif
 
 write:
 
@@ -2370,10 +2464,27 @@ hVdd:		dw 0
 load_unit:	dw 0FF00h
 drivenumber:	db 0
 
+%if _FAT32 && _FAT32_TWO_SECTORS
+	align 4
+info_reset_struc:
+.signature1:
+	dd FSINFO.signature1_value
+.signature1_size: equ $ - .signature1
+.signature2_plus_entries:
+	dd FSINFO.signature2_value
+	dd -1
+	dd -1
+.signature2_plus_entries_size: equ $ - .signature2_plus_entries
+.signature3:
+	dd FSINFO.signature3_value
+.signature3_size: equ $ - .signature3
+%endif
+
 	align 4
 packet:	dd 0		; sector number
 	dw 0		; number of sectors to read
 	dd 0		; transfer address Segm:OOOO
+
 
 msg:
 .help:	db "INSTSECT: Install boot sectors. 2018 by C. Masloch",13,10
@@ -2397,14 +2508,19 @@ msg:
 	db 9,"/BN",9,9,"do not write boot sector",13,10
 	db 9,"/BR",9,9,"replace boot sector loader with built-in one (default)",13,10
 	db 9,"/BO",9,9,"keep original boot sector",13,10
+%if _FAT32 && _FAT32_TWO_SECTORS
 	db 13,10
 	db "Only applicable for FAT32 with sector size below or equal to 512 bytes:",13,10
 	db 9,"/IS",9,9,"write FSIBOOT to drive's FSINFO sector (default)",13,10
 	db 9,"/I=filename",9,"write FSIBOOT to file, not to drive",13,10
 	db 9,"/IB",9,9,"write FSIBOOT to boot sector file (see /B=filename)",13,10
 	db 9,"/IN",9,9,"do not write FSIBOOT",13,10
-	db 9,"/IR",9,9,"replace FSINFO with built-in FSIBOOT (default)",13,10
-	db 9,"/IO",9,9,"keep original FSINFO",13,10
+	db 9,"/IR",9,9,"replace reserved field with built-in FSIBOOT (default)",13,10
+	db 9,"/IO",9,9,"keep original reserved fields (including FSIBOOT area)",13,10
+	db 9,"/IZ",9,9,"zero out reserved fields (including FSIBOOT area)",13,10
+	db 9,"/II",9,9,"leave invalid FSINFO structure",13,10
+	db 9,"/IV",9,9,"make valid FSINFO if there is none (default)",13,10
+%endif
 	asciz
 
 .boot_access_error:	asciz "Access error.", 13,10
@@ -2488,6 +2604,9 @@ load_kernel_name: equ $
 .switch_filename_empty:
 			asciz "Switch filename is empty.",13,10
 
+.info_valid:		asciz "Valid FSINFO entries detected.",13,10
+.info_invalid_allowing:	asciz "Warning: Invalid FSINFO entries, allowing.",13,10
+.info_invalid_resetting:asciz "Resetting invalid FSINFO entries.",13,10
 .info_writing_not:	asciz "Not writing FSINFO.",13,10
 .info_writing_sector_file:
 			asciz "Writing FSINFO to boot sector file.",13,10
@@ -2950,6 +3069,8 @@ clfWriteInfoMask: \
 	equ clfWriteInfoToFile | clfWriteInfoToSector \
 		| clfWriteInfoToSectorFile | clfDontWriteInfo
 clfLeaveInfo:			equ 100h
+clfZeroInfo:			equ 200h
+clfAllowInvalidInfo:		equ 400h
 cmd_line_sector_file:
 .name:		dw 0
 .handle:	dw -1
