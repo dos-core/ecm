@@ -26,11 +26,12 @@ Public domain by C. Masloch, 2012
 	strdef DEFAULT_LABEL,	"lDOS"
 	strdef FSIBOOTNAME,	"FSIBOOT3"
 	; used to set experimental name
-	strdef FSIBOOTNAME,	"FSIBEX00"
+	strdef FSIBOOTNAME,	"FSIBEX01"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
+	numdef LOAD_MIN_PARA,	paras(512)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
@@ -565,6 +566,7 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 			; => directory sector buffer (one sector)
 			;  These two must not overlap! However, the directory
 			;  sector can overlap with the load file's buffer.
+.minpara:	dw _LOAD_MIN_PARA
 .loadseg:	dw _LOAD_ADR>>4
 			; => where to load
 
