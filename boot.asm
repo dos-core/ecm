@@ -348,12 +348,27 @@ ADR_FREE_UNTIL	equ	ADR_STACK_LOW
  ADR_FREE_UNTIL	equ 0
 %endif
 %if _LOAD_ADR >= ADR_FREE_FROM
-	; if reading on a 8 KiB boundary, no crossing can occur.
- %if _LOAD_ADR & (8192 - 1)
-  %warning Possibly crossing 64 KiB boundary while reading file
- %endif
+	; If reading on a sector size boundary, no crossing can occur.
+	;  Check for all possible sector sizes (32 B to 8 KiB). If one
+	;  of them fails display a warning, including the minimum size.
+ %assign SECSIZECHECK 32
+ %assign EXITREP 0
+ %rep 256
+  %ifn EXITREP
+   %if _LOAD_ADR & (SECSIZECHECK - 1)
+    %warning Possibly crossing 64 KiB boundary while reading file (sector size >= SECSIZECHECK)
+    %assign EXITREP 1
+    %exitrep
+   %endif
+   %if SECSIZECHECK == 8192
+    %assign EXITREP 1
+    %exitrep
+   %endif
+   %assign SECSIZECHECK SECSIZECHECK * 2
+  %endif
+ %endrep
 %else
-	; if loading below the boot sector, address 1_0000h is never reached.
+	; If loading below the boot sector, address 1_0000h is never reached.
 %endif
 
 
