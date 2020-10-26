@@ -1312,9 +1312,15 @@ init_memory:
  %error Unexpected structure layout
 %endif
 	cmp word [si], lsvclSignature
-	je @F
-	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], 0
+	je @F		; if command line given -->
+	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], cl
+			; truncate as if empty line given
+	dec cx		; cl = 0FFh
 @@:
+	mov byte [es:di - 1], cl
+			; remember whether command line given
+			;  = 0 if given (also truncates if too long)
+			;  = 0FFh if not given
 
 	push ax
 %if lsvCommandLine.signature + 2 != lsvExtra
@@ -1665,8 +1671,12 @@ loaded_all:
 	lea di, [bp + ldCommandLine.start]
 	mov cx, lsvclBufferLength
 	xor ax, ax
-	repne scasb
-	rep stosb
+	push word [bp + ldCommandLine.start + lsvclBufferLength - 1]
+				; get sentinel (whether command line given)
+	repne scasb		; scan for terminator
+	pop ax			; al = 0FFh if no command line given
+				; al = 0 else
+	rep stosb		; clear remainder of buffer
 
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
@@ -1680,7 +1690,8 @@ loaded_all:
 		; cs:ip = xxxxh:_EXEC_OFFSET
 		; entire payload loaded (payload -- payload.actual_end)
 		; LOADSTACKVARS and LOADDATA and EBPB and ebpbNew BPBN set
-		; LOADCMDLINE set (zeroed if invalid signature)
+		; LOADCMDLINE set (ASCIZ, up to 255 bytes + 1 byte terminator)
+		; word [ldCommandLine.start] = 0FF00h if had invalid signature
 	retf
 
 

@@ -241,6 +241,7 @@ msg:
 .psp_and_size_before:	asciz "PSP at "
 .psp_and_size_between:	asciz "h, size of memory block is "
 .psp_and_size_after:	asciz "h paragraphs.",13,10
+.cmdline.kern.none:	asciz "No kernel command line given!",13,10
 .cmdline_before.kern:	asciz "Kernel command line = ",'"'
 .cmdline_before.app:	asciz "Application command line = ",'"'
 .cmdline_before.device:	asciz "Device command line = ",'"'
@@ -586,6 +587,10 @@ listnames:
 	jmp .after_cmdline
 
 .skip_device:
+	mov si, msg.cmdline.kern.none
+	cmp word [bp + ldCommandLine], 0FF00h
+	je .no_kernel_cmdline
+
 	mov si, msg.cmdline_before.kern
 	call disp_msg
 
@@ -597,6 +602,7 @@ listnames:
 	push cs
 	pop ds
 	mov si, msg.cmdline_after
+.no_kernel_cmdline:
 	call disp_msg
 
 .after_cmdline:
