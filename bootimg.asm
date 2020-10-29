@@ -239,7 +239,7 @@ pictCylinderLow8:	resb 1
 		istruc PARTINFO_CHS_TUPLE
 at pictHead,		db %%head
 at pictSectorLow6
-at pictCylinderHigh2,	db (%%sector + 1) | (%%cylinder >> 8)
+at pictCylinderHigh2,	db (%%sector + 1) | ((%%cylinder >> (8 - 6)) & 0C0h)
 at pictCylinderLow8,	db (%%cylinder & 0FFh)
 		iend
 	%endmacro
