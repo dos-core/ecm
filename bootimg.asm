@@ -120,6 +120,20 @@ along with a default loader (which aborts with an error).
 	numdef MBR_GAP_SIZE_CYLINDERS,	1
 	numdef MBR_ADD_GAP_TO_HIDDEN,	1
 
+
+	numdef ZEROBYTES_RESB,		1
+		; Using the resb trick to zero takes about 1/40th
+		;  the time of using times (for a 512 MiB image).
+	%imacro zerobytes 1.nolist
+%if _ZEROBYTES_RESB
+[warning -zeroing]
+	resb %1
+[warning *zeroing]
+%else
+	times %1 db 0
+%endif
+	%endmacro
+
 ptEmpty:		equ 0
 ptFAT12:		equ 1
 ptFAT16_16BIT_CHS:	equ 4
@@ -368,7 +382,7 @@ mbr_signature:
 	addsection gap, STARTSFOLLOWS
  %define STARTSFOLLOWS follows=gap
 
-	times (_MBR_GAP_SIZE_SECTORS - 1) * _BPS db 0
+	zerobytes (_MBR_GAP_SIZE_SECTORS - 1) * _BPS
 %endif
 
 
@@ -540,7 +554,7 @@ at FSINFO.signature3
  %endif
 %endif
 
-	times (_NUMRESERVED * _BPS) - ($ - $$) db 0
+	zerobytes (_NUMRESERVED * _BPS) - ($ - $$)
 
 
 	addsection fat, follows=boot align=_BPS
@@ -922,18 +936,18 @@ data %+ ii %+ _end:
 %if _BPE != 32
 	times 32 db 0
 %endif
-	times ROOTSECTORS * _BPS - ($ - $$)	db 0
+	zerobytes ROOTSECTORS * _BPS - ($ - $$)
 
 
 	usesection empty
-	times DATASECTORS * _BPS - data_used	db 0
+	zerobytes DATASECTORS * _BPS - data_used
 
 
 %if _MBR
 	addsection partition_end_padding, follows=empty
-	times (CYLINDERS * _CHS_HEADS * _CHS_SECTORS \
+	zerobytes (CYLINDERS * _CHS_HEADS * _CHS_SECTORS \
 			- _MBR_GAP_SIZE_SECTORS - _SPI) \
-		* _BPS db 0
+		* _BPS
 %endif
 
 
@@ -977,7 +991,7 @@ data %+ ii %+ _end:
 %rep _NUMFATS
 fat%[ii]:
 	dumpfatentries FATENTRIES
-	times _SPF * _BPS - ($ - fat%[ii]) db 0
+	zerobytes _SPF * _BPS - ($ - fat%[ii])
 %assign ii ii+1
 %endrep
 %if FATSECTORS * _BPS - ($ - $$)
