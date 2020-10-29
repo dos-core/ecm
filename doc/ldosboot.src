@@ -1,0 +1,38 @@
+\cfg{chapter}{Section}
+
+\cfg{text-filename}{ldosboot.txt}
+\cfg{text-chapter-numeric}{true}
+\cfg{text-indent-preamble}{false}
+\cfg{text-quotes}{"}{"}
+\cfg{text-indent}{4}
+\cfg{text-width}{72}
+
+\cfg{html-chapter-numeric}{true}
+\cfg{html-suppress-address}{true}
+\cfg{html-single-filename}{ldosboot.htm}
+\cfg{html-leaf-level}{0}
+\cfg{html-template-fragment}{%k}{%b}
+\cfg{html-head-end}{<meta name="viewport" content="width=device-width, initial-scale=1.0">}
+
+\cfg{pdf-filename}{ldosboot.pdf}
+
+\cfg{ps-filename}{ldosboot.ps}
+
+\cfg{info-filename}{ldosboot.info}
+
+\cfg{chm-filename}{ldosboot.chm}
+
+\cfg{winhelp-filename}{ldosboot.hlp}
+
+\cfg{man-filename}{ldosboot.7}
+\cfg{man-identity}{ldosboot}{7}{2020}{}{C. Masloch}
+
+\title lDOS boot documentation
+
+\copyright 2020 by C. Masloch.
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+This document has been compiled on \date{%Y-%m-%d}.
