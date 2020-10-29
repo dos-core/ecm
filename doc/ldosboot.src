@@ -36,3 +36,137 @@ that uses the works is notified of this instrument.
 DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 This document has been compiled on \date{%Y-%m-%d}.
+
+
+\C{protocols} lDOS boot protocols
+
+
+\H{protocol-sector-iniload} Sector to iniload protocol
+
+The iniload kernel is loaded to an arbitrary segment.
+The segment must be at least 60h.
+Common choices are 60h, 70h, and 200h.
+At least 1536 bytes of the file must be loaded.
+Current loaders will load at least 8192 bytes
+if the file is as large or larger than that.
+The entrypoint is found by applying no segment adjustment (0)
+and choosing the offset 400h (1024).
+
+
+\S{protocol-sector-iniload-signatures} Signatures
+
+At offset 1020 (3FCh) there is the signature \cq{lD}.
+Behind that there are two bytes with printable non-blank ASCII codepoints.
+Currently the following signatures are defined:
+
+\dt \cq{lDOS}
+
+\dd lDOS kernel (not yet in use)
+
+\dt \cq{lDRx}
+
+\dd RxDOS kernel
+
+\dt \cq{lDFD}
+
+\dd FreeDOS kernel wrapped in iniload
+
+\dt \cq{lDeb}
+
+\dd lDebug
+
+\dt \cq{lDDb}
+
+\dd lDDebug (debuggable lDebug)
+
+\dt \cq{lDTP}
+
+\dd lDOS test payload kernel
+
+
+\S{protocol-sector-iniload-lsv} Load Stack Variables (LSV)
+
+Under this protocol, the pointer \cq{ss:bp} is passed.
+It points to a boot sector with (E)BPB.
+The stack pointer must be at most \cq{bp - 10h}.
+Below the pointed to location there live the Load Stack Variables.
+These follow this structure:
+
+\c         struc LOADSTACKVARS, -10h
+\c lsvFirstCluster:        resd 1
+\c lsvFATSector:           resd 1
+\c lsvFATSeg:              resw 1
+\c lsvLoadSeg:             resw 1
+\c lsvDataStart:           resd 1
+\c         endstruc
+
+\dt lsvFirstCluster
+
+\dd (FAT12, FAT16) Low word gives starting cluster of file.
+High word uninitialised.
+
+\dd (FAT32) Dword gives starting cluster of file.
+
+\dd (else) Should be zero.
+
+\dt lsvFATSector
+
+\dd (FAT16) Low word gives loaded sector-in-FAT.
+-1 if none loaded yet.
+High word uninitialised.
+
+\dd (FAT32) Dword gives loaded sector-in-FAT.
+-1 if none loaded yet.
+
+\dd (FAT12, else) Unused.
+
+\dt lsvFATSeg
+
+\dd (FAT16, FAT32) Word gives segment of FAT buffer
+if word/dword [lsvFATSector] != -1.
+
+\dd (FAT12) Word gives segment of FAT buffer.
+Zero if none.
+Otherwise, buffer holds entire FAT data, up to 6 KiB.
+
+\dt lsvLoadSeg
+
+\dd Word points to segment beyond last loaded paragraph.
+Allows iniload to determine how much of it is already loaded.
+
+\dt lsvDataStart
+
+\dd Dword gives sector-in-partition of first cluster's data.
+
+
+An LSV extension allows to pass a command line to the kernel.
+The stack pointer must be at most \cq{bp - 114h} then.
+This follows the structure like this:
+
+\c lsvclSignature          equ "CL"
+\c lsvclBufferLength       equ 256
+\c
+\c         struc LSVCMDLINE, LOADSTACKVARS - lsvclBufferLength - 4
+\c lsvCommandLine:
+\c .start:         resb lsvclBufferLength
+\c .signature:     resw 1
+\c lsvExtra:       resw 1
+\c         endstruc
+
+\dt lsvCommandLine.start
+
+\dd Command line buffer. Contains zero-terminated command line string.
+
+\dt lsvCommandLine.signature
+
+\dd Contains the signature value \cq{CL} if command line is given.
+
+\dt lsvExtra
+
+\dd Used internally by iniload.
+Space for this must be reserved when passing a command line.
+
+If no command line is passed then either the stack pointer
+must be \cq{bp - 10h}, or \cq{bp - 12h}, or
+the word in the lsvCommandLine.signature variable
+must not equal the string \cq{CL}.
