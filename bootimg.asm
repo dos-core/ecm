@@ -124,15 +124,17 @@ along with a default loader (which aborts with an error).
 	numdef ZEROBYTES_RESB,		1
 		; Using the resb trick to zero takes about 1/40th
 		;  the time of using times (for a 512 MiB image).
-	%imacro zerobytes 1.nolist
 %if _ZEROBYTES_RESB
+	%imacro zerobytes 1.nolist
 [warning -zeroing]
 	resb %1
 [warning *zeroing]
-%else
-	times %1 db 0
-%endif
 	%endmacro
+%else
+	%imacro zerobytes 1.nolist
+	times %1 db 0
+	%endmacro
+%endif
 
 ptEmpty:		equ 0
 ptFAT12:		equ 1
