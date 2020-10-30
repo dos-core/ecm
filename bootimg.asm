@@ -122,17 +122,24 @@ along with a default loader (which aborts with an error).
 
 
 	numdef ZEROBYTES_RESB,		1
+	numdef ZEROBYTES_MAX,		4000_0000h
 		; Using the resb trick to zero takes about 1/40th
 		;  the time of using times (for a 512 MiB image).
 %if _ZEROBYTES_RESB
 	%imacro zerobytes 1.nolist
 [warning -zeroing]
-	resb %1
+ %rep (%1) / (_ZEROBYTES_MAX)
+	resb (_ZEROBYTES_MAX)
+ %endrep
+	resb (%1) % (_ZEROBYTES_MAX)
 [warning *zeroing]
 	%endmacro
 %else
 	%imacro zerobytes 1.nolist
-	times %1 db 0
+ %rep (%1) / (_ZEROBYTES_MAX)
+	times (_ZEROBYTES_MAX) db 0
+ %endrep
+	times (%1) % (_ZEROBYTES_MAX) db 0
 	%endmacro
 %endif
 
