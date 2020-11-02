@@ -1079,11 +1079,12 @@ read_sector:
 
 ; DX:AX=quotient, CX=remainder=sector (S) - 1
 ; divide quotient by number of heads
-			mov bx, ax
-			xchg ax, dx
-			xor dx, dx
+			mov bx, ax	; bx = low word of quotient
+			xchg ax, dx	; ax = high word of quotient
+			xor dx, dx	; dx = 0
 			div word [VAR(heads)]
-			xchg bx, ax
+					; ax = high / heads, dx = high % heads
+			xchg bx, ax	; bx = high / heads, ax = low quotient
 			div word [VAR(heads)]
 
 ; bx:ax=quotient=cylinder (C), dx=remainder=head (H)
