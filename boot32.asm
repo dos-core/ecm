@@ -1520,7 +1520,7 @@ next_load_cluster:
 		;	si:di = loaded FAT sector
 		; CHG:	cx, bx, es
 clust_next:
-	mov ax, bx
+	xchg ax, bx		; ax = low word cluster, clobbers bx
 	mov dx, cx
 	add ax, 2
 	adc dx, 0
@@ -1533,7 +1533,7 @@ clust_next:
 	xchg ax, dx
 	xor dx, dx		; dx:ax = high word
 	div word [VAR(bytes_per_sector)]
-	mov bx, ax
+	xchg bx, ax		; bx = result high word, clobbers ax
 	 pop ax			; dx = remainder, ax = low word
 	div word [VAR(bytes_per_sector)]
 	xchg dx, bx		; dx:ax = result, bx = remainder
