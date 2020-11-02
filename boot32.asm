@@ -1052,6 +1052,8 @@ read_sector:
 	pop cx
 	pop cx		; cx = 0 (needed as input for next cwd instruction)
  %endif
+%else
+.err_2: equ .err
 %endif
 
 %if _CHS		; +70 bytes
