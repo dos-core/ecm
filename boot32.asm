@@ -1346,6 +1346,7 @@ file_not_found:
 fsiboot_error_badchain:
 	mov al, 'B'
 
+fsiboot_error:
 	jmp near word [VAR(fsiboot_table.error)]
 
 
@@ -1377,6 +1378,17 @@ clust_to_first_sector:
 	pop bx
 	pop cx			; cx:bx = cluster
 	retn
+
+
+check_enough:
+		mov bx, [VAR(load_seg)]
+				; => behind last read sector
+		sub bx, word [VAR(fsiboot_table.loadseg)]
+		cmp bx, word [VAR(fsiboot_table.minpara)]
+fsiboot_error_not_enough_CY:
+		mov al, 'E'
+		jb fsiboot_error
+		retn
 
 
 found_it:
@@ -1412,6 +1424,7 @@ found_it:
 
 		not cx			; ~ (BpS - 1)
 		and bx, cx		; mask to limit to rounded-up sector
+				; (this also rounds up paragraphs)
 		mov cx, 4
 @@:
 		shr ax, 1
@@ -1424,6 +1437,8 @@ found_it:
 .large_file:
 		mov cx, 0FFFFh		; cx = clamp size to 0FFFFh paras
 @@:
+		cmp cx, word [VAR(fsiboot_table.minpara)]
+		jb fsiboot_error_not_enough_CY
 
 ; get starting cluster of file
 		mov ax, [es:di + deClusterLow - 2 * DIRENTRY_size]
@@ -1461,6 +1476,7 @@ next_load_cluster:
 		mov bx, [VAR(load_seg)]	; => where to read next sector
 		cmp bx, [VAR(last_available_sector)]
 		jbe @F
+		call check_enough
 		mov al, 'M'		; (! _MEMORY_CONTINUE: error code)
 		jmp near word [VAR(fsiboot_table.memory_full)]
 
@@ -1488,6 +1504,7 @@ next_load_cluster:
 @@:
 		pop bx
 		pop cx
+		call check_enough
 		jmp near word [VAR(fsiboot_table.success)]
 
 
