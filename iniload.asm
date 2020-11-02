@@ -567,7 +567,7 @@ read_sector:
 ; Use two-step 32:16 divide to avoid overflow
  %if !_LBA
 			xchg cx, ax	; cx = low word of sector, clobbers ax
-			mov ax, dx	; ax = high word of sector
+			xchg ax, dx	; ax = high word of sector, clobbers dx
 			xor dx, dx	; dx:ax = high word of sector
  %else
 			xchg cx, ax	; cx = low word of sector, ax = 0
@@ -583,8 +583,8 @@ read_sector:
 
 ; DX:AX=quotient, CX=remainder=sector (S) - 1
 ; divide quotient by number of heads
-			xchg bx, ax	; bx = low word of quotient
-			xchg ax, dx	; ax = high word of quotient
+			xchg bx, ax	; bx = low word of quotient, clobbers ax
+			xchg ax, dx	; ax = high word of quotient, clobbers dx
 			xor dx, dx	; dx = 0
 			div word [bp + bsBPB + bpbCHSHeads]
 					; ax = high / heads, dx = high % heads
