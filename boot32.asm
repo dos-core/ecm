@@ -1384,8 +1384,8 @@ check_enough:
 		mov bx, [VAR(load_seg)]
 				; => behind last read sector
 		sub bx, word [VAR(fsiboot_table.loadseg)]
+.in_bx:
 		cmp bx, word [VAR(fsiboot_table.minpara)]
-fsiboot_error_not_enough_CY:
 		mov al, 'E'
 		jb fsiboot_error
 		retn
@@ -1437,8 +1437,7 @@ found_it:
 .large_file:
 		mov bx, 0FFFFh		; cx = clamp size to 0FFFFh paras
 @@:
-		cmp bx, word [VAR(fsiboot_table.minpara)]
-		jb fsiboot_error_not_enough_CY
+		call check_enough.in_bx	; (CHG ax)
 
 ; get starting cluster of file
 		mov ax, [es:di + deClusterLow - 2 * DIRENTRY_size]
