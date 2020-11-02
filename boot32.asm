@@ -787,6 +787,137 @@ load_fsiboot:
 %endif
 
 
+%if _MEMORY_CONTINUE
+load_finish_mc:
+		pop bx
+		pop cx
+%endif
+load_finish:
+
+%if _TURN_OFF_FLOPPY
+; turn off floppy motor
+		mov dx,3F2h
+		mov al,0
+		out dx,al
+%endif
+
+; Set-up registers for and jump to loaded file
+; Already: ss:bp-> boot sector containing BPB
+%if _CHECKVALUE
+CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
+ %if CHECKLINEAR <= (64 * 1024 - 2) && ! _RELOCATE
+		cmp word [CHECKLINEAR], _CHECKVALUE
+ %else
+		mov ax, CHECKLINEAR >> 4
+		mov es, ax
+		cmp word [es:CHECKLINEAR & 15], _CHECKVALUE
+ %endif
+		mov al, 'V'		; check 'V'alue mismatch
+		jne error
+%endif
+%if _SET_SIDI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
+		pop cx
+		pop dx
+%endif
+%if _PUSH_DPT || _SET_DSSI_DPT
+ %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
+  %if _RELOCATE
+		xor ax, ax
+		mov es, ax		; => IVT
+		mov di, 1Eh*4
+		les si, [es:di]		; -> original (also current) DPT
+		push es
+		push si			; original (also current) DPT address
+		push ax
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %else
+			; If not _RELOCATE, ds = 0000h (=> IVT)
+		mov di, 1Eh*4
+		les si, [di]		; -> original (also current) DPT
+		push es
+		push si			; original (also current) DPT address
+			; If not _RELOCATE, ss = 0000h (=> IVT)
+		push ss
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+  %endif
+ %else
+  %if _RELOCATE
+		xor ax, ax
+		mov ds, ax		; => IVT
+  %endif
+			; If not _RELOCATE, ds = 0000h (=> IVT)
+		mov di, 1Eh*4
+		lds si, [di]		; -> original (also current) DPT
+  %if _PUSH_DPT
+		push ds
+		push si			; original (also current) DPT address
+   %if _RELOCATE
+		push ax
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+   %else
+			; If not _RELOCATE, ss = 0000h (=> IVT)
+		push ss
+		push di			; 0000h:0078h (address of 1Eh IVT entry)
+   %endif
+  %endif
+ %endif
+%endif
+%if _ZERO_ES || _ZERO_DS
+ %if _RELOCATE
+  %ifn _PUSH_DPT || _SET_DSSI_DPT
+		xor ax, ax
+  %endif
+  %if _ZERO_ES
+		mov es, ax
+  %endif
+  %if _ZERO_DS
+		mov ds, ax
+  %endif
+ %else
+  %if _ZERO_ES
+		push ss
+		pop es
+  %endif
+  %if _ZERO_DS && _SET_DSSI_DPT
+		push ss
+		pop ds
+  %endif
+ %endif
+%endif
+%if _DATASTART_HIDDEN
+		mov bx, [VAR(hidden_sectors + 0)]
+		mov ax, [VAR(hidden_sectors + 2)]
+		add word [VAR(data_start + 0)], bx
+		adc word [VAR(data_start + 2)], ax
+%endif
+%if _SET_AXBX_DATA
+		mov bx, [VAR(data_start)]
+		mov ax, [VAR(data_start+2)]
+%endif
+%if _SET_SIDI_CLUSTER
+ %if _SET_DSSI_DPT
+  %error Cannot select both of these.
+ %endif
+ %if _PUSH_DPT || _SET_DSSI_DPT
+		mov di, cx
+		mov si, dx
+ %else
+		pop di
+		pop si
+ %endif
+%endif
+%if _SET_DL_UNIT
+		mov dl, [VAR(boot_unit)]; set dl to unit
+ %if _SET_BL_UNIT
+		mov bl, dl		; set bl to unit, too
+ %endif
+%elif _SET_BL_UNIT
+		mov bl, [VAR(boot_unit)]; set bl to unit
+%endif
+			; ss:bp-> boot sector with BPB
+		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
+
+
 error_fsiboot:
 	mov al,'I'
 
@@ -1023,137 +1154,6 @@ read_sector:
 @@:
 
 	retn
-
-
-%if _MEMORY_CONTINUE
-load_finish_mc:
-		pop bx
-		pop cx
-%endif
-load_finish:
-
-%if _TURN_OFF_FLOPPY
-; turn off floppy motor
-		mov dx,3F2h
-		mov al,0
-		out dx,al
-%endif
-
-; Set-up registers for and jump to loaded file
-; Already: ss:bp-> boot sector containing BPB
-%if _CHECKVALUE
-CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
- %if CHECKLINEAR <= (64 * 1024 - 2) && ! _RELOCATE
-		cmp word [CHECKLINEAR], _CHECKVALUE
- %else
-		mov ax, CHECKLINEAR >> 4
-		mov es, ax
-		cmp word [es:CHECKLINEAR & 15], _CHECKVALUE
- %endif
-		mov al, 'V'		; check 'V'alue mismatch
-		jne error
-%endif
-%if _SET_SIDI_CLUSTER && (_PUSH_DPT || _SET_DSSI_DPT)
-		pop cx
-		pop dx
-%endif
-%if _PUSH_DPT || _SET_DSSI_DPT
- %ifn _SET_DSSI_DPT		; (implying that only _PUSH_DPT is set)
-  %if _RELOCATE
-		xor ax, ax
-		mov es, ax		; => IVT
-		mov di, 1Eh*4
-		les si, [es:di]		; -> original (also current) DPT
-		push es
-		push si			; original (also current) DPT address
-		push ax
-		push di			; 0000h:0078h (address of 1Eh IVT entry)
-  %else
-			; If not _RELOCATE, ds = 0000h (=> IVT)
-		mov di, 1Eh*4
-		les si, [di]		; -> original (also current) DPT
-		push es
-		push si			; original (also current) DPT address
-			; If not _RELOCATE, ss = 0000h (=> IVT)
-		push ss
-		push di			; 0000h:0078h (address of 1Eh IVT entry)
-  %endif
- %else
-  %if _RELOCATE
-		xor ax, ax
-		mov ds, ax		; => IVT
-  %endif
-			; If not _RELOCATE, ds = 0000h (=> IVT)
-		mov di, 1Eh*4
-		lds si, [di]		; -> original (also current) DPT
-  %if _PUSH_DPT
-		push ds
-		push si			; original (also current) DPT address
-   %if _RELOCATE
-		push ax
-		push di			; 0000h:0078h (address of 1Eh IVT entry)
-   %else
-			; If not _RELOCATE, ss = 0000h (=> IVT)
-		push ss
-		push di			; 0000h:0078h (address of 1Eh IVT entry)
-   %endif
-  %endif
- %endif
-%endif
-%if _ZERO_ES || _ZERO_DS
- %if _RELOCATE
-  %ifn _PUSH_DPT || _SET_DSSI_DPT
-		xor ax, ax
-  %endif
-  %if _ZERO_ES
-		mov es, ax
-  %endif
-  %if _ZERO_DS
-		mov ds, ax
-  %endif
- %else
-  %if _ZERO_ES
-		push ss
-		pop es
-  %endif
-  %if _ZERO_DS && _SET_DSSI_DPT
-		push ss
-		pop ds
-  %endif
- %endif
-%endif
-%if _DATASTART_HIDDEN
-		mov bx, [VAR(hidden_sectors + 0)]
-		mov ax, [VAR(hidden_sectors + 2)]
-		add word [VAR(data_start + 0)], bx
-		adc word [VAR(data_start + 2)], ax
-%endif
-%if _SET_AXBX_DATA
-		mov bx, [VAR(data_start)]
-		mov ax, [VAR(data_start+2)]
-%endif
-%if _SET_SIDI_CLUSTER
- %if _SET_DSSI_DPT
-  %error Cannot select both of these.
- %endif
- %if _PUSH_DPT || _SET_DSSI_DPT
-		mov di, cx
-		mov si, dx
- %else
-		pop di
-		pop si
- %endif
-%endif
-%if _SET_DL_UNIT
-		mov dl, [VAR(boot_unit)]; set dl to unit
- %if _SET_BL_UNIT
-		mov bl, dl		; set bl to unit, too
- %endif
-%elif _SET_BL_UNIT
-		mov bl, [VAR(boot_unit)]; set bl to unit
-%endif
-			; ss:bp-> boot sector with BPB
-		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
 
 %if !_NO_LIMIT
