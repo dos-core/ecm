@@ -583,7 +583,7 @@ read_sector:
 
 ; DX:AX=quotient, CX=remainder=sector (S) - 1
 ; divide quotient by number of heads
-			mov bx, ax	; bx = low word of quotient
+			xchg bx, ax	; bx = low word of quotient
 			xchg ax, dx	; ax = high word of quotient
 			xor dx, dx	; dx = 0
 			div word [bp + bsBPB + bpbCHSHeads]
