@@ -1437,6 +1437,7 @@ found_it:
 		push ax			; remember cluster for later
 
 		call check_clust
+..@CY_2_fsiboot_error_badchain:
 		jc ..@CY_fsiboot_error_badchain
 
 next_load_cluster:
@@ -1475,7 +1476,8 @@ next_load_cluster:
 		inc ax
 		test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 				;  clear in 0, 1, and 0FFF_FFF7h
-		jz fsiboot_error_badchain
+		stc
+		jz ..@CY_2_fsiboot_error_badchain
 		db __TEST_IMM16
 @@:
 		pop bx
