@@ -1360,12 +1360,12 @@ clust_to_first_sector:
 	jnz fsiboot_error_badchain
 	xchg dx, ax
 	add dx, cx
-	jc .CY_fsiboot_error_badchain
+	jc ..@CY_fsiboot_error_badchain
 	xchg ax, bx
 
 	add ax, [VAR(data_start)]
 	adc dx, [VAR(data_start + 2)]
-.CY_fsiboot_error_badchain:
+..@CY_fsiboot_error_badchain:
 	jc fsiboot_error_badchain
 				; dx:ax = first sector in cluster
 	pop bx
@@ -1437,7 +1437,7 @@ found_it:
 		push ax			; remember cluster for later
 
 		call check_clust
-		jc fsiboot_error_badchain
+		jc ..@CY_fsiboot_error_badchain
 
 next_load_cluster:
 		call clust_to_first_sector
