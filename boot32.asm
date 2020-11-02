@@ -1343,8 +1343,6 @@ fsiboot_error_badchain:
 	jmp near word [VAR(fsiboot_table.error)]
 
 
-
-
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
 		; OUT:	cx:bx = input dx:ax
 		;	dx:ax = first sector of that cluster
@@ -1372,69 +1370,6 @@ clust_to_first_sector:
 				; dx:ax = first sector in cluster
 	pop bx
 	pop cx			; cx:bx = cluster
-	retn
-
-
-		; INP:	cx:bx = cluster (0-based)
-		;	si:di = loaded FAT sector, -1 if none
-		; OUT:	CY if no next cluster
-		;	NC if next cluster found,
-		;	 dx:ax = next cluster value (0-based)
-		;	si:di = loaded FAT sector
-		; CHG:	cx, bx, es
-clust_next:
-	mov ax, bx
-	mov dx, cx
-	add ax, 2
-	adc dx, 0
-
-	add ax, ax
-	adc dx, dx
-	add ax, ax
-	adc dx, dx		; * 4 = byte offset into FAT (0--4000_0000h)
-	 push ax
-	xchg ax, dx
-	xor dx, dx		; dx:ax = high word
-	div word [VAR(bytes_per_sector)]
-	mov bx, ax
-	 pop ax			; dx = remainder, ax = low word
-	div word [VAR(bytes_per_sector)]
-	xchg dx, bx		; dx:ax = result, bx = remainder
-				; dx:ax = sector offset into FAT (0--200_0000h)
-				; bx = byte offset into FAT sector (0--8190)
-	cmp dx, si
-	jne @F		; read sector
-	cmp ax, di
-	je @FF		; sector is already buffered
-@@:
-	mov si, dx
-	mov di, ax
-	mov word [VAR(fat_sector + 2)], dx
-	mov word [VAR(fat_sector + 0)], ax
-
-	push bx
-	add ax, [VAR(fat_start)]
-	adc dx, 0
-	mov bx, [VAR(fat_seg)]
-	call near word [VAR(fsiboot_table.read_sector)]
-	pop bx
-@@:
-	mov es, [VAR(fat_seg)]
-	mov ax, [es:bx]
-	mov dx, [es:bx + 2]
-
-		; INP:	dx:ax = cluster value, 2-based
-		; OUT:	dx:ax -= 2 (makes it 0-based)
-		;	CY iff invalid cluster
-check_clust:
-	and dh, 0Fh
-	sub ax, 2
-	sbb dx, 0
-	cmp dx, 0FFFh
-	jb @F		; CY here means valid ...-
-	cmp ax, 0FFF7h - 2
-@@:			;  -... or if NC first, CY here also
-	cmc		; NC if valid
 	retn
 
 
@@ -1546,6 +1481,69 @@ next_load_cluster:
 		pop bx
 		pop cx
 		jmp near word [VAR(fsiboot_table.success)]
+
+
+		; INP:	cx:bx = cluster (0-based)
+		;	si:di = loaded FAT sector, -1 if none
+		; OUT:	CY if no next cluster
+		;	NC if next cluster found,
+		;	 dx:ax = next cluster value (0-based)
+		;	si:di = loaded FAT sector
+		; CHG:	cx, bx, es
+clust_next:
+	mov ax, bx
+	mov dx, cx
+	add ax, 2
+	adc dx, 0
+
+	add ax, ax
+	adc dx, dx
+	add ax, ax
+	adc dx, dx		; * 4 = byte offset into FAT (0--4000_0000h)
+	 push ax
+	xchg ax, dx
+	xor dx, dx		; dx:ax = high word
+	div word [VAR(bytes_per_sector)]
+	mov bx, ax
+	 pop ax			; dx = remainder, ax = low word
+	div word [VAR(bytes_per_sector)]
+	xchg dx, bx		; dx:ax = result, bx = remainder
+				; dx:ax = sector offset into FAT (0--200_0000h)
+				; bx = byte offset into FAT sector (0--8190)
+	cmp dx, si
+	jne @F		; read sector
+	cmp ax, di
+	je @FF		; sector is already buffered
+@@:
+	mov si, dx
+	mov di, ax
+	mov word [VAR(fat_sector + 2)], dx
+	mov word [VAR(fat_sector + 0)], ax
+
+	push bx
+	add ax, [VAR(fat_start)]
+	adc dx, 0
+	mov bx, [VAR(fat_seg)]
+	call near word [VAR(fsiboot_table.read_sector)]
+	pop bx
+@@:
+	mov es, [VAR(fat_seg)]
+	mov ax, [es:bx]
+	mov dx, [es:bx + 2]
+
+		; INP:	dx:ax = cluster value, 2-based
+		; OUT:	dx:ax -= 2 (makes it 0-based)
+		;	CY iff invalid cluster
+check_clust:
+	and dh, 0Fh
+	sub ax, 2
+	sbb dx, 0
+	cmp dx, 0FFFh
+	jb @F		; CY here means valid ...-
+	cmp ax, 0FFF7h - 2
+@@:			;  -... or if NC first, CY here also
+	cmc		; NC if valid
+	retn
 
 
 fsinfo_available:
