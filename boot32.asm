@@ -541,7 +541,8 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 .error:		dw error
 			; INP: al = error condition letter
 			; ('B' = bad chain / FS error, 'F' = file not found,
-			;  'R' = disk read error, 'M' = not enough memory)
+			;  'R' = disk read error, 'M' = not enough memory,
+			;  'E' = not enough data in file)
 .success:	dw load_finish
 			; INP: dword [ss:sp] = first cluster
 			; Note: The first cluster dword is always filled in
