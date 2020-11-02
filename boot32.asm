@@ -889,10 +889,12 @@ read_sector:
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
 .err_CY:
+.err_2:
 	jmp .lba_error
  %else
 .err_CY:
 	jc .lba_error
+.err_2: equ .err
  %endif
 
 .lba_done:
@@ -963,7 +965,7 @@ read_sector:
 	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
 			 or bl, ah	; collect set bits from ah
 			mov dl,[VAR(boot_unit)] ; dl = drive
-			 jnz .err	; error if cylinder >= 1024 -->
+			 jnz .err_2	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
@@ -979,7 +981,7 @@ read_sector:
 			int 13h		; reset disk
 			dec si		; another attempt ?
 			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err
+			jmp .err_2
 %else
  %if _CHS_RETRY
 			mov ax, 0201h
