@@ -1431,13 +1431,13 @@ found_it:
 		rcr bx, 1
 		loop @B
 			; ax:bx = size in paragraphs
-		mov cx, bx		; cx = size in paragraphs
+			; bx = size in paragraphs if < 1_0000h
 		test ax, ax		; > 0FFFFh paras ?
 		jz @F			; no, take actual size -->
 .large_file:
-		mov cx, 0FFFFh		; cx = clamp size to 0FFFFh paras
+		mov bx, 0FFFFh		; cx = clamp size to 0FFFFh paras
 @@:
-		cmp cx, word [VAR(fsiboot_table.minpara)]
+		cmp bx, word [VAR(fsiboot_table.minpara)]
 		jb fsiboot_error_not_enough_CY
 
 ; get starting cluster of file
@@ -1446,11 +1446,11 @@ found_it:
 					; dx:ax = first cluster
 
 		pop di			; restore si:di = loaded FAT sector
-		pop bx			; (discard sectors per cluster counter)
-		pop bx
-		pop bx			; (discard current cluster number)
+		pop cx			; (discard sectors per cluster counter)
+		pop cx
+		pop cx			; (discard current cluster number)
 
-		push cx			; push into word [VAR(paras_left)]
+		push bx			; push into word [VAR(paras_left)]
 
 		mov word [VAR(first_cluster + 0)], ax
 		mov word [VAR(first_cluster + 2)], dx
