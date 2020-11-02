@@ -182,3 +182,5 @@ which is always a power of two and always below-or-equal 200h.
 uses the variable for an \q{entries per sector} value
 which is always a power of two and always below-or-equal 100h.
 
+\b lDebug with protocol options \cw{cmdline=0 push_dpt=0}
+sets \cq{sp = bp - 10h}
