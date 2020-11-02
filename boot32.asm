@@ -31,7 +31,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
-	numdef LOAD_MIN_PARA,	paras(512)
+	numdef LOAD_MIN_PARA,	paras(1536)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
@@ -88,6 +88,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"KERNEL"
 	strdef LOAD_EXT,	"SYS"
 	numdef LOAD_ADR,	00600h
+	numdef LOAD_MIN_PARA,	paras(512)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
 	numdef CHECKVALUE,	0
@@ -102,6 +103,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"IBMBIO"
 	strdef LOAD_EXT,	"COM"
 	numdef LOAD_ADR,	00700h
+	numdef LOAD_MIN_PARA,	paras(512)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
 	numdef CHECKVALUE,	0
@@ -129,6 +131,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"IO"
 	strdef LOAD_EXT,	"SYS"
 	numdef LOAD_ADR,	00700h
+	numdef LOAD_MIN_PARA,	paras(1024)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	200h
 	numdef CHECKVALUE,	0
@@ -148,6 +151,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"
 	numdef LOAD_ADR,	02000h
+	numdef LOAD_MIN_PARA,	paras(1536)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
 	numdef CHECKOFFSET,	1020
