@@ -666,9 +666,10 @@ load_fsiboot:
 ;	dec ax
 		; FFFFh always fails the < num_reserved_sectors check
 	test ax, ax
-	jz error_fsiboot	; is 0 ? invalid -->
+	jz @F			; is 0 ? invalid --> (ZR, NC)
 	cmp ax, [VAR(num_reserved_sectors)]
-	jae error_fsiboot
+@@:			; (ZR, NC if ax == 0)
+	jae error_fsiboot	; (jump if NC)
 				; dx:ax = FSINFO sector (dx = 0 from cwd)
 	mov cx, 512
 	mov bx, ADR_FSIBOOT >> 4
