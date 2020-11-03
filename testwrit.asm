@@ -161,6 +161,10 @@ start:
 
 	cmp byte [bp + ldFATType], 16
 	ja search32
+	cmp byte [bp + ldFATType], 0
+	ja search1216
+	call error
+	asciz "Unknown file system (ldFATType = 0)."
 
 search1216:
 	xor cx, cx
