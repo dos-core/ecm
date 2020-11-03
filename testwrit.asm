@@ -316,6 +316,8 @@ error_emptyfile: equ $
 	call disp_error
 
 quit:
+	int3
+
 	mov ax, 0F000h
 	mov es, ax
 	 push cs
@@ -365,6 +367,7 @@ error:
 	testopt [cs:quitrecurse], 1
 	jz quit
 %endif
+	int3
 	xor ax, ax
 	int 16h
 	int 19h
