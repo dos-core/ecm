@@ -407,6 +407,9 @@ filbuf:
 .:
 	db _FILE_SUCCESS_MSG,13,10
 .size: equ $ - .
+%if .size > 32
+ %error File success message is too long
+%endif
 	_fill 8192, 38, .
 
 
