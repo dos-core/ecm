@@ -1486,6 +1486,12 @@ next_cluster:
 
 @@:
 
+%if _LOAD_MIN_PARA
+		cmp bx, (_LOAD_ADR >> 4) + _LOAD_MIN_PARA
+		mov al, 'E'
+		jb error
+%endif
+
 %if _TURN_OFF_FLOPPY
 ; turn off floppy motor
 		mov dx,3F2h
