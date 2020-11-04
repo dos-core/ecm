@@ -239,14 +239,21 @@ ptExtendedLinux:	equ 85h
 %macro detectionerror 1.nolist
  %assign len 8
  %assign ii 0
+ %assign sum 0
  %define string ""
  %rep len
   %assign shift ((len - 1 - ii) * 4)
   %assign digit (DATACLUSTERS >> shift) & 15
-  %substr digit "0123456789ABCDEF" digit + 1
-  %strcat string string,digit
+  %assign sum sum + digit
+  %if sum
+   %substr digit "0123456789ABCDEF" digit + 1
+   %strcat string string,digit
+  %endif
   %assign ii ii + 1
  %endrep
+ %ifn sum
+  %define string "0"
+ %endif
  %deftok string string
  %error FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
 %endmacro
