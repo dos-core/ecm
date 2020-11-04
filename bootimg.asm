@@ -96,6 +96,8 @@ along with a default loader (which aborts with an error).
 %if _BPE == 32 && _FSINFO
 	numdef NUMRESERVED, 16	; number of reserved sectors
 %endif
+	numdef ALIGNDATA, 0, 16	; align data to this sector boundary
+				;  (done by increasing _NUMRESERVED)
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
@@ -119,6 +121,7 @@ along with a default loader (which aborts with an error).
 	numdef MBR_GAP_SIZE_SECTORS,	0, 2048
 	numdef MBR_GAP_SIZE_CYLINDERS,	1
 	numdef MBR_ADD_GAP_TO_HIDDEN,	1
+	numdef MBR_ADD_GAP_TO_ALIGN,	1
 
 
 	numdef ZEROBYTES_RESB,		1
@@ -188,7 +191,6 @@ ptExtendedLinux:	equ 85h
  %endif
 %endif
 
-
 %ifnidn _MAP, ""
  [map all _MAP]
 %endif
@@ -211,6 +213,21 @@ ptExtendedLinux:	equ 85h
  %assign ROOTSECTORS 0
 %endif
 %assign FATSECTORS _NUMFATS * _SPF
+
+%if _ALIGNDATA
+ %assign ii 0
+ %if _MBR && _MBR_ADD_GAP_TO_ALIGN
+  %assign ii ii + _MBR_GAP_SIZE_SECTORS
+ %endif
+ %assign ii ii + _NUMRESERVED + ROOTSECTORS + FATSECTORS
+ %assign ii (ii + (_ALIGNDATA)) % (_ALIGNDATA)
+ %assign ii ((_ALIGNDATA) - ii) % (_ALIGNDATA)
+ %if ii
+  %warning Adding ii reserved sectors for %[_ALIGNDATA]-sector alignment
+ %endif
+ %assign _NUMRESERVED _NUMRESERVED + ii
+%endif
+
 %assign DATASECTORS (_SPI - _NUMRESERVED - FATSECTORS - ROOTSECTORS)
 %assign DATACLUSTERS (DATASECTORS / _SPC)
 %assign NUMENTRIES _SPF * _BPS * 8 / _BPE
@@ -227,7 +244,6 @@ ptExtendedLinux:	equ 85h
   %error FAT would be detected as FAT12
  %endif
 %endif
-
 
 %if _EOF < 8 || _EOF > 15
  %error Invalid EOF value (_EOF)
