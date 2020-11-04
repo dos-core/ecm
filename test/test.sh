@@ -42,6 +42,7 @@ bpe=12
 spc=1
 spi=2880
 nr=224
+pitype=""
 
 if [[ "$1" == hdimage ]]
 then
@@ -103,6 +104,11 @@ then
       (($?)) && exit $?
       shift
       shift
+    elif [[ "$1" == pitype && -n "$2" ]]
+    then
+      pitype="$2"
+      shift
+      shift
     elif [[ "$1" == aligndata ]]
     then
       options_hdimage="$options_hdimage -D_ALIGNDATA"
@@ -135,8 +141,21 @@ fi
 
 if [[ "$bpe" == 32 ]]
 then
+  if [[ -z "$pitype" ]]
+  then
+    pitype=ptFAT32
+  fi
   bootname=boot32
 else
+  if [[ -z "$pitype" ]]
+  then
+    if [[ "$bpe" == 16 ]]
+    then
+      pitype=ptFAT16
+    else
+      pitype=ptFAT12
+    fi
+  fi
   bootname=boot
 fi
 
@@ -157,7 +176,7 @@ echo -ne 'failure\r\n' > result.txt
   -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
-  $options_hdimage \
+  $options_hdimage -D_MBR_PART_TYPE="$pitype" \
   -D_BPE="$bpe" -D_SPC="$spc" -D_SPI="$spi" \
   -D_SPF="$(( (spi / spc * bpe / 8 + 511) / 512 ))" \
   -D_NUMROOT="$nr" \
