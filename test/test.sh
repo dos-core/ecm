@@ -176,6 +176,7 @@ echo -ne 'failure\r\n' > result.txt
   -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
+  -D_WARN_TOOMANYFAT=0 -D_WARN_ALIGNDATA=0 \
   $options_hdimage -D_MBR_PART_TYPE="$pitype" \
   -D_BPE="$bpe" -D_SPC="$spc" -D_SPI="$spi" \
   -D_SPF="$(( (spi / spc * bpe / 8 + 511) / 512 ))" \
@@ -191,24 +192,31 @@ echo -ne 'failure\r\n' > result.txt
 
 if ((\! diskette))
 then
-  "$NASM" "${LDOSMBR_DIR%/}"/oldmbr.asm \
+  "$NASM" "${LDOSMBR_DIR%/}"/oldmbr.asm -w-user \
   "$options_i_ldosmbr" \
   "$options_i_lmacros" \
   -o oldmbr.bin &&
-  dd if=oldmbr.bin of=hdimage.img seek=8192 bs=1 count=440 conv=notrunc
+  dd if=oldmbr.bin of=hdimage.img seek=8192 bs=1 count=440 conv=notrunc status=none
   (($?)) && exit $?
 
   "$NASM" "${INSTSECT_DIR%/}"/instsect.asm \
+   -w-macro-params-legacy \
    -I ./ \
    "$options_i_instsect" \
    "$options_i_lmacros" \
    -D_FAT12=0 -D_FAT16=0 -D_FAT32=0 -D_FAT$bpe=1 \
    -D_PAYLOAD_FAT$bpe="'boot${bpe}tw.bin'" \
-   -o inst${bpe}tw.com -l inst${bpe}tw.lst -D_MAP=inst${bpe}tw.map &&
+   -o inst${bpe}tw.com -l inst${bpe}tw.lst -D_MAP=inst${bpe}tw.map
+  (($?)) && exit $?
   dosemu \
    -I "$dosemu_category { $dosemu_device $name.img }" \
-   -dumb -quiet 2> /dev/null -K "$PWD" -E "inst${bpe}tw.com $dosemu_drive"
-  (($?)) && exit $?
+   -dumb -quiet > result.log 2>&1 -K "$PWD" \
+   -E "inst${bpe}tw.com $dosemu_drive"
+  if (($?))
+  then
+    cat result.log
+    exit 1
+  fi
 # && dosemu -I "..." -dumb -K "$PWD" -E dirg.bat;
 fi
 
