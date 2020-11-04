@@ -1,3 +1,4 @@
+
 %if 0
 
 Create a boot image file (default: 1440 KiB diskette) in NASM
@@ -236,7 +237,18 @@ ptExtendedLinux:	equ 85h
 %endif
 
 %macro detectionerror 1.nolist
-  %error FAT would be detected %1 (%[DATACLUSTERS] clusters)
+ %assign len 8
+ %assign ii 0
+ %define string ""
+ %rep len
+  %assign shift ((len - 1 - ii) * 4)
+  %assign digit (DATACLUSTERS >> shift) & 15
+  %substr digit "0123456789ABCDEF" digit + 1
+  %strcat string string,digit
+  %assign ii ii + 1
+ %endrep
+ %deftok string string
+ %error FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
 %endmacro
 
 %if (DATACLUSTERS + 2) > 0FFF0h
