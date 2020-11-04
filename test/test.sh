@@ -36,14 +36,17 @@ if [ -n "$INSTSECT_DIR" ]; then {
   options_i_instsect=-I"${INSTSECT_DIR%/}"/
 } fi
 
-bpe=12
 direct=0
 options_dosemu_direct="-A"
+bpe=12
+spc=1
+spi=2880
+nr=224
 
 if [[ "$1" == hdimage ]]
 then
   shift
-  options_hdimage="-D_MBR -D_MBR_DOSEMU_IMAGE_HEADER -D_ALIGNDATA"
+  options_hdimage="-D_MBR -D_MBR_DOSEMU_IMAGE_HEADER"
   options_hdimage="$options_hdimage -D_UNIT=80h -D_CHS_HEADS=8 -D_CHS_SECTORS=8"
   dosemu_category="disk"
   dosemu_device="hdimage"
@@ -64,6 +67,50 @@ then
     options_dosemu_direct="-C4"
     direct=1
   fi
+  while true
+  do
+    if [[ "$1" == bpe && -n "$2" ]]
+    then
+      ((bpe="$2"))
+      if (($?)) || [[ "$bpe" != 32 && "$bpe" != 16 && "$bpe" != 12 ]]
+      then
+        echo "Error: Invalid bpe \"$2\" given, expected 12, 16, 32" >&2
+        exit 1
+      fi
+      shift
+      shift
+    elif [[ "$1" == spc && -n "$2" ]]
+    then
+      ((spc="($2)"))
+      (($?)) && exit $?
+      shift
+      shift
+    elif [[ "$1" == mib && -n "$2" ]]
+    then
+      ((spi="(($2) * 1024 * 2)"))
+      (($?)) && exit $?
+      shift
+      shift
+    elif [[ "$1" == spi && -n "$2" ]]
+    then
+      ((spi="($2)"))
+      (($?)) && exit $?
+      shift
+      shift
+    elif [[ "$1" == nr && -n "$2" ]]
+    then
+      ((nr="($2)"))
+      (($?)) && exit $?
+      shift
+      shift
+    elif [[ "$1" == aligndata ]]
+    then
+      options_hdimage="$options_hdimage -D_ALIGNDATA"
+      shift
+    else
+      break
+    fi
+  done
 elif [[ "$1" == diskette ]]
 then
   shift
@@ -110,13 +157,17 @@ echo -ne 'failure\r\n' > result.txt
   -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
-  -I ./ \
-  "$options_i_lmacros" \
-  "$options_i_bootimg" \
   $options_hdimage \
+  -D_BPE="$bpe" -D_SPC="$spc" -D_SPI="$spi" \
+  -D_SPF="$(( (spi / spc * bpe / 8 + 511) / 512 ))" \
+  -D_NUMROOT="$nr" \
   -o $name.img -l $name.lst \
   -D_PAYLOADFILE="testwrit.sys,result.txt" \
-  -D_BOOTFILE="'$bootfile'"
+  -D_BOOTFILE="'$bootfile'" \
+  "$@" \
+  -I ./ \
+  "$options_i_lmacros" \
+  "$options_i_bootimg"
 (($?)) && exit $?
 
 if ((\! diskette))
