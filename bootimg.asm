@@ -99,6 +99,8 @@ along with a default loader (which aborts with an error).
 %endif
 	numdef ALIGNDATA, 0, 16	; align data to this sector boundary
 				;  (done by increasing _NUMRESERVED)
+	numdef WARN_TOOMANYFAT, 1
+	numdef WARN_ALIGNDATA, 1
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
@@ -224,7 +226,9 @@ ptExtendedLinux:	equ 85h
  %assign ii (ii + (_ALIGNDATA)) % (_ALIGNDATA)
  %assign ii ((_ALIGNDATA) - ii) % (_ALIGNDATA)
  %if ii
-  %warning Adding ii reserved sectors for %[_ALIGNDATA]-sector alignment
+  %if _WARN_ALIGNDATA
+   %warning Adding ii reserved sectors for %[_ALIGNDATA]-sector alignment
+  %endif
  %endif
  %assign _NUMRESERVED _NUMRESERVED + ii
 %endif
@@ -236,7 +240,9 @@ ptExtendedLinux:	equ 85h
 %if NUMENTRIES < NUMNEEDED
  %error Too few FAT sectors specified (NUMENTRIES entries, NUMNEEDED  needed)
 %elif NUMENTRIES >= (NUMNEEDED + _BPS * 8 / _BPE)
- %warning Too many FAT sectors specified (NUMENTRIES entries, NUMNEEDED needed)
+ %if _WARN_TOOMANYFAT
+  %warning Too many FAT sectors specified (NUMENTRIES entries, NUMNEEDED needed)
+ %endif
 %endif
 
 %macro detectionerror 1.nolist
