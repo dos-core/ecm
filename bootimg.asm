@@ -232,8 +232,11 @@ ptExtendedLinux:	equ 85h
 %assign DATASECTORS (_SPI - _NUMRESERVED - FATSECTORS - ROOTSECTORS)
 %assign DATACLUSTERS (DATASECTORS / _SPC)
 %assign NUMENTRIES _SPF * _BPS * 8 / _BPE
-%if NUMENTRIES < (DATACLUSTERS + 2)
- %error Too few FAT sectors specified
+%assign NUMNEEDED (DATACLUSTERS + 2)
+%if NUMENTRIES < NUMNEEDED
+ %error Too few FAT sectors specified (NUMENTRIES entries, NUMNEEDED  needed)
+%elif NUMENTRIES >= (NUMNEEDED + _BPS * 8 / _BPE)
+ %warning Too many FAT sectors specified (NUMENTRIES entries, NUMNEEDED needed)
 %endif
 
 %macro detectionerror 1.nolist
