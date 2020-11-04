@@ -94,7 +94,7 @@ along with a default loader (which aborts with an error).
 	numdef NUMROOT, 224	; number of root directory entries
 	numdef NUMRESERVED, 1	; number of reserved sectors
 %if _BPE == 32 && _FSINFO
-	numdef NUMRESERVED, 8	; number of reserved sectors
+	numdef NUMRESERVED, 16	; number of reserved sectors
 %endif
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
