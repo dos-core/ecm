@@ -234,22 +234,27 @@ ptExtendedLinux:	equ 85h
 %if NUMENTRIES < (DATACLUSTERS + 2)
  %error Too few FAT sectors specified
 %endif
+
+%macro detectionerror 1.nolist
+  %error FAT would be detected %1 (%[DATACLUSTERS] clusters)
+%endmacro
+
 %if (DATACLUSTERS + 2) > 0FFF0h
  %if _BPE == 12 || _BPE == 16
-  %error FAT would be detected as FAT32 (%[DATACLUSTERS] clusters)
+  detectionerror as FAT32
  %endif
 %elif (DATACLUSTERS + 2) > 0FF0h
  %if _BPE == 12
-  %error FAT would be detected as FAT16 (%[DATACLUSTERS] clusters)
+  detectionerror as FAT16
  %endif
 %endif
 %if (DATACLUSTERS + 2) < 1000h
  %if _BPE == 16 || _BPE == 32
-  %error FAT would be detected as FAT12 (%[DATACLUSTERS] clusters)
+  detectionerror as FAT12
  %endif
 %elif (DATACLUSTERS + 2) < 10000h
  %if _BPE == 32
-  %error FAT would be detected as FAT16 (%[DATACLUSTERS] clusters)
+  detectionerror as FAT16
  %endif
 %endif
 
