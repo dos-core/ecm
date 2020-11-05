@@ -250,13 +250,13 @@ rc=$?
 stty sane
 if ((rc == 124))
 then
-  echo timeout
+  echo "${testrunname}timeout"
 fi
 if [[ "$(mtype -t -i $name.img$options_mcopy_offset ::RESULT.TXT 2> /dev/null)" == success ]]
 then
-  echo success
+  echo "${testrunname}success"
 else
-  echo failure, log contains:
+  echo "${testrunname}failure, log contains:"
   if [ \! -s result.log ]
   then
     echo "Result log file empty, dosemu error?"
