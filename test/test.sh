@@ -50,12 +50,13 @@ spc=1
 spi=2880
 nr=224
 pitype=""
+chsheads=8
+chssectors=8
 
 if [[ "$1" == hdimage ]]
 then
   shift
   options_hdimage="-D_MBR -D_MBR_DOSEMU_IMAGE_HEADER"
-  options_hdimage="$options_hdimage -D_CHS_HEADS=8 -D_CHS_SECTORS=8"
   dosemu_category="disk"
   dosemu_device="hdimage"
   dosemu_drive="G:"
@@ -63,7 +64,6 @@ then
   bootfile=""
   unit=84h
   options_ldebug_unit="hde"
-  options_mcopy_offset="@@80s"
   diskette=0
   if [[ "$1" == direct ]]
   then
@@ -122,10 +122,24 @@ then
     then
       options_hdimage="$options_hdimage -D_ALIGNDATA"
       shift
+    elif [[ "$1" == chsheads && -n "$2" ]]
+    then
+      ((chsheads="($2)"))
+      (($?)) && exit $?
+      shift
+      shift
+    elif [[ "$1" == chssectors && -n "$2" ]]
+    then
+      ((chssectors="($2)"))
+      (($?)) && exit $?
+      shift
+      shift
     else
       break
     fi
   done
+  options_mcopy_offset="@@$((16 + chsheads * chssectors))s"
+  options_hdimage="$options_hdimage -D_CHS_HEADS=$chsheads -D_CHS_SECTORS=$chssectors"
 elif [[ "$1" == diskette ]]
 then
   shift
