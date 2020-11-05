@@ -41,6 +41,7 @@ Public domain by C. Masloch, 2012
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
+	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
@@ -959,10 +960,14 @@ skip_bpb:
 	cli
 	cld
 	 xor cx, cx
-	mov bp, start
+	mov bp, start		; magic bytes - checked by instsect
 	 mov ss, cx
 	mov sp, ADR_STACK_START
-	mov [VAR(boot_unit)], dl
+%if _USE_AUTO_UNIT
+	mov [VAR(boot_unit)], dl; magic bytes - checked by instsect
+%else
+	mov dl, [VAR(boot_unit)]; magic bytes - checked by instsect
+%endif
 
 	; Note:	es is left uninitialised here until the first call to
 	;	 read_sector if the below conditional is false.
