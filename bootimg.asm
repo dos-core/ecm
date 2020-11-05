@@ -465,7 +465,7 @@ oem_id:			; offset 03h (03) - not used by this code
 bytes_per_sector:	; offset 0Bh (11)
 	dw _BPS
 sectors_per_cluster:	; offset 0Dh (13)
-	db _SPC
+	db _SPC & 255
 num_reserved_sectors:	; offset 0Eh (14)
 	dw _NUMRESERVED
 num_fats:		; offset 10h (16)
