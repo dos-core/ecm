@@ -55,12 +55,13 @@ if [[ "$1" == hdimage ]]
 then
   shift
   options_hdimage="-D_MBR -D_MBR_DOSEMU_IMAGE_HEADER"
-  options_hdimage="$options_hdimage -D_UNIT=80h -D_CHS_HEADS=8 -D_CHS_SECTORS=8"
+  options_hdimage="$options_hdimage -D_CHS_HEADS=8 -D_CHS_SECTORS=8"
   dosemu_category="disk"
   dosemu_device="hdimage"
   dosemu_drive="G:"
   name="hdimage"
   bootfile=""
+  unit=84h
   options_ldebug_unit="hde"
   options_mcopy_offset="@@80s"
   diskette=0
@@ -73,6 +74,7 @@ then
       exit
     fi
     options_dosemu_direct="-C4"
+    unit=80h
     direct=1
   fi
   while true
@@ -133,12 +135,14 @@ then
   dosemu_drive="A:"
   name="diskette"
   bootfile="boot${bpe}tw.bin"
+  unit=01h
   options_ldebug_unit="fdb"
   options_mcopy_offset=""
   diskette=1
   if [[ "$1" == direct ]]
   then
     shift
+    unit=00h
     direct=1
   fi
 else
@@ -170,6 +174,7 @@ echo -ne 'failure\r\n' > result.txt
 
  "$NASM" "${LDOSBOOT_DIR%/}"/$bootname.asm -w-user \
   -D_LOAD_NAME="'TESTWRIT'" -D_LOAD_EXT="'SYS'" -D_FAT$bpe \
+  -D_UNIT=$unit \
   "$@" \
   "$options_i_lmacros" \
   -D_MAP=boot${bpe}tw.map -l boot${bpe}tw.lst -o boot${bpe}tw.bin &&
@@ -191,6 +196,7 @@ echo -ne 'failure\r\n' > result.txt
   -o $name.img -l $name.lst \
   -D_PAYLOADFILE="testwrit.sys,result.txt" \
   -D_BOOTFILE="'$bootfile'" \
+  -D_UNIT=$unit \
   "$@" \
   -I ./ \
   "$options_i_lmacros" \
