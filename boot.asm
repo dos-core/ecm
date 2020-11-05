@@ -25,6 +25,7 @@ Public domain by C. Masloch, 2012
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"lDOS"
+	numdef VOLUMEID,	0
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -75,6 +76,18 @@ Public domain by C. Masloch, 2012
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+	numdef MEDIAID, 0F0h		; media ID
+	numdef UNIT, 0			; load unit in BPB
+	numdef CHS_SECTORS, 18		; CHS geometry field for sectors
+	numdef CHS_HEADS, 2		; CHS geometry field for heads
+	numdef HIDDEN, 0		; number of hidden sectors
+	numdef SPI, 2880		; sectors per image
+	numdef BPS, 512			; bytes per sector
+	numdef SPC, 1			; sectors per cluster
+	numdef SPF, 9			; sectors per FAT
+	numdef NUMFATS, 2		; number of FATs
+	numdef NUMROOT, 224		; number of root directory entries
+	numdef NUMRESERVED, 1		; number of reserved sectors
 
 %if _DIRBUF_500
 	gendef _ADR_DIRBUF, 500h
@@ -595,37 +608,45 @@ lowest_variable		equ _LASTVARIABLE
 oem_id:			; offset 03h (03) - not used by this code
 	fill 8,_OEM_NAME_FILL,db _OEM_NAME
 bytes_per_sector:	; offset 0Bh (11) - refer to _FIX_SECTOR_SIZE !
-	dw 512
+	dw _BPS
 sectors_per_cluster:	; offset 0Dh (13) - refer to _FIX_CLUSTER_SIZE !
-	db 1
+	db _SPC & 255
 fat_start:
 num_reserved_sectors:	; offset 0Eh (14)
-	dw 1
+	dw _NUMRESERVED
 num_fats:		; offset 10h (16)
-	db 2
+	db _NUMFATS
 num_root_dir_ents:	; offset 11h (17)
-	dw 224
+	dw _NUMROOT
 total_sectors:		; offset 13h (19) - not used by this code
-	dw 18 * 2 * 80	; (= 2880)
+%if _SPI < 1_0000h
+	dw _SPI
+%else
+	dw 0
+%endif
 media_id:		; offset 15h (21) - not used by this code
-	db 0F0h
+	db _MEDIAID
 sectors_per_fat:	; offset 16h (22)
-	dw 9
+	dw _SPF
 sectors_per_track:	; offset 18h (24)
-	dw 18
+	dw _CHS_SECTORS
 heads:			; offset 1Ah (26)
-	dw 2
+	dw _CHS_HEADS
 hidden_sectors:		; offset 1Ch (28)
-	dd 0
+	dd _HIDDEN
 total_sectors_large:	; offset 20h (32) - not used by this code
+%if _SPI >= 1_0000h
+	dd _SPI
+%else
 	dd 0
+%endif
 
 ; Extended BPB
 
-boot_unit:		db 0
+boot_unit:		db _UNIT
 			db 0
 ext_bpb_signature:	db 29h
-serial_number:		dd 0
+serial_number:		dd _VOLUMEID
 volume_label:		fill 11,32,db _DEFAULT_LABEL
 filesystem_identifier:	fill 8,32,db "FAT1",'2'+4*!!_FAT16
 
