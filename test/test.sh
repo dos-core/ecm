@@ -129,7 +129,7 @@ then
 elif [[ "$1" == diskette ]]
 then
   shift
-  options_hdimage="-D_UNIT=0"
+  options_hdimage=""
   dosemu_category="floppy"
   dosemu_device="device"
   dosemu_drive="A:"
