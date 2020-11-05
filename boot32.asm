@@ -24,6 +24,7 @@ Public domain by C. Masloch, 2012
 	strdef OEM_NAME,	"    lDOS"
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"lDOS"
+	numdef VOLUMEID,	0
 	strdef FSIBOOTNAME,	"FSIBOOT3"
 	; used to set experimental name
 	strdef FSIBOOTNAME,	"FSIBEX01"
@@ -74,6 +75,23 @@ Public domain by C. Masloch, 2012
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+
+		; Unlike the 1440 KiB diskette image defaults for the FAT12
+		;  loader we just fill the BPB with zeros by default.
+	numdef MEDIAID, 0		; media ID
+	numdef UNIT, 0			; load unit in BPB
+	numdef CHS_SECTORS, 0		; CHS geometry field for sectors
+	numdef CHS_HEADS, 0		; CHS geometry field for heads
+	numdef HIDDEN, 0		; number of hidden sectors
+	numdef SPI, 0			; sectors per image
+	numdef BPS, 0			; bytes per sector
+	numdef SPC, 0			; sectors per cluster
+	numdef SPF, 0			; sectors per FAT
+	numdef SECTOR_FSINFO, 0		; FSINFO sector
+	numdef SECTOR_BACKUP, 0		; backup boot sector
+	numdef CLUSTER_ROOT, 0		; root directory first cluster
+	numdef NUMFATS, 0		; number of FATs
+	numdef NUMRESERVED, 0		; number of reserved sectors
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
@@ -488,52 +506,60 @@ lowest_variable		equ _LASTVARIABLE
 oem_id:			; offset 03h (03) - not used by this code
 	fill 8,_OEM_NAME_FILL,db _OEM_NAME
 bytes_per_sector:	; offset 0Bh (11) - refer to _FIX_SECTOR_SIZE !
-	dw 0
+	dw _BPS
 sectors_per_cluster:	; offset 0Dh (13) - refer to _FIX_CLUSTER_SIZE !
-	db 0
+	db _SPC & 255
 fat_start:
 num_reserved_sectors:	; offset 0Eh (14)
-	dw 0
+	dw _NUMRESERVED
 num_fats:		; offset 10h (16)
-	db 0
+	db _NUMFATS
 num_root_dir_ents:	; offset 11h (17)
 	dw 0
 total_sectors:		; offset 13h (19) - not used by this code
+%if _SPI < 1_0000h
+	dw _SPI
+%else
 	dw 0
+%endif
 media_id:		; offset 15h (21) - not used by this code
-	db 0
+	db _MEDIAID
 sectors_per_fat:	; offset 16h (22)
 	dw 0
 sectors_per_track:	; offset 18h (24)
-	dw 0
+	dw _CHS_SECTORS
 heads:			; offset 1Ah (26)
-	dw 0
+	dw _CHS_HEADS
 hidden_sectors:		; offset 1Ch (28)
-	dd 0
+	dd _HIDDEN
 total_sectors_large:	; offset 20h (32) - not used by this code
+%if _SPI >= 1_0000h
+	dd _SPI
+%else
 	dd 0
+%endif
 
 sectors_per_fat_large:	; offset 24h (36)
-	dd 0
+	dd _SPF
 fsflags:		; offset 28h (40)
 	dw 0
 fsversion:		; offset 2Ah (42)
 	dw 0
 root_cluster:		; offset 2Ch (44)
-	dd 0
+	dd _CLUSTER_ROOT
 fsinfo_sector:		; offset 30h (48)
-	dw 0
+	dw _SECTOR_FSINFO
 backup_sector:		; offset 32h (50)
-	dw 0
+	dw _SECTOR_BACKUP
 
 	times 12 db 0	; offset 34h (52) reserved
 
 ; Extended BPB		; offset 40h (64)
 
-boot_unit:		db 0
+boot_unit:		db _UNIT
 			db 0
 ext_bpb_signature:	db 29h
-serial_number:		dd 0
+serial_number:		dd _VOLUMEID
 volume_label:		fill 11,32,db _DEFAULT_LABEL
 filesystem_identifier:	fill 8,32,db "FAT32"
 
