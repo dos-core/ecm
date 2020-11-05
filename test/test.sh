@@ -220,6 +220,8 @@ then
 # && dosemu -I "..." -dumb -K "$PWD" -E dirg.bat;
 fi
 
+pgid="$(ps -o pgid= $$)"
+
 if ((\! direct))
 then
  "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
@@ -248,6 +250,16 @@ fi
 
 rc=$?
 stty sane
+pidlist="$(ps a -o pgid=,comm=,pid= |
+  grep -E "^$pgid " |
+  grep -Ev " (bash|test.sh|ps|grep) ")"
+pidlist="$(echo "$pidlist" |
+  tr -s " " | cut -d" " -f 3)"
+if [[ -n "$pidlist" ]]
+then
+  ((debug)) && ps $pidlist
+  kill $pidlist
+fi
 if ((rc == 124))
 then
   echo "${testrunname}timeout"
