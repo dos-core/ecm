@@ -250,6 +250,7 @@ fi
 
 rc=$?
 stty sane
+((debug)) && ps a -o pgid=,comm=,pid= | grep -E "^$pgid "
 pidlist="$(ps a -o pgid=,comm=,pid= |
   grep -E "^$pgid " |
   grep -Ev " (bash|test.sh|ps|grep) ")"
