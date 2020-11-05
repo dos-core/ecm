@@ -460,7 +460,7 @@ boot_start:
 	jmp strict short boot_after_bpb
 	nop
 
-oem_id:			; offset 03h (03) - not used by this code
+oem_id:			; offset 03h (03)
 	fill 8,_OEM_NAME_FILL,db _OEM_NAME
 bytes_per_sector:	; offset 0Bh (11)
 	dw _BPS
@@ -476,13 +476,13 @@ num_root_dir_ents:	; offset 11h (17)
 %else
 	dw 0
 %endif
-total_sectors:		; offset 13h (19) - not used by this code
+total_sectors:		; offset 13h (19)
 %if _SPI < 1_0000h
-	dw _SPI		; (= 2880)
+	dw _SPI
 %else
 	dw 0
 %endif
-media_id:		; offset 15h (21) - not used by this code
+media_id:		; offset 15h (21)
 	db _MEDIAID
 sectors_per_fat:	; offset 16h (22)
 %if _BPE != 32
@@ -496,7 +496,7 @@ heads:			; offset 1Ah (26)
 	dw _CHS_HEADS
 hidden_sectors:		; offset 1Ch (28)
 	dd _HIDDEN
-total_sectors_large:	; offset 20h (32) - not used by this code
+total_sectors_large:	; offset 20h (32)
 %if _SPI >= 1_0000h
 	dd _SPI
 %else
