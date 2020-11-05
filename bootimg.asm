@@ -497,7 +497,11 @@ heads:			; offset 1Ah (26)
 hidden_sectors:		; offset 1Ch (28)
 	dd _HIDDEN
 total_sectors_large:	; offset 20h (32) - not used by this code
+%if _SPI >= 1_0000h
 	dd _SPI
+%else
+	dd 0
+%endif
 
 ; Extended BPB		; offset 24h (36)
 
