@@ -6,6 +6,13 @@
 #
 # DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
+if [[ "$1" != selfcall ]]
+then
+  setsid -w "$0" selfcall "$@"
+  exit $?
+fi
+shift
+
 . cfg.sh
 
 if [ -n "$LMACROS_DIR" ]; then {
