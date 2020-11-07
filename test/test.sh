@@ -98,6 +98,12 @@ then
   if [[ "$1" == direct ]]
   then
     shift
+    # output of the following command is either:
+    # 1. "CPU set to 486", followed by the sign ons for dosemu, FreeDOS,
+    #     and config.sys and autoexec.bat output, then executing "exitemu"
+    #     (if -C4 switch is not supported, parsed as -C -4).
+    # 2. Only the dosemu sign on with the error message as follows:
+    #     "ERROR: Drive G not defined, can't boot!" (execution aborted).
     if ((dosemu)) && dosemu -dumb -E exitemu -C4 2>&1 | grep "CPU set to 486" > /dev/null
     then
       echo "Error: dosemu lacks support for -C4 switch" >&2
