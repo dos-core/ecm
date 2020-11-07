@@ -263,6 +263,23 @@ echo -ne 'failure\r\n' > result.txt
   "$options_i_bootimg"
 (($?)) && exit $?
 
+pgid="$(ps -o pgid= $$)"
+function handle_timeout_process() {
+  stty sane
+  ((debug)) && ps -e -o pgid=,comm=,pid= | grep -E "^\s*$pgid "
+  pidlist="$(ps -e -o pgid=,comm=,pid= |
+    grep -E "^\s*$pgid " |
+    grep -Ev " (bash|test.sh|ps|grep) ")"
+  pidlist="$(echo "$pidlist" |
+    sed -re 's/^\s+//g' |
+    tr -s " " | cut -d" " -f 3)"
+  if [[ -n "$pidlist" ]]
+  then
+    ((debug)) && ps $pidlist
+    kill $pidlist
+  fi
+}
+
 if ((\! diskette))
 then
   if ((dosemu))
@@ -289,12 +306,17 @@ then
   (($?)) && exit $?
   if ((dosemu))
   then
-    dosemu \
+    timeout --foreground 10 dosemu \
      -I "$dosemu_category { $dosemu_device $name.img }" \
      -dumb -quiet > result.log 2>&1 -K "$PWD" \
      -E "inst${bpe}tw.com $dosemu_drive"
+    handle_timeout_process
     if (($?))
     then
+      if (($? == 124))
+      then
+        echo "Error: instsect run timed out" >&2
+      fi
       cat result.log
       exit 1
     fi
@@ -322,6 +344,7 @@ then
      -D_BOOTFILE="'bootinst.bin'"
     (($?)) && exit $?
     timeout --foreground 10 "$QEMU" -fda diskinst.img "$qemu_switch" "$name".img -boot order=a -nographic 2> /dev/null
+    handle_timeout_process
     if (($? == 124))
     then
       echo "Error: instsect run timed out" >&2
@@ -329,8 +352,6 @@ then
     fi
   fi
 fi
-
-pgid="$(ps -o pgid= $$)"
 
 if ((\! direct))
 then
@@ -372,19 +393,7 @@ else
 fi
 
 rc=$?
-stty sane
-((debug)) && ps -e -o pgid=,comm=,pid= | grep -E "^\s*$pgid "
-pidlist="$(ps -e -o pgid=,comm=,pid= |
-  grep -E "^\s*$pgid " |
-  grep -Ev " (bash|test.sh|ps|grep) ")"
-pidlist="$(echo "$pidlist" |
-  sed -re 's/^\s+//g' |
-  tr -s " " | cut -d" " -f 3)"
-if [[ -n "$pidlist" ]]
-then
-  ((debug)) && ps $pidlist
-  kill $pidlist
-fi
+handle_timeout_process
 if ((rc == 124))
 then
   echo "${testrunname}timeout"
