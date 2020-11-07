@@ -280,7 +280,7 @@ function handle_timeout_process() {
   fi
 }
 
-if ((\! diskette))
+if ((! diskette))
 then
   if ((dosemu))
   then
@@ -353,7 +353,7 @@ then
   fi
 fi
 
-if ((\! direct))
+if ((! direct))
 then
  "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
   "$options_i_lmacros" \
@@ -404,7 +404,7 @@ then
 elif ((dosemu))
 then
   echo "${testrunname}failure, log contains:"
-  if [ \! -s result.log ]
+  if [ ! -s result.log ]
   then
     echo "Result log file empty, dosemu error?"
   fi
