@@ -25,6 +25,12 @@
 [ -z "$INSTSECT_DIR" ] && INSTSECT_DIR=../../instsect/
 
 [ -z "$DOSEMU" ] && DOSEMU=dosemu
+[ -z "$QEMU" ] && QEMU=qemu-system-i386
+[ -z "$DEFAULT_MACHINE" ] && DEFAULT_MACHINE=dosemu
+[ -z "$SENDKEYS" ] && SENDKEYS=sendkeys
+[ -z "$BOOT_KERNEL" ] && BOOT_KERNEL=~/.dosemu/drive_c/kernel.sys
+[ -z "$BOOT_COMMAND" ] && BOOT_COMMAND=~/.dosemu/drive_c/command.com
+[ -z "$BOOT_PROTOCOL" ] && BOOT_PROTOCOL=FREEDOS
 [ -z "$NASM" ] && NASM=nasm
 [ -z "$CHECKSUM" ] && CHECKSUM="${INICHECK_DIR%/}"/iniload/checksum
 

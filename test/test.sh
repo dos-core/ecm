@@ -53,13 +53,43 @@ pitype=""
 chsheads=8
 chssectors=8
 
+((debug)) && echo DEFAULT_MACHINE="$DEFAULT_MACHINE" parameters="$@"
+machine="$DEFAULT_MACHINE"
+if [[ "$1" == dosemu ]]
+then
+  machine="$1"
+  shift
+elif [[ "$1" == qemu ]]
+then
+  machine="$1"
+  shift
+fi
+
+dosemu=0
+qemu=0
+if [[ "$machine" == dosemu ]]
+then
+  dosemu=1
+elif [[ "$machine" == qemu ]]
+then
+  qemu=1
+else
+  echo "Error: invalid machine \"$machine\" selected" >&2
+  exit 1
+fi
+
 if [[ "$1" == hdimage ]]
 then
   shift
-  options_hdimage="-D_MBR -D_MBR_DOSEMU_IMAGE_HEADER"
+  options_hdimage="-D_MBR"
+  if ((dosemu))
+  then
+    options_hdimage="$options_hdimage -D_MBR_DOSEMU_IMAGE_HEADER"
+  fi
   dosemu_category="disk"
   dosemu_device="hdimage"
   dosemu_drive="G:"
+  qemu_switch="-hda"
   name="hdimage"
   bootfile=""
   unit=84h
@@ -68,14 +98,19 @@ then
   if [[ "$1" == direct ]]
   then
     shift
-    if dosemu -dumb -E exitemu -C4 2>&1 | grep "CPU set to 486" > /dev/null
+    if ((dosemu)) && dosemu -dumb -E exitemu -C4 2>&1 | grep "CPU set to 486" > /dev/null
     then
       echo "Error: dosemu lacks support for -C4 switch" >&2
-      exit
+      exit 1
     fi
     options_dosemu_direct="-C4"
     unit=80h
     direct=1
+  fi
+  if ((qemu))
+  then
+    unit=80h
+    options_ldebug_unit="hda"
   fi
   while true
   do
@@ -138,7 +173,16 @@ then
       break
     fi
   done
-  options_mcopy_offset="@@$((16 + chsheads * chssectors))s"
+  if ((qemu && chsheads > 16))
+  then
+    echo "Warning: qemu autodetection requires CHS heads <= 16" >&2
+  fi
+  if ((dosemu))
+  then
+    options_mcopy_offset="@@$((16 + chsheads * chssectors))s"
+  else
+    options_mcopy_offset="@@$((chsheads * chssectors))s"
+  fi
   options_hdimage="$options_hdimage -D_CHS_HEADS=$chsheads -D_CHS_SECTORS=$chssectors"
 elif [[ "$1" == diskette ]]
 then
@@ -147,6 +191,7 @@ then
   dosemu_category="floppy"
   dosemu_device="device"
   dosemu_drive="A:"
+  qemu_switch="-fdb"
   name="diskette"
   bootfile="boot${bpe}tw.bin"
   unit=01h
@@ -156,6 +201,7 @@ then
   if [[ "$1" == direct ]]
   then
     shift
+    qemu_switch="-fda"
     unit=00h
     direct=1
   fi
@@ -219,11 +265,17 @@ echo -ne 'failure\r\n' > result.txt
 
 if ((\! diskette))
 then
+  if ((dosemu))
+  then
+    seekmbr=8192
+  else
+    seekmbr=0
+  fi
   "$NASM" "${LDOSMBR_DIR%/}"/oldmbr.asm -w-user \
   "$options_i_ldosmbr" \
   "$options_i_lmacros" \
   -o oldmbr.bin &&
-  dd if=oldmbr.bin of=hdimage.img seek=8192 bs=1 count=440 conv=notrunc status=none
+  dd if=oldmbr.bin of=hdimage.img seek="$seekmbr" bs=1 count=440 conv=notrunc status=none
   (($?)) && exit $?
 
   "$NASM" "${INSTSECT_DIR%/}"/instsect.asm \
@@ -235,16 +287,47 @@ then
    -D_PAYLOAD_FAT$bpe="'boot${bpe}tw.bin'" \
    -o inst${bpe}tw.com -l inst${bpe}tw.lst -D_MAP=inst${bpe}tw.map
   (($?)) && exit $?
-  dosemu \
-   -I "$dosemu_category { $dosemu_device $name.img }" \
-   -dumb -quiet > result.log 2>&1 -K "$PWD" \
-   -E "inst${bpe}tw.com $dosemu_drive"
-  if (($?))
+  if ((dosemu))
   then
-    cat result.log
-    exit 1
+    dosemu \
+     -I "$dosemu_category { $dosemu_device $name.img }" \
+     -dumb -quiet > result.log 2>&1 -K "$PWD" \
+     -E "inst${bpe}tw.com $dosemu_drive"
+    if (($?))
+    then
+      cat result.log
+      exit 1
+    fi
+    # && dosemu -I "..." -dumb -K "$PWD" -E dirg.bat;
+  elif ((qemu))
+  then
+    cp -aL "$BOOT_KERNEL" "${BOOT_KERNEL##*/}"
+    cp -aL "$BOOT_COMMAND" "${BOOT_COMMAND##*/}"
+    echo -ne "@echo off\r\ninst${bpe}tw.com C:\r\nquit.com\r\n" > autoexec.bat
+    "$NASM" quit.asm \
+     "$options_i_lmacros" \
+     -o quit.com &&
+    "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
+     "$options_i_lmacros" \
+     -D_COMPAT_"$BOOT_PROTOCOL"=1 \
+     -D_LBA=0 -D_USE_PART_INFO=0 -D_QUERY_GEOMETRY=0 \
+     -D_MAP=bootinst.map -l bootinst.lst -o bootinst.bin &&
+    "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
+     -I ./ \
+     "$options_i_ldebug" \
+     "$options_i_bootimg" \
+     "$options_i_lmacros" \
+     -o diskinst.img -l diskinst.lst \
+     -D_PAYLOADFILE="${BOOT_KERNEL##*/},${BOOT_COMMAND##*/},autoexec.bat,inst${bpe}tw.com,quit.com" \
+     -D_BOOTFILE="'bootinst.bin'"
+    (($?)) && exit $?
+    timeout --foreground 10 "$QEMU" -fda diskinst.img "$qemu_switch" "$name".img -boot order=a -nographic 2> /dev/null
+    if (($? == 124))
+    then
+      echo "Error: instsect run timed out" >&2
+      exit 1
+    fi
   fi
-# && dosemu -I "..." -dumb -K "$PWD" -E dirg.bat;
 fi
 
 pgid="$(ps -o pgid= $$)"
@@ -264,15 +347,28 @@ then
   -D_PAYLOADFILE="ldebug.com" -D_BOOTFILE="'boot12db.bin'"
  (($?)) && exit $?
 
- timeout --foreground 10 "$DOSEMU" -input \
-  "$(echo -ne "boot $options_ldebug_unit"'\rif (rc) then boot quit\rq\r')" \
-  -I "floppy { device diskldbg.img }" \
-  -I "$dosemu_category { $dosemu_device $name.img }" \
-  -A -dumb 2> result.err > result.log
+  if ((dosemu))
+  then
+    timeout --foreground 10 "$DOSEMU" -input \
+     "$(echo -ne "boot $options_ldebug_unit"'\rif (rc) then boot quit\rq\r')" \
+     -I "floppy { device diskldbg.img }" \
+     -I "$dosemu_category { $dosemu_device $name.img }" \
+     -A -dumb 2> result.err > result.log
+  elif ((qemu))
+  then
+    ( (sleep 2; sendkeys "boot $options_ldebug_unit<ret>if (rc) then boot quit<ret>q<ret>" | socat - UNIX-CONNECT:qemu-monitor > /dev/null ) & > /dev/null)
+    timeout --foreground 10 "$QEMU" -fda diskldbg.img "$qemu_switch" "$name".img -boot order=a -monitor unix:qemu-monitor,server,nowait -nographic 2> /dev/null
+  fi
 else
- timeout --foreground 10 "$DOSEMU" \
-  -I "$dosemu_category { $dosemu_device $name.img }" \
-  "$options_dosemu_direct" -dumb 2> result.err > result.log
+  if ((dosemu))
+  then
+    timeout --foreground 10 "$DOSEMU" \
+     -I "$dosemu_category { $dosemu_device $name.img }" \
+     "$options_dosemu_direct" -dumb 2> result.err > result.log
+  elif ((qemu))
+  then
+    timeout --foreground 10 "$QEMU" "$qemu_switch" "$name".img -nographic 2> /dev/null
+  fi
 fi
 
 rc=$?
@@ -296,7 +392,8 @@ fi
 if [[ "$(mtype -t -i $name.img$options_mcopy_offset ::RESULT.TXT 2> /dev/null)" == success ]]
 then
   echo "${testrunname}success"
-else
+elif ((dosemu))
+then
   echo "${testrunname}failure, log contains:"
   if [ \! -s result.log ]
   then
@@ -335,4 +432,6 @@ else
 	print "\n";
       };
     };'
+else
+  echo "${testrunname}failure"
 fi
