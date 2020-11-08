@@ -23,4 +23,5 @@ syntax: regexp
 ^test/result
 ^test/autoexec\.bat$
 ^test/ovr\.sh$
+^test/qemu-monitor$
 \.swp$
