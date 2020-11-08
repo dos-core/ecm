@@ -104,7 +104,7 @@ then
     #     (if -C4 switch is not supported, parsed as -C -4).
     # 2. Only the dosemu sign on with the error message as follows:
     #     "ERROR: Drive G not defined, can't boot!" (execution aborted).
-    if ((dosemu)) && dosemu -dumb -E exitemu -C4 2>&1 | grep "CPU set to 486" > /dev/null
+    if ((dosemu)) && "$DOSEMU" -dumb -E exitemu -C4 2>&1 | grep "CPU set to 486" > /dev/null
     then
       echo "Error: dosemu lacks support for -C4 switch" >&2
       exit 1
@@ -312,7 +312,7 @@ then
   (($?)) && exit $?
   if ((dosemu))
   then
-    timeout --foreground 10 dosemu \
+    timeout --foreground 10 "$DOSEMU" \
      -I "$dosemu_category { $dosemu_device $name.img }" \
      -dumb -quiet > result.log 2>&1 -K "$PWD" \
      -E "inst${bpe}tw.com $dosemu_drive"
@@ -326,7 +326,7 @@ then
       cat result.log
       exit 1
     fi
-    # && dosemu -I "..." -dumb -K "$PWD" -E dirg.bat;
+    # && "$DOSEMU" -I "..." -dumb -K "$PWD" -E dirg.bat;
   elif ((qemu))
   then
     cp -aL "$BOOT_KERNEL" "${BOOT_KERNEL##*/}"
