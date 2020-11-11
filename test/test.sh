@@ -316,10 +316,11 @@ then
      -I "$dosemu_category { $dosemu_device $name.img }" \
      -dumb -quiet > result.log 2>&1 -K "$PWD" \
      -E "inst${bpe}tw.com $dosemu_drive"
+    rc=$?
     handle_timeout_process
-    if (($?))
+    if ((rc))
     then
-      if (($? == 124))
+      if ((rc == 124))
       then
         echo "Error: instsect run timed out" >&2
       fi
@@ -350,8 +351,9 @@ then
      -D_BOOTFILE="'bootinst.bin'"
     (($?)) && exit $?
     timeout --foreground 10 "$QEMU" -fda diskinst.img "$qemu_switch" "$name".img -boot order=a -display none 2> /dev/null
+    rc=$?
     handle_timeout_process
-    if (($? == 124))
+    if ((rc == 124))
     then
       echo "Error: instsect run timed out" >&2
       exit 1
