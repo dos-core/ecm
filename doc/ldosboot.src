@@ -203,6 +203,22 @@ by the numeric define \cw{_EXEC_SEGMENT} (default 0),
 and the offset by the define \cw{_EXEC_OFFSET} (default 0).
 
 
+\S{protocol-iniload-payload-ebpb} Extended BIO Parameter Block (EBPB)
+
+Above the LSV, \cw{ss:bp} points to an EBPB and surrrounding boot sector.
+Note that this is always a FAT32-style EBPB.
+If the filesystem that is loaded from is not FAT32,
+and is therefore FAT16 or FAT12,
+then the FAT16/FAT12 BPBN structure is moved up.
+It is placed where the FAT32 BPBN is usually expected.
+In this case, the entire boot sector contents behind the BPBN
+are also moved up by the size of the FAT32-specific fields.
+The FAT32-specific fields are filled with zeros,
+except for the FAT32 \q{sectors per FAT} field.
+It is filled with the contents of the FAT16/FAT12
+\q{sectors per FAT} field.
+
+
 \S{protocol-iniload-payload-lsv} Load Stack Variables (LSV)
 
 Refer to \k{protocol-sector-iniload-lsv}.
