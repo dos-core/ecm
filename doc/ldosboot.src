@@ -69,7 +69,7 @@ Currently the following signatures are defined:
 
 \dt \cq{lDFD}
 
-\dd FreeDOS kernel wrapped in iniload
+\dd FreeDOS kernel wrapped in iniload (fdkernpl.asm)
 
 \dt \cq{lDeb}
 
@@ -81,7 +81,11 @@ Currently the following signatures are defined:
 
 \dt \cq{lDTP}
 
-\dd lDOS test payload kernel
+\dd lDOS test payload kernel (testpl.asm)
+
+\dt \cq{lDTW}
+
+\dd lDOS test result writer kernel (testwrit.asm)
 
 
 \S{protocol-sector-iniload-lsv} Load Stack Variables (LSV)
