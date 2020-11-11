@@ -340,6 +340,7 @@ then
      "$options_i_lmacros" \
      -D_COMPAT_"$BOOT_PROTOCOL"=1 \
      -D_LBA=0 -D_USE_PART_INFO=0 -D_QUERY_GEOMETRY=0 \
+    $BOOT_OPTIONS \
      -D_MAP=bootinst.map -l bootinst.lst -o bootinst.bin &&
     "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
      -I ./ \
