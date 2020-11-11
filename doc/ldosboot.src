@@ -188,3 +188,122 @@ which is always a power of two and always below-or-equal 100h.
 
 \b lDebug with protocol options \cw{cmdline=0 push_dpt=0}
 sets \cq{sp = bp - 10h}
+
+
+\H{protocol-iniload-payload} Iniload to payload protocol
+
+The payload is loaded to an arbitrary segment.
+The segment must be at least 60h.
+The entire payload must be loaded.
+The size of the payload is determined at iniload build time.
+The entrypoint is found by applying a segment adjustment
+and choosing an offset.
+The segment adjustment is specified at iniload build time
+by the numeric define \cw{_EXEC_SEGMENT} (default 0),
+and the offset by the define \cw{_EXEC_OFFSET} (default 0).
+
+
+\S{protocol-iniload-payload-lsv} Load Stack Variables (LSV)
+
+Refer to \k{protocol-sector-iniload-lsv}.
+
+
+\S{protocol-iniload-payload-ld} Load Data 1 (LD)
+
+Below the LSV, iniload passes the LOADDATA (1) structure.
+
+\c         struc LOADDATA, LOADSTACKVARS - 10h
+\c ldMemoryTop:    resw 1
+\c ldLoadTop:      resw 1
+\c ldSectorSeg:    resw 1
+\c ldFATType:      resb 1
+\c ldHasLBA:       resb 1
+\c ldClusterSize:  resw 1
+\c ldParaPerSector:resw 1
+\c ldLoadingSeg:   resw 1
+\c ldLoadUntilSeg: resw 1
+\c         endstruc
+
+\dt ldMemoryTop
+
+\dd Word. Segment pointer to behind usable memory.
+Points at the first of the EBDA, RPL-reserved memory, or
+video memory or otherwise UMA.
+Indicates how much memory may be used by a typical kernel.
+(lDebug detects the EBDA to move that below where it installs.)
+
+\dt ldLoadTop
+
+\dd Word. Segment pointer to lowest lDOS boot memory in use.
+All memory between linear 600h and the segment indicated here
+is usable by the payload.
+Only the payload itself is stored in this area.
+The other buffers, stack, and structures passed by iniload
+must live above this segment.
+
+\dt ldSectorSeg
+
+\dd Word. Segment pointer to an 8 KiB transfer buffer.
+It is insured that this buffer does not cross a 64 KiB boundary.
+This may be needed by some disk units.
+The buffer is not initialised to anything generally.
+
+\dt ldFATType
+
+\dd Byte. Indicates length of FAT entry in bits.
+12 indicates FAT12, 16 FAT16, 32 FAT32.
+It is planned to allow zero for non-FAT filesystems.
+
+\dt ldHasLBA
+
+\dd Byte. Only least significant bit used.
+Bit on indicates LBA extensions available for the load disk unit.
+Bit off indicates LBA extensions not available.
+
+\dt ldClusterSize
+
+\dd Word. Contains amount of sectors per cluster.
+Unlike the byte field for the same purpose in the BPB,
+this field can encode 256 (EDR-DOS compatible) without any masking.
+May be given as zero for non-FAT filesystems.
+
+\dt ldParaPerSector
+
+\dd Word. Contains amount of paragraphs per sector.
+Must be a power of two between 2 (32 B/s) and 200h (8192 B/s).
+May be given as zero for non-FAT filesystems.
+
+\dt ldLoadingSeg
+
+\dd Word. Internally used by iniload.
+Available for re-use by payload.
+
+\dt ldLoadUntilSeg
+
+\dd Word. Internally used by iniload.
+Available for re-use by payload.
+
+
+\S{protocol-iniload-payload-lcl} Load Command Line (LCL)
+
+Below the LOADDATA structure, iniload passes the LOADCMDLINE structure.
+
+\c lsvclBufferLength       equ 256
+\c
+\c         struc LOADCMDLINE, LOADDATA - lsvclBufferLength
+\c ldCommandLine:
+\c .start:         resb lsvclBufferLength
+\c         endstruc
+
+This buffer is always initialised to an ASCIZ string.
+At most 255 bytes may be initialised to string data.
+At most the 256th byte is a zero.
+
+If the first word of the buffer is equal to 0FF00h,
+that is there is an empty command line
+the terminator of which is followed by a byte with the value 0FFh,
+then no command line was passed to iniload.
+Currently lDebug can pass a command line to iniload when
+loading with its lDOS, RxDOS.2, or RxDOS.3 protocols.
+When iniload is loaded as a Multiboot1 or Multiboot2 specification kernel,
+it is also assumed that a command line can be passed.
