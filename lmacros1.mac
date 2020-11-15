@@ -232,6 +232,10 @@ Intended for 86 Mode programs.
 
 
 
+%if __NASM_VERSION_ID__ >= (2 * 100_0000h + 15 * 1_0000h)
+ %pragma preproc sane_empty_expansion true
+%endif
+
 		; String prefixed and/or suffixed with sequence(s)
 		;
 		; %1 = prefix
