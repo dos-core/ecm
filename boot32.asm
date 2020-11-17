@@ -612,7 +612,7 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 .dirbuf:	dw ADR_DIRBUF>>4
 			; => directory sector buffer (one sector)
 %endif
-.writedirentry:	dw writedirentry
+.writedirentry:	dw writedirentry.loaddir
 .filename:	dw .load_name
 			; -> name to search
 .minpara:	dw _LOAD_MIN_PARA
@@ -852,8 +852,13 @@ load_fsiboot:
 %endif
 
 writedirentry:
-%if _ADD_SEARCH
+%if _LOAD_DIR_SEG
+.loaddir:
 	mov ax, _LOAD_DIR_SEG
+%else
+.loaddir: equ .retn
+%endif
+%if _LOAD_DIR_SEG || (_ADD_DIR_SEG && _ADD_SEARCH)
 .ax:
 	push ds
 	push si
@@ -871,6 +876,7 @@ writedirentry:
 	pop si
 	pop ds
 %endif
+.retn:
 	retn
 
 
@@ -884,8 +890,10 @@ load_finish:
 %if _ADD_SEARCH
 		mov word [VAR(fsiboot_table.filename)], add_name
 		call near word [dirsearch_entrypoint]
+ %if _ADD_DIR_SEG
 		mov ax, _ADD_DIR_SEG
 		call writedirentry.ax
+ %endif
 %endif
 
 %if _TURN_OFF_FLOPPY
