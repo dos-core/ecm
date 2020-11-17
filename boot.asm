@@ -1202,7 +1202,7 @@ found_it:
 %endif
 				; update name to second iteration's
 %if (_LOAD_DIR_SEG & 255) != (_ADD_DIR_SEG & 255)
-	cmp al, _ADD_DIR_SEG
+	cmp al, _ADD_DIR_SEG & 255
 %elif (_LOAD_DIR_SEG) != (_ADD_DIR_SEG)
 	cmp ax, _ADD_DIR_SEG	; was first iteration ?
 %else
