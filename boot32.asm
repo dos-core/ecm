@@ -1465,7 +1465,7 @@ found_load_file:
 
 		call check_clust
 ..@CY_2_fsiboot_error_badchain:
-		jc ..@CY_fsiboot_error_badchain
+		jc ..@CY_3_fsiboot_error_badchain
 
 next_load_cluster:
 		call clust_to_first_sector
@@ -1518,7 +1518,8 @@ dirsearch:
 	mov ax, [VAR(root_cluster)]
 	mov dx, [VAR(root_cluster + 2)]
 	call check_clust
-	jc file_not_found
+..@CY_3_fsiboot_error_badchain:
+	jc fsiboot_error_badchain
 
 next_root_clust:
 	call clust_to_first_sector
