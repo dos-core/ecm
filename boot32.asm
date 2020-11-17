@@ -1710,4 +1710,6 @@ dirsearch_entrypoint:
 	dd 0_AA55_0000h	; FSINFO.signature3
 
 end_after_fsiboot:
-
+%if $ - fsiboot != 512
+ %error Wrong FSIBOOT layout
+%endif
