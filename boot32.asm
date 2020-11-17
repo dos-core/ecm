@@ -1504,8 +1504,7 @@ next_load_cluster:
 		inc ax
 		test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 				;  clear in 0, 1, and 0FFF_FFF7h
-		stc
-		jz ..@CY_2_fsiboot_error_badchain
+		jz fsiboot_error_badchain
 		db __TEST_IMM16
 @@:
 		pop bx
