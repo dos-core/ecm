@@ -1327,12 +1327,15 @@ fsiboot:
 	mov [VAR(data_start)], ax
 	mov [VAR(data_start+2)], dx
 
-	mov ax, [VAR(root_cluster)]
-	mov dx, [VAR(root_cluster + 2)]
 	mov di, -1
 	mov si, di
 	mov word [VAR(fat_sector + 2)], si
 	mov word [VAR(fat_sector + 0)], di
+	jmp dirsearch
+
+dirsearch:
+	mov ax, [VAR(root_cluster)]
+	mov dx, [VAR(root_cluster + 2)]
 	call check_clust
 	jc file_not_found
 
