@@ -1200,7 +1200,7 @@ found_it:
 %else
 	mov word [VAR(filename)], load_name
 %endif
-				; update name to second iterarion's
+				; update name to second iteration's
 %if (_LOAD_DIR_SEG & 255) != (_ADD_DIR_SEG & 255)
 	cmp al, _ADD_DIR_SEG
 %elif (_LOAD_DIR_SEG) != (_ADD_DIR_SEG)
