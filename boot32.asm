@@ -856,7 +856,7 @@ writedirentry:
 .loaddir:
 	mov ax, _LOAD_DIR_SEG
 %else
-.loaddir: equ .retn
+.loaddir: equ read_sector.retn
 %endif
 %if _LOAD_DIR_SEG || (_ADD_DIR_SEG && _ADD_SEARCH)
 .ax:
@@ -875,9 +875,8 @@ writedirentry:
 	pop di
 	pop si
 	pop ds
-%endif
-.retn:
 	retn
+%endif
 
 
 %if _MEMORY_CONTINUE
@@ -1258,7 +1257,9 @@ read_sector:
 	inc dx
 @@:
 
+.retn:
 	retn
+
 
 %if _ADD_SEARCH
 add_name:		; = blank-padded 11-byte filename to search for
