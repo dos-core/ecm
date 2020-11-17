@@ -1691,6 +1691,15 @@ fsinfo_available:
 
 %assign num $-fsinfo_available
 %warning FSINFO: num bytes still available.
+
+
+		; INP:	si:di = loaded sector-in-FAT
+		;	word [fsiboot_table.filename] -> 8.3 filename
+		; CHG:	ax, cx, dx
+		; OUT:	si:di updated, if so
+		;	es:bx -> found directory entry
+		;	jumps to error handler if an error occurs
+		; STT:	stack variables as set up by main FSIBOOT entry
 dirsearch_entrypoint:
 	dw dirsearch
 
