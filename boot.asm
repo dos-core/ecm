@@ -1123,7 +1123,6 @@ skip_bpb:
 
 next_dir_search:
 %if _ADD_SEARCH
-	push bx
 	push dx
 	push ax
 	push si
@@ -1210,8 +1209,8 @@ found_it:
 %endif
 	pop si
 	pop ax
-	pop dx
-	pop bx			; restore root start and counts
+	pop dx			; restore root start and count
+				;  (bx still holds entries per sector)
 	je next_dir_search	; jump to search load file next -->
  %endif
  %if _RELOCATE
