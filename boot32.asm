@@ -851,6 +851,15 @@ load_fsiboot:
  %error Load address within used memory
 %endif
 
+
+		; INP:	es:bx -> found dir entry in dir sector buffer
+		;	si:di = loaded sector-in-FAT
+		; CHG:	ax, cx, dx
+		; STT:	ss:bp -> boot sector
+		;	ds = ss
+		;	UP
+		; OUT:	directory entry copied if so desired
+		;	(is a no-op if not to copy dir entry)
 writedirentry:
 %if _LOAD_DIR_SEG
 .loaddir:
@@ -859,6 +868,7 @@ writedirentry:
 .loaddir: equ read_sector.retn
 %endif
 %if _LOAD_DIR_SEG || (_ADD_DIR_SEG && _ADD_SEARCH)
+		; INP:	ax => where to store directory entry
 .ax:
 	push ds
 	push si
