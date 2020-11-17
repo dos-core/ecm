@@ -27,7 +27,7 @@ Public domain by C. Masloch, 2012
 	numdef VOLUMEID,	0
 	strdef FSIBOOTNAME,	"FSIBOOT3"
 	; used to set experimental name
-	strdef FSIBOOTNAME,	"FSIBEX01"
+	strdef FSIBOOTNAME,	"FSIBEX02"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -37,6 +37,11 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
 	numdef CHECKVALUE,	"lD"
+	numdef LOAD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
+	numdef ADD_SEARCH,	0	; whether to search second file
+	strdef ADD_NAME,	""
+	strdef ADD_EXT,		""	; name of second file to search
+	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
@@ -53,9 +58,6 @@ Public domain by C. Masloch, 2012
 	numdef PUSH_DPT,	0	; if to push DPT address
 	numdef MEMORY_CONTINUE,	1	; if to just execute when memory full
 	numdef SET_SIDI_CLUSTER,0	; if to pass first load file cluster in si:di
-	numdef DIRBUF_500,	0	; if to load root dir sector(s) to 0:500h
-	numdef DIR_ENTRY_500,	0	; if to copy directory entry to 0:500h
-	numdef DIR_ENTRY_520,	0	; if to copy next directory entry to 0:520h
 	numdef TURN_OFF_FLOPPY,	0	; if to turn off floppy motor after loading
 	numdef DATASTART_HIDDEN,0	; if to add hidden sectors to data_start
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
@@ -126,20 +128,18 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
 	numdef CHECKVALUE,	0
+	numdef LOAD_DIR_SEG,	50h
+	numdef ADD_SEARCH,	1
+	strdef ADD_NAME,	"IBMDOS"
+	strdef ADD_EXT,		"COM"
+	numdef ADD_DIR_SEG,	52h
+ 	; Note: The IBMBIO.COM directory entry must be stored at
+	;  0:500h, and the IBMDOS.COM directory entry at 0:520h.
 
 	numdef SET_DL_UNIT,	1
 	numdef MEMORY_CONTINUE,	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
-	numdef DIR_ENTRY_520,	1
- 	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
- 	;  We do not check this to be the case, but the load protocol may
- 	;  prescribe that these two entries are at 0:500h and 0:520h.
- 	; With the option _DIR_ENTRY_520, we copy the found directory entry
- 	;  as well as one more directory entry to the destinations at 0:500h
- 	;  and 0:520h. This fails either if the second entry is a volume label,
- 	;  LFN entry, directory, deleted/empty, or file other than the wanted
- 	;  one, or also fails if the found entry is the last one in a sector.
 	numdef SET_AXBX_DATA,	1
 	numdef DATASTART_HIDDEN,1
 	numdef SET_DSSI_DPT,	1
@@ -191,7 +191,6 @@ Notes about partial load compatibilities
 * FreeDOS:
  * Relocates to an address other than 27A00h (1FE0h:7C00h)
 * IBMDOS:
- * Does not search for IBMDOS file, only IBMBIO
  * Does not actually relocate DPT, just provide its address
 * MS-DOS 7:
  * Does not actually relocate DPT, just provide its address
@@ -201,10 +200,6 @@ Notes about partial load compatibilities
 
 %if _SET_BL_UNIT && _SET_AXBX_DATA
  %error Cannot select both of these options!
-%endif
-
-%if _DIR_ENTRY_520
- %assign _DIR_ENTRY_500		1
 %endif
 
 
@@ -343,26 +338,38 @@ ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
 ADR_FSIBOOT	equ	end -start+7C00h	; 07E00h
 
 %define _AFTER (ADR_FSIBOOT + 512)
-%if ! _RELOCATE
-ADR_FATBUF	equ	_AFTER			; 08000h
-%define _AFTER (ADR_FATBUF + 8192)
+%if _RELOCATE
+	; dynamic allocation of FAT buffer
+%else
+ %if _LOAD_ADR < 7C00h
+  ADR_FATBUF	equ	_AFTER
+  %define _AFTER (ADR_FATBUF + 8192)
+ %else
+  ADR_FATBUF	equ	2000h
+ %endif
 %endif
 
-%if _DIRBUF_500
- ADR_DIRBUF	equ	500h
- ; start of unused memory:
- ADR_FREE	equ	_AFTER			; 0A000h or 08000h
-%elif _RELOCATE
- ADR_DIRBUF	equ	_LOAD_ADR		; 00600h
- ; start of unused memory:
- ADR_FREE	equ	_AFTER			; 08000h
+%if _ADD_SEARCH
+ %if _RELOCATE
+	; dynamic allocation of dir buffer
+ %elif _LOAD_ADR < 7C00h
+  ADR_DIRBUF	equ	_AFTER
+  %define _AFTER (ADR_DIRBUF + 8192)
+ %else
+  ADR_DIRBUF	equ	4000h
+ %endif
 %else
+ %if _RELOCATE
+  ADR_DIRBUF	equ	_LOAD_ADR		; 00600h
+ %elif _LOAD_ADR < 7C00h
  ; one-sector directory buffer. Assumes sectors are no larger than 8 KiB
- ADR_DIRBUF	equ	_AFTER			; 0A000h
-%define _AFTER (ADR_DIRBUF + 8192)
- ; start of unused memory:
- ADR_FREE	equ	_AFTER			; 0C000h
+  ADR_DIRBUF	equ	_AFTER			; 0A000h
+  %define _AFTER (ADR_DIRBUF + 8192)
+ %else
+  ADR_DIRBUF	equ	4000h
+ %endif
 %endif
+ADR_FREE	equ	_AFTER			; 08000h
 
 %if ! _RELOCATE
  %if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
@@ -370,8 +377,10 @@ ADR_FATBUF	equ	_AFTER			; 08000h
  %endif
 %endif
 
-%if ((ADR_DIRBUF + 8192 - 1) & ~0FFFFh) != (ADR_DIRBUF & ~0FFFFh)
- %warning Possibly crossing 64 KiB boundary while reading directory
+%ifn _RELOCATE && _ADD_SEARCH
+ %if ((ADR_DIRBUF + 8192 - 1) & ~0FFFFh) != (ADR_DIRBUF & ~0FFFFh)
+  %warning Possibly crossing 64 KiB boundary while reading directory
+ %endif
 %endif
 
 %if _LOAD_ADR >= ADR_FREE || _RELOCATE
@@ -411,15 +420,17 @@ ADR_FATBUF	equ	_AFTER			; 08000h
 	endstruc
 
 	struc FSIBOOTG	; FSIBOOT general layout
-.signature:	resq 1		; 8 byte that identify the FSIBOOT type
-.fsicode:	resb 472	; 472 byte FSIBOOT type specific data or code
+.signature:	resq 1		; 8 bytes that identify the FSIBOOT type
+.fsicode:	resb 470	; 470 bytes FSIBOOT type specific data or code
+.dirsearch:	resw 1		; 1 word -> directory search entrypoint
 	endstruc
 
 	struc DIRENTRY
 deName:		resb 8
 deExt:		resb 3
 deAttrib:	resb 1
-		resb 8
+dePlusSize:	resb 1
+		resb 7
 deClusterHigh:	resw 1
 deTime:		resw 1
 deDate:		resw 1
@@ -594,10 +605,16 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 			; OUT: dx:ax incremented, bx => incremented,
 			;  es = input bx, does not return if error occurred
 			; CHG: none
+%if _RELOCATE && _ADD_SEARCH
+.dirbuf:	dw 8192 >> 4
+			; initialised to segment displacement from FAT buffer
+%else
 .dirbuf:	dw ADR_DIRBUF>>4
 			; => directory sector buffer (one sector)
-			;  These two must not overlap! However, the directory
-			;  sector can overlap with the load file's buffer.
+%endif
+.writedirentry:	dw writedirentry
+.filename:	dw .load_name
+			; -> name to search
 .minpara:	dw _LOAD_MIN_PARA
 .loadseg:	dw _LOAD_ADR>>4
 			; => where to load
@@ -750,10 +767,15 @@ load_fsiboot:
 	xchg ax, dx
  %endif
  %if _RELOCATE
+  %if _ADD_SEARCH
+	sub ax, (20 * 1024 + 8192 + 8192 + (8192-16) + 1024 + 7C00h) >> 4
+  %else
 	sub ax, (20 * 1024 + 8192 + (8192-16) + 1024 + 7C00h) >> 4
+  %endif
 		; 20 KiB:	reserved for iniload
+		; 8 KiB:	dir buffer (only if _ADD_SEARCH)
 		; 8 KiB:	FAT buffer
-		; 8 KiB - 16 B:	to allow rounding down FAT buffer position
+		; 8 KiB - 16 B:	to allow rounding down position of buffers
 		; 1 KiB:	sector + FSIBOOT
 		; 7C00h:	stack and to allow addressing with 7C00h in bp
 		;
@@ -781,11 +803,17 @@ load_fsiboot:
 ; bx is initialised to the value
 ;  ((8192 - 16) + 1024 + 7C00h)>>4
 ;  so this is like calculating the following for its value:
-;  ((LMA_top - 20 KiB - 8 KiB - (8 KiB - 16 B) - 1 KiB - 7C00h) + \
+;  ((LMA_top - 20 KiB - 8 KiB - 8 KiB{AS} - (8 KiB - 16 B) - 1 KiB - 7C00h) + \
 ;	((8 KiB - 16 B) + 1 KiB + 7C00h))>>4
-;  == (LMA_top - 20 KiB - 8 KiB)>>4
+;  == (LMA_top - 20 KiB - 8 KiB - 8 KiB{AS})>>4
+; {AS} = only if _ADD_SEARCH
 	add bx, ax
 	and bx, ~ ((8192>>4) - 1)	; => FAT sector buffer (one sector)
+  %if _ADD_SEARCH
+; .dirbuf is initialised to 8192 >> 4
+	add word [VAR(fsiboot_table.dirbuf)], bx
+					; => dir sector buffer (one sector)
+  %endif
 
 	push ax
 	push di				; -> reloc destination of fsiboot.start
@@ -823,6 +851,28 @@ load_fsiboot:
  %error Load address within used memory
 %endif
 
+writedirentry:
+%if _ADD_SEARCH
+	mov ax, _LOAD_DIR_SEG
+.ax:
+	push ds
+	push si
+	push di
+	 push es
+	 pop ds
+	mov si, bx	; ds:si -> directory entry
+	mov cx, DIRENTRY_size >> 1
+	mov es, ax
+	xor di, di	; es:di -> where to store directory entry
+	rep movsw	; move to here (one directory entry)
+	 push ds
+	 pop es		; es:bx -> dir entry in dir sector buffer
+	pop di
+	pop si
+	pop ds
+%endif
+	retn
+
 
 %if _MEMORY_CONTINUE
 load_finish_mc:
@@ -830,6 +880,13 @@ load_finish_mc:
 		pop cx
 %endif
 load_finish:
+
+%if _ADD_SEARCH
+		mov word [VAR(fsiboot_table.filename)], add_name
+		call near word [dirsearch_entrypoint]
+		mov ax, _ADD_DIR_SEG
+		call writedirentry.ax
+%endif
 
 %if _TURN_OFF_FLOPPY
 ; turn off floppy motor
@@ -1195,6 +1252,12 @@ read_sector:
 
 	retn
 
+%if _ADD_SEARCH
+add_name:		; = blank-padded 11-byte filename to search for
+	fill 8,32,db _ADD_NAME
+	fill 3,32,db _ADD_EXT
+%endif
+
 
 %if !_NO_LIMIT
 available:
@@ -1332,33 +1395,24 @@ fsiboot:
 	mov si, di
 	mov word [VAR(fat_sector + 2)], si
 	mov word [VAR(fat_sector + 0)], di
-	jmp dirsearch
+	call dirsearch
 
 
-found_it:
-		; _DIR_ENTRY_500 && _DIR_ENTRY_520 handling (always enabled)
-	mov cx, 32
-	 push ds
-	 push es
-	xchg si, di
-	sub si, cx
-	push es
-	pop ds		; ds:si -> directory entry
-	xor ax, ax
-	mov es, ax
-	mov di, 500h	; es:di -> 0:500h
-	rep movsw	; move to here (two directory entries)
-	 pop es
-	 pop ds
-	xchg si, di	; es:di -> behind (second) directory entry
+found_load_file:
+	call near word [VAR(fsiboot_table.writedirentry)]
 
-		mov bx, [es:di + deSize - 2 * DIRENTRY_size]
-		mov ax, [es:di + deSize + 2 - 2 * DIRENTRY_size]
-					; ax:bx = file size (non-FAT+)
-					; next byte = FAT+ size bits
-		test byte [es:di + 12 - 2 * DIRENTRY_size], 0E7h
+; get starting cluster of file
+		push word [es:bx + deClusterHigh]
+		push word [es:bx + deClusterLow]
+
+					; check FAT+ size bits
+		test byte [es:bx + dePlusSize], 0E7h
 					; test whether bits 7-5 and 2-0 NZ
+; https://web.archive.org/web/20150219123449/http://www.fdos.org/kernel/fatplus.txt
 		jnz .large_file		; yes, clamp to maximum paras -->
+		mov ax, [es:bx + deSize + 2]
+		mov bx, [es:bx + deSize]
+					; ax:bx = file size (non-FAT+)
 
 		mov cx, [VAR(bytes_per_sector)]
 		dec cx			; BpS - 1
@@ -1383,15 +1437,8 @@ found_it:
 @@:
 		call check_enough.in_bx	; (CHG ax)
 
-; get starting cluster of file
-		mov ax, [es:di + deClusterLow - 2 * DIRENTRY_size]
-		mov dx, [es:di + deClusterHigh - 2 * DIRENTRY_size]
-					; dx:ax = first cluster
-
-		pop di			; restore si:di = loaded FAT sector
-		pop cx			; (discard sectors per cluster counter)
-		pop cx
-		pop cx			; (discard current cluster number)
+		pop ax
+		pop dx			; dx:ax = first cluster
 
 		push bx			; push into word [VAR(paras_left)]
 
@@ -1479,15 +1526,16 @@ next_ent:
 	push si
 	push di
 	push cx
-	lea si, [VAR(fsiboot_table.load_name)]	; ds:si-> name to match
+	mov si, [VAR(fsiboot_table.filename)]
+				; ds:si-> name to match
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
 	pop cx
 	pop di
 	pop si
 @@:				; ZR = match, NZ = mismatch
-	lea di, [di + DIRENTRY_size]
 	je found_it		; found entry -->
+	lea di, [di + DIRENTRY_size]
 
 	loop next_ent		; count down sector's entries (jumps iff cx >0)
 	pop di
@@ -1546,6 +1594,17 @@ check_enough:
 		mov al, 'E'
 		jb fsiboot_error
 		retn
+
+
+found_it:
+			; es:di -> dir entry in dir sector buffer
+	mov bx, di
+		pop di			; restore si:di = loaded FAT sector
+		pop cx			; (discard sectors per cluster counter)
+		pop cx
+		pop cx			; (discard current cluster number)
+			; es:bx -> dir entry
+	retn
 
 
 		; INP:	cx:bx = cluster (0-based)
@@ -1612,10 +1671,12 @@ check_clust:
 
 
 fsinfo_available:
-	_fill 480 + 4,38,fsiboot
+	_fill 480 + 4 - 2,38,fsiboot
 
 %assign num $-fsinfo_available
 %warning FSINFO: num bytes still available.
+dirsearch_entrypoint:
+	dw dirsearch
 
 	dd "rrAa"
 	dd -1		; number of free clusters
