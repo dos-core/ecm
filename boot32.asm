@@ -1305,7 +1305,8 @@ fsiboot:
 		; ax = high word adjust
 		; dx = third word
 	test dx, dx
-	jnz fsiboot_error_badchain
+	stc
+	jnz .CY_fsiboot_error_badchain
 		; dx = zero
 	xchg dx, ax
 		; dx = high word adjust
@@ -1316,12 +1317,12 @@ fsiboot:
 	xchg ax, bx
 		; dx:ax = result
 		; bx = zero
-.CY_fsiboot_error_badchain:
-	jc fsiboot_error_badchain
+	jc .CY_fsiboot_error_badchain
 
 	add ax,[VAR(num_reserved_sectors)]
 	adc dx, bx		; bx is zero here
-	jc fsiboot_error_badchain
+.CY_fsiboot_error_badchain:
+	jc ..@CY_2_fsiboot_error_badchain
 
 ; first sector of disk data area:
 	mov [VAR(data_start)], ax
@@ -1332,102 +1333,6 @@ fsiboot:
 	mov word [VAR(fat_sector + 2)], si
 	mov word [VAR(fat_sector + 0)], di
 	jmp dirsearch
-
-dirsearch:
-	mov ax, [VAR(root_cluster)]
-	mov dx, [VAR(root_cluster + 2)]
-	call check_clust
-	jc file_not_found
-
-next_root_clust:
-	call clust_to_first_sector
-	push cx
-	push bx
-	mov cx, [VAR(adj_sectors_per_cluster)]
-next_root_sect:
-	push cx
-	mov cx, [VAR(entries_per_sector)]
-
-; Scan root directory for file. We don't bother to check for deleted
-;  entries (E5h) or entries that mark the end of the directory (00h).
-	mov bx, [VAR(fsiboot_table.dirbuf)]
-	call near word [VAR(fsiboot_table.read_sector)]
-
-	push di
-	xor di, di		; es:di-> first entry in this sector
-next_ent:
-	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
-	jnz @F			; directory, label, or LFN entry --> (NZ)
-	push si
-	push di
-	push cx
-	lea si, [VAR(fsiboot_table.load_name)]	; ds:si-> name to match
-	mov cx, 11		; length of padded 8.3 FAT filename
-	repe cmpsb		; check entry
-	pop cx
-	pop di
-	pop si
-@@:				; ZR = match, NZ = mismatch
-	lea di, [di + DIRENTRY_size]
-	je found_it		; found entry -->
-
-	loop next_ent		; count down sector's entries (jumps iff cx >0)
-	pop di
-	pop cx
-	loop next_root_sect
-	pop bx
-	pop cx
-	call clust_next
-	jnc next_root_clust
-file_not_found:
-	mov al, 'F'
-	db __TEST_IMM16
-fsiboot_error_badchain:
-	mov al, 'B'
-
-fsiboot_error:
-	jmp near word [VAR(fsiboot_table.error)]
-
-
-		; INP:	dx:ax = cluster - 2 (0-based cluster)
-		; OUT:	cx:bx = input dx:ax
-		;	dx:ax = first sector of that cluster
-		; CHG:	-
-clust_to_first_sector:
-	push dx
-	push ax
-	 push dx
-	mul word [VAR(adj_sectors_per_cluster)]
-	xchg bx, ax
-	xchg cx, dx
-	 pop ax
-	mul word [VAR(adj_sectors_per_cluster)]
-	test dx, dx
-	jnz fsiboot_error_badchain
-	xchg dx, ax
-	add dx, cx
-	jc ..@CY_fsiboot_error_badchain
-	xchg ax, bx
-
-	add ax, [VAR(data_start)]
-	adc dx, [VAR(data_start + 2)]
-..@CY_fsiboot_error_badchain:
-	jc fsiboot_error_badchain
-				; dx:ax = first sector in cluster
-	pop bx
-	pop cx			; cx:bx = cluster
-	retn
-
-
-check_enough:
-		mov bx, [VAR(load_seg)]
-				; => behind last read sector
-		sub bx, word [VAR(fsiboot_table.loadseg)]
-.in_bx:
-		cmp bx, word [VAR(fsiboot_table.minpara)]
-		mov al, 'E'
-		jb fsiboot_error
-		retn
 
 
 found_it:
@@ -1544,6 +1449,103 @@ next_load_cluster:
 		pop cx
 		call check_enough
 		jmp near word [VAR(fsiboot_table.success)]
+
+
+dirsearch:
+	mov ax, [VAR(root_cluster)]
+	mov dx, [VAR(root_cluster + 2)]
+	call check_clust
+	jc file_not_found
+
+next_root_clust:
+	call clust_to_first_sector
+	push cx
+	push bx
+	mov cx, [VAR(adj_sectors_per_cluster)]
+next_root_sect:
+	push cx
+	mov cx, [VAR(entries_per_sector)]
+
+; Scan root directory for file. We don't bother to check for deleted
+;  entries (E5h) or entries that mark the end of the directory (00h).
+	mov bx, [VAR(fsiboot_table.dirbuf)]
+	call near word [VAR(fsiboot_table.read_sector)]
+
+	push di
+	xor di, di		; es:di-> first entry in this sector
+next_ent:
+	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
+	jnz @F			; directory, label, or LFN entry --> (NZ)
+	push si
+	push di
+	push cx
+	lea si, [VAR(fsiboot_table.load_name)]	; ds:si-> name to match
+	mov cx, 11		; length of padded 8.3 FAT filename
+	repe cmpsb		; check entry
+	pop cx
+	pop di
+	pop si
+@@:				; ZR = match, NZ = mismatch
+	lea di, [di + DIRENTRY_size]
+	je found_it		; found entry -->
+
+	loop next_ent		; count down sector's entries (jumps iff cx >0)
+	pop di
+	pop cx
+	loop next_root_sect
+	pop bx
+	pop cx
+	call clust_next
+	jnc next_root_clust
+file_not_found:
+	mov al, 'F'
+	db __TEST_IMM16
+fsiboot_error_badchain:
+	mov al, 'B'
+
+fsiboot_error:
+	jmp near word [VAR(fsiboot_table.error)]
+
+
+		; INP:	dx:ax = cluster - 2 (0-based cluster)
+		; OUT:	cx:bx = input dx:ax
+		;	dx:ax = first sector of that cluster
+		; CHG:	-
+clust_to_first_sector:
+	push dx
+	push ax
+	 push dx
+	mul word [VAR(adj_sectors_per_cluster)]
+	xchg bx, ax
+	xchg cx, dx
+	 pop ax
+	mul word [VAR(adj_sectors_per_cluster)]
+	test dx, dx
+	jnz fsiboot_error_badchain
+	xchg dx, ax
+	add dx, cx
+	jc ..@CY_fsiboot_error_badchain
+	xchg ax, bx
+
+	add ax, [VAR(data_start)]
+	adc dx, [VAR(data_start + 2)]
+..@CY_fsiboot_error_badchain:
+	jc fsiboot_error_badchain
+				; dx:ax = first sector in cluster
+	pop bx
+	pop cx			; cx:bx = cluster
+	retn
+
+
+check_enough:
+		mov bx, [VAR(load_seg)]
+				; => behind last read sector
+		sub bx, word [VAR(fsiboot_table.loadseg)]
+.in_bx:
+		cmp bx, word [VAR(fsiboot_table.minpara)]
+		mov al, 'E'
+		jb fsiboot_error
+		retn
 
 
 		; INP:	cx:bx = cluster (0-based)
