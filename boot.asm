@@ -35,6 +35,11 @@ Public domain by C. Masloch, 2012
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
 	numdef CHECKVALUE,	"lD"
+	numdef LOAD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
+	numdef ADD_SEARCH,	0	; whether to search second file
+	strdef ADD_NAME,	""
+	strdef ADD_EXT,		""	; name of second file to search
+	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
 
 	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
@@ -134,6 +139,13 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_MIN_PARA,	paras(512)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+	numdef LOAD_DIR_SEG,	50h
+	numdef ADD_SEARCH,	1
+	strdef ADD_NAME,	"IBMDOS"
+	strdef ADD_EXT,		"COM"
+	numdef ADD_DIR_SEG,	52h
+ 	; Note: The IBMBIO.COM directory entry must be stored at
+	;  0:500h, and the IBMDOS.COM directory entry at 0:520h.
 
 	numdef CHECKVALUE,	0
 	numdef SET_LOAD_SEG,	0
@@ -144,15 +156,6 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
-	numdef DIR_ENTRY_520,	1
- 	; Note: IBMBIO.COM must be the first file, IBMDOS.COM the second file.
- 	;  We do not check this to be the case, but the load protocol may
- 	;  prescribe that these two entries are at 0:500h and 0:520h.
- 	; With the option _DIR_ENTRY_520, we copy the found directory entry
- 	;  as well as one more directory entry to the destinations at 0:500h
- 	;  and 0:520h. This fails either if the second entry is a volume label,
- 	;  LFN entry, directory, deleted/empty, or file other than the wanted
- 	;  one, or also fails if the found entry is the last one in a sector.
 	numdef SET_AXBX_DATA,	1
 	numdef DATASTART_HIDDEN,1
 	numdef SET_DSSI_DPT,	1
@@ -190,6 +193,13 @@ Public domain by C. Masloch, 2012
 	numdef LOAD_MIN_PARA,	paras(512)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	0
+	numdef LOAD_DIR_SEG,	50h
+	numdef ADD_SEARCH,	1
+	strdef ADD_NAME,	"MSDOS"
+	strdef ADD_EXT,		"SYS"
+	numdef ADD_DIR_SEG,	52h
+ 	; Note: The IO.SYS directory entry must be stored at
+	;  0:500h, and the MSDOS.SYS directory entry at 0:520h.
 
 	numdef CHECKVALUE,	0
 	numdef SET_LOAD_SEG,	0
@@ -200,15 +210,6 @@ Public domain by C. Masloch, 2012
 	numdef MEMORY_CONTINUE,	1
 	; 3 sectors * 512 BpS should suffice. We load into 700h--7A00h,
 	;  ie >= 6000h bytes (24 KiB), <= 7300h bytes (28.75 KiB).
-	numdef DIR_ENTRY_520,	1
- 	; Note: IO.SYS must be the first file, MSDOS.SYS the second file.
- 	;  We do not check this to be the case, but the load protocol may
- 	;  prescribe that these two entries are at 0:500h and 0:520h.
- 	; With the option _DIR_ENTRY_520, we copy the found directory entry
- 	;  as well as one more directory entry to the destinations at 0:500h
- 	;  and 0:520h. This fails either if the second entry is a volume label,
- 	;  LFN entry, directory, deleted/empty, or file other than the wanted
- 	;  one, or also fails if the found entry is the last one in a sector.
 	numdef SET_AXBX_DATA,	1
 	numdef DATASTART_HIDDEN,1
 	numdef SET_DSSI_DPT,	1
@@ -268,8 +269,9 @@ Notes about partial load compatibilities
    and/or _RPL need to be disabled to make the loader fit
 * IBMDOS:
 * MS-DOS 6:
- * Does not search for IBMDOS (MSDOS) file, only IBMBIO (IO)
  * Does not actually relocate DPT, just provide its address
+ * A lot of options between _USE_PART_INFO, _QUERY_GEOMETRY, _CHS, _LBA,
+   and/or _RPL need to be disabled to make the loader fit
 * MS-DOS 7:
  * Does not actually relocate DPT, just provide its address
  * Does not contain message table used by loader
@@ -282,6 +284,16 @@ Notes about partial load compatibilities
 
 %if _DIR_ENTRY_520
  %assign _DIR_ENTRY_500		1
+%endif
+
+%if _DIRBUF_500 && _ADD_SEARCH
+ %error Cannot select both of these options!
+%endif
+
+%if _ADD_SEARCH
+ %if _LOAD_DIR_SEG == 0 || _ADD_DIR_SEG == 0
+  %error Assuming dir segs should be set if add search set
+ %endif
 %endif
 
 
@@ -657,6 +669,15 @@ filesystem_identifier:	fill 8,32,db "FAT1",'2'+4*!!_FAT16
 load_name:
 	fill 8,32,db _LOAD_NAME
 	fill 3,32,db _LOAD_EXT
+%if _ADD_SEARCH
+add_name:
+	fill 8,32,db _ADD_NAME
+	fill 3,32,db _ADD_EXT
+filename:
+	dw add_name
+dirseg:
+	dw _ADD_DIR_SEG
+%endif
 
 
 	numdef TMPINC, 0
@@ -1100,6 +1121,14 @@ skip_bpb:
 	mov [VAR(data_start)], cx
 	mov [VAR(data_start+2)], di
 
+next_dir_search:
+%if _ADD_SEARCH
+	push bx
+	push dx
+	push ax
+	push si
+%endif
+
 ; Scan root directory for file. We don't bother to check for deleted
 ;  entries (E5h) or entries that mark the end of the directory (00h).
 		; number of root entries in si here
@@ -1123,7 +1152,11 @@ next_ent:
 	push si
 	push di
 	push cx
+%if _ADD_SEARCH
+	mov si, [VAR(filename)]
+%else
 	mov si, load_name	; ds:si-> name to match
+%endif
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
 	pop cx
@@ -1142,7 +1175,43 @@ next_ent:
 	jmp error
 
 found_it:
-%if _DIR_ENTRY_500	; +24 bytes, probably
+%if _ADD_SEARCH
+	mov cx, 32
+	mov ax, _LOAD_DIR_SEG
+	sub di, cx		; es:di -> dir entry
+	xchg ax, word [VAR(dirseg)]
+	push ds
+	mov si, di
+	push di
+	 push es
+	 pop ds			; ds:si -> dir entry
+	mov es, ax
+	xor di, di		; es:di -> destination
+	rep movsb		; store dir entry
+	 push ds
+	 pop es
+	pop di			; restore es:di -> dir entry
+	pop ds
+	mov word [VAR(filename)], load_name
+				; update name to second iterarion's
+%if (_LOAD_DIR_SEG & 255) != (_ADD_DIR_SEG & 255)
+	cmp al, _ADD_DIR_SEG
+%elif (_LOAD_DIR_SEG) != (_ADD_DIR_SEG)
+	cmp ax, _ADD_DIR_SEG	; was first iteration ?
+%else
+ %error Must not store directory entries to same segment
+%endif
+	pop si
+	pop ax
+	pop dx
+	pop bx			; restore root start and counts
+	je next_dir_search	; jump to search load file next -->
+ %if _RELOCATE
+	push word [es:di + deClusterLow]
+			; (word on stack) = first cluster number
+ %endif
+%else
+ %if _DIR_ENTRY_500	; +24 bytes, probably
 	mov cx, 32
 	 push ds
 	 push es
@@ -1153,19 +1222,20 @@ found_it:
 	xor ax, ax
 	mov es, ax
 	mov di, 500h	; es:di -> 0:500h
- %if _DIR_ENTRY_520
+  %if _DIR_ENTRY_520
 	rep movsw	; move to here (two directory entries)
- %else
+  %else
 	rep movsb	; move to here
- %endif
+  %endif
 	 pop es
 	 pop ds
 	xchg si, di	; es:di -> behind (second) directory entry
-%endif
-%if _RELOCATE
+ %endif
+ %if _RELOCATE
 	push word [es:di + deClusterLow - DIRENTRY_size \
 		- (DIRENTRY_size * !!_DIR_ENTRY_520)]
 			; (word on stack) = first cluster number
+ %endif
 %endif
 
 %if _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
@@ -1281,8 +1351,12 @@ relocated:
 
 ; get starting cluster of file
 %if ! _RELOCATE
+ %if _ADD_SEARCH
+		mov si,[es:di + deClusterLow]
+ %else
 		mov si,[es:di + deClusterLow - DIRENTRY_size \
 			- (DIRENTRY_size * !!_DIR_ENTRY_520)]
+ %endif
 %endif
 %if _SET_CLUSTER
 		mov word [VAR(first_cluster)], si
