@@ -1386,7 +1386,6 @@ fsiboot:
 	xchg ax, bx
 		; dx:ax = result
 		; bx = zero
-	jc .CY_fsiboot_error_badchain
 
 	add ax,[VAR(num_reserved_sectors)]
 	adc dx, bx		; bx is zero here
