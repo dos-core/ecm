@@ -1360,9 +1360,7 @@ fsiboot:
 	dec al
 	inc ax
 	push ax			; push into word [VAR(adj_sectors_per_cluster)]
-
-
-	xor ax, ax
+	dec ax				; ! ah = 0
 	mov al,[VAR(num_fats)]		; ! ah = 0, hence ax = number of FATs
 	push ax
 	mul word [VAR(sectors_per_fat_large)]
