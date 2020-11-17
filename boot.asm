@@ -1195,7 +1195,11 @@ found_it:
 	pop di			; restore es:di -> dir entry
 	pop ds
  %if _ADD_SEARCH
+%if ((load_name - start) & 0FF00h) == ((add_name - start) & 0FF00h)
+	mov byte [VAR(filename)], (load_name - start + 7C00h) & 255
+%else
 	mov word [VAR(filename)], load_name
+%endif
 				; update name to second iterarion's
 %if (_LOAD_DIR_SEG & 255) != (_ADD_DIR_SEG & 255)
 	cmp al, _ADD_DIR_SEG
