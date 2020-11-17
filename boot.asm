@@ -1175,11 +1175,13 @@ next_ent:
 	jmp error
 
 found_it:
-%if _ADD_SEARCH
+%if _ADD_SEARCH || _LOAD_DIR_SEG
 	mov cx, 32
 	mov ax, _LOAD_DIR_SEG
 	sub di, cx		; es:di -> dir entry
+ %if _ADD_SEARCH
 	xchg ax, word [VAR(dirseg)]
+ %endif
 	push ds
 	mov si, di
 	push di
@@ -1192,6 +1194,7 @@ found_it:
 	 pop es
 	pop di			; restore es:di -> dir entry
 	pop ds
+ %if _ADD_SEARCH
 	mov word [VAR(filename)], load_name
 				; update name to second iterarion's
 %if (_LOAD_DIR_SEG & 255) != (_ADD_DIR_SEG & 255)
@@ -1206,6 +1209,7 @@ found_it:
 	pop dx
 	pop bx			; restore root start and counts
 	je next_dir_search	; jump to search load file next -->
+ %endif
  %if _RELOCATE
 	push word [es:di + deClusterLow]
 			; (word on stack) = first cluster number
@@ -1351,7 +1355,7 @@ relocated:
 
 ; get starting cluster of file
 %if ! _RELOCATE
- %if _ADD_SEARCH
+ %if _ADD_SEARCH || _LOAD_DIR_SEG
 		mov si,[es:di + deClusterLow]
  %else
 		mov si,[es:di + deClusterLow - DIRENTRY_size \
