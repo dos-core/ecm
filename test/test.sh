@@ -434,6 +434,7 @@ then
       next if $empty and /^\s*$/;
       next if /^(dosemu2 2|Configured: |Please test against)/;
       next if /^(Get the latest code|Submit Bugs via|Ask for help in)/;
+      next if /^(This program comes with|This is free software,)/;
       $empty = 0;
       if (/^([A-Z])\x7/ and defined $errorlookup{$1}) {
 	s/^(.).//;
@@ -442,6 +443,7 @@ then
 	s/^\s*$//;
 	next if /^(dosemu2 2|Configured: |Please test against)/;
 	next if /^(Get the latest code|Submit Bugs via|Ask for help in)/;
+	next if /^(This program comes with|This is free software,)/;
 	print;
 	print "\n" unless /^$/;
       } else {
