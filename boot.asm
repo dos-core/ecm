@@ -673,6 +673,11 @@ load_name:
 add_name:
 	fill 8,32,db _ADD_NAME
 	fill 3,32,db _ADD_EXT
+
+	; align 2
+	;  This happens to be aligned anyway. But even if
+	;  it didn't, we'd rather save that byte than use
+	;  it to align these fields. So comment this out.
 filename:
 	dw add_name
 dirseg:
