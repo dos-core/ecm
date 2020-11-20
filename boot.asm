@@ -270,8 +270,8 @@ Notes about partial load compatibilities
 * IBMDOS:
 * MS-DOS 6:
  * Does not actually relocate DPT, just provide its address
- * A lot of options between _USE_PART_INFO, _QUERY_GEOMETRY, _CHS, _LBA,
-   and/or _RPL need to be disabled to make the loader fit
+ * A lot of options between _USE_PART_INFO, _QUERY_GEOMETRY, _CHS,
+   and/or _LBA need to be disabled to make the loader fit
 * MS-DOS 7:
  * Does not actually relocate DPT, just provide its address
  * Does not contain message table used by loader
