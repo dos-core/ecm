@@ -364,11 +364,6 @@ d3	test ax, "00"
 	pop si
 	pop ds		; get old int 1Eh address from stack
 .dssi:
-
-	mov es, cx
-	mov bp, 7C00h
-
-	mov word [es:di], si
 	jmp ms6_continue1
 
 
@@ -786,11 +781,6 @@ ms7_entry:
 
 
 finish_continue:
-	not bx		; ~ (para per sector - 1)
-	and ax, bx	; rounded up,
-		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
-
-	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
 	jbe short finish_load
@@ -1118,6 +1108,10 @@ check_clust:
 
 
 ms6_continue1:
+	mov es, cx
+	mov bp, 7C00h
+
+	mov word [es:di], si
 	mov word [es:di + 2], ds	; restore old int 1Eh address
 
 	mov ss, cx
@@ -1526,6 +1520,11 @@ init_memory:
 	mov bx, [bp + ldParaPerSector]
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
+	not bx		; ~ (para per sector - 1)
+	and ax, bx	; rounded up,
+		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
+
+	mov bx, cs
 	jmp finish_continue
 
 
