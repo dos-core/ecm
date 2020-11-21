@@ -136,6 +136,8 @@ ptExtendedLinux:	equ 85h
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
+	numdef LBA_33_BIT,	1	; support 33-bit LBA
+	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef LSVEXTRA,	1	; use lsvExtra field
@@ -477,14 +479,30 @@ read_sector:
 		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 
+ %if (!_LBA || !_LBA_33_BIT) && _LBA_CHECK_NO_33
+	jc .err_CY_2
+  %if !_LBA
+.err_CY_2: equ .err_CY_1
+  %endif
+ %endif
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
+ %if _LBA_33_BIT || (!_LBA_CHECK_NO_33 && _CHS)
+	sbb si, si	; -1 if was CY, 0 else
+  %if _LBA_33_BIT
+	neg si		; 1 if was CY, 0 else
+  %endif
+ %endif
 	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jz .no_lba_checked
  %endif
 	push cx
-	push cx
+ %if _LBA_33_BIT
+	push si		; bit 32 = 1 if operating in 33-bit space
+ %else
+	push cx		; second highest word = 0
+ %endif
 	push dx
 	push ax		; qword sector number (lpSector)
 	push bx
@@ -524,7 +542,11 @@ read_sector:
 	int 13h
 		; (don't need .int13_preserve_lpcount as no further call)
 %endif
-	jc .lba_error
+.err_CY_2:
+	jc .err_CY_1
+%ifn _CHS
+.err_CY_1: equ .err
+%endif
 
 	pop es
 	; pop cx
@@ -542,20 +564,32 @@ read_sector:
 .no_lba_checked: equ .err
  %elif _LBA_SKIP_CHECK
 .no_lba_skip:
-		; si == sp
 	add sp, 8
 	pop ax
 	pop dx
-	pop cx
+  %if _LBA_33_BIT || !_LBA_CHECK_NO_33
+	pop si
 	pop cx		; cx = 0 (needed as input for next cwd instruction)
+	test si, si
+	mov si, sp	; si == sp
+  %else
+	pop cx
+	pop cx
 		; si == sp - 16
+  %endif
  %else
 .no_lba_checked:
+  %if _LBA_33_BIT || !_LBA_CHECK_NO_33
+	test si, si
+  %endif
 	mov si, sp	; si == sp
  %endif
 %endif
 
 %if _CHS		; +70 bytes
+ %if _LBA && (_LBA_33_BIT || !_LBA_CHECK_NO_33)
+	jnz .err_NZ_2
+ %endif
 ; dx:ax = LBA sector number, (if _LBA) cx = 0
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
@@ -600,7 +634,8 @@ read_sector:
 			 or bl, ah	; collect set bits from ah
 			mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 					; dl = drive
-			 jnz .err	; error if cylinder >= 1024 -->
+.err_NZ_2:
+			 jnz .err_NZ_1	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
@@ -616,6 +651,7 @@ read_sector:
 			jnc .done
 
 	cmp ah, 9	; data boundary error?
+.err_NZ_1:
 	jne .err
 
 	push es		; user buffer
@@ -627,6 +663,7 @@ read_sector:
 %else
 	int 13h
 %endif
+.err_CY_1:
 	jc .err
 
 	pop es
