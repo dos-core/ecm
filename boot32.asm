@@ -1157,10 +1157,10 @@ read_sector:
  %else
 .no_lba:
 	add sp, 8
+	pop cx		; cx = low word of sector
 	pop ax
-	pop dx
-	pop cx
-	pop cx		; cx = 0 (needed as input for next cwd instruction)
+	pop dx		; dx:ax = high word of sector (dx = 0)
+	pop si		; discard highest word of qword
  %endif
 %else
 .err_2: equ .err
@@ -1176,11 +1176,9 @@ read_sector:
 			xchg ax, dx	; ax = high word of sector, clobbers dx
 			xor dx, dx	; dx:ax = high word of sector
  %else
-			xchg cx, ax	; cx = low word of sector, ax = 0
-			push dx		; stack = high word of sector
-			cwd		; dx = 0 (because ax was 0)
-			pop ax		; ax = high word of sector
-					; dx:ax = high word of sector
+	; from the .no_lba popping we already have:
+	;  cx = low word of sector
+	;  dx:ax = high word of sector
  %endif
 			div word [VAR(sectors_per_track)]
 			xchg cx,ax
