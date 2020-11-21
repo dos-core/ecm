@@ -49,6 +49,8 @@ Public domain by C. Masloch, 2012
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
+	numdef LBA_33_BIT,	1	; support 33-bit LBA
+	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 
 	numdef RELOCATE,	0	; relocate the loader to top of memory
 	numdef SET_DL_UNIT,	0	; if to pass unit in dl
@@ -1080,13 +1082,23 @@ read_sector:
 ; add partition start (= number of hidden sectors)
 		add ax,[VAR(hidden_sectors + 0)]
 		adc dx,[VAR(hidden_sectors + 2)]
-
+ %if (!_LBA || !_LBA_33_BIT) && _LBA_CHECK_NO_33
+	jc .err
+ %endif
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
+ %if _LBA_33_BIT
+	sbb si, si	; -1 if was CY, 0 else
+	neg si		; 1 if was CY, 0 else
+ %endif
 	xor cx, cx
-	push cx
-	push cx
+	push cx		; highest word = 0
+ %if _LBA_33_BIT
+	push si		; bit 32 = 1 if operating in 33-bit space
+ %else
+	push cx		; second highest word = 0
+ %endif
 	push dx
-	push ax		; qword sector number
+	push ax		; = qword sector number
 	push bx
 	push cx		; bx => buffer
 	inc cx
@@ -1159,7 +1171,12 @@ read_sector:
 	add sp, 8
 	pop cx		; cx = low word of sector
 	pop ax
-	pop dx		; dx:ax = high word of sector (dx = 0)
+	pop dx		; dx:ax = middle two words of sector
+		; Here dx <= 1 if _LBA_33_BIT, else zero.
+		;  If dx is nonzero then the CHS calculation
+		;  should fail. If CHS sectors is equal to 1
+		;  (very unusual) then the div may fail. Else,
+		;  we will detect a cylinder > 1023 eventually.
 	pop si		; discard highest word of qword
  %endif
 %else
