@@ -486,11 +486,9 @@ read_sector:
   %endif
  %endif
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
- %if _LBA_33_BIT || (!_LBA_CHECK_NO_33 && _CHS)
+ %if _LBA_33_BIT
 	sbb si, si	; -1 if was CY, 0 else
-  %if _LBA_33_BIT
 	neg si		; 1 if was CY, 0 else
-  %endif
  %endif
 	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
  %if !_LBA_SKIP_CHECK
@@ -567,7 +565,7 @@ read_sector:
 	add sp, 8
 	pop ax
 	pop dx
-  %if _LBA_33_BIT || !_LBA_CHECK_NO_33
+  %if _LBA_33_BIT
 	pop si
 	pop cx		; cx = 0 (needed as input for next cwd instruction)
 	test si, si
@@ -579,7 +577,7 @@ read_sector:
   %endif
  %else
 .no_lba_checked:
-  %if _LBA_33_BIT || !_LBA_CHECK_NO_33
+  %if _LBA_33_BIT
 	test si, si
   %endif
 	mov si, sp	; si == sp
@@ -587,7 +585,7 @@ read_sector:
 %endif
 
 %if _CHS		; +70 bytes
- %if _LBA && (_LBA_33_BIT || !_LBA_CHECK_NO_33)
+ %if _LBA && _LBA_33_BIT
 	jnz .err_NZ_2
  %endif
 ; dx:ax = LBA sector number, (if _LBA) cx = 0
