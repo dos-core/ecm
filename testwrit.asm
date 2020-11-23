@@ -122,6 +122,8 @@ ATTR_ARCHIVE	equ 20h
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
+	numdef LBA_33_BIT,	1	; support 33-bit LBA
+	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
@@ -506,14 +508,25 @@ write_sector:
 		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 
+ %if (!_LBA || !_LBA_33_BIT) && _LBA_CHECK_NO_33
+	jc .err_CY
+ %endif
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
+ %if _LBA_33_BIT
+	sbb si, si	; -1 if was CY, 0 else
+	neg si		; 1 if was CY, 0 else
+ %endif
 	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jz .no_lba_checked
  %endif
 	push cx
-	push cx
+ %if _LBA_33_BIT
+	push si		; bit 32 = 1 if operating in 33-bit space
+ %else
+	push cx		; second highest word = 0
+ %endif
 	push dx
 	push ax		; qword sector number (lpSector)
 	push bx
@@ -593,16 +606,29 @@ write_sector:
 	add sp, 8
 	pop ax
 	pop dx
-	pop cx
+  %if _LBA_33_BIT
+	pop si
 	pop cx		; cx = 0 (needed as input for next cwd instruction)
+	test si, si
+	mov si, sp	; si == sp
+  %else
+	pop cx
+	pop cx
 		; si == sp - 16
+  %endif
  %else
 .no_lba_checked:
+  %if _LBA_33_BIT
+	test si, si
+  %endif
 	mov si, sp	; si == sp
  %endif
 %endif
 
 %if _CHS		; +70 bytes
+ %if _LBA && _LBA_33_BIT
+	jnz .err
+ %endif
 ; dx:ax = LBA sector number, (if _LBA) cx = 0
 ; divide by number of sectors per track to get sector number
 ; Use 32:16 DIV instead of 64:32 DIV for 8088 compatability
