@@ -163,6 +163,11 @@ along with a default loader (which aborts with an error).
 	%endmacro
 
 
+	%imacro zerobytes_if_full 1.nolist
+zerobytes %1
+	%endmacro
+
+
 ptEmpty:		equ 0
 ptFAT12:		equ 1
 ptFAT16_16BIT_CHS:	equ 4
@@ -1130,12 +1135,12 @@ data %+ ii %+ _end:
 %if data_used > (DATASECTORS * _BPS)
  %error Too much data used
 %endif
-	zerobytes DATASECTORS * _BPS - data_used
+	zerobytes_if_full DATASECTORS * _BPS - data_used
 
 
 %if _MBR
 	addsection partition_end_padding, follows=empty
-	zerobytes (CYLINDERS * _CHS_HEADS * _CHS_SECTORS \
+	zerobytes_if_full (CYLINDERS * _CHS_HEADS * _CHS_SECTORS \
 			- _MBR_GAP_SIZE_SECTORS - _SPI) \
 		* _BPS
 %endif
