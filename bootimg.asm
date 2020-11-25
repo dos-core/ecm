@@ -722,28 +722,33 @@ at deSize,		dd 0
 	%endmacro
 
 
-		; %1 = filename, may include a directory
-		;	(the directory is only used to locate
-		;	the file on the host system, the file
-		;	will be written to the image with only
-		;	its base name used, and in all-caps.)
-		; %2 = data section name to use
-		; %3 = data section name of directory to write to
-	%macro incfile 3.nolist
-	usesection %2
-%2 %+ _start:
+		; %1 = source filename, may include a directory
+		;	(the directory is used to locate
+		;	the file on the host system)
+		; %2 = target filename, may include a directory
+		;	(directory is stripped, base name is
+		;	used in all-caps to store to the image)
+		; %3 = data section name to use
+		; %4 = data section name of directory to write to
+	%macro incfile 4.nolist
+	usesection %3
+%3 %+ _start:
 %define string %1
 %ifnstr string
  %defstr string string
 %endif
 incbin string
-%assign filesize ($ - %2 %+ _start)
+%assign filesize ($ - %3 %+ _start)
 
 %xdefine CHAINLIST CHAINLIST,%%file
 
-	parsename %1
+%define string %2
+%ifnstr string
+ %defstr string string
+%endif
+	parsename %2
 
-	usesection %3
+	usesection %4
 	istruc DIRENTRY
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
@@ -868,7 +873,8 @@ at deSize,		dd filesize
 %assign filescount 0
 %define ff fixed_root
 %assign chainindex 0
-%assign chdir 0
+%assign ischdir 0
+%assign isrename 0
 %push ROOT
 %define %$namelist "", ""
 %define %$dirname "/"
@@ -886,7 +892,7 @@ at deSize,		dd filesize
  %define %$parentcluster 0
 %endif
 %rep %0
- %if chdir
+ %if ischdir
   %ifidni %1, ..
    %ifctx ROOT
     %error Cannot back out over root
@@ -905,18 +911,33 @@ at deSize,		dd filesize
    %xdefine %$parentcluster %$parent %+ _start_cluster
    %assign chainindex chainindex + 1
   %endif
-  %assign chdir 0
+  %assign ischdir 0
+ %elif isrename == 1
+  %xdefine renamesource %1
+  %assign isrename 2
+ %elif isrename == 2
+	setup_a_section		; add a section for a file
+	incfile renamesource, %1, data %+ chainindex, %$parent
+  %assign isrename 0
  %elifidni %1, ::chdir
-  %assign chdir 1
+  %assign ischdir 1
+ %elifidni %1, ::rename
+  %assign isrename 1
  %elifnidni %1, ::empty
 	setup_a_section		; add a section for a file
-	incfile %1, data %+ chainindex, %$parent
+	incfile %1, %1, data %+ chainindex, %$parent
   %assign chainindex chainindex + 1
  %endif
  %rotate 1
 %endrep
-%if chdir
+%if ischdir
  %error No directory to create specified
+%endif
+%if isrename == 1
+ %error No rename source specified
+%endif
+%if isrename == 2
+ %error No rename target specified
 %endif
 %rep 1024
  %ifctx ROOT
