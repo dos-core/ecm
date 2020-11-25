@@ -795,7 +795,11 @@ at deSize,		dd filesize
 		; %3 = fill length
 		; %4 = fill value
 	%imacro incendfill 4.nolist
-%xdefine LISTENDFILL LISTENDFILL, %%file, %3, %4
+%if %4
+ %xdefine LISTENDFILL LISTENDFILL, %%file, %3, %4
+%else
+ %xdefine LISTENDFILLZEROS LISTENDFILLZEROS, %%file, %3, %4
+%endif
 
 %define string %1
 %ifnstr string
@@ -942,6 +946,7 @@ at deSize,		dd %3
 %define DIRLIST none
 %define CHAINLIST none
 %define LISTENDFILL none, none, none
+%define LISTENDFILLZEROS none, none, none
 	%macro multiincfile 1-*.nolist
 %assign filescount 0
 %define ff fixed_root
@@ -1101,7 +1106,11 @@ at deSize,		dd %3
 	setup_a_section
 	usesection data %+ ii
 data %+ ii %+ _start:
+ %if isendfillzeros
+	zerobytes_if_full %2
+ %else
 	fillbytes %2, %3
+ %endif
 	align _BPS * _SPC, db 0
  %assign clusters (%2 + _BPS * _SPC - 1) / (_BPS * _SPC)
  %assign data_used data_used + (clusters * _BPS * _SPC)
@@ -1123,7 +1132,10 @@ data %+ ii %+ _end:
  %assign ii ii + 1
 %endrep
 
+%assign isendfillzeros 0
 	allocateendfill LISTENDFILL
+%assign isendfillzeros 1
+	allocateendfill LISTENDFILLZEROS
 	addsection empty, follows= %+ ff vstart=0
 
 
