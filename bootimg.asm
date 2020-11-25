@@ -120,7 +120,7 @@ along with a default loader (which aborts with an error).
 	numdef VOLUMEID,	0
 
 	numdef MBR,			0
-	gendef MBR_PART_TYPE,		fat12
+	gendef MBR_PART_TYPE,		fat %+ _BPE
 	numdef MBR_DOSEMU_IMAGE_HEADER,	0
 	numdef MBR_GAP_SIZE_SECTORS,	0, 2048
 	numdef MBR_GAP_SIZE_CYLINDERS,	1
