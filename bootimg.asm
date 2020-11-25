@@ -861,43 +861,19 @@ at deSize,		dd filesize
   %assign filescount filescount + 1
 	%endmacro
 
-	%macro count_files_setup_sections 1-*.nolist
-%assign filescount 0
-%define ff fixed_root
-%assign chdir 0
-%rep %0
- %if chdir
-  %ifnidni %1, ..		; (not if backing out of directory)
-	setup_a_section		; add a section for a directory
-  %endif
-  %assign chdir 0
- %elifidni %1, ::chdir
-  %assign chdir 1		; note next list entry is directory name
- %elifnidni %1, ::empty
-	setup_a_section		; add a section for a file
- %endif
- %rotate 1
-%endrep
-%if chdir
- %error No directory to create specified
-%endif
-%if _BPE == 32
-	setup_a_section		; add a section for root directory
-%endif
-	addsection empty, follows= %+ ff vstart=0
-	%endmacro
-	count_files_setup_sections _PAYLOADFILE
-
 
 %define DIRLIST none
 %define CHAINLIST none
 	%macro multiincfile 1-*.nolist
+%assign filescount 0
+%define ff fixed_root
 %assign chainindex 0
 %assign chdir 0
 %push ROOT
 %define %$namelist "", ""
 %define %$dirname "/"
 %if _BPE == 32
+	setup_a_section		; add a section for root directory
 	incdir "", data %+ chainindex, none, 0
  %xdefine nextdir data %+ chainindex
  %xdefine DIRLIST DIRLIST,nextdir
@@ -918,6 +894,7 @@ at deSize,		dd filesize
     %pop
    %endif
   %else
+	setup_a_section		; add a section for a directory
 	incdir %1, data %+ chainindex, %$parent, %$parentcluster
    %push SUB
    %define %$namelist "", ""
@@ -932,6 +909,7 @@ at deSize,		dd filesize
  %elifidni %1, ::chdir
   %assign chdir 1
  %elifnidni %1, ::empty
+	setup_a_section		; add a section for a file
 	incfile %1, data %+ chainindex, %$parent
   %assign chainindex chainindex + 1
  %endif
@@ -948,6 +926,7 @@ at deSize,		dd filesize
  %endif
 %endrep
 %pop
+	addsection empty, follows= %+ ff vstart=0
 	%endmacro
 	multiincfile _PAYLOADFILE
 
