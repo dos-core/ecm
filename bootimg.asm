@@ -1189,7 +1189,37 @@ dumpfatentry (_MEDIAID | (MAXENTRY - 15))
  %rotate 2			; rotate to next pair
 %endrep
 %ifnempty EVENENTRY
+	; dumpfatentry 0
 	dw EVENENTRY
+ %if 0
+
+Edge case result with dumpfatentry 0 here:
+
+bootimg$ nasm bootimg.asm \
+ -D_PAYLOADFILE=::endfill,"(_SPI - 1 - 1 - 1) * 512",0,zeros.bin \
+ -I ../lmacros/ -D_FULL=0 -D_BPE=12 -D_SPI=342 -D_SPF="1" \
+ -D_NUMFATS=1 -D_NUMROOT=16
+bootimg.asm:1201: error: Negative count given to zerobytes
+bootimg.asm:1205: error: Internal error in FAT filling
+
+Correct behaviour with dw EVENENTRY:
+
+bootimg$ nasm bootimg.asm \
+ -D_PAYLOADFILE=::endfill,"(_SPI - 1 - 1 - 1) * 512",0,zeros.bin \
+ -I ../lmacros/ -D_FULL=0 -D_BPE=12 -D_SPI=342 -D_SPF="1" \
+ -D_NUMFATS=1 -D_NUMROOT=16
+
+Correctly rejecting too small FAT:
+
+bootimg$ time nasm bootimg.asm \
+ -D_PAYLOADFILE=::endfill,"(_SPI - 1 - 1 - 1) * 512",0,zeros.bin \
+ -I ../lmacros/ -D_FULL=0 -D_BPE=12 -D_SPI=343 -D_SPF="1" \
+ -D_NUMFATS=1 -D_NUMROOT=16
+bootimg.asm:272: error: Too few FAT sectors specified (341 entries, 342 needed)
+bootimg.asm:1221: error: Negative count given to zerobytes
+bootimg.asm:1225: error: Internal error in FAT filling
+
+ %endif
 %endif
 	%endmacro
 
