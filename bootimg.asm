@@ -730,6 +730,7 @@ at deSize,		dd 0
 		;	used in all-caps to store to the image)
 		; %3 = data section name to use
 		; %4 = data section name of directory to write to
+		; isrename = nonzero if ::rename
 	%macro incfile 4.nolist
 	usesection %3
 %3 %+ _start:
@@ -746,7 +747,7 @@ incbin string
 %ifnstr string
  %defstr string string
 %endif
-	parsename %2
+	parsename %2, !!isrename
 
 	usesection %4
 	istruc DIRENTRY
@@ -769,14 +770,26 @@ at deSize,		dd filesize
  %substr cc string length - ii + 1
  %ifidn cc,"/"
   %if %2
-   %error Subsubdirectory not supported, use ::chdir twice
+   %if ischdir
+    %error Subsubdirectory not supported, use ::chdir twice
+   %elif isrename
+    %error Subdirectory not supported in ::rename target
+   %else
+    %error Subdirectory not supported
+   %endif
   %endif
   %substr string string length -ii + 2, -1
   %exitrep
  %endif
  %ifidn cc,"\"
   %if %2
-   %error Subsubdirectory not supported, use ::chdir twice
+   %if ischdir
+    %error Subsubdirectory not supported, use ::chdir twice
+   %elif isrename
+    %error Subdirectory not supported in ::rename target
+   %else
+    %error Subdirectory not supported
+   %endif
   %endif
   %substr string string length -ii + 2, -1
   %exitrep
