@@ -781,6 +781,31 @@ at deSize,		dd filesize
 	iend
 	%endmacro
 
+
+		; %1 = filename
+		; %2 = data section name of directory to write to
+		; %3 = fill length
+		; %4 = fill value
+	%imacro incendfill 4.nolist
+%xdefine LISTENDFILL LISTENDFILL, %%file, %3, %4
+
+%define string %1
+%ifnstr string
+ %defstr string string
+%endif
+	parsename %1, 1
+
+	usesection %2
+	istruc DIRENTRY
+at deName,		fill 8,32,db %$$name
+at deExt,		fill 3,32,db %$$ext
+at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deSize,		dd %3
+	iend
+	%endmacro
+
+
 		; %1 = filename, with directory as on host side
 		; string = stringified filename, still with host path
 		; %2 = if slash disallowed in pathname
@@ -908,6 +933,7 @@ at deSize,		dd filesize
 
 %define DIRLIST none
 %define CHAINLIST none
+%define LISTENDFILL none, none, none
 	%macro multiincfile 1-*.nolist
 %assign filescount 0
 %define ff fixed_root
@@ -960,16 +986,19 @@ at deSize,		dd filesize
 	incfile renamesource, %1, data %+ chainindex, %$parent
   %assign chainindex chainindex + 1
   %assign isrename 0
- %elif isfill == 1
+ %elif isfill == 1 || isfill == 4
   %xdefine filllength %1
-  %assign isfill 2
- %elif isfill == 2
+  %assign isfill isfill + 1
+ %elif isfill == 2 || isfill == 5
   %xdefine fillvalue %1
-  %assign isfill 3
+  %assign isfill isfill + 1
  %elif isfill == 3
 	setup_a_section		; add a section for a file
 	incfile "", %1, data %+ chainindex, %$parent, 1, filllength, fillvalue
   %assign chainindex chainindex + 1
+  %assign isfill 0
+ %elif isfill == 6
+	incendfill %1, %$parent, filllength, fillvalue
   %assign isfill 0
  %elifidni %1, ::chdir
   %assign ischdir 1
@@ -977,6 +1006,8 @@ at deSize,		dd filesize
   %assign isrename 1
  %elifidni %1, ::fill
   %assign isfill 1
+ %elifidni %1, ::endfill
+  %assign isfill 4
  %elifnidni %1, ::empty
 	setup_a_section		; add a section for a file
 	incfile %1, %1, data %+ chainindex, %$parent
@@ -993,13 +1024,13 @@ at deSize,		dd filesize
 %if isrename == 2
  %error No rename target specified
 %endif
-%if isfill == 1
+%if isfill == 1 || isfill == 4
  %error No fill length specified
 %endif
-%if isfill == 2
+%if isfill == 2 || isfill == 5
  %error No fill value specified
 %endif
-%if isfill == 3
+%if isfill == 3 || isfill == 6
  %error No fill target specified
 %endif
 %rep 1024
@@ -1010,7 +1041,6 @@ at deSize,		dd filesize
  %endif
 %endrep
 %pop
-	addsection empty, follows= %+ ff vstart=0
 	%endmacro
 	multiincfile _PAYLOADFILE
 
@@ -1050,8 +1080,29 @@ at deSize,		dd filesize
 %endrep
 	%endmacro
 
-	allocatechains CHAINLIST
+	%macro allocateendfill 2-*.nolist
+%ifnidni %1, none
+ %error Expected a none entry to start chain list
+%endif
+%if %0 % 3
+ %error Expected an amount of chain list entries divisible by 3
+%endif
+	; ii as left from allocatechains
+%rep (%0 - 3) / 3
+ %rotate 3
+	setup_a_section
+	usesection data %+ ii
+data %+ ii %+ _start:
+	fillbytes %2, %3
+	align _BPS * _SPC, db 0
+ %assign clusters (%2 + _BPS * _SPC - 1) / (_BPS * _SPC)
+ %assign data_used data_used + (clusters * _BPS * _SPC)
+	addfatchain %1,clusters
+ %assign ii ii + 1
+%endrep
+	%endmacro
 
+	allocatechains CHAINLIST
 
 %assign data_used 0
 %assign ii 0
@@ -1064,6 +1115,9 @@ data %+ ii %+ _end:
  %assign ii ii + 1
 %endrep
 
+	allocateendfill LISTENDFILL
+	addsection empty, follows= %+ ff vstart=0
+
 
 	usesection fixed_root
 %if _BPE != 32
@@ -1073,6 +1127,9 @@ data %+ ii %+ _end:
 
 
 	usesection empty
+%if data_used > (DATASECTORS * _BPS)
+ %error Too much data used
+%endif
 	zerobytes DATASECTORS * _BPS - data_used
 
 
