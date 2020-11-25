@@ -1140,7 +1140,7 @@ USEDCLUSTERS equ data_used / (_BPS * _SPC)
 %endif
 
 
-%if _BPE == 12
+%if _BPE == 12 && 0
 		; Old style expansion. Only used for FAT12
 		;  which has < 4096 clusters.
 	%macro dumpfatentries 2-*.nolist
@@ -1210,7 +1210,20 @@ fat%[ii]:
 %else
 		; New style expansion.
 
-%if _BPE == 16
+%define EVENENTRY
+%if _BPE == 12
+	%macro dumpfatentry 1.nolist
+%ifempty EVENENTRY
+ %xdefine EVENENTRY %1
+%else
+	db (EVENENTRY) & 0FFh
+	db ((EVENENTRY) >> 8) \
+		| (((%1) & 0Fh) << 4)
+	db ((%1) >> 4)
+ %define EVENENTRY
+%endif
+	%endmacro
+%elif _BPE == 16
  %define dumpfatentry dw
 %elif _BPE == 32
  %define dumpfatentry dd
@@ -1237,6 +1250,9 @@ dumpfatentry (_MEDIAID | (MAXENTRY - 15))
  %endif
  %rotate 2			; rotate to next pair
 %endrep
+%ifnempty EVENENTRY
+	dumpfatentry 0
+%endif
 	%endmacro
 
 	usesection fat
