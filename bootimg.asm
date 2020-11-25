@@ -1140,7 +1140,6 @@ USEDCLUSTERS equ data_used / (_BPS * _SPC)
 %endif
 
 
-%define EVENENTRY
 %if _BPE == 12
 	%macro dumpfatentry 1.nolist
 %ifempty EVENENTRY
@@ -1162,6 +1161,7 @@ USEDCLUSTERS equ data_used / (_BPS * _SPC)
 %endif
 
 	%macro expandfatchains 2-*.nolist
+%define EVENENTRY
 dumpfatentry (_MEDIAID | (MAXENTRY - 15))
 				; first entry has media ID byte
 %assign ii 1			; first entry is at index 0,
