@@ -135,19 +135,27 @@ along with a default loader (which aborts with an error).
 		;  the time of using times (for a 512 MiB image).
 %if _ZEROBYTES_RESB
 	%imacro zerobytes 1.nolist
+%if %1 < 0
+ %error Negative count given to zerobytes
+%else
 [warning -zeroing]
  %rep (%1) / (_ZEROBYTES_MAX)
 	resb (_ZEROBYTES_MAX)
  %endrep
 	resb (%1) % (_ZEROBYTES_MAX)
 [warning *zeroing]
+%endif
 	%endmacro
 %else
 	%imacro zerobytes 1.nolist
+%if %1 < 0
+ %error Negative count given to zerobytes
+%else
  %rep (%1) / (_ZEROBYTES_MAX)
 	times (_ZEROBYTES_MAX) db 0
  %endrep
 	times (%1) % (_ZEROBYTES_MAX) db 0
+%endif
 	%endmacro
 %endif
 
