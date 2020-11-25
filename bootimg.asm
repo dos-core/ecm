@@ -661,33 +661,6 @@ at FSINFO.signature3
 	%endmacro
 %define FATCHAINS secondentry,1
 
-		; %1 = numeric value to put into next entry
-	%macro addfatentry 1.nolist
-%xdefine FATENTRIES FATENTRIES,%1
-	%endmacro
-
-
-	%macro expandfatchains 2-*.nolist
-%assign FATENTRIES (_MEDIAID | (MAXENTRY - 15))
-				; first entry has media ID byte
-%assign ii 1			; FATENTRIES has entry at index 0,
-				;  next is index 1
-%rep %0 / 2			; for each pair
- %if %2
-  %1_start_cluster equ ii	; equ for start cluster
-  %rep %2 - 1			; as many as are non-EOF entries
-   %assign ii ii + 1
-   addfatentry ii		; link to next cluster
-  %endrep
-  %assign ii ii + 1
-  addfatentry EOFENTRY		; EOF entry
- %else
-  %1_start_cluster equ 0	; empty chain, start cluster is 0
- %endif
- %rotate 2			; rotate to next pair
-%endrep
-	%endmacro
-
 
 	addsection fixed_root, follows=fat align=_BPS
 
@@ -1161,11 +1134,9 @@ data %+ ii %+ _end:
 %endif
 
 
-%if _BPE == 32
- %define dumpfatentries dd
-%elif _BPE == 16
- %define dumpfatentries dw
-%elif _BPE == 12
+%if _BPE == 12
+		; Old style expansion. Only used for FAT12
+		;  which has < 4096 clusters.
 	%macro dumpfatentries 2-*.nolist
 %if (%0 & 1) == 1
  %error Expected even number of entries
@@ -1178,10 +1149,33 @@ data %+ ii %+ _end:
  %rotate 2
 %endrep
 	%endmacro
-%else
- %error Invalid bits per entry (_BPE)
-%endif
 
+		; %1 = numeric value to put into next entry
+	%macro addfatentry 1.nolist
+%xdefine FATENTRIES FATENTRIES,%1
+	%endmacro
+
+
+	%macro expandfatchains 2-*.nolist
+%assign FATENTRIES (_MEDIAID | (MAXENTRY - 15))
+				; first entry has media ID byte
+%assign ii 1			; FATENTRIES has entry at index 0,
+				;  next is index 1
+%rep %0 / 2			; for each pair
+ %if %2
+  %1_start_cluster equ ii	; equ for start cluster
+  %rep %2 - 1			; as many as are non-EOF entries
+   %assign ii ii + 1
+   addfatentry ii		; link to next cluster
+  %endrep
+  %assign ii ii + 1
+  addfatentry EOFENTRY		; EOF entry
+ %else
+  %1_start_cluster equ 0	; empty chain, start cluster is 0
+ %endif
+ %rotate 2			; rotate to next pair
+%endrep
+	%endmacro
 
 	expandfatchains FATCHAINS
 
@@ -1195,7 +1189,6 @@ data %+ ii %+ _end:
 	addfatentry 0
 %endif
 
-
 	usesection fat
 %assign ii 0
 %rep _NUMFATS
@@ -1206,4 +1199,50 @@ fat%[ii]:
 %endrep
 %if FATSECTORS * _BPS - ($ - $$)
  %error Internal error in FAT filling
+%endif
+
+%else
+		; New style expansion.
+
+%if _BPE == 16
+ %define dumpfatentry dw
+%elif _BPE == 32
+ %define dumpfatentry dd
+%else
+ %error Invalid bpe
+%endif
+
+	%macro expandfatchains 2-*.nolist
+dumpfatentry (_MEDIAID | (MAXENTRY - 15))
+				; first entry has media ID byte
+%assign ii 1			; first entry is at index 0,
+				;  next is index 1
+%rep %0 / 2			; for each pair
+ %if %2
+  %1_start_cluster equ ii	; equ for start cluster
+  %rep %2 - 1			; as many as are non-EOF entries
+   %assign ii ii + 1
+   dumpfatentry ii		; link to next cluster
+  %endrep
+  %assign ii ii + 1
+  dumpfatentry EOFENTRY		; EOF entry
+ %else
+  %1_start_cluster equ 0	; empty chain, start cluster is 0
+ %endif
+ %rotate 2			; rotate to next pair
+%endrep
+	%endmacro
+
+	usesection fat
+%assign jj 0
+%rep _NUMFATS
+fat%[jj]:
+	expandfatchains FATCHAINS
+	zerobytes _SPF * _BPS - ($ - fat%[jj])
+%assign jj jj+1
+%endrep
+%if FATSECTORS * _BPS - ($ - $$)
+ %error Internal error in FAT filling
+%endif
+
 %endif
