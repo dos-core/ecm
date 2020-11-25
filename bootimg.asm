@@ -149,6 +149,20 @@ along with a default loader (which aborts with an error).
 	%endmacro
 %endif
 
+
+	numdef FILLBYTES_MAX,		4000_0000h
+	%imacro fillbytes 2.nolist
+%ifn %2
+	zerobytes %1
+%else
+ %rep (%1) / (_FILLBYTES_MAX)
+	times (_FILLBYTES_MAX) db %2
+ %endrep
+	times (%1) % (_FILLBYTES_MAX) db %2
+%endif
+	%endmacro
+
+
 ptEmpty:		equ 0
 ptFAT12:		equ 1
 ptFAT16_16BIT_CHS:	equ 4
@@ -730,15 +744,23 @@ at deSize,		dd 0
 		;	used in all-caps to store to the image)
 		; %3 = data section name to use
 		; %4 = data section name of directory to write to
+		; %5 = nonzero if filling data
+		; %6 = size of data to fill
+		; %7 = value to fill
 		; isrename = nonzero if ::rename
-	%macro incfile 4.nolist
+		; isfill = nonzero if ::fill
+	%macro incfile 4-7.nolist 0
 	usesection %3
 %3 %+ _start:
-%define string %1
-%ifnstr string
- %defstr string string
+%if %5
+ fillbytes %6, %7
+%else
+ %define string %1
+ %ifnstr string
+  %defstr string string
+ %endif
+ incbin string
 %endif
-incbin string
 %assign filesize ($ - %3 %+ _start)
 
 %xdefine CHAINLIST CHAINLIST,%%file
@@ -747,7 +769,7 @@ incbin string
 %ifnstr string
  %defstr string string
 %endif
-	parsename %2, !!isrename
+	parsename %2, !!(isrename || isfill)
 
 	usesection %4
 	istruc DIRENTRY
@@ -774,6 +796,8 @@ at deSize,		dd filesize
     %error Subsubdirectory not supported, use ::chdir twice
    %elif isrename
     %error Subdirectory not supported in ::rename target
+   %elif isfill
+    %error Subdirectory not supported in ::fill target
    %else
     %error Subdirectory not supported
    %endif
@@ -787,6 +811,8 @@ at deSize,		dd filesize
     %error Subsubdirectory not supported, use ::chdir twice
    %elif isrename
     %error Subdirectory not supported in ::rename target
+   %elif isfill
+    %error Subdirectory not supported in ::fill target
    %else
     %error Subdirectory not supported
    %endif
@@ -888,6 +914,7 @@ at deSize,		dd filesize
 %assign chainindex 0
 %assign ischdir 0
 %assign isrename 0
+%assign isfill 0
 %push ROOT
 %define %$namelist "", ""
 %define %$dirname "/"
@@ -931,11 +958,25 @@ at deSize,		dd filesize
  %elif isrename == 2
 	setup_a_section		; add a section for a file
 	incfile renamesource, %1, data %+ chainindex, %$parent
+  %assign chainindex chainindex + 1
   %assign isrename 0
+ %elif isfill == 1
+  %xdefine filllength %1
+  %assign isfill 2
+ %elif isfill == 2
+  %xdefine fillvalue %1
+  %assign isfill 3
+ %elif isfill == 3
+	setup_a_section		; add a section for a file
+	incfile "", %1, data %+ chainindex, %$parent, 1, filllength, fillvalue
+  %assign chainindex chainindex + 1
+  %assign isfill 0
  %elifidni %1, ::chdir
   %assign ischdir 1
  %elifidni %1, ::rename
   %assign isrename 1
+ %elifidni %1, ::fill
+  %assign isfill 1
  %elifnidni %1, ::empty
 	setup_a_section		; add a section for a file
 	incfile %1, %1, data %+ chainindex, %$parent
@@ -951,6 +992,15 @@ at deSize,		dd filesize
 %endif
 %if isrename == 2
  %error No rename target specified
+%endif
+%if isfill == 1
+ %error No fill length specified
+%endif
+%if isfill == 2
+ %error No fill value specified
+%endif
+%if isfill == 3
+ %error No fill target specified
 %endif
 %rep 1024
  %ifctx ROOT
