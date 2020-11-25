@@ -268,11 +268,14 @@ ptExtendedLinux:	equ 85h
 %assign DATACLUSTERS (DATASECTORS / _SPC)
 %assign NUMENTRIES _SPF * _BPS * 8 / _BPE
 %assign NUMNEEDED (DATACLUSTERS + 2)
+%assign SECNEEDED (NUMNEEDED * _BPE / 8 + _BPS - 1) / _BPS
 %if NUMENTRIES < NUMNEEDED
- %error Too few FAT sectors specified (NUMENTRIES entries, NUMNEEDED needed)
+ %error Too few FAT sectors specified \
+ (NUMENTRIES entries (_SPF sectors), NUMNEEDED needed (SECNEEDED sectors))
 %elif NUMENTRIES >= (NUMNEEDED + _BPS * 8 / _BPE)
  %if _WARN_TOOMANYFAT
-  %warning Too many FAT sectors specified (NUMENTRIES entries, NUMNEEDED needed)
+  %warning Too many FAT sectors specified \
+ (NUMENTRIES entries (_SPF sectors), NUMNEEDED needed (SECNEEDED sectors))
  %endif
 %endif
 
