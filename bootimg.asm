@@ -91,6 +91,7 @@ along with a default loader (which aborts with an error).
 	numdef SPF, 9		; sectors per FAT
 	numdef BPE, 12		; bits per entry
 	numdef FSINFO, 1	; (only if FAT32) include an FSINFO sector
+	numdef FSI_INIT_FREE, 1	; initialise FSINFO amount free clusters
 	numdef NUMFATS, 2	; number of FATs
 	numdef NUMROOT, 224	; number of root directory entries
 	numdef NUMRESERVED, 1	; number of reserved sectors
@@ -632,7 +633,11 @@ at FSINFO.reserved1
 at FSINFO.signature2
 	dd "rrAa"
 at FSINFO.numberfree
+%if _FSI_INIT_FREE
+	dd DATACLUSTERS - USEDCLUSTERS
+%else
 	dd -1		; number of free clusters
+%endif
 at FSINFO.nextfree
 	dd -1		; first free cluster
 at FSINFO.reserved2
@@ -1119,6 +1124,7 @@ data %+ ii %+ _end:
 	zerobytes ROOTSECTORS * _BPS - ($ - $$)
 
 
+USEDCLUSTERS equ data_used / (_BPS * _SPC)
 	usesection empty
 %if data_used > (DATASECTORS * _BPS)
  %error Too much data used
