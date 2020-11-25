@@ -1140,76 +1140,6 @@ USEDCLUSTERS equ data_used / (_BPS * _SPC)
 %endif
 
 
-%if _BPE == 12 && 0
-		; Old style expansion. Only used for FAT12
-		;  which has < 4096 clusters.
-	%macro dumpfatentries 2-*.nolist
-%if (%0 & 1) == 1
- %error Expected even number of entries
-%endif
-%rep %0 / 2
-	db (%1) & 0FFh
-	db ((%1) >> 8) \
-		| (((%2) & 0Fh) << 4)
-	db ((%2) >> 4)
- %rotate 2
-%endrep
-	%endmacro
-
-		; %1 = numeric value to put into next entry
-	%macro addfatentry 1.nolist
-%xdefine FATENTRIES FATENTRIES,%1
-	%endmacro
-
-
-	%macro expandfatchains 2-*.nolist
-%assign FATENTRIES (_MEDIAID | (MAXENTRY - 15))
-				; first entry has media ID byte
-%assign ii 1			; FATENTRIES has entry at index 0,
-				;  next is index 1
-%rep %0 / 2			; for each pair
- %if %2
-  %1_start_cluster equ ii	; equ for start cluster
-  %rep %2 - 1			; as many as are non-EOF entries
-   %assign ii ii + 1
-   addfatentry ii		; link to next cluster
-  %endrep
-  %assign ii ii + 1
-  addfatentry EOFENTRY		; EOF entry
- %else
-  %1_start_cluster equ 0	; empty chain, start cluster is 0
- %endif
- %rotate 2			; rotate to next pair
-%endrep
-	%endmacro
-
-	expandfatchains FATCHAINS
-
-
-	%macro assigncluster 2-*.nolist
-%assign cluster %0
-	%endmacro
-
-	assigncluster FATENTRIES
-%if _BPE == 12 && (cluster & 1) == 1
-	addfatentry 0
-%endif
-
-	usesection fat
-%assign ii 0
-%rep _NUMFATS
-fat%[ii]:
-	dumpfatentries FATENTRIES
-	zerobytes _SPF * _BPS - ($ - fat%[ii])
-%assign ii ii+1
-%endrep
-%if FATSECTORS * _BPS - ($ - $$)
- %error Internal error in FAT filling
-%endif
-
-%else
-		; New style expansion.
-
 %define EVENENTRY
 %if _BPE == 12
 	%macro dumpfatentry 1.nolist
@@ -1265,6 +1195,4 @@ fat%[jj]:
 %endrep
 %if FATSECTORS * _BPS - ($ - $$)
  %error Internal error in FAT filling
-%endif
-
 %endif
