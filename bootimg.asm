@@ -127,6 +127,7 @@ along with a default loader (which aborts with an error).
 	numdef MBR_ADD_GAP_TO_ALIGN,	1
 
 
+	numdef FULL,			1
 	numdef ZEROBYTES_RESB,		1
 	numdef ZEROBYTES_MAX,		4000_0000h
 		; Using the resb trick to zero takes about 1/40th
@@ -164,7 +165,9 @@ along with a default loader (which aborts with an error).
 
 
 	%imacro zerobytes_if_full 1.nolist
+%if _FULL
 zerobytes %1
+%endif
 	%endmacro
 
 
