@@ -1181,7 +1181,7 @@ dumpfatentry (_MEDIAID | (MAXENTRY - 15))
  %rotate 2			; rotate to next pair
 %endrep
 %ifnempty EVENENTRY
-	dumpfatentry 0
+	dw EVENENTRY
 %endif
 	%endmacro
 
