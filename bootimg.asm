@@ -639,7 +639,7 @@ mbr_signature:
  %error Boot file has wrong size
 %endif
 %if _BPS > 512
-	fill _BPS - 4, 0, %1_boot_start
+	_fill _BPS - 4, 0, %1_boot_start
 	dd 0AA55_0000h
 %endif
 
