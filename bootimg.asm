@@ -811,7 +811,11 @@ at deSize,		dd filesize
 		; %4 = fill value
 	%imacro incendfill 4.nolist
 %if %4
- %xdefine LISTENDFILL LISTENDFILL, %%file, %3, %4
+ %if %4 == 256
+  %xdefine LISTENDFILL LISTENDFILL, %%file, %3, 0
+ %else
+  %xdefine LISTENDFILL LISTENDFILL, %%file, %3, %4
+ %endif
 %else
  %xdefine LISTENDFILLZEROS LISTENDFILLZEROS, %%file, %3, %4
 %endif
