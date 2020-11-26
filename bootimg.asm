@@ -26,6 +26,22 @@ keywords are:
 		 create (relative to the current directory),
 		 as a string, is expected in the next list item.
 
+::rename	Followed by source pathname, then a target filename.
+
+::fill		Followed by length, byte value, target filename.
+
+::endfill	Followed by length, byte value, target filename.
+		 Filename is written to the directory as usual.
+		 The FAT chain is allocated after all other
+		 non-::endfill files however. Additionally, if the
+		 byte value is zero, the chain is allocated after
+		 all non-zero-value ::endfill files. If _FULL=0
+		 then the zero-value ::endfill data will not be
+		 written at all, only the FAT entries are allocated.
+		If the value is given as 256 this is treated as
+		 zero but not handled specifically to make use of
+		 _FILL=0 like it is for the literal value 0.
+
 File and directory names are checked for duplicates. If a
 string like ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
 the subdirectory will be detected as a duplicate. That is,
@@ -54,10 +70,6 @@ Some things are not supported yet:
 
 * Long file names.
 
-* Initialise the FSINFO sector entries for FAT32.
-
-* Backup boot sectors for FAT32.
-
 * Boot sector loaders that are not exactly 512 bytes long.
 
 * Automatic calculation of some parameters such as SPF.
@@ -65,11 +77,6 @@ Some things are not supported yet:
 
 A directory is always terminated with one or more directory
 entries that are filled with all-zeros.
-
-To specify the _PAYLOADFILE list to NASM from a bash shell,
-the quoting must be doubled, eg -D_PAYLOADFILE="'file.bin'"
-(The outer quotes are parsed and swallowed by bash, while
-the inner quotes are passed verbatim to NASM.)
 
 If _BOOTFILE is specified (not the empty quoted string),
 it is expected that the (E)BPB of that boot sector matches
