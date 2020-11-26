@@ -91,6 +91,7 @@ along with a default loader (which aborts with an error).
 	numdef SPF, 9		; sectors per FAT
 	numdef BPE, 12		; bits per entry
 	numdef FSINFO, 1	; (only if FAT32) include an FSINFO sector
+	numdef BACKUP, 1	; (only if FAT32) include a boot sector backup
 	numdef FSI_INIT_FREE, 1	; initialise FSINFO amount free clusters
 	numdef NUMFATS, 2	; number of FATs
 	numdef NUMROOT, 224	; number of root directory entries
@@ -486,51 +487,54 @@ mbr_signature:
 %endif
 
 
-	addsection boot, STARTSFOLLOWS vstart=7C00h
-boot_start:
+	%imacro emit_boot 2
+	addsection %1_boot, STARTSFOLLOWS vstart=7C00h
+ %define STARTSFOLLOWS follows=%1_boot
+
+%1_boot_start:
 %ifnidn _BOOTFILE, ""
 	incbin _BOOTFILE
 %else
-	jmp strict short boot_after_bpb
+	jmp strict short %1_boot_after_bpb
 	nop
 
-oem_id:			; offset 03h (03)
+%1_oem_id:		; offset 03h (03)
 	fill 8,_OEM_NAME_FILL,db _OEM_NAME
-bytes_per_sector:	; offset 0Bh (11)
+%1_bytes_per_sector:	; offset 0Bh (11)
 	dw _BPS
-sectors_per_cluster:	; offset 0Dh (13)
+%1_sectors_per_cluster:	; offset 0Dh (13)
 	db _SPC & 255
-num_reserved_sectors:	; offset 0Eh (14)
+%1_num_reserved_sectors:; offset 0Eh (14)
 	dw _NUMRESERVED
-num_fats:		; offset 10h (16)
+%1_num_fats:		; offset 10h (16)
 	db _NUMFATS
-num_root_dir_ents:	; offset 11h (17)
+%1_num_root_dir_ents:	; offset 11h (17)
 %if _BPE != 32
 	dw _NUMROOT
 %else
 	dw 0
 %endif
-total_sectors:		; offset 13h (19)
+%1_total_sectors:	; offset 13h (19)
 %if _SPI < 1_0000h
 	dw _SPI
 %else
 	dw 0
 %endif
-media_id:		; offset 15h (21)
+%1_media_id:		; offset 15h (21)
 	db _MEDIAID
-sectors_per_fat:	; offset 16h (22)
+%1_sectors_per_fat:	; offset 16h (22)
 %if _BPE != 32
 	dw _SPF
 %else
 	dw 0
 %endif
-sectors_per_track:	; offset 18h (24)
+%1_sectors_per_track:	; offset 18h (24)
 	dw _CHS_SECTORS
-heads:			; offset 1Ah (26)
+%1_heads:		; offset 1Ah (26)
 	dw _CHS_HEADS
-hidden_sectors:		; offset 1Ch (28)
+%1_hidden_sectors:	; offset 1Ch (28)
 	dd _HIDDEN
-total_sectors_large:	; offset 20h (32)
+%1_total_sectors_large:	; offset 20h (32)
 %if _SPI >= 1_0000h
 	dd _SPI
 %else
@@ -540,34 +544,39 @@ total_sectors_large:	; offset 20h (32)
 ; Extended BPB		; offset 24h (36)
 
 %if _BPE == 32
-sectors_per_fat_large:	; offset 24h (36)
+%1_sectors_per_fat_large:
+			; offset 24h (36)
 	dd _SPF
-fsflags:		; offset 28h (40)
+%1_fsflags:		; offset 28h (40)
 	dw 0
-fsversion:		; offset 2Ah (42)
+%1_fsversion:		; offset 2Ah (42)
 	dw 0
-root_cluster:		; offset 2Ch (44)
+%1_root_cluster:	; offset 2Ch (44)
 	dd rootcluster
-fsinfo_sector:		; offset 30h (48)
+%1_fsinfo_sector:	; offset 30h (48)
 %if _FSINFO
 	dw 1
 %else
 	dw 0
 %endif
-backup_sector:		; offset 32h (50)
+%1_backup_sector:	; offset 32h (50)
+%if _BACKUP
+	dw 6
+%else
 	dw 0
+%endif
 
 	times 12 db 0	; offset 34h (52) reserved
 
 ; Extended BPB		; offset 40h (64)
 %endif
 
-boot_unit:		db _UNIT
+%1_boot_unit:		db _UNIT
 			db 0
-ext_bpb_signature:	db 29h
-serial_number:		dd _VOLUMEID
-volume_label:		fill 11,32,db _DEFAULT_LABEL
-filesystem_identifier:
+%1_ext_bpb_signature:	db 29h
+%1_serial_number:	dd _VOLUMEID
+%1_volume_label:	fill 11,32,db _DEFAULT_LABEL
+%1_filesystem_identifier:
 %if _BPE == 12
 	fill 8,32,db "FAT12"
 %elif _BPE == 16
@@ -579,7 +588,7 @@ filesystem_identifier:
 %endif
 
 
-boot_after_bpb:
+%1_boot_after_bpb:
 	cli
 	cld
 	xor ax, ax
@@ -588,7 +597,7 @@ boot_after_bpb:
 	mov ss, ax
 	mov sp, 7C00h
 	sti
-	mov si, boot_message
+	mov si, %1_boot_message
 @@:
 	lodsb
 	test al, al
@@ -606,7 +615,7 @@ boot_after_bpb:
 	int 16h
 	int 19h
 
-boot_message:
+%1_boot_message:
 	db "Unable to boot, loader not written.",13,10
 	db 13,10
 	db "Press any key to reboot.",13,10
@@ -616,9 +625,9 @@ boot_message:
 	dw 0
 	dw 0AA55h
 %endif
-boot_end:
+%1_boot_end:
 
-%if (boot_end - boot_start) != 512
+%if (%1_boot_end - %1_boot_start) != 512
  %error Boot file has wrong size
 %endif
 	align _BPS, db 0
@@ -635,16 +644,16 @@ boot_end:
 .signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
 	endstruc
 
-fsinfo:
+%1_fsinfo:
 	istruc FSINFO
 at FSINFO.signature1
 	dd "RRaA"
 at FSINFO.reserved1
-	_fill 480 + 4, 0, fsinfo
+	_fill 480 + 4, 0, %1_fsinfo
 at FSINFO.signature2
 	dd "rrAa"
 at FSINFO.numberfree
-%if _FSI_INIT_FREE
+%if _FSI_INIT_FREE && %2
 	dd DATACLUSTERS - USEDCLUSTERS
 %else
 	dd -1		; number of free clusters
@@ -662,10 +671,23 @@ at FSINFO.signature3
  %endif
 %endif
 
-	zerobytes (_NUMRESERVED * _BPS) - ($ - $$)
+%if _BACKUP && _BPE == 32
+	zerobytes (6 * _BPS) - ($ - $$)
+%endif
+%assign bootused bootused + ($ - $$)
+
+	%endmacro
 
 
-	addsection fat, follows=boot align=_BPS
+%assign bootused 0
+	emit_boot ,1
+%if _BACKUP && _BPE == 32
+	emit_boot backup,0
+%endif
+	zerobytes (_NUMRESERVED * _BPS) - bootused
+
+
+	addsection fat, STARTSFOLLOWS align=_BPS
 
 
 		; %1 = name for the equ to receive the start cluster,
