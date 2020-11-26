@@ -103,7 +103,7 @@ along with a default loader (which aborts with an error).
 	numdef NUMFATS, 2	; number of FATs
 	numdef NUMROOT, 224	; number of root directory entries
 	numdef NUMRESERVED, 1	; number of reserved sectors
-%if _BPE == 32 && _FSINFO
+%if _BPE == 32 && (_FSINFO || _BACKUP)
 	numdef NUMRESERVED, 16	; number of reserved sectors
 %endif
 	numdef ALIGNDATA, 0, 16	; align data to this sector boundary
