@@ -31,6 +31,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
 	numdef LOAD_MIN_PARA,	paras(1536)
+	numdef LOAD_NON_FAT,	0, 2048	; use FAT-less loading (value is amount bytes)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
@@ -1291,7 +1292,11 @@ found_it:
 	xchg ax, dx
  %endif
  %if _RELOCATE
+  %if _LOAD_NON_FAT
+	sub ax, (20 * 1024 + 512 + 7C00h) >> 4
+  %else
 	sub ax, (20 * 1024 + 8192 + (8192-16) + 512 + 7C00h) >> 4
+  %endif
 		; 20 KiB:	reserved for iniload
 		; 8 KiB:	FAT buffer
 		; 8 KiB - 16 B:	to allow rounding down FAT buffer position
@@ -1315,6 +1320,7 @@ found_it:
 		;  string move instruction (which for simplicity is always UP).
 .error_memory_j_CY:
 	jb error_memory
+  %if ! _LOAD_NON_FAT
 	mov bx, ((8192 - 16) + 512 + 7C00h)>>4
 	add bx, ax
 ;  this is like calculating the following for the bx value:
@@ -1323,6 +1329,7 @@ found_it:
 ;  == (LMA_top - 20 KiB - 8 KiB)>>4
 	and bx, ~ ((8192>>4) - 1)
 	mov word [VAR(fat_seg)], bx
+  %endif
 
 	mov di, relocated
 	push ax
@@ -1392,7 +1399,7 @@ relocated:
 		push si			; remember cluster for later
 %endif
 
-%if !_FAT16
+%if !_FAT16 && !_LOAD_NON_FAT
 ; Load the entire FAT into memory. This is easily feasible for FAT12,
 ;  as the FAT can only contain at most 4096 entries.
 ; (The exact condition should be "at most 4087 entries", or with a
@@ -1442,13 +1449,22 @@ relocated:
 %endif
 
 		mov bx, _LOAD_ADR>>4	; => load address
-%if _FAT16
+%if _FAT16 && !_LOAD_NON_FAT
 		mov di, -1		; = no FAT sector read yet
  %if _SET_FAT_SEG
   %if ! _RELOCATE
 		mov word [VAR(fat_seg)], ADR_FATBUF>>4
   %endif
 		mov word [VAR(fat_sector)], di
+ %endif
+%endif
+%if _LOAD_NON_FAT
+ %if _SET_FAT_SEG
+  %if _FAT16
+		or word [VAR(fat_sector)], -1
+  %else
+		and word [VAR(fat_seg)], 0
+  %endif
  %endif
 %endif
 
@@ -1471,6 +1487,7 @@ next_cluster:
 		;	 (_FAT16) di = currently buffered FAT sector
 		; CHG:	cx
 
+%if ! _LOAD_NON_FAT
 ; prepare to load entry from FAT
 
 %if _FAT16
@@ -1559,14 +1576,29 @@ next_cluster:
 			; (ax holds cluster number)
 %endif
 
+%else ; _LOAD_NON_FAT
+		mov di, _LOAD_NON_FAT
+		mov ax, word [VAR(adj_sectors_per_cluster)]
+		mov cx, ax
+		mul word [VAR(bytes_per_sector)]
+		test dx, dx
+		jnz @F
+		cmp ax, di
+		mov al, 'N'
+		jb error
+@@:
+		xchg ax, si
+%endif
 ; adjust cluster number to make it 0-based
 		dec ax
 		dec ax
 
+%if ! _LOAD_NON_FAT
 %if _FIX_CLUSTER_SIZE
 		mov cx, _FIX_CLUSTER_SIZE
 %else
 		mov cx, [VAR(adj_sectors_per_cluster)]
+%endif
 %endif
 
 ; convert from clusters to sectors
@@ -1588,16 +1620,20 @@ next_cluster:
 %else
 		ja error_filetoobig
 %endif
-%if _FAT16
+%if _FAT16 && ! _LOAD_NON_FAT
 		push es		; (must preserve ADR_FATBUF reference)
 %endif
 		call read_sector
-%if _FAT16
+%if _FAT16 && ! _LOAD_NON_FAT
 		pop es
 %endif
 %if _SET_LOAD_SEG
 		mov [VAR(load_seg)], bx	; => after last read data
 %endif
+%if _LOAD_NON_FAT
+		sub di, word [VAR(bytes_per_sector)]
+		ja @B
+%else
 		loop @B
 
 %if _FAT16
@@ -1610,7 +1646,7 @@ next_cluster:
 		cmp si, 0FF7h
 %endif
 		jb next_cluster
-
+%endif	; _LOAD_NON_FAT
 @@:
 
 %if _LOAD_MIN_PARA

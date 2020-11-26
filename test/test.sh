@@ -428,6 +428,7 @@ then
       I => "FSIBOOT error",
       S => "Fix sector size mismatch",
       C => "Fix cluster size mismatch",
+      N => "Non-FAT load needs larger cluster size",
     );
     my $empty = 1;
     while (<>) {
