@@ -630,7 +630,10 @@ mbr_signature:
 %if (%1_boot_end - %1_boot_start) != 512
  %error Boot file has wrong size
 %endif
-	align _BPS, db 0
+%if _BPS > 512
+	fill _BPS - 4, 0, %1_boot_start
+	dd 0AA55_0000h
+%endif
 
 %if _BPE == 32 && _FSINFO
 	struc FSINFO	; FAT32 FSINFO sector layout
