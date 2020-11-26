@@ -1119,7 +1119,7 @@ at deSize,		dd %3
 %endrep
 	%endmacro
 
-	%macro allocateendfill 2-*.nolist
+	%macro allocateendfill 3-*.nolist
 %ifnidni %1, none
  %error Expected a none entry to start chain list
 %endif
