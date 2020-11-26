@@ -636,17 +636,6 @@ mbr_signature:
 %endif
 
 %if _BPE == 32 && _FSINFO
-	struc FSINFO	; FAT32 FSINFO sector layout
-.signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
-.reserved1:			; former unused, initialized to zero by FORMAT
-.fsiboot:	resb 480	; now used for FSIBOOT
-.signature2:	resd 1		; 61417272h ("rrAa") for valid FSINFO
-.numberfree:	resd 1		; FSINFO: number of free clusters or -1
-.nextfree:	resd 1		; FSINFO: first free cluster or -1
-.reserved2:	resd 3		; unused, initialized to zero by FORMAT
-.signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
-	endstruc
-
 %1_fsinfo:
 	istruc FSINFO
 at FSINFO.signature1
@@ -681,6 +670,17 @@ at FSINFO.signature3
 
 	%endmacro
 
+
+	struc FSINFO	; FAT32 FSINFO sector layout
+.signature1:	resd 1		; 41615252h ("RRaA") for valid FSINFO
+.reserved1:			; former unused, initialized to zero by FORMAT
+.fsiboot:	resb 480	; now used for FSIBOOT
+.signature2:	resd 1		; 61417272h ("rrAa") for valid FSINFO
+.numberfree:	resd 1		; FSINFO: number of free clusters or -1
+.nextfree:	resd 1		; FSINFO: first free cluster or -1
+.reserved2:	resd 3		; unused, initialized to zero by FORMAT
+.signature3:	resd 1		; AA550000h for valid FSINFO or FSIBOOT
+	endstruc
 
 %assign bootused 0
 	emit_boot ,1
