@@ -472,6 +472,7 @@ NUM_REPLACEMENTS equ 4
 	jne @F
 	clropt [cmd_line_flags], clfWriteInfoMask
 	setopt [cmd_line_flags], clfDontWriteInfo
+.loop_2:
 	jmp .loop_1
 
 @@:
@@ -501,7 +502,7 @@ NUM_REPLACEMENTS equ 4
 .switch_i_b:
 	clropt [cmd_line_flags], clfWriteInfoMask
 	setopt [cmd_line_flags], clfWriteInfoToSectorFile
-	jmp .loop_1
+	jmp .loop_2
 
 
 .switch_b:
@@ -511,34 +512,34 @@ NUM_REPLACEMENTS equ 4
 	jne @F
 	clropt [cmd_line_flags], clfSectorFromCopy
 	setopt [cmd_line_flags], clfLeaveSector
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'R'
 	jne @F
 	clropt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'C'
 	jne @F
 	clropt [cmd_line_flags], clfLeaveSector
 	setopt [cmd_line_flags], clfSectorFromCopy
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'S'
 	jne @F
 	clropt [cmd_line_flags], clfWriteSectorMask
 	setopt [cmd_line_flags], clfWriteSectorToSector
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'N'
 	jne @F
 	clropt [cmd_line_flags], clfWriteSectorMask
 	setopt [cmd_line_flags], clfDontWriteSector
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, ':'
@@ -570,14 +571,14 @@ NUM_REPLACEMENTS equ 4
 	jne @F
 	clropt [cmd_line_flags], clfWriteCopySectorIfSector
 	setopt [cmd_line_flags], clfWriteCopySector
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'I'
 	jne @F
 	clropt [cmd_line_flags], clfWriteCopyInfoIfSector
 	setopt [cmd_line_flags], clfWriteCopyInfo
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'N'
@@ -589,13 +590,13 @@ NUM_REPLACEMENTS equ 4
 	clropt [cmd_line_flags], \
 		clfWriteCopySectorIfSector | clfWriteCopySector
 	cmp al, 'B'
-	je .loop_1
+	je .loop_2
 	dec si
 .switch_cn:
 .switch_cni:
 	clropt [cmd_line_flags], \
 		clfWriteCopyInfoIfSector | clfWriteCopyInfo
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	cmp al, 'S'
@@ -607,18 +608,18 @@ NUM_REPLACEMENTS equ 4
 	clropt [cmd_line_flags], clfWriteCopySector
 	setopt [cmd_line_flags], clfWriteCopySectorIfSector
 	cmp al, 'B'
-	je .loop_1
+	je .loop_2
 	dec si
 .switch_cs:
 .switch_csi:
 	clropt [cmd_line_flags], clfWriteCopyInfo
 	setopt [cmd_line_flags], clfWriteCopyInfoIfSector
-	jmp .loop_1
+	jmp .loop_2
 
 @@:
 	clropt [cmd_line_flags], clfWriteCopySectorIfSector | clfWriteCopyInfoIfSector
 	setopt [cmd_line_flags], clfWriteCopySector | clfWriteCopyInfo
-	jmp .loop_1
+	jmp .loop_2
 
 
 .error_multiple_drives:
