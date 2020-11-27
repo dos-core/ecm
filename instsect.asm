@@ -601,7 +601,9 @@ NUM_REPLACEMENTS equ 4
 	jmp .loop_1
 
 @@:
-	jmp .switch_not_supported
+	clropt [cmd_line_flags], clfWriteCopySectorIfSector | clfWriteCopyInfoIfSector
+	setopt [cmd_line_flags], clfWriteCopySector | clfWriteCopyInfo
+	jmp .loop_1
 
 
 .error_multiple_drives:
