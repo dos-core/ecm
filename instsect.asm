@@ -962,6 +962,36 @@ error_badchain: equ $
 .fat32_larger_sector:
 .fat32_fsinfo_setup_done:
 %endif
+
+
+detect_backup:
+	cmp byte [bp + ldFATType], 32
+	jb .none
+	mov dx, msg.no_backup
+	xor bx, bx
+	mov ax, word [bp + bsBPB + ebpbBackupSector]
+	test ax, ax
+	jz .done
+	cmp ax, word [bp + bsBPB + bpbReservedSectors]
+	jae .done
+
+	mov dx, msg.backup_no_info
+	mov bx, detectedcopysector
+	add ax, word [bp + bsBPB + ebpbFSINFOSector]
+	jc .done
+	cmp ax, word [bp + bsBPB + bpbReservedSectors]
+	jae .done
+
+	mov dx, msg.backup
+	mov bx, detectedcopysector | detectedcopyinfo
+.done:
+	call disp_msg_asciz
+	or word [internalflags], bx
+
+.none:
+
+
+prepare_sector:
 	testopt [cmd_line_flags], clfLeaveSector
 	jz @F
 
@@ -1357,9 +1387,16 @@ write:
 		;  FAT32 sector which is an FSINFO sector, write it here.
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
-	mov dx, msg.info_writing_not
 	testopt [cmd_line_flags], clfDontWriteInfo
-	jnz .no_fsinfo_message
+	jz .write_fsinfo
+
+	mov dx, msg.info_writing_not
+	call disp_msg_asciz
+
+	jmp .write_info_copy_if_forced
+
+
+.write_fsinfo:
 	testopt [cmd_line_flags], clfWriteInfoToSectorFile
 	jz .not_info_to_sector_file
 
@@ -1391,7 +1428,11 @@ write:
 	mov dx, first_sector_buffer + 512
 	call write_file_ae_512_bytes
 	jc exit_error
-	jmp .no_fsinfo
+
+.write_info_copy_if_forced:
+	testopt [cmd_line_flags], clfWriteCopyInfo
+	jz .not_writing_fsinfo_copy
+	jmp .write_copy_info
 
 
 .not_info_to_file:
@@ -1403,18 +1444,51 @@ write:
 	mov cl, [drivenumber]
 	call write_ae_512_bytes
 	jc exit_error
+	testopt [cmd_line_flags], clfWriteCopyInfo | clfWriteCopyInfoIfSector
+	jz .not_writing_fsinfo_copy
+
+.write_copy_info:
+	testopt [internalflags], detectedcopyinfo
+	jz .no_fsinfo
+
+	mov ax, word [bp + bsBPB + ebpbBackupSector]
+	add ax, word [bp + bsBPB + ebpbFSINFOSector]
+	mov dx, msg.backup_writing_info
+	call disp_msg_asciz
+
+		; Invalidate FSINFO entries.
+	or word [first_sector_buffer + 512 + FSINFO.numberfree], -1
+	or word [first_sector_buffer + 512 + FSINFO.numberfree + 2], -1
+	or word [first_sector_buffer + 512 + FSINFO.nextfree], -1
+	or word [first_sector_buffer + 512 + FSINFO.nextfree + 2], -1
+
+	mov bx, first_sector_buffer + 512
+	xor dx, dx
+	mov cl, [drivenumber]
+	call write_ae_512_bytes
+	jnc .no_fsinfo
+	mov dx, msg.backup_error_info
+	call disp_msg_asciz
 	jmp .no_fsinfo
 
-
-.no_fsinfo_message:
+.not_writing_fsinfo_copy:
+	testopt [internalflags], detectedcopyinfo
+	jz .no_fsinfo
+	mov dx, msg.backup_not_writing_info
+@@:
 	call disp_msg_asciz
 
 .no_fsinfo:
 %endif
 
-	mov dx, msg.sector_writing_not
 	testopt [cmd_line_flags], clfDontWriteSector
-	jnz exit_normal_message
+	jz .write_sector
+
+	mov dx, msg.sector_writing_not
+	call disp_msg_asciz
+	jmp .write_sector_copy_if_forced
+
+.write_sector:
 	testopt [cmd_line_flags], clfWriteSectorToFile
 	jz .not_sector_to_file
 
@@ -1433,7 +1507,11 @@ write:
 				; -> buffer
 	call write_file_ae_512_bytes
 	jc exit_error_restore_fsinfo
-	jmp exit_normal
+
+.write_sector_copy_if_forced:
+	testopt [cmd_line_flags], clfWriteCopySector
+	jz .not_writing_sector_copy
+	jmp .write_copy_sector
 
 
 .not_sector_to_file:
@@ -1446,7 +1524,35 @@ write:
 		; If sector size is >= 1 KiB, this writes both sectors for
 		;  the FAT32 two-sector case.
 	call write_ae_512_bytes
+	jc exit_error_restore_fsinfo
+
+	testopt [cmd_line_flags], clfWriteCopySector | clfWriteCopySectorIfSector
+	jz .not_writing_sector_copy
+
+.write_copy_sector:
+	testopt [internalflags], detectedcopysector
+	jz exit_normal
+
+	mov dx, msg.backup_writing_sector
+	call disp_msg_asciz
+
+	mov bx, first_sector_buffer
+	xor dx, dx
+	mov ax, word [bp + bsBPB + ebpbBackupSector]
+	mov cl, [drivenumber]
+	call write_ae_512_bytes
 	jnc exit_normal
+	mov dx, msg.backup_error_sector
+	call disp_msg_asciz
+	jmp exit_normal
+
+.not_writing_sector_copy:
+	testopt [internalflags], detectedcopysector
+	jz exit_normal
+	mov dx, msg.backup_not_writing_sector
+	call disp_msg_asciz
+	jmp exit_normal
+
 
 exit_error_restore_fsinfo:
 %if _FAT32_TWO_SECTORS
@@ -2542,6 +2648,9 @@ oldpacket	equ	  1	; Int25/Int26 packet method available (L, W)
 newpacket	equ	  2	; Int21.7305 packet method available (L, W)
 ntpacket	equ	  4	; VDD registered and usable (L, W)
 runningnt	equ   20000h	; running in NTVDM
+detectedcopysector	equ 10h
+detectedcopyinfo	equ 20h
+
 hVdd:		dw 0
 load_unit:	dw 0FF00h
 drivenumber:	db 0
@@ -2699,6 +2808,17 @@ load_kernel_name: equ $
 .sector_writing_sector:	asciz "Writing boot sector to sector.",13,10
 .info_restoring_sector:	db "Error while writing boot sector,"
 			asciz " restoring FSINFO sector.",13,10
+.backup:		asciz "Detected backup copy.",13,10
+.no_backup:		asciz "Detected no backup copy.",13,10
+.backup_no_info:	asciz "Detected backup copy without FSINFO.",13,10
+.backup_writing_sector:	asciz "Writing boot sector to backup copy.",13,10
+.backup_writing_info:	asciz "Writing FSINFO to backup copy.",13,10
+.backup_not_writing_sector:
+			asciz "Not writing boot sector to backup copy.",13,10
+.backup_not_writing_info:
+			asciz "Not writing FSINFO to backup copy.",13,10
+.backup_error_sector:	asciz "Error while writing boot sector to backup copy.",13,10
+.backup_error_info:	asciz "Error while writing FSINFO to backup copy.",13,10
 
 
 .error_file_open:	asciz "Error opening file for writing, "
