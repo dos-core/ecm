@@ -2701,7 +2701,8 @@ msg:
 	db 9,"/BN",9,9,"do not write boot sector",13,10
 	db 9,"/BR",9,9,"replace boot sector loader with built-in one (default)",13,10
 	db 9,"/BO",9,9,"keep original boot sector",13,10
-%if _FAT32 && _FAT32_TWO_SECTORS
+%if _FAT32
+ %if _FAT32_TWO_SECTORS
 	db 13,10
 	db "Only applicable for FAT32 with sector size below or equal to 512 bytes:",13,10
 	db 9,"/IS",9,9,"write FSIBOOT to drive's FSINFO sector (default)",13,10
@@ -2713,6 +2714,18 @@ msg:
 	db 9,"/IZ",9,9,"zero out reserved fields (including FSIBOOT area)",13,10
 	db 9,"/II",9,9,"leave invalid FSINFO structure",13,10
 	db 9,"/IV",9,9,"make valid FSINFO if there is none (default)",13,10
+ %endif
+	db 13,10
+	db "Only applicable for FAT32:",13,10
+	db 9,"/C",9,9,"force writing to backup copies",13,10
+	db 9,"/CB",9,9,"force writing sector to backup copy",13,10
+	db 9,"/CI",9,9,"force writing info to backup copy",13,10
+	db 9,"/CN",9,9,"disable writing to backup copies",13,10
+	db 9,"/CNB",9,9,"disable writing sector to backup copy",13,10
+	db 9,"/CNI",9,9,"disable writing info to backup copy",13,10
+	db 9,"/CS",9,9,"only write backup copies if writing sectors (default)",13,10
+	db 9,"/CSB",9,9,"only write sector to backup copy if writing sector",13,10
+	db 9,"/CSI",9,9,"only write info to backup copy if writing sector",13,10
 %endif
 	asciz
 
