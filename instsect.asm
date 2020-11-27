@@ -624,11 +624,12 @@ cmd_line_end:
 @@:
 
 detect_fat_type:
-	mov bx, second_sector_buffer
+	mov bx, second_sector_buffer	; will be used for ld/lsv/bpb
 	mov bp, bx
 	push bx
 
-	call initialise
+	call initialise			; uses first_sector_buffer
+					;  for size detection
 	jc exit_error
 
 	pop bx
@@ -637,6 +638,7 @@ detect_fat_type:
 	mov cl, [drivenumber]
 	call read_ae_512_bytes		; load partition boot sector
 	jc exit_error
+		; 2nd buffer = boot sector original
 
 	mov dx, msg.bootfail_sig
 	cmp word [bp + 510], 0AA55h
@@ -665,6 +667,8 @@ detect_fat_type:
 	mov di, third_sector_buffer_512_bytes
 	mov cx, 512 >> 1
 	rep movsw
+		; 3rd buffer = copy of first 512 B of 2nd buffer
+		;  (boot sector original) prior to BPBN move
 
 	xor ax, ax
 	cmp word [bp + bsBPB + bpbSectorsPerFAT], ax
@@ -675,6 +679,8 @@ detect_fat_type:
 	rep movsb				; clone the FAT16 / FAT12 BPBN
 						; to where the FAT32 BPBN lives
 @@:
+		; 2nd buffer = ld/lsv/bpb with BPBN moved
+
 
 ; (boot.asm code starts here)
 
@@ -880,6 +886,7 @@ error_badchain: equ $
 	mov cl, [drivenumber]
 	call read_ae_512_bytes		; load FSINFO sector
 	jc exit_error
+		; 2nd buffer 2nd 512 B has original FSINFO
 
 	jmp .fat32_fsinfo_setup_done
 
@@ -906,6 +913,9 @@ error_badchain: equ $
 	mov si, third_sector_buffer_512_bytes
 	mov cx, 512 >> 1
 	rep movsw
+		; 1st buffer = copy of 3rd buffer
+		;  (first 512 B of boot sector original)
+
 		; Copy over big sector excess from buffer.
 	mov si, second_sector_buffer + 512
 	mov cx, [bp + ldBytesPerSector]
@@ -913,6 +923,7 @@ error_badchain: equ $
 	jbe .got_sector_buffer
 	shr cx, 1
 	rep movsw
+		; 1st buffer = boot sector original
 	jmp .got_sector_buffer
 
 
@@ -923,6 +934,8 @@ error_badchain: equ $
 	mov cx, 1024 >> 1
 	mov di, first_sector_buffer
 	rep movsw
+		; 1st buffer = 1024 bytes from internal replacement
+
 	mov si, second_sector_buffer + bsBPB
 	mov di, first_sector_buffer + bsBPB
 	cmp byte [bp + ldFATType], 16
@@ -937,6 +950,8 @@ error_badchain: equ $
 @@:
 	mov cx, BPBN_size
 	rep movsb
+		; 1st buffer = 1024 bytes internal plus
+		;  the (E)BPB and BPBN from fs
 
 
 .got_sector_buffer:
@@ -988,11 +1003,14 @@ error_badchain: equ $
 	mov cx, (FSINFO_size - FSINFO.signature2) >> 1
 	rep movsw				; copy over FSINFO
 .no_fsinfo:
+		; 1st buffer second 512 B = FSINFO with FSIBOOT
 %endif
 
 	mov si, second_sector_buffer + 510
 	mov di, first_sector_buffer + 510
 	movsw
+		; 1st buffer signature set from original
+
 	mov cx, word [bp + ldBytesPerSector]
 %if _FAT32_TWO_SECTORS
 	 cmp byte [bp + ldFATType], 16
@@ -1007,6 +1025,11 @@ error_badchain: equ $
 	jbe @F
 	rep movsb
 @@:
+		; 1st buffer = up to 8 KiB for us to write
+		;  (for FAT32 either 1024+ bytes including
+		;  our FSIBOOT or 512 B primary plus another
+		;  512 B of FSINFO)
+
 
 listnames:
 	mov bx, msg.names
