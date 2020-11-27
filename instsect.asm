@@ -308,6 +308,8 @@ start:
 	je .switch_i
 	cmp al, 'B'
 	je .switch_b
+	cmp al, 'C'
+	je .switch_c
 
 	cmp al, 'H'
 	je .switch_h
@@ -544,6 +546,62 @@ NUM_REPLACEMENTS equ 4
 	mov word [cmd_line_sector_file.name], si
 	call process_switch_filename
 	jmp .loop_got_byte
+
+
+.switch_c:
+	lodsb
+	call uppercase
+	cmp al, 'B'
+	jne @F
+	clropt [cmd_line_flags], clfWriteCopySectorIfSector
+	setopt [cmd_line_flags], clfWriteCopySector
+	jmp .loop_1
+
+@@:
+	cmp al, 'I'
+	jne @F
+	clropt [cmd_line_flags], clfWriteCopyInfoIfSector
+	setopt [cmd_line_flags], clfWriteCopyInfo
+	jmp .loop_1
+
+@@:
+	cmp al, 'N'
+	jne @F
+	lodsb
+	call uppercase
+	cmp al, 'I'
+	je .switch_cni
+	clropt [cmd_line_flags], \
+		clfWriteCopySectorIfSector | clfWriteCopySector
+	cmp al, 'B'
+	je .loop_1
+	dec si
+.switch_cn:
+.switch_cni:
+	clropt [cmd_line_flags], \
+		clfWriteCopyInfoIfSector | clfWriteCopyInfo
+	jmp .loop_1
+
+@@:
+	cmp al, 'S'
+	jne @F
+	lodsb
+	call uppercase
+	cmp al, 'I'
+	je .switch_csi
+	clropt [cmd_line_flags], clfWriteCopySector
+	setopt [cmd_line_flags], clfWriteCopySectorIfSector
+	cmp al, 'B'
+	je .loop_1
+	dec si
+.switch_cs:
+.switch_csi:
+	clropt [cmd_line_flags], clfWriteCopyInfo
+	setopt [cmd_line_flags], clfWriteCopyInfoIfSector
+	jmp .loop_1
+
+@@:
+	jmp .switch_not_supported
 
 
 .error_multiple_drives:
@@ -3078,7 +3136,9 @@ AAAAAAAA00FFF
 	align 16
 	section BUFFERS
 
-cmd_line_flags:		dw clfWriteSectorToSector | clfWriteInfoToSector
+	align 4
+cmd_line_flags:		dd clfWriteSectorToSector | clfWriteInfoToSector \
+			| clfWriteCopySectorIfSector | clfWriteCopyInfoIfSector
 clfWriteSectorToFile:		equ   1
 clfWriteSectorToSector:		equ   2
 clfDontWriteSector:		equ   4
@@ -3095,6 +3155,11 @@ clfWriteInfoMask: \
 clfLeaveInfo:			equ 100h
 clfZeroInfo:			equ 200h
 clfAllowInvalidInfo:		equ 400h
+clfWriteCopySector:		equ 1000h
+clfWriteCopySectorIfSector:	equ 2000h
+clfWriteCopyInfo:		equ 4000h
+clfWriteCopyInfoIfSector:	equ 8000h
+
 cmd_line_sector_file:
 .name:		dw 0
 .handle:	dw -1
