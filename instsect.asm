@@ -902,7 +902,7 @@ error_badchain: equ $
 
 		; Copy over original 512-byte sector buffer content.
 	mov cx, 512
-	mov di, sector_buffer
+	mov di, first_sector_buffer
 	mov si, third_sector_buffer_512_bytes
 	mov cx, 512 >> 1
 	rep movsw
@@ -916,15 +916,15 @@ error_badchain: equ $
 	jmp .got_sector_buffer
 
 
-		; Copy over two sectors into the sector_buffer,
+		; Copy over two sectors into the first_sector_buffer,
 		;  for the case of FAT32 with _FAT32_TWO_SECTORS
 		;  and a sector size >= 1 KiB.
 @@:
 	mov cx, 1024 >> 1
-	mov di, sector_buffer
+	mov di, first_sector_buffer
 	rep movsw
 	mov si, second_sector_buffer + bsBPB
-	mov di, sector_buffer + bsBPB
+	mov di, first_sector_buffer + bsBPB
 	cmp byte [bp + ldFATType], 16
 	jbe @F					; if FAT12/FAT16 -->
 	mov cx, ebpbNew
@@ -947,23 +947,23 @@ error_badchain: equ $
 	testopt [cmd_line_flags], clfZeroInfo
 	jz @F
 
-	mov di, sector_buffer + 512
+	mov di, first_sector_buffer + 512
 	mov cx, 512 >> 1
 	xor ax, ax
 	rep stosw				; zero entire sector
 
 	mov si, second_sector_buffer + 512 + FSINFO.signature1
 	mov cx, 4 >> 1
-	mov di, sector_buffer + 512
+	mov di, first_sector_buffer + 512
 	rep movsw				; copy over first signature
 
 	mov si, second_sector_buffer + 512 + FSINFO.signature2
-	mov di, sector_buffer + 512 + FSINFO.signature2
+	mov di, first_sector_buffer + 512 + FSINFO.signature2
 	mov cx, (FSINFO.reserved2 - FSINFO.signature2) >> 1
 	rep movsw				; copy signature and entries
 
 	mov si, second_sector_buffer + 512 + FSINFO.signature3
-	mov di, sector_buffer + 512 + FSINFO.signature3
+	mov di, first_sector_buffer + 512 + FSINFO.signature3
 	mov cx, 4 >> 1
 	rep movsw				; copy final signature
 	jmp .no_fsinfo
@@ -975,7 +975,7 @@ error_badchain: equ $
 
 		; Copy over original FSINFO sector content.
 	mov si, second_sector_buffer + 512
-	mov di, sector_buffer + 512
+	mov di, first_sector_buffer + 512
 	mov cx, 512 >> 1
 	rep movsw
 	jmp .no_fsinfo
@@ -984,14 +984,14 @@ error_badchain: equ $
 		; Copy over actual FSINFO structure from original.
 		;  (Leaves FSIBOOT as written from our image.)
 	mov si, second_sector_buffer + 512 + FSINFO.signature2
-	mov di, sector_buffer + 512 + FSINFO.signature2
+	mov di, first_sector_buffer + 512 + FSINFO.signature2
 	mov cx, (FSINFO_size - FSINFO.signature2) >> 1
 	rep movsw				; copy over FSINFO
 .no_fsinfo:
 %endif
 
 	mov si, second_sector_buffer + 510
-	mov di, sector_buffer + 510
+	mov di, first_sector_buffer + 510
 	movsw
 	mov cx, word [bp + ldBytesPerSector]
 %if _FAT32_TWO_SECTORS
@@ -1010,12 +1010,12 @@ error_badchain: equ $
 
 listnames:
 	mov bx, msg.names
-	mov si, sector_buffer + bsBPB + bpbNew + BPBN_size
+	mov si, first_sector_buffer + bsBPB + bpbNew + BPBN_size
 	mov cx, 512 - (bsBPB + bpbNew + BPBN_size) - 2
 						; -2 = AA55h sig
 	cmp byte [bp + ldFATType], 16
 	jbe @F
-	mov si, sector_buffer + bsBPB + ebpbNew + BPBN_size
+	mov si, first_sector_buffer + bsBPB + ebpbNew + BPBN_size
 	mov cx, 512 - (bsBPB + ebpbNew + BPBN_size) - 2
 @@:
 
@@ -1134,7 +1134,7 @@ set_unit:
 	cmp bh, 0FFh
 	je .auto
 
-	mov si, sector_buffer
+	mov si, first_sector_buffer
 	lodsb
 	cmp al, 0E9h
 	je .nearjmp
@@ -1200,13 +1200,13 @@ set_unit:
 	cmp byte [bp + ldFATType], 16
 	jbe .1612
 .32:
-	mov byte [sector_buffer + bsBPB + ebpbNew + bpbnBootUnit], bl
+	mov byte [first_sector_buffer + bsBPB + ebpbNew + bpbnBootUnit], bl
 	mov di, unit_search_strings.32_set_dl
 	mov cx, unit_search_strings.32_set_dl_length
 	jmp @F
 
 .1612:
-	mov byte [sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
+	mov byte [first_sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
 	mov di, unit_search_strings.1612_set_dl
 	mov cx, unit_search_strings.1612_set_dl_length
 @@:
@@ -1230,7 +1230,7 @@ validate_fsinfo:
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
-	mov di, sector_buffer + 512
+	mov di, first_sector_buffer + 512
 	mov dx, msg.info_valid
 
 	cmp word [di + FSINFO.signature1], FSINFO.signature1_value & 0FFFFh
@@ -1256,10 +1256,10 @@ validate_fsinfo:
 	mov cx, info_reset_struc.signature1_size >> 1
 	rep movsw
 	mov cl, info_reset_struc.signature2_plus_entries_size >> 1
-	mov di, sector_buffer + 512 + FSINFO.signature2
+	mov di, first_sector_buffer + 512 + FSINFO.signature2
 	rep movsw
 	mov cl, info_reset_struc.signature3_size >> 1
-	mov di, sector_buffer + 512 + FSINFO.signature3
+	mov di, first_sector_buffer + 512 + FSINFO.signature3
 	rep movsw
 
 .end:
@@ -1307,7 +1307,7 @@ write:
 	jc exit_error
 
 @@:
-	mov dx, sector_buffer + 512
+	mov dx, first_sector_buffer + 512
 	call write_file_ae_512_bytes
 	jc exit_error
 	jmp .no_fsinfo
@@ -1316,7 +1316,7 @@ write:
 .not_info_to_file:
 	mov dx, msg.info_writing_sector
 	call disp_msg_asciz
-	mov bx, sector_buffer + 512
+	mov bx, first_sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 	xor dx, dx
 	mov cl, [drivenumber]
@@ -1348,7 +1348,8 @@ write:
 	xor dx, dx		; seek offset 0
 	int 21h			; seek to start of file
 
-	mov dx, sector_buffer	; -> buffer
+	mov dx, first_sector_buffer
+				; -> buffer
 	call write_file_ae_512_bytes
 	jc exit_error_restore_fsinfo
 	jmp exit_normal
@@ -1357,7 +1358,7 @@ write:
 .not_sector_to_file:
 	mov dx, msg.sector_writing_sector
 	call disp_msg_asciz
-	mov bx, sector_buffer
+	mov bx, first_sector_buffer
 	xor ax, ax
 	xor dx, dx
 	mov cl, [drivenumber]
@@ -2945,10 +2946,10 @@ initialise:
 %endif
 
 	xor ax, ax
-	mov bx, sector_buffer		; ds:bx -> sector buffer
+	mov bx, first_sector_buffer	; ds:bx -> sector buffer
 	mov di, bx			; es:di -> sector buffer
 	mov cx, (8192 + 2) >> 1
-	rep stosw			; fill buffer, di -> behind (sector_buffer+8192+2)
+	rep stosw			; fill buffer, di -> behind (first_sector_buffer+8192+2)
 	xor dx, dx
 	mov cl, [drivenumber]
 	push bx
@@ -2958,7 +2959,7 @@ initialise:
 
 	std				; AMD erratum 109 handling not needed
 	mov word [es:bx - 2], 5E5Eh	; writes to unused word (1)
-	scasw				; -> sector_buffer+8192 (at last word to sca)
+	scasw				; -> first_sector_buffer+8192 (at last word to sca)
 	mov cx, (8192 + 2) >> 1
 	xor ax, ax
 	repe scasw
@@ -2981,7 +2982,7 @@ initialise:
 	jc .access_error
 
 	std				; AMD erratum 109 handling not needed
-	scasw				; di -> sector_buffer+8192 (last word to sca)
+	scasw				; di -> first_sector_buffer+8192 (last word to sca)
 	mov ax, -1
 	mov cx, (8192 + 2) >> 1
 	repe scasw
@@ -3083,8 +3084,8 @@ cmd_line_file_handle_ofs:	equ 2
 
 	dw 0		; insure there's an unused word in front of this (1)
 	align 16
-sector_buffer:
-second_sector_buffer:	equ sector_buffer - LOADDATA2 + 16 + 8192
+first_sector_buffer:
+second_sector_buffer:	equ first_sector_buffer - LOADDATA2 + 16 + 8192
 third_sector_buffer_512_bytes: \
 			equ second_sector_buffer + 8192
 end:			equ third_sector_buffer_512_bytes + 512
