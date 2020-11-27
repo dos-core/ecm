@@ -1010,6 +1010,24 @@ detect_backup:
 
 
 prepare_sector:
+	testopt [cmd_line_flags], clfSectorFromCopy
+	jz @F
+
+	testopt [internalflags], detectedcopysector
+	jnz .sector_from_copy
+	mov dx, msg.missing_backup_sector
+	jmp disp_error
+
+.sector_from_copy:
+	xor dx, dx
+	mov bx, first_sector_buffer
+	mov ax, word [bp + bsBPB + ebpbBackupSector]
+	mov cl, [drivenumber]
+	call read_ae_512_bytes		; load boot sector from backup copy
+	jc exit_error
+	jmp .got_sector_buffer
+
+@@:
 	testopt [cmd_line_flags], clfLeaveSector
 	jz @F
 
@@ -1064,6 +1082,26 @@ prepare_sector:
 %if _FAT32_TWO_SECTORS
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
+
+	testopt [cmd_line_flags], clfInfoFromCopy
+	jz @F
+
+	testopt [internalflags], detectedcopyinfo
+	jnz .info_from_copy
+	mov dx, msg.missing_backup_info
+	jmp disp_error
+
+.info_from_copy:
+	xor dx, dx
+	mov bx, first_sector_buffer + 512
+	mov ax, word [bp + bsBPB + ebpbBackupSector]
+	add ax, word [bp + bsBPB + ebpbFSINFOSector]
+	mov cl, [drivenumber]
+	call read_ae_512_bytes		; load FSINFO sector from backup copy
+	jc exit_error
+	jmp .no_fsinfo
+
+@@:
 
 	testopt [cmd_line_flags], clfZeroInfo
 	jz @F
@@ -2850,7 +2888,8 @@ load_kernel_name: equ $
 			asciz "Not writing FSINFO to backup copy.",13,10
 .backup_error_sector:	asciz "Error while writing boot sector to backup copy.",13,10
 .backup_error_info:	asciz "Error while writing FSINFO to backup copy.",13,10
-
+.missing_backup_sector:	asciz "Error: No backup copy of boot sector available.",13,10
+.missing_backup_info:	asciz "Error: No backup copy of info sector available.",13,10
 
 .error_file_open:	asciz "Error opening file for writing, "
 .error_file_write:	asciz "Error writing file, "
