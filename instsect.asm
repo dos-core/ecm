@@ -423,7 +423,7 @@ NUM_REPLACEMENTS equ 4
 	call uppercase
 	cmp al, 'O'
 	jne @F
-	clropt [cmd_line_flags], clfZeroInfo
+	clropt [cmd_line_flags], clfZeroInfo | clfInfoFromCopy
 	setopt [cmd_line_flags], clfLeaveInfo
 .loop_1:
 	jmp .loop
@@ -431,14 +431,21 @@ NUM_REPLACEMENTS equ 4
 @@:
 	cmp al, 'R'
 	jne @F
-	clropt [cmd_line_flags], clfLeaveInfo | clfZeroInfo
+	clropt [cmd_line_flags], clfLeaveInfo | clfZeroInfo | clfInfoFromCopy
 	jmp .loop_1
 
 @@:
 	cmp al, 'Z'
 	jne @F
-	clropt [cmd_line_flags], clfLeaveInfo
+	clropt [cmd_line_flags], clfLeaveInfo | clfInfoFromCopy
 	setopt [cmd_line_flags], clfZeroInfo
+	jmp .loop_1
+
+@@:
+	cmp al, 'C'
+	jne @F
+	clropt [cmd_line_flags], clfLeaveInfo | clfZeroInfo
+	setopt [cmd_line_flags], clfInfoFromCopy
 	jmp .loop_1
 
 @@:
@@ -502,13 +509,21 @@ NUM_REPLACEMENTS equ 4
 	call uppercase
 	cmp al, 'O'
 	jne @F
+	clropt [cmd_line_flags], clfSectorFromCopy
 	setopt [cmd_line_flags], clfLeaveSector
 	jmp .loop_1
 
 @@:
 	cmp al, 'R'
 	jne @F
+	clropt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy
+	jmp .loop_1
+
+@@:
+	cmp al, 'C'
+	jne @F
 	clropt [cmd_line_flags], clfLeaveSector
+	setopt [cmd_line_flags], clfSectorFromCopy
 	jmp .loop_1
 
 @@:
@@ -3279,7 +3294,6 @@ clfWriteSectorToSector:		equ   2
 clfDontWriteSector:		equ   4
 clfWriteSectorMask: \
 	equ clfWriteSectorToFile | clfWriteSectorToSector | clfDontWriteSector
-clfLeaveSector:			equ   8
 clfWriteInfoToFile:		equ  10h
 clfWriteInfoToSector:		equ  20h
 clfWriteInfoToSectorFile:	equ  40h
@@ -3287,13 +3301,16 @@ clfDontWriteInfo:		equ  80h
 clfWriteInfoMask: \
 	equ clfWriteInfoToFile | clfWriteInfoToSector \
 		| clfWriteInfoToSectorFile | clfDontWriteInfo
-clfLeaveInfo:			equ 100h
-clfZeroInfo:			equ 200h
-clfAllowInvalidInfo:		equ 400h
+clfAllowInvalidInfo:		equ 800h
 clfWriteCopySector:		equ 1000h
 clfWriteCopySectorIfSector:	equ 2000h
 clfWriteCopyInfo:		equ 4000h
 clfWriteCopyInfoIfSector:	equ 8000h
+clfLeaveSector:			equ  1_0000h
+clfSectorFromCopy:		equ  2_0000h
+clfLeaveInfo:			equ 10_0000h
+clfInfoFromCopy:		equ 20_0000h
+clfZeroInfo:			equ 40_0000h
 
 cmd_line_sector_file:
 .name:		dw 0
