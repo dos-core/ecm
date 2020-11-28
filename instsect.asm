@@ -1439,18 +1439,8 @@ check_valid_sector:
 	repe cmpsw
 	mov dx, msg.sector_valid_id
 	je .valid
-	mov di, first_sector_buffer + bsBPB
-	mov cx, bpbNew + BPBN_size
-	cmp byte [bp + ldFATType], 16
-	jbe @F
-	mov cx, ebpbNew + BPBN_size
-@@:
-	mov dx, msg.sector_valid_zeros
-	xor ax, ax
-	repe scasb
-	je .valid
 
-	mov dx, msg.sector_invalid_no_id_or_zeros
+	mov dx, msg.sector_invalid_no_id
 .invalid:
 	testopt [cmd_line_flags], clfAllowInvalidSector
 	jz disp_error
@@ -3192,11 +3182,9 @@ load_kernel_name: equ $
 .sector_invalid_too_long_jump:
 		asciz "Sector invalid, too long jump.",13,10
 .sector_valid_id:
-		asciz "Sector valid, FS ID matches.",13,10
-.sector_valid_zeros:
-		asciz "Sector valid, zeroed BPB matches.",13,10
-.sector_invalid_no_id_or_zeros:
-		asciz "Sector invalid, neither FS ID nor zeroed BPB.",13,10
+		asciz "Sector valid, FS ID match.",13,10
+.sector_invalid_no_id:
+		asciz "Sector invalid, no FS ID match.",13,10
 .allowing_sector_invalid:
 		asciz "Allowing invalid sector: "
 
