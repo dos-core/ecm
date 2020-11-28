@@ -402,8 +402,12 @@ NUM_REPLACEMENTS equ 4
 	cmp al, 9
 	je @B
 
-	mov dx, msg.auto
+	mov dx, msg.keep
 	dec si
+	call isstring?
+	mov ax, 0FFFFh
+	je @F
+	mov dx, msg.auto
 	call isstring?
 	mov ax, 0FF00h
 	je @F
@@ -1580,21 +1584,22 @@ listnames:
 	loopnz .loop
 
 set_unit:
-	mov bx, [load_unit]
-	mov dx, msg.using_auto_unit
-	cmp bh, 0FFh
-	je .auto
-
 	mov si, first_sector_buffer
 	lodsb
 	cmp al, 0E9h
+	je .nearjmp
+	cmp al, 0E8h
 	je .nearjmp
 	cmp al, 0EBh
 	je .shortjmp
 
 .notfound:
 	mov dx, msg.unit_not_found
-	jmp disp_error
+	cmp word [load_unit], -1
+	jne disp_error
+	mov dx, msg.unit_not_found.keep
+	jmp .done_msg
+
 
 .nearjmp:
 	lodsw
@@ -1626,12 +1631,15 @@ set_unit:
 	add si, cx
 
 	mov dx, 48
+	mov bx, unit_search_strings.1612_set_dl
 	mov di, unit_search_strings.1612_set_bpbn
 	mov cx, unit_search_strings.1612_set_bpbn_length
 	cmp byte [bp + ldFATType], 16
 	jbe @F
+	mov bx, unit_search_strings.32_set_dl
 	mov di, unit_search_strings.32_set_bpbn
 	mov cx, unit_search_strings.32_set_bpbn_length
+
 @@:
 	push si
 	push di
@@ -1640,40 +1648,76 @@ set_unit:
 	pop cx
 	pop di
 	pop si
-	je .found_set
+	je .found_set_bpbn
+	xchg bx, di
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	xchg bx, di
+	je .found_set_dl
 	inc si
 	dec dx
 	jnz @B
 
 	jmp .notfound
 
-.found_set:
+.found_set_bpbn:
+	mov dx, msg.unit_found.set_bpbn
+	jmp @F
+
+.found_set_dl:
+	mov dx, msg.unit_found.set_dl
+@@:
+	call disp_msg_asciz
+	mov dx, msg.unit_found.keeping
+	cmp word [load_unit], -1
+	je .done_msg
+
 	cmp byte [bp + ldFATType], 16
 	jbe .1612
 .32:
-	mov byte [first_sector_buffer + bsBPB + ebpbNew + bpbnBootUnit], bl
+	mov bx, first_sector_buffer + bsBPB + ebpbNew + bpbnBootUnit
+	mov dx, unit_search_strings.32_set_bpbn
 	mov di, unit_search_strings.32_set_dl
 	mov cx, unit_search_strings.32_set_dl_length
 	jmp @F
 
 .1612:
-	mov byte [first_sector_buffer + bsBPB + bpbNew + bpbnBootUnit], bl
+	mov bx, first_sector_buffer + bsBPB + bpbNew + bpbnBootUnit
+	mov dx, unit_search_strings.1612_set_bpbn
 	mov di, unit_search_strings.1612_set_dl
 	mov cx, unit_search_strings.1612_set_dl_length
 @@:
 
-	xchg si, di
-	rep movsb		; write .32_set_dl or .1612_set_dl to there
+	mov ax, [load_unit]
+
+	test ah, ah
+	jnz @F			; if to set auto unit -->
 
 	mov dx, msg.using_fix_unit
 	call disp_msg_asciz
 
-	mov al, bl
 	call disp_al_hex
+	mov byte [bx], al
 
 	mov dx, msg.using_fix_unit_after
-.auto:
+	jmp @FF			; di -> set dl
+
+@@:
+	xchg di, dx		; (if ah NZ) di -> set bpbn
+	mov dx, msg.using_auto_unit
+@@:
+
+	xchg si, di
+	rep movsb		; write to there
+
+.done_msg:
 	call disp_msg_asciz
+.done:
 
 
 validate_fsinfo:
@@ -3193,12 +3237,17 @@ load_kernel_name: equ $
 .allowing_sector_invalid:
 		asciz "Allowing invalid sector: "
 
+.keep:			asciz "KEEP"
 .auto:			asciz "AUTO"
 .error_invalid_number:	asciz "Invalid number.",13,10
-.using_fix_unit:	asciz "Using fixed unit of "
+.using_fix_unit:	asciz " Using fixed unit of "
 .using_fix_unit_after:	asciz "h.",13,10
-.unit_not_found:	asciz "Unit fixing code not found in sector.",13,10
-.using_auto_unit:	asciz "Using auto unit.",13,10
+.unit_not_found:	asciz "Error: Unit selection code not found in sector.",13,10
+.unit_not_found.keep:	asciz "Unit selection code not found in sector. Keeping as is.",13,10
+.unit_found.set_bpbn:	asciz "Auto unit selection found in sector."
+.unit_found.set_dl:	asciz "Fixed unit selection found in sector."
+.unit_found.keeping:	asciz " Keeping as is.",13,10
+.using_auto_unit:	asciz " Using auto unit.",13,10
 
 .switch_requires_filename:
 			asciz "Switch requires a filename.",13,10
