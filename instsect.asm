@@ -3123,7 +3123,8 @@ msg:
 	db 13,10
 	db 9,"/Fx=filename",9,"replace Xth name in the boot sector, X = 1 to ",'0' + NUM_REPLACEMENTS,13,10
 	db 9,"/F=filename",9,"alias to /F1=filename",13,10
-	db 9,"/U AUTO",9,9,"leave in default auto-boot-unit handling (default)",13,10
+	db 9,"/U KEEP",9,9,"keep default/current boot unit handling (default)",13,10
+	db 9,"/U AUTO",9,9,"patch boot loader to use auto boot unit handling",13,10
 	db 9,"/U xx",9,9,"patch boot loader to use XXh as a fixed unit",13,10
 	db 13,10
 	db 9,"/SR",9,9,"do not read boot sector from source file (default)",13,10
