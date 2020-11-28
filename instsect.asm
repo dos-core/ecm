@@ -642,18 +642,57 @@ NUM_REPLACEMENTS equ 4
 @@:
 	cmp al, 'R'
 	jne @F
-	clropt [cmd_line_flags], clfReadSectorFile
+	clropt [cmd_line_flags], clfReadSectorFile12 | clfReadSectorFile16 | clfReadSectorFile32, 1
 	jmp .loop_2
 
 @@:
+	xor di, di
+	mov dx, clfReadSectorFile12 | clfReadSectorFile16 | clfReadSectorFile32
 	cmp al, ':'
 	je @F
 	cmp al, '='
 	je @F
+
+	xchg al, ah
+	lodsb
+	xchg al, ah
+	mov di, cmd_line_readsector12_file.name
+	mov dx, clfReadSectorFile12
+	cmp ax, "12"
+	je .switch_s_check_equals
+	mov di, cmd_line_readsector16_file.name
+	mov dx, clfReadSectorFile16
+	cmp ax, "16"
+	je .switch_s_check_equals
+	mov di, cmd_line_readsector32_file.name
+	mov dx, clfReadSectorFile32
+	cmp ax, "32"
+	je .switch_s_check_equals
+
 	jmp .switch_not_supported
 
+
+.switch_s_r_type:
+	not dx
+	and [cmd_line_flags], dx
+	jmp .loop_2
+
+
+.switch_s_check_equals:
+	lodsb
+	call uppercase
+	cmp al, 'R'
+	je .switch_s_r_type
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
+
+	jmp .switch_not_supported
+
+
 @@:
-	setopt [cmd_line_flags], clfReadSectorFile
+	or word [cmd_line_flags], dx
 @@:
 	lodsb
 	cmp al, 32
@@ -662,7 +701,16 @@ NUM_REPLACEMENTS equ 4
 	je @B
 
 	dec si
-	mov word [cmd_line_readsector_file.name], si
+	test di, di
+	jz @F
+	mov word [di], si
+	jmp @FF
+
+@@:
+	mov word [cmd_line_readsector12_file.name], si
+	mov word [cmd_line_readsector16_file.name], si
+	mov word [cmd_line_readsector32_file.name], si
+@@:
 	call process_switch_filename
 	jmp .loop_got_byte
 
@@ -968,9 +1016,19 @@ error_badchain: equ $
 
 %if !_FAT32 || !_FAT16 || !_FAT12
 	test si, si
-	jnz @F
+	jnz @FF
 
-	testopt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy | clfReadSectorFile
+	testopt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy
+	jnz @FF
+
+	mov dx, clfReadSectorFile12
+	cmp byte [bp + ldFATType], 16
+	jb @F
+	mov dx, clfReadSectorFile16
+	je @F
+	mov dx, clfReadSectorFile32
+@@:
+	test word [cmd_line_flags], dx
 	jnz @F
 
 	mov dx, msg.not_supported_fat_type
@@ -1079,12 +1137,22 @@ prepare_sector:
 	jmp .got_sector_buffer
 
 @@:
-	testopt [cmd_line_flags], clfReadSectorFile
+	mov di, cmd_line_readsector12_file
+	mov dx, clfReadSectorFile12
+	cmp byte [bp + ldFATType], 16
+	jb @F
+	mov di, cmd_line_readsector16_file
+	mov dx, clfReadSectorFile16
+	je @F
+	mov di, cmd_line_readsector32_file
+	mov dx, clfReadSectorFile32
+@@:
+	test word [cmd_line_flags], dx
 	jz .replace_internal
 	mov dx, msg.replace_sector_file
 	call disp_msg_asciz
 
-	mov di, cmd_line_readsector_file
+		; di -> file structure
 	call open_file_read
 	jc exit_error
 
@@ -3611,14 +3679,16 @@ clfWriteSectorToSector:		equ   2
 clfDontWriteSector:		equ   4
 clfWriteSectorMask: \
 	equ clfWriteSectorToFile | clfWriteSectorToSector | clfDontWriteSector
-clfReadSectorFile:		equ   8
+clfDontWriteInfo:		equ   8
 clfWriteInfoToFile:		equ  10h
 clfWriteInfoToSector:		equ  20h
 clfWriteInfoToSectorFile:	equ  40h
-clfDontWriteInfo:		equ  80h
 clfWriteInfoMask: \
 	equ clfWriteInfoToFile | clfWriteInfoToSector \
 		| clfWriteInfoToSectorFile | clfDontWriteInfo
+clfReadSectorFile12:		equ  80h
+clfReadSectorFile16:		equ 100h
+clfReadSectorFile32:		equ 200h
 clfAllowInvalidSector:		equ 400h
 clfAllowInvalidInfo:		equ 800h
 clfWriteCopySector:		equ 1000h
@@ -3631,7 +3701,13 @@ clfLeaveInfo:			equ 10_0000h
 clfInfoFromCopy:		equ 20_0000h
 clfZeroInfo:			equ 40_0000h
 
-cmd_line_readsector_file:
+cmd_line_readsector12_file:
+.name:		dw 0
+.handle:	dw -1
+cmd_line_readsector16_file:
+.name:		dw 0
+.handle:	dw -1
+cmd_line_readsector32_file:
 .name:		dw 0
 .handle:	dw -1
 cmd_line_sector_file:
