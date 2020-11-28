@@ -1247,6 +1247,66 @@ prepare_sector:
 		; 1st buffer = 1024 bytes from internal replacement
 
 .replace_common:
+.got_sector_buffer:
+
+
+check_valid_sector:
+	mov dx, msg.sector_invalid_no_jump
+	mov di, first_sector_buffer
+	mov ax, word [di + 1]
+	lea bx, [di + 3]
+	cmp byte [di], 0E9h
+	je .rel16
+	cmp byte [di], 0E8h
+	je .rel16
+	cmp byte [di], 0EBh
+	jne .invalid
+.rel8:
+	dec bx
+	cbw
+.rel16:
+	add bx, ax
+	mov di, first_sector_buffer + bsBPB + bpbNew + BPBN_size
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov di, first_sector_buffer + bsBPB + ebpbNew + BPBN_size
+@@:
+	mov dx, msg.sector_invalid_too_short_jump
+	cmp bx, di
+	jb .invalid
+	mov dx, msg.sector_invalid_too_long_jump
+	cmp bx, first_sector_buffer + 510
+	jae .invalid
+
+	mov si, msg.fat12sig
+	mov di, first_sector_buffer + bsBPB + bpbNew + bpbnFilesystemID
+	cmp byte [bp + ldFATType], 16
+	jb @F
+	mov si, msg.fat16sig
+	je @F
+	mov si, msg.fat32sig
+	mov di, first_sector_buffer + bsBPB + ebpbNew + bpbnFilesystemID
+@@:
+	mov cx, 4
+	repe cmpsw
+	mov dx, msg.sector_valid_id
+	je .valid
+
+	mov dx, msg.sector_invalid_no_id
+.invalid:
+	testopt [cmd_line_flags], clfAllowInvalidSector
+	jz disp_error
+
+	push dx
+	mov dx, msg.allowing_sector_invalid
+	call disp_msg_asciz
+	pop dx
+
+.valid:
+	call disp_msg_asciz
+
+
+write_sector_bpb:
 	mov si, second_sector_buffer + bsBPB
 	mov di, first_sector_buffer + bsBPB
 	cmp byte [bp + ldFATType], 16
@@ -1261,9 +1321,8 @@ prepare_sector:
 @@:
 	mov cx, BPBN_size
 	rep movsb
-		; 1st buffer = 1024 bytes internal plus
+		; 1st buffer = sector from whatever source plus
 		;  the (E)BPB and BPBN from fs
-.got_sector_buffer:
 
 
 prepare_fsinfo:
@@ -1396,62 +1455,6 @@ prepare_sector_final:
 		;  (for FAT32 either 1024+ bytes including
 		;  our FSIBOOT or 512 B primary plus another
 		;  512 B of FSINFO)
-
-
-check_valid_sector:
-	mov dx, msg.sector_invalid_no_jump
-	mov di, first_sector_buffer
-	mov ax, word [di + 1]
-	lea bx, [di + 3]
-	cmp byte [di], 0E9h
-	je .rel16
-	cmp byte [di], 0E8h
-	je .rel16
-	cmp byte [di], 0EBh
-	jne .invalid
-.rel8:
-	dec bx
-	cbw
-.rel16:
-	add bx, ax
-	mov di, first_sector_buffer + bsBPB + bpbNew + BPBN_size
-	cmp byte [bp + ldFATType], 16
-	jbe @F
-	mov di, first_sector_buffer + bsBPB + ebpbNew + BPBN_size
-@@:
-	mov dx, msg.sector_invalid_too_short_jump
-	cmp bx, di
-	jb .invalid
-	mov dx, msg.sector_invalid_too_long_jump
-	cmp bx, first_sector_buffer + 510
-	jae .invalid
-
-	mov si, msg.fat12sig
-	mov di, first_sector_buffer + bsBPB + bpbNew + bpbnFilesystemID
-	cmp byte [bp + ldFATType], 16
-	jb @F
-	mov si, msg.fat16sig
-	je @F
-	mov si, msg.fat32sig
-	mov di, first_sector_buffer + bsBPB + ebpbNew + bpbnFilesystemID
-@@:
-	mov cx, 4
-	repe cmpsw
-	mov dx, msg.sector_valid_id
-	je .valid
-
-	mov dx, msg.sector_invalid_no_id
-.invalid:
-	testopt [cmd_line_flags], clfAllowInvalidSector
-	jz disp_error
-
-	push dx
-	mov dx, msg.allowing_sector_invalid
-	call disp_msg_asciz
-	pop dx
-
-.valid:
-	call disp_msg_asciz
 
 
 listnames:
