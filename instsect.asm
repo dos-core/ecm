@@ -1350,8 +1350,18 @@ prepare_fsinfo:
 	jmp .no_fsinfo
 
 @@:
-
+	mov dx, clfReadSectorFile12
+	cmp byte [bp + ldFATType], 16
+	jb @F
+	mov dx, clfReadSectorFile16
+	je @F
+	mov dx, clfReadSectorFile32
+@@:
+	test word [cmd_line_flags], dx
 	mov dx, msg.replace_info
+	jz @F
+	mov dx, msg.replace_info_file
+@@:
 	call disp_msg_asciz
 
 		; Copy over actual FSINFO structure from original.
@@ -3232,6 +3242,7 @@ load_kernel_name: equ $
 .zero_info:		asciz "Zeroing FSINFO reserved fields.",13,10
 .leave_info:		asciz "Keeping original FSINFO.",13,10
 .replace_info:		asciz "Replacing FSIBOOT.",13,10
+.replace_info_file:	asciz "Replacing FSIBOOT from file.",13,10
 
 .error_file_open_write:	asciz "Error opening file for writing, "
 .error_file_open_read:	asciz "Error opening file for reading, "
