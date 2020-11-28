@@ -627,6 +627,7 @@ NUM_REPLACEMENTS equ 4
 .switch_s:
 	lodsb
 	call uppercase
+
 	cmp al, 'V'
 	jne @F
 	clropt [cmd_line_flags], clfAllowInvalidSector
@@ -639,7 +640,31 @@ NUM_REPLACEMENTS equ 4
 	jmp .loop_2
 
 @@:
+	cmp al, 'R'
+	jne @F
+	clropt [cmd_line_flags], clfReadSectorFile
+	jmp .loop_2
+
+@@:
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
 	jmp .switch_not_supported
+
+@@:
+	setopt [cmd_line_flags], clfReadSectorFile
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	dec si
+	mov word [cmd_line_readsector_file.name], si
+	call process_switch_filename
+	jmp .loop_got_byte
 
 
 .error_multiple_drives:
@@ -945,7 +970,7 @@ error_badchain: equ $
 	test si, si
 	jnz @F
 
-	testopt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy
+	testopt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy | clfReadSectorFile
 	jnz @F
 
 	mov dx, msg.not_supported_fat_type
@@ -954,52 +979,31 @@ error_badchain: equ $
 @@:
 %endif
 
+
+detect_fsinfo_sector_replace:
 	mov byte [bp + ldHasLBA], 0	; 2 clear: not FSINFO
 %if _FAT32_TWO_SECTORS
 	cmp si, fat32_payload
 	jne .not_fat32
+
+	or byte [bp + ldHasLBA], 4	; 4 set: large sector
+
 	cmp word [bp + ldBytesPerSector], 1024
 	jae .fat32_larger_sector
 		; Because we checked that the sector size is a power of two,
 		;  we can assume here that sectors are 512 bytes or less.
 
-	cmp word [si + 512 + FSINFO.signature1], "RR"
-	jne .not_fsinfo
-	cmp word [si + 512 + FSINFO.signature1 + 2], "aA"
-	jne .not_fsinfo
+	mov dx, msg.not_yet_non_fsinfo
 
-	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
-	xor dx, dx
+	cmp word [si + 512 + FSINFO.signature1], "RR"
+	jne disp_error
+	cmp word [si + 512 + FSINFO.signature1 + 2], "aA"
+	jne disp_error
 
 	or byte [bp + ldHasLBA], 2	; 2 set: FSINFO
-
-	test ax, ax
-	jz .invalid_fsinfo
-	cmp ax, word [bp + bsBPB + bpbReservedSectors]
-	jae .invalid_fsinfo
-
-	mov bx, second_sector_buffer + 512
-	mov cl, [drivenumber]
-	call read_ae_512_bytes		; load FSINFO sector
-	jc exit_error
-		; 2nd buffer 2nd 512 B has original FSINFO
-
-	jmp .fat32_fsinfo_setup_done
-
-.invalid_fsinfo:
-	mov dx, msg.no_fsinfo
-	jmp disp_error
-
-.not_fsinfo:
-	mov dx, .msg_not_yet_non_fsinfo
-	jmp disp_error
-.msg_not_yet_non_fsinfo:
-	asciz "FAT32 with two sectors and not FSINFO not yet supported.",13,10
-
+%endif
 .not_fat32:
 .fat32_larger_sector:
-.fat32_fsinfo_setup_done:
-%endif
 
 
 detect_backup:
@@ -1074,11 +1078,98 @@ prepare_sector:
 		; 1st buffer = boot sector original
 	jmp .got_sector_buffer
 
+@@:
+	testopt [cmd_line_flags], clfReadSectorFile
+	jz .replace_internal
+	mov dx, msg.replace_sector_file
+	call disp_msg_asciz
+
+	mov di, cmd_line_readsector_file
+	call open_file_read
+	jc exit_error
+
+	mov ax, 4202h
+	xor cx, cx
+	xor dx, dx
+	int 21h
+	jnc @F
+	mov dx, msg.error_file_seek
+	call disp_dos_error
+	jmp exit_error
+
+@@:
+	test dx, dx
+	jnz .wrong_size
+	cmp ax, 512
+	je .ok_size
+	cmp ax, 1024
+	jne .wrong_size
+	cmp byte [bp + ldFATType], 32
+	je .ok_size
+
+.wrong_size:
+	mov dx, msg.wrong_size
+	jmp disp_error
+
+
+.ok_size:
+	push ax
+
+	mov ax, 4200h
+	xor cx, cx
+	xor dx, dx
+	int 21h
+	jnc @F
+	mov dx, msg.error_file_seek
+	call disp_dos_error
+	jmp exit_error
+
+@@:
+	pop cx
+	mov dx, first_sector_buffer
+	mov si, dx
+	mov ah, 3Fh
+	int 21h			; read file
+	jc @F
+	cmp ax, cx
+	mov ax, -1
+	je @FF			; (NC) -->
+@@:
+	mov dx, msg.error_file_read
+	call disp_dos_error
+	jmp exit_error
+
+@@:
+	mov byte [bp + ldHasLBA], 0	; 2 and 4 clear: not FSINFO, no large
+
+	cmp cx, 1024
+	jb .not_fat32_two_sectors
+
+	or byte [bp + ldHasLBA], 4	; 4 set: large sector
+
+	cmp word [bp + ldBytesPerSector], 1024
+	jae .fat32_larger_sector
+		; Because we checked that the sector size is a power of two,
+		;  we can assume here that sectors are 512 bytes or less.
+
+	mov dx, msg.not_yet_non_fsinfo
+
+	cmp word [si + 512 + FSINFO.signature1], "RR"
+	jne disp_error
+	cmp word [si + 512 + FSINFO.signature1 + 2], "aA"
+	jne disp_error
+
+	or byte [bp + ldHasLBA], 2	; 2 set: FSINFO
+
+.fat32_larger_sector:
+.not_fat32_two_sectors:
+	jmp .replace_common
+
 
 		; Copy over two sectors into the first_sector_buffer,
-		;  for the case of FAT32 with _FAT32_TWO_SECTORS
-		;  and a sector size >= 1 KiB.
-@@:
+		;  for the case of FAT32 with two-sector loader and
+		;  a sector size >= 1 KiB.
+.replace_internal:
 	mov dx, msg.replace_sector
 	call disp_msg_asciz
 
@@ -1087,6 +1178,7 @@ prepare_sector:
 	rep movsw
 		; 1st buffer = 1024 bytes from internal replacement
 
+.replace_common:
 	mov si, second_sector_buffer + bsBPB
 	mov di, first_sector_buffer + bsBPB
 	cmp byte [bp + ldFATType], 16
@@ -1103,12 +1195,27 @@ prepare_sector:
 	rep movsb
 		; 1st buffer = 1024 bytes internal plus
 		;  the (E)BPB and BPBN from fs
-
-
 .got_sector_buffer:
-%if _FAT32_TWO_SECTORS
+
+
+prepare_fsinfo:
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
+
+	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
+
+	mov dx, msg.no_fsinfo
+	test ax, ax
+	jz disp_error
+	cmp ax, word [bp + bsBPB + bpbReservedSectors]
+	jae disp_error
+
+	xor dx, dx
+	mov bx, second_sector_buffer + 512
+	mov cl, [drivenumber]
+	call read_ae_512_bytes		; load FSINFO sector
+	jc exit_error
+		; 2nd buffer 2nd 512 B has original FSINFO
 
 	testopt [cmd_line_flags], clfInfoFromCopy
 	jz @F
@@ -1187,23 +1294,22 @@ prepare_sector:
 	rep movsw				; copy over FSINFO
 .no_fsinfo:
 		; 1st buffer second 512 B = FSINFO with FSIBOOT
-%endif
 
+
+prepare_sector_final:
 	mov si, second_sector_buffer + 510
 	mov di, first_sector_buffer + 510
 	movsw
 		; 1st buffer signature set from original
 
 	mov cx, word [bp + ldBytesPerSector]
-%if _FAT32_TWO_SECTORS
-	 cmp byte [bp + ldFATType], 16
-	 jbe @F
+	 test byte [bp + ldHasLBA], 2 | 4
+	 jz @F
 	add si, 512				; -> second_sector_buffer +1024
 	add di, 512				; -> behind buffer for FSIBOOT
 	sub cx, 512
 	jbe @FF
 @@:
-%endif
 	sub cx, 512
 	jbe @F
 	rep movsb
@@ -1498,7 +1604,6 @@ set_unit:
 
 
 validate_fsinfo:
-%if _FAT32_TWO_SECTORS
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
 
@@ -1539,11 +1644,9 @@ validate_fsinfo:
 
 .no_fsinfo:
 
-%endif
 
 write:
 
-%if _FAT32_TWO_SECTORS
 		; If the sector size is <= 512 bytes and there is a second
 		;  FAT32 sector which is an FSINFO sector, write it here.
 	test byte [bp + ldHasLBA], 2
@@ -1564,7 +1667,7 @@ write:
 	mov dx, msg.info_writing_sector_file
 	call disp_msg_asciz
 	mov di, cmd_line_sector_file
-	call open_file
+	call open_file_write
 	jc exit_error
 
 	mov ax, 4200h
@@ -1582,7 +1685,7 @@ write:
 	mov dx, msg.info_writing_file
 	call disp_msg_asciz
 	mov di, cmd_line_info_file
-	call open_file
+	call open_file_write
 	jc exit_error
 
 @@:
@@ -1640,7 +1743,7 @@ write:
 	call disp_msg_asciz
 
 .no_fsinfo:
-%endif
+
 
 	testopt [cmd_line_flags], clfDontWriteSector
 	jz .write_sector
@@ -1656,7 +1759,7 @@ write:
 	mov dx, msg.sector_writing_file
 	call disp_msg_asciz
 	mov di, cmd_line_sector_file
-	call open_file
+	call open_file_write
 	jc exit_error_restore_fsinfo
 
 	mov ax, 4200h		; seek from start of file
@@ -1716,7 +1819,6 @@ write:
 
 
 exit_error_restore_fsinfo:
-%if _FAT32_TWO_SECTORS
 		; If the boot sector failed to write after FSINFO was
 		;  already written, try to restore FSINFO.
 	test byte [bp + ldHasLBA], 2
@@ -1741,7 +1843,7 @@ exit_error_restore_fsinfo:
 	mov dx, msg.critical_fail_fsinfo_changed
 	call disp_msg_asciz
 @@:
-%endif
+
 
 exit_error:
 	call restorestate
@@ -1760,18 +1862,28 @@ exit_normal:
 
 		; INP:	ds:di -> cmd_line_file structure
 		;		(word pointer to name, word handle)
-		; OUT:	File opened,
+		; OUT:	NC if success, file opened,
 		;	 bx = file handle
-		;	Jumps to disp_dos_error then disp_error if error
+		;	CY if error, called disp_dos_error
 		; CHG:	ax, bx, cx, dx, si
 		; Note:	We never close our files, instead relying on the
 		;	 process termination to close them.
-open_file:
+open_file_read:
+	db __TEST_IMM8		; (skip stc, NC)
+open_file_write:
+	stc
+	lframe near
+	lenter
+	lvar word,	bit_0_is_write
+	 pushf
+
 		; Is it already open ?
 	mov bx, word [di + cmd_line_file_handle_ofs]
 	cmp bx, -1
 	je @F
 	clc
+.return:
+	lleave code
 	retn
 
 @@:
@@ -1816,7 +1928,7 @@ open_file:
 	push es
 	push di
 	push ax
-	lframe
+	lframe none, nested
 	lvar 34, fstype_buffer
 	lvar 4, pathname_buffer
 	lenter
@@ -1878,12 +1990,17 @@ open_file:
 	jnc .got
 
 	cmp ax, 1
-	je .try_old_create
+	je .try_old_open_or_create
 	cmp ax, 6C00h
 	jne .error
 
-.try_old_create:
+.try_old_open_or_create:
 	mov ah, 3Ch				; Create (Create/Truncate)
+	test byte [bp + ?bit_0_is_write], 1
+	jnz @F					; setup for write -->
+	mov al, bl
+	mov ah, 3Dh				; Open
+@@:
 	mov dx, si				; -> filename
 						; cx = create attribute
 	stc
@@ -1894,21 +2011,36 @@ open_file:
 	mov bx, ax
 	mov word [di + cmd_line_file_handle_ofs], bx
 	clc
-	retn
+	jmp .return
 
 .error:
-	mov dx, msg.error_file_open
+	mov dx, msg.error_file_open_write
+	test byte [bp + ?bit_0_is_write], 1
+	jnz @F					; setup for write -->
+	mov dx, msg.error_file_open_read
+@@:
 	call disp_dos_error
 	stc
-	retn
+	jmp .return
 
 .setup_opencreate:
-	mov si, word [di + cmd_line_file_name_ofs]	; -> filename
+	mov si, word [di + cmd_line_file_name_ofs]
+						; -> filename
+	xor cx, cx				; create attribute
+	test byte [bp + ?bit_0_is_write], 1
+	jnz @F					; setup for write -->
+	mov bx, 0110_0000_0010_0000b		; Auto-commit, no int 24h
+						; DENY WRITE, Read-only
+	mov dx, 0000_0000_0000_0001b		; open
+	retn
+
+@@:
 	mov bx, 0110_0000_0010_0001b		; Auto-commit, no int 24h
 						; DENY WRITE, Write-only
-	xor cx, cx				; create attribute
 	mov dx, 0000_0000_0001_0010b		; create / open-truncate
 	retn
+
+	lleave ctx
 
 
 disp_dos_error:
@@ -1932,6 +2064,8 @@ disp_dos_error:
 
 		; INP:	ds:dx -> buffer
 		;	bx = handle
+		; OUT:	NC if success
+		;	CY if error, disp_dos_error called
 write_file_ae_512_bytes:
 	mov cx, word [bp + ldBytesPerSector]
 	cmp cx, 512		; more than 512 bytes ?
@@ -1940,7 +2074,11 @@ write_file_ae_512_bytes:
 @@:
 	mov ah, 40h
 	int 21h			; write file
-	jnc @F			; (NC) -->
+	jc @F
+	cmp ax, cx
+	mov ax, -1
+	je @FF			; (NC) -->
+@@:
 	mov dx, msg.error_file_write
 	call disp_dos_error
 	stc
@@ -2816,7 +2954,7 @@ hVdd:		dw 0
 load_unit:	dw 0FF00h
 drivenumber:	db 0
 
-%if _FAT32 && _FAT32_TWO_SECTORS
+%if _FAT32
 	align 4
 info_reset_struc:
 .signature1:
@@ -2862,7 +3000,6 @@ msg:
 	db 9,"/BO",9,9,"keep original boot sector",13,10
 %if _FAT32
 	db 9,"/BC",9,9,"restore boot sector from backup copy",13,10
- %if _FAT32_TWO_SECTORS
 	db 13,10
 	db "Only applicable for FAT32 with sector size below or equal to 512 bytes:",13,10
 	db 9,"/IS",9,9,"write FSIBOOT to drive's FSINFO sector (default)",13,10
@@ -2875,7 +3012,6 @@ msg:
 	db 9,"/IZ",9,9,"zero out reserved fields (including FSIBOOT area)",13,10
 	db 9,"/II",9,9,"leave invalid FSINFO structure",13,10
 	db 9,"/IV",9,9,"make valid FSINFO if there is none (default)",13,10
- %endif
 	db 13,10
 	db "Only applicable for FAT32:",13,10
 	db 9,"/C",9,9,"force writing to backup copies",13,10
@@ -2910,6 +3046,9 @@ msg:
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
 .boot_badchain:		asciz "Bad cluster chain.",13,10
 .no_fsinfo:	asciz "No FSINFO sector found.",13,10
+.not_yet_non_fsinfo:
+		asciz "FAT32 with two sectors and not FSINFO not yet supported.",13,10
+.wrong_size:	asciz "Error: Source file has wrong size, expected 512 or 1024 bytes.",13,10
 .critical_fail_fsinfo_changed:
 		asciz "Failure to write back original FSINFO!",13,10
 .is_fat12:	asciz "Detected FAT12 FS.",13,10
@@ -3020,13 +3159,17 @@ load_kernel_name: equ $
 .copy_sector:		asciz "Copying sector loader from backup copy.",13,10
 .leave_sector:		asciz "Keeping original sector loader.",13,10
 .replace_sector:	asciz "Replacing sector loader.",13,10
+.replace_sector_file:	asciz "Replacing sector loader from file.",13,10
 .copy_info:		asciz "Copying FSINFO from backup copy.",13,10
 .zero_info:		asciz "Zeroing FSINFO reserved fields.",13,10
 .leave_info:		asciz "Keeping original FSINFO.",13,10
 .replace_info:		asciz "Replacing FSIBOOT.",13,10
 
-.error_file_open:	asciz "Error opening file for writing, "
+.error_file_open_write:	asciz "Error opening file for writing, "
+.error_file_open_read:	asciz "Error opening file for reading, "
 .error_file_write:	asciz "Error writing file, "
+.error_file_read:	asciz "Error reading file, "
+.error_file_seek:	asciz "Error seeking file, "
 symhint_store_string msg.dos_error_
 .dos_error_msg_1:	asciz "DOS error "
 .dos_error_msg_2:	asciz "h ("
@@ -3468,6 +3611,7 @@ clfWriteSectorToSector:		equ   2
 clfDontWriteSector:		equ   4
 clfWriteSectorMask: \
 	equ clfWriteSectorToFile | clfWriteSectorToSector | clfDontWriteSector
+clfReadSectorFile:		equ   8
 clfWriteInfoToFile:		equ  10h
 clfWriteInfoToSector:		equ  20h
 clfWriteInfoToSectorFile:	equ  40h
@@ -3487,6 +3631,9 @@ clfLeaveInfo:			equ 10_0000h
 clfInfoFromCopy:		equ 20_0000h
 clfZeroInfo:			equ 40_0000h
 
+cmd_line_readsector_file:
+.name:		dw 0
+.handle:	dw -1
 cmd_line_sector_file:
 .name:		dw 0
 .handle:	dw -1
