@@ -310,6 +310,8 @@ start:
 	je .switch_b
 	cmp al, 'C'
 	je .switch_c
+	cmp al, 'S'
+	je .switch_s
 
 	cmp al, 'H'
 	je .switch_h
@@ -620,6 +622,24 @@ NUM_REPLACEMENTS equ 4
 	clropt [cmd_line_flags], clfWriteCopySectorIfSector | clfWriteCopyInfoIfSector
 	setopt [cmd_line_flags], clfWriteCopySector | clfWriteCopyInfo
 	jmp .loop_2
+
+
+.switch_s:
+	lodsb
+	call uppercase
+	cmp al, 'V'
+	jne @F
+	clropt [cmd_line_flags], clfAllowInvalidSector
+	jmp .loop_2
+
+@@:
+	cmp al, 'N'
+	jne @F
+	setopt [cmd_line_flags], clfAllowInvalidSector
+	jmp .loop_2
+
+@@:
+	jmp .switch_not_supported
 
 
 .error_multiple_drives:
@@ -1192,6 +1212,72 @@ prepare_sector:
 		;  (for FAT32 either 1024+ bytes including
 		;  our FSIBOOT or 512 B primary plus another
 		;  512 B of FSINFO)
+
+
+check_valid_sector:
+	mov dx, msg.sector_invalid_no_jump
+	mov di, first_sector_buffer
+	mov ax, word [di + 1]
+	lea bx, [di + 3]
+	cmp byte [di], 0E9h
+	je .rel16
+	cmp byte [di], 0E8h
+	je .rel16
+	cmp byte [di], 0EBh
+	jne .invalid
+.rel8:
+	dec bx
+	cbw
+.rel16:
+	add bx, ax
+	mov di, first_sector_buffer + bsBPB + bpbNew + BPBN_size
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov di, first_sector_buffer + bsBPB + ebpbNew + BPBN_size
+@@:
+	mov dx, msg.sector_invalid_too_short_jump
+	cmp bx, di
+	jb .invalid
+	mov dx, msg.sector_invalid_too_long_jump
+	cmp bx, first_sector_buffer + 510
+	jae .invalid
+
+	mov si, msg.fat12sig
+	mov di, first_sector_buffer + bsBPB + bpbNew + bpbnFilesystemID
+	cmp byte [bp + ldFATType], 16
+	jb @F
+	mov si, msg.fat16sig
+	je @F
+	mov si, msg.fat32sig
+	mov di, first_sector_buffer + bsBPB + ebpbNew + bpbnFilesystemID
+@@:
+	mov cx, 4
+	repe cmpsw
+	mov dx, msg.sector_valid_id
+	je .valid
+	mov di, first_sector_buffer + bsBPB
+	mov cx, bpbNew + BPBN_size
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov cx, ebpbNew + BPBN_size
+@@:
+	mov dx, msg.sector_valid_zeros
+	xor ax, ax
+	repe scasb
+	je .valid
+
+	mov dx, msg.sector_invalid_no_id_or_zeros
+.invalid:
+	testopt [cmd_line_flags], clfAllowInvalidSector
+	jz disp_error
+
+	push dx
+	mov dx, msg.allowing_sector_invalid
+	call disp_msg_asciz
+	pop dx
+
+.valid:
+	call disp_msg_asciz
 
 
 listnames:
@@ -2871,6 +2957,26 @@ load_kernel_name: equ $
 .replacing_before:	asciz "Replacing "
 .replacing_between:	asciz " with ",'"'
 .replacing_after:	asciz '".',13,10
+
+	align 2
+.fat12sig:	fill 8, 32, db "FAT12"
+.fat16sig:	fill 8, 32, db "FAT16"
+.fat32sig:	fill 8, 32, db "FAT32"
+.sector_invalid_no_jump:
+		asciz "Sector invalid, no jump instruction.",13,10
+.sector_invalid_too_short_jump:
+		asciz "Sector invalid, too short jump.",13,10
+.sector_invalid_too_long_jump:
+		asciz "Sector invalid, too long jump.",13,10
+.sector_valid_id:
+		asciz "Sector valid, FS ID matches.",13,10
+.sector_valid_zeros:
+		asciz "Sector valid, zeroed BPB matches.",13,10
+.sector_invalid_no_id_or_zeros:
+		asciz "Sector invalid, neither FS ID nor zeroed BPB.",13,10
+.allowing_sector_invalid:
+		asciz "Allowing invalid sector: "
+
 .auto:			asciz "AUTO"
 .error_invalid_number:	asciz "Invalid number.",13,10
 .using_fix_unit:	asciz "Using fixed unit of "
@@ -3369,6 +3475,7 @@ clfDontWriteInfo:		equ  80h
 clfWriteInfoMask: \
 	equ clfWriteInfoToFile | clfWriteInfoToSector \
 		| clfWriteInfoToSectorFile | clfDontWriteInfo
+clfAllowInvalidSector:		equ 400h
 clfAllowInvalidInfo:		equ 800h
 clfWriteCopySector:		equ 1000h
 clfWriteCopySectorIfSector:	equ 2000h
