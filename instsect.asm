@@ -925,7 +925,7 @@ error_badchain: equ $
 	test si, si
 	jnz @F
 
-	testopt [cmd_line_flags], clfLeaveSector
+	testopt [cmd_line_flags], clfLeaveSector | clfSectorFromCopy
 	jnz @F
 
 	mov dx, msg.not_supported_fat_type
