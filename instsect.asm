@@ -3071,6 +3071,12 @@ msg:
 	db 9,"/U AUTO",9,9,"leave in default auto-boot-unit handling (default)",13,10
 	db 9,"/U xx",9,9,"patch boot loader to use XXh as a fixed unit",13,10
 	db 13,10
+	db 9,"/SR",9,9,"do not read boot sector from source file (default)",13,10
+	db 9,"/S=filename",9,"read boot sector loader from source file",13,10
+	db 9,"/S12=filename",9,"as /S=filename but only for FAT12 (16, 32)",13,10
+	db 9,"/SV",9,9,"validate boot sector jump and FS ID (default)",13,10
+	db 9,"/SN",9,9,"do not validate boot sector jump and FS ID",13,10
+	db 13,10
 	db 9,"/BS",9,9,"write boot sector to drive's boot sector (default)",13,10
 	db 9,"/B=filename",9,"write boot sector to file, not to drive",13,10
 	db 9,"/BN",9,9,"do not write boot sector",13,10
