@@ -2775,6 +2775,7 @@ msg:
 	db 9,"/BR",9,9,"replace boot sector loader with built-in one (default)",13,10
 	db 9,"/BO",9,9,"keep original boot sector",13,10
 %if _FAT32
+	db 9,"/BC",9,9,"restore boot sector from backup copy",13,10
  %if _FAT32_TWO_SECTORS
 	db 13,10
 	db "Only applicable for FAT32 with sector size below or equal to 512 bytes:",13,10
@@ -2784,6 +2785,7 @@ msg:
 	db 9,"/IN",9,9,"do not write FSIBOOT",13,10
 	db 9,"/IR",9,9,"replace reserved field with built-in FSIBOOT (default)",13,10
 	db 9,"/IO",9,9,"keep original reserved fields (including FSIBOOT area)",13,10
+	db 9,"/IC",9,9,"restore FSINFO from backup copy",13,10
 	db 9,"/IZ",9,9,"zero out reserved fields (including FSIBOOT area)",13,10
 	db 9,"/II",9,9,"leave invalid FSINFO structure",13,10
 	db 9,"/IV",9,9,"make valid FSINFO if there is none (default)",13,10
