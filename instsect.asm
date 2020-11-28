@@ -3068,7 +3068,7 @@ detectedcopysector	equ 10h
 detectedcopyinfo	equ 20h
 
 hVdd:		dw 0
-load_unit:	dw 0FF00h
+load_unit:	dw -1
 drivenumber:	db 0
 
 %if _FAT32
