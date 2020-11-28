@@ -1251,6 +1251,20 @@ prepare_sector:
 
 
 check_valid_sector:
+	mov dx, msg.sector_invalid_no_id
+	mov si, msg.fat12sig
+	mov di, first_sector_buffer + bsBPB + bpbNew + bpbnFilesystemID
+	cmp byte [bp + ldFATType], 16
+	jb @F
+	mov si, msg.fat16sig
+	je @F
+	mov si, msg.fat32sig
+	mov di, first_sector_buffer + bsBPB + ebpbNew + bpbnFilesystemID
+@@:
+	mov cx, 4
+	repe cmpsw
+	jne .invalid
+
 	mov dx, msg.sector_invalid_no_jump
 	mov di, first_sector_buffer
 	mov ax, word [di + 1]
@@ -1278,21 +1292,9 @@ check_valid_sector:
 	cmp bx, first_sector_buffer + 510
 	jae .invalid
 
-	mov si, msg.fat12sig
-	mov di, first_sector_buffer + bsBPB + bpbNew + bpbnFilesystemID
-	cmp byte [bp + ldFATType], 16
-	jb @F
-	mov si, msg.fat16sig
-	je @F
-	mov si, msg.fat32sig
-	mov di, first_sector_buffer + bsBPB + ebpbNew + bpbnFilesystemID
-@@:
-	mov cx, 4
-	repe cmpsw
-	mov dx, msg.sector_valid_id
-	je .valid
+	mov dx, msg.sector_valid
+	jmp .valid
 
-	mov dx, msg.sector_invalid_no_id
 .invalid:
 	testopt [cmd_line_flags], clfAllowInvalidSector
 	jz disp_error
@@ -3184,8 +3186,8 @@ load_kernel_name: equ $
 		asciz "Sector invalid, too short jump.",13,10
 .sector_invalid_too_long_jump:
 		asciz "Sector invalid, too long jump.",13,10
-.sector_valid_id:
-		asciz "Sector valid, FS ID match.",13,10
+.sector_valid:
+		asciz "Sector valid, FS ID match and proper jump.",13,10
 .sector_invalid_no_id:
 		asciz "Sector invalid, no FS ID match.",13,10
 .allowing_sector_invalid:
