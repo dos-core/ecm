@@ -3068,7 +3068,7 @@ msg:
 	db 13,10
 	db 9,"/SR",9,9,"do not read boot sector from source file (default)",13,10
 	db 9,"/S=filename",9,"read boot sector loader from source file",13,10
-	db 9,"/S12=filename",9,"as /S=filename but only for FAT12 (16, 32)",13,10
+	db 9,"/S12=filename",9,"as /S=filename but only for FAT12 (also /S16, /S32)",13,10
 	db 9,"/SV",9,9,"validate boot sector jump and FS ID (default)",13,10
 	db 9,"/SN",9,9,"do not validate boot sector jump and FS ID",13,10
 	db 13,10
