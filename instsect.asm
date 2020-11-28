@@ -1019,6 +1019,8 @@ prepare_sector:
 	jmp disp_error
 
 .sector_from_copy:
+	mov dx, msg.copy_sector
+	call disp_msg_asciz
 	xor dx, dx
 	mov bx, first_sector_buffer
 	mov ax, word [bp + bsBPB + ebpbBackupSector]
@@ -1031,6 +1033,8 @@ prepare_sector:
 	testopt [cmd_line_flags], clfLeaveSector
 	jz @F
 
+	mov dx, msg.leave_sector
+	call disp_msg_asciz
 		; Copy over original 512-byte sector buffer content.
 	mov cx, 512
 	mov di, first_sector_buffer
@@ -1055,6 +1059,9 @@ prepare_sector:
 		;  for the case of FAT32 with _FAT32_TWO_SECTORS
 		;  and a sector size >= 1 KiB.
 @@:
+	mov dx, msg.replace_sector
+	call disp_msg_asciz
+
 	mov cx, 1024 >> 1
 	mov di, first_sector_buffer
 	rep movsw
@@ -1092,6 +1099,8 @@ prepare_sector:
 	jmp disp_error
 
 .info_from_copy:
+	mov dx, msg.copy_info
+	call disp_msg_asciz
 	xor dx, dx
 	mov bx, first_sector_buffer + 512
 	mov ax, word [bp + bsBPB + ebpbBackupSector]
@@ -1105,6 +1114,9 @@ prepare_sector:
 
 	testopt [cmd_line_flags], clfZeroInfo
 	jz @F
+
+	mov dx, msg.zero_info
+	call disp_msg_asciz
 
 	mov di, first_sector_buffer + 512
 	mov cx, 512 >> 1
@@ -1132,6 +1144,9 @@ prepare_sector:
 	testopt [cmd_line_flags], clfLeaveInfo
 	jz @F
 
+	mov dx, msg.leave_info
+	call disp_msg_asciz
+
 		; Copy over original FSINFO sector content.
 	mov si, second_sector_buffer + 512
 	mov di, first_sector_buffer + 512
@@ -1140,6 +1155,10 @@ prepare_sector:
 	jmp .no_fsinfo
 
 @@:
+
+	mov dx, msg.replace_info
+	call disp_msg_asciz
+
 		; Copy over actual FSINFO structure from original.
 		;  (Leaves FSIBOOT as written from our image.)
 	mov si, second_sector_buffer + 512 + FSINFO.signature2
@@ -2890,6 +2909,13 @@ load_kernel_name: equ $
 .backup_error_info:	asciz "Error while writing FSINFO to backup copy.",13,10
 .missing_backup_sector:	asciz "Error: No backup copy of boot sector available.",13,10
 .missing_backup_info:	asciz "Error: No backup copy of info sector available.",13,10
+.copy_sector:		asciz "Copying sector loader from backup copy.",13,10
+.leave_sector:		asciz "Keeping original sector loader.",13,10
+.replace_sector:	asciz "Replacing sector loader.",13,10
+.copy_info:		asciz "Copying FSINFO from backup copy.",13,10
+.zero_info:		asciz "Zeroing FSINFO reserved fields.",13,10
+.leave_info:		asciz "Keeping original FSINFO.",13,10
+.replace_info:		asciz "Replacing FSIBOOT.",13,10
 
 .error_file_open:	asciz "Error opening file for writing, "
 .error_file_write:	asciz "Error writing file, "
