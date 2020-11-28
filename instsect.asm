@@ -1665,34 +1665,49 @@ set_unit:
 
 	jmp .notfound
 
-.found_set_bpbn:
-	mov dx, msg.unit_found.set_bpbn
-	jmp @F
-
-.found_set_dl:
-	mov dx, msg.unit_found.set_dl
-@@:
-	call disp_msg_asciz
-	mov dx, msg.unit_found.keeping
-	cmp word [load_unit], -1
-	je .done_msg
-
+.setup_pointers:
 	cmp byte [bp + ldFATType], 16
 	jbe .1612
 .32:
 	mov bx, first_sector_buffer + bsBPB + ebpbNew + bpbnBootUnit
-	mov dx, unit_search_strings.32_set_bpbn
+	mov ax, unit_search_strings.32_set_bpbn
 	mov di, unit_search_strings.32_set_dl
 	mov cx, unit_search_strings.32_set_dl_length
 	jmp @F
 
 .1612:
 	mov bx, first_sector_buffer + bsBPB + bpbNew + bpbnBootUnit
-	mov dx, unit_search_strings.1612_set_bpbn
+	mov ax, unit_search_strings.1612_set_bpbn
 	mov di, unit_search_strings.1612_set_dl
 	mov cx, unit_search_strings.1612_set_dl_length
 @@:
+	retn
 
+
+.found_set_bpbn:
+	call .setup_pointers
+	mov dx, msg.unit_found.set_bpbn
+	jmp @F
+
+.found_set_dl:
+	call .setup_pointers
+	mov dx, msg.unit_found.set_dl
+	call disp_msg_asciz
+
+	push ax
+	mov al, [bx]
+	call disp_al_hex
+	pop ax
+
+	mov dx, msg.unit_found.set_dl.after
+@@:
+	call disp_msg_asciz
+
+	mov dx, msg.unit_found.keeping
+	cmp word [load_unit], -1
+	je .done_msg
+
+	push ax
 	mov ax, [load_unit]
 
 	test ah, ah
@@ -1705,10 +1720,11 @@ set_unit:
 	mov byte [bx], al
 
 	mov dx, msg.using_fix_unit_after
+	pop ax
 	jmp @FF			; di -> set dl
 
 @@:
-	xchg di, dx		; (if ah NZ) di -> set bpbn
+	pop di			; di -> set bpbn
 	mov dx, msg.using_auto_unit
 @@:
 
@@ -3245,7 +3261,9 @@ load_kernel_name: equ $
 .unit_not_found:	asciz "Error: Unit selection code not found in sector.",13,10
 .unit_not_found.keep:	asciz "Unit selection code not found in sector. Keeping as is.",13,10
 .unit_found.set_bpbn:	asciz "Auto unit selection found in sector."
-.unit_found.set_dl:	asciz "Fixed unit selection found in sector."
+.unit_found.set_dl:	asciz "Fixed unit selection found in sector, unit "
+.unit_found.set_dl.after:
+			asciz "h."
 .unit_found.keeping:	asciz " Keeping as is.",13,10
 .using_auto_unit:	asciz " Using auto unit.",13,10
 
