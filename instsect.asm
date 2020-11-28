@@ -3127,7 +3127,7 @@ msg:
 .no_fsinfo:	asciz "No FSINFO sector found.",13,10
 .not_yet_non_fsinfo:
 		asciz "FAT32 with two sectors and not FSINFO not yet supported.",13,10
-.wrong_size:	asciz "Error: Source file has wrong size, expected 512 or 1024 bytes.",13,10
+.wrong_size:	asciz "Error: Source file has wrong size, expected 512 or (FAT32-only) 1024 bytes.",13,10
 .critical_fail_fsinfo_changed:
 		asciz "Failure to write back original FSINFO!",13,10
 .is_fat12:	asciz "Detected FAT12 FS.",13,10
