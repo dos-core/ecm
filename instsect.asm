@@ -3238,15 +3238,31 @@ load_kernel_name: equ $
 .foundname_none_size: equ $ - .foundname_none
 	align 4
 .names:
-	dw .name_first, 0
-	dw .name_second, 0
-	dw .name_third, 0
-	dw .name_fourth, 0
+ %assign ii 1
+ %rep _NUM_DETECT_NAMES
+	dw .name_ %+ ii, 0
+  %assign ii ii + 1
+ %endrep
 	dw 0
-.name_first:	asciz "1st name"
-.name_second:	asciz "2nd name"
-.name_third:	asciz "3rd name"
-.name_fourth:	asciz "4th name"
+ %assign ii 1
+ %if _NUM_DETECT_NAMES > 9
+  %error Too many detected names
+ %endif
+ %rep _NUM_DETECT_NAMES
+  %define string "0" + ii
+  %if ii == 1
+   %xdefine string string,"st"
+  %elif ii == 2
+   %xdefine string string,"nd"
+  %elif ii == 3
+   %xdefine string string,"rd"
+  %else
+   %xdefine string string,"th"
+  %endif
+  %xdefine string string," name"
+.name_ %+ ii:	asciz string
+  %assign ii ii + 1
+ %endrep
 .name_before:	asciz ": "
 .name_quote:	asciz '"'
 .name_after:	asciz 13,10
