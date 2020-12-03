@@ -3140,7 +3140,8 @@ msg:
 	db 9,"a:",9,9,"load or update boot sectors of specified drive",13,10
 	db 13,10
 %if _NUM_REPLACEMENTS
-	db 9,"/Fx=filename",9,"replace Xth name in the boot sector, X = 1 to ",'0' + _NUM_REPLACEMENTS,13,10
+	_autodigitsstrdef DEF, _NUM_REPLACEMENTS
+	db 9,"/Fx=filename",9,"replace Xth name in the boot sector, X = 1 to ",_DEF,13,10
 	db 9,"/F=filename",9,"alias to /F1=filename",13,10
 	db 13,10
 %endif
