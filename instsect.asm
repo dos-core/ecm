@@ -210,6 +210,8 @@ ptExtendedLinux:	equ 85h
 	strdef PAYLOAD_FAT12,	"boot12.bin"
 	strdef PAYLOAD_FAT16,	"boot16.bin"
 	strdef PAYLOAD_FAT32,	"boot32.bin"
+	numdef NUM_REPLACEMENTS,4
+
 
 	align 16
 %if _FAT12
@@ -300,8 +302,10 @@ start:
 .switch:
 	lodsb
 	call uppercase
+%if _NUM_REPLACEMENTS
 	cmp al, 'F'
 	je .switch_f
+%endif
 	cmp al, 'U'
 	je .switch_u
 	cmp al, 'I'
@@ -331,9 +335,8 @@ disp_error: equ $
 	jmp exit_normal
 
 
+%if _NUM_REPLACEMENTS
 .switch_f:
-
-NUM_REPLACEMENTS equ 4
 
 @@:
 	lodsb
@@ -347,7 +350,7 @@ NUM_REPLACEMENTS equ 4
 	 je @FF
 	cmp al, '1'
 	jb .error
-	cmp al, '1' - 1 + NUM_REPLACEMENTS	; '4'
+	cmp al, '1' - 1 + _NUM_REPLACEMENTS	; '4'
 	ja .error
 	cmp byte [si], '='
 	je @F
@@ -392,6 +395,7 @@ NUM_REPLACEMENTS equ 4
 @@:
 	mov byte [di], 0	; delete replacement name
 	jmp .loop
+%endif
 
 
 .switch_u:
@@ -1537,9 +1541,11 @@ listnames:
 @@:
 %endif
 
+
+%if _NUM_REPLACEMENTS
 	mov si, msg.name_replacements
 	mov bx, msg.names
-	mov cx, NUM_REPLACEMENTS
+	mov cx, _NUM_REPLACEMENTS
 .loop:
 	cmp byte [si], 0
 	je .next
@@ -1582,6 +1588,8 @@ listnames:
 	add si, 12
 	cmp word [bx], 0
 	loopnz .loop
+%endif
+
 
 set_unit:
 	mov si, first_sector_buffer
@@ -3121,8 +3129,11 @@ msg:
 	db "Options:",13,10
 	db 9,"a:",9,9,"load or update boot sectors of specified drive",13,10
 	db 13,10
-	db 9,"/Fx=filename",9,"replace Xth name in the boot sector, X = 1 to ",'0' + NUM_REPLACEMENTS,13,10
+%if _NUM_REPLACEMENTS
+	db 9,"/Fx=filename",9,"replace Xth name in the boot sector, X = 1 to ",'0' + _NUM_REPLACEMENTS,13,10
 	db 9,"/F=filename",9,"alias to /F1=filename",13,10
+	db 13,10
+%endif
 	db 9,"/U KEEP",9,9,"keep default/current boot unit handling (default)",13,10
 	db 9,"/U AUTO",9,9,"patch boot loader to use auto boot unit handling",13,10
 	db 9,"/U xx",9,9,"patch boot loader to use XXh as a fixed unit",13,10
@@ -3203,9 +3214,11 @@ msg:
 load_kernel_name: equ $
 	times 12 db 0
 		; buffer for base name (8) + ext (3) + NUL (1) = 12
+%if _NUM_REPLACEMENTS
 .name_replacements:
-	times 12 * NUM_REPLACEMENTS db 0
+	times 12 * _NUM_REPLACEMENTS db 0
 		; name replacement buffers, 4 times same as load_kernel_name
+%endif
 	align 4
 .foundname:
 	times 8+1+3+1 db 0
