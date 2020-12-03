@@ -3245,22 +3245,28 @@ load_kernel_name: equ $
  %endrep
 	dw 0
  %assign ii 1
- %if _NUM_DETECT_NAMES > 9
-  %error Too many detected names
- %endif
  %rep _NUM_DETECT_NAMES
-  %define string "0" + ii
-  %if ii == 1
-   %xdefine string string,"st"
-  %elif ii == 2
-   %xdefine string string,"nd"
-  %elif ii == 3
-   %xdefine string string,"rd"
+  _autodigitsstrdef DEF, ii
+  %strcat string _DEF
+  %strlen ll string
+  %substr ones string ll
+  %if ll >= 2
+   %substr tens string ll - 1
   %else
-   %xdefine string string,"th"
+   %define tens "0"
   %endif
-  %xdefine string string," name"
-.name_ %+ ii:	asciz string
+  %deftok tokenones ones
+  %deftok tokentens tens
+  %if tokentens != 1 && tokenones == 1
+   %define suffix "st"
+  %elif tokentens != 1 && tokenones == 2
+   %define suffix "nd"
+  %elif tokentens != 1 && tokenones == 3
+   %define suffix "rd"
+  %else
+   %define suffix "th"
+  %endif
+.name_ %+ ii:	asciz _DEF,suffix," name"
   %assign ii ii + 1
  %endrep
 .name_before:	asciz ": "
