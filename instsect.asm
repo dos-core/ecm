@@ -352,19 +352,21 @@ disp_error: equ $
 	 je @FF
 	 cmp al, ':'
 	 je @FF
-	cmp al, '1'
-	jb .error
-	cmp al, '1' - 1 + _NUM_REPLACEMENTS	; '4'
+	call get_decimal_literal
+	test bx, bx
+	jnz .error
+	test dx, dx
+	jz .error
+	cmp dx, _NUM_REPLACEMENTS
 	ja .error
-	cmp byte [si], '='
+	dec dx
+	cmp al, '='
 	je @F
-	cmp byte [si], ':'
+	cmp al, ':'
 	jne .error
 @@:
-	inc si			; -> behind the colon
-	sub al, '1'		; 0 to 3 inclusive
-	mov ah, 12
-	mul ah			; 0, 12, 24, 36
+	mov ax, 12
+	mul dx			; ax = 0, 12, 24, 36
 	db __TEST_IMM16		; (skip xor)
 @@:
 	 xor ax, ax		; if empty number field (al was colon)
@@ -2686,9 +2688,9 @@ isseparator?:
 	retn
 
 %if 0	; _EXPRESSIONS
-separators:	countedw 32,9,13,",L;]:)",0
+separators:	countedw 32,9,13,",L;]:=)",0
 %else
-separators:	countedw 32,9,13,",L;]:",0
+separators:	countedw 32,9,13,",L;]:=",0
 %endif
 
 
