@@ -211,6 +211,10 @@ ptExtendedLinux:	equ 85h
 	strdef PAYLOAD_FAT16,	"boot16.bin"
 	strdef PAYLOAD_FAT32,	"boot32.bin"
 	numdef NUM_REPLACEMENTS,4
+	numdef NUM_DETECT_NAMES,4
+%if _NUM_REPLACEMENTS > _NUM_DETECT_NAMES
+ %error Must detect above-or-equal amount of replacement names
+%endif
 
 
 	align 16
@@ -1467,6 +1471,7 @@ prepare_sector_final:
 		;  512 B of FSINFO)
 
 
+%if _NUM_DETECT_NAMES
 listnames:
 	mov bx, msg.names
 	mov si, first_sector_buffer + bsBPB + bpbNew + BPBN_size
@@ -1588,6 +1593,7 @@ listnames:
 	add si, 12
 	cmp word [bx], 0
 	loopnz .loop
+%endif
 %endif
 
 
@@ -2247,6 +2253,7 @@ unit_search_strings:
 %endif
 
 
+%if _NUM_DETECT_NAMES
 		; INP:	ds:si -> first byte to check for name
 		;	cx = number of bytes left
 		; OUT:	(8+1+3+1)bytes[msg.foundname] = found name,
@@ -2468,6 +2475,7 @@ boot_parse_fn:
 @@:
 	clc
 	retn
+%endif
 
 
 iseol?:
@@ -3210,15 +3218,16 @@ msg:
 		asciz "This FAT type is not supported in this build.",13,10
 %endif
 
+%if _NUM_DETECT_NAMES
 	align 4
 load_kernel_name: equ $
 	times 12 db 0
 		; buffer for base name (8) + ext (3) + NUL (1) = 12
-%if _NUM_REPLACEMENTS
+ %if _NUM_REPLACEMENTS
 .name_replacements:
 	times 12 * _NUM_REPLACEMENTS db 0
 		; name replacement buffers, 4 times same as load_kernel_name
-%endif
+ %endif
 	align 4
 .foundname:
 	times 8+1+3+1 db 0
@@ -3243,12 +3252,15 @@ load_kernel_name: equ $
 .name_after:	asciz 13,10
 .name_none:	asciz "No name detected.",13,10
 
+ %if _NUM_REPLACEMENTS
 .no_name_found_before:	asciz "No "
 .no_name_found_after:	asciz " for replacement found!",13,10
 
 .replacing_before:	asciz "Replacing "
 .replacing_between:	asciz " with ",'"'
 .replacing_after:	asciz '".',13,10
+ %endif
+%endif
 
 	align 2
 .fat12sig:	fill 8, 32, db "FAT12"
