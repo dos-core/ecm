@@ -130,6 +130,7 @@ along with a default loader (which aborts with an error).
 	numdef VOLUMEID,	0
 
 	numdef MBR,			0
+	strdef MBRCODEFILE, ""
 	gendef MBR_PART_TYPE,		fat %+ _BPE
 	numdef MBR_DOSEMU_IMAGE_HEADER,	0
 	numdef MBR_GAP_SIZE_SECTORS,	0, 2048
@@ -477,6 +478,9 @@ at dihHeaderSize,	dd dih_our_size
  %define STARTSFOLLOWS follows=mbr
 
 mbr_start:
+ %ifnidn _MBRCODEFILE, ""
+	incbin _MBRCODEFILE
+ %else
 	cli
 	cld
 	xor ax, ax
@@ -508,6 +512,7 @@ mbr_message:
 	db 13,10
 	db "Press any key to reboot.",13,10
 	db 0
+ %endif
 
 	times (512 - 2 - 4 * 16) - ($ - $$) db 0
 
