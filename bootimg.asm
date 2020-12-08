@@ -119,6 +119,8 @@ along with a default loader (which aborts with an error).
 	numdef HIDDEN, 0	; number of hidden sectors
 
 	strdef BOOTFILE, ""
+	strdef BOOTJUMPFILE, ""
+	strdef BOOTCODEFILE, ""
 	gendef PAYLOADFILE, ""
 	gendef MAP, ""
 
@@ -376,6 +378,46 @@ piStart:	resd 1
 piLength:	resd 1
 	endstruc
 
+	struc BS
+bsJump:	resb 3
+bsOEM:	resb 8
+bsBPB:
+	endstruc
+
+	struc EBPB		;        BPB sec
+bpbBytesPerSector:	resw 1	; offset 00h 0Bh
+bpbSectorsPerCluster:	resb 1	; offset 02h 0Dh
+bpbReservedSectors:	resw 1	; offset 03h 0Eh
+bpbNumFATs:		resb 1	; offset 05h 10h
+bpbNumRootDirEnts:	resw 1	; offset 06h 11h -- 0 for FAT32
+bpbTotalSectors:	resw 1	; offset 08h 13h
+bpbMediaID:		resb 1	; offset 0Ah 15h
+bpbSectorsPerFAT:	resw 1	; offset 0Bh 16h -- 0 for FAT32
+bpbCHSSectors:		resw 1	; offset 0Dh 18h
+bpbCHSHeads:		resw 1	; offset 0Fh 1Ah
+bpbHiddenSectors:	resd 1	; offset 11h 1Ch
+bpbTotalSectorsLarge:	resd 1	; offset 15h 20h
+bpbNew:				; offset 19h 24h
+
+ebpbSectorsPerFATLarge:	resd 1	; offset 19h 24h
+ebpbFSFlags:		resw 1	; offset 1Dh 28h
+ebpbFSVersion:		resw 1	; offset 1Fh 2Ah
+ebpbRootCluster:	resd 1	; offset 21h 2Ch
+ebpbFSINFOSector:	resw 1	; offset 25h 30h
+ebpbBackupSector:	resw 1	; offset 27h 32h
+ebpbReserved:		resb 12	; offset 29h 34h
+ebpbNew:			; offset 35h 40h
+	endstruc
+
+	struc BPBN		; ofs B16 S16 B32 S32
+bpbnBootUnit:		resb 1	; 00h 19h 24h 35h 40h
+			resb 1	; 01h 1Ah 25h 36h 41h
+bpbnExtBPBSignature:	resb 1	; 02h 1Bh 26h 37h 42h -- 29h for valid BPBN
+bpbnSerialNumber:	resd 1	; 03h 1Ch 27h 38h 43h
+bpbnVolumeLabel:	resb 11	; 07h 20h 2Bh 3Ch 47h
+bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
+	endstruc		; 1Ah 33h 3Eh 4Fh 5Ah
+
 	struc DIRENTRY
 deName:		resb 8
 deExt:		resb 3
@@ -503,11 +545,19 @@ mbr_signature:
 %ifnidn _BOOTFILE, ""
 	incbin _BOOTFILE
 %else
+ %ifnidn _BOOTJUMPFILE, ""
+	incbin _BOOTJUMPFILE
+ %else
 	jmp strict short %1_boot_after_bpb
 	nop
-
+ %endif
+ %if ($ - $$) == bsOEM
 %1_oem_id:		; offset 03h (03)
 	fill 8,_OEM_NAME_FILL,db _OEM_NAME
+ %endif
+ %if ($ - $$) != bsBPB
+  %error Invalid boot jump file length, must be 11 or 3
+ %endif
 %1_bytes_per_sector:	; offset 0Bh (11)
 	dw _BPS
 %1_sectors_per_cluster:	; offset 0Dh (13)
@@ -597,6 +647,9 @@ mbr_signature:
 
 
 %1_boot_after_bpb:
+ %ifnidn _BOOTCODEFILE, ""
+	incbin _BOOTCODEFILE
+ %else
 	cli
 	cld
 	xor ax, ax
@@ -630,13 +683,27 @@ mbr_signature:
 	db 0
 
 	times 508 - ($ - $$) db 0
+ %endif
+%endif
+%if ($ - $$) == 508
 	dw 0
+%endif
+%if ($ - $$) == 510
 	dw 0AA55h
 %endif
 %1_boot_end:
 
 %if (%1_boot_end - %1_boot_start) != 512
- %error Boot file has wrong size
+ %ifnidn _BOOTFILE, ""
+  %error Boot file has wrong size, must be 512, 510, or 508
+ %elifnidn _BOOTCODEFILE, ""
+  %assign numberexpected1 512 - (%1_boot_after_bpb - $$)
+  %assign numberexpected2 numberexpected1 - 2
+  %assign numberexpected3 numberexpected1 - 4
+  %error Boot code file has wrong size, must be numberexpected1, numberexpected2, or numberexpected3
+ %else
+  %error Internal error, default boot sector loader has wrong size
+ %endif
 %endif
 %if _BPS > 512
 	_fill _BPS - 4, 0, %1_boot_start
