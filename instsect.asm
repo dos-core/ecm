@@ -3423,6 +3423,11 @@ msg:
 	db 13,10
 	db "Options:",13,10
 	db 9,"a:",9,9,"load or update boot sectors of specified drive",13,10
+	db 9,"/M=filename",9,"operate on FS image file instead of drive",13,10
+	db 9,"/MN",9,9,"operate on drive instead of image file (default)",13,10
+	db 9,"/MS=number",9,"set sector size of FS image file (default 512)",13,10
+	db 9,"/MO=number",9,"set offset in image file in bytes (default 0)",13,10
+	db 9,"/MOx=number",9,"set offset (x = S sectors, K 1024, M 1024 * 1024)",13,10
 	db 13,10
 %if _NUM_REPLACEMENTS
 	_autodigitsstrdef DEF, _NUM_REPLACEMENTS
