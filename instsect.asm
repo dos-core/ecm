@@ -320,6 +320,8 @@ start:
 	je .switch_c
 	cmp al, 'S'
 	je .switch_s
+	cmp al, 'M'
+	je .switch_m
 
 	cmp al, 'H'
 	je .switch_h
@@ -729,6 +731,160 @@ disp_error: equ $
 	jmp .loop_got_byte
 
 
+.switch_m:
+	lodsb
+	call uppercase
+	cmp al, 'N'
+	je .switch_mn
+	cmp al, 'S'
+	je .switch_ms
+	cmp al, 'O'
+	je .switch_mo
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
+	jmp .switch_not_supported
+
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+	dec si
+	mov word [cmd_line_image_file.name], si
+	call process_switch_filename
+	jmp .loop_got_byte
+
+.switch_mn:
+	and word [cmd_line_image_file.name], 0
+	jmp .loop
+
+.switch_ms:
+	lodsb
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
+	jmp .error
+
+@@:
+	lodsb
+	cmp al, '0'
+	jne @F
+	lodsb
+	call uppercase
+	cmp al, 'X'
+	je .switch_ms.hex
+	dec si
+	dec si
+	lodsb
+@@:
+	call get_decimal_literal
+	jmp @F
+
+.switch_ms.hex:
+	call get_hexadecimal_literal
+@@:
+	test bx, bx
+	jnz .error
+	cmp dx, 8192
+	jne .error
+	mov bx, 32
+	cmp dx, bx
+	jb .error
+@@:
+	cmp dx, bx
+	je @F
+	add bx, bx
+	cmp bx, 8192
+	jbe @B
+	jmp .error
+
+@@:
+	mov word [m_sector_size], dx
+	jmp .loop
+
+
+.switch_mo:
+	lodsb
+	call uppercase
+	cmp al, 'S'
+	mov di, m_sector_size
+	je @F
+	cmp al, 'K'
+	mov di, m_1024
+	je @F
+	cmp al, 'M'
+	mov di, m_1024_times_1024
+	je @F
+	mov di, m_1
+	db __TEST_IMM8
+@@:
+	lodsb
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	je @F
+	jmp .error
+
+@@:
+	push di
+	lodsb
+	cmp al, '0'
+	jne @F
+	lodsb
+	call uppercase
+	cmp al, 'X'
+	je .switch_mo.hex
+	dec si
+	dec si
+	lodsb
+@@:
+	call get_decimal_literal
+	jmp @F
+
+.switch_mo.hex:
+	call get_hexadecimal_literal
+@@:
+	pop di
+	push si
+	mov si, m_offset
+	xchg dx, bx
+	xchg ax, bx
+	call multiply_dxax_dword_di_to_qword_si
+	pop si
+	jmp .loop
+
+
+multiply_dxax_dword_di_to_qword_si: equ $
+	push ax
+	mov ax, dx
+	push dx
+	mul word [di + 2]		; high times high
+	mov word [si + 4], ax
+	mov word [si + 6], dx
+	pop ax
+	mul word [di]			; high times low
+	mov word [si + 2], ax
+	add word [si + 4], dx
+	adc word [si + 6], 0		; (NC)
+	pop ax
+	push ax
+	mul word [di + 2]		; low times high
+	add word [si + 2], ax
+	adc word [si + 4], dx
+	adc word [si + 6], 0		; (NC)
+	pop ax
+	mul word [di]			; low times low
+	mov word [si], ax
+	add word [si + 2], dx
+	adc word [si + 4], 0
+	adc word [si + 6], 0		; (NC)
+	retn
+
+
 .error_multiple_drives:
 	mov dx, msg.error_multiple_drives
 	jmp disp_error
@@ -792,7 +948,15 @@ process_switch_filename:
 cmd_line_end:
 	cmp byte [drivenumber], -1
 	jne @F
+	cmp word [cmd_line_image_file.name], 0
+	jne @FF
 	mov dx, msg.no_drive_specified
+	jmp disp_error
+
+@@:
+	cmp word [cmd_line_image_file.name], 0
+	je @F
+	mov dx, msg.drive_and_image_specified
 	jmp disp_error
 
 @@:
@@ -2017,14 +2181,18 @@ exit_normal:
 		; CHG:	ax, bx, cx, dx, si
 		; Note:	We never close our files, instead relying on the
 		;	 process termination to close them.
+open_file_readwrite:
+	mov al, 2
+	db __TEST_IMM16		; (skip mov al)
 open_file_read:
-	db __TEST_IMM8		; (skip stc, NC)
+	mov al, 0
+	db __TEST_IMM16		; (skip mov al)
 open_file_write:
-	stc
+	mov al, 1
 	lframe near
 	lenter
-	lvar word,	bit_0_is_write
-	 pushf
+	lvar word,	bit0_wo_bit1_rw
+	 push ax
 
 		; Is it already open ?
 	mov bx, word [di + cmd_line_file_handle_ofs]
@@ -2145,7 +2313,7 @@ open_file_write:
 
 .try_old_open_or_create:
 	mov ah, 3Ch				; Create (Create/Truncate)
-	test byte [bp + ?bit_0_is_write], 1
+	test byte [bp + ?bit0_wo_bit1_rw], 1
 	jnz @F					; setup for write -->
 	mov al, bl
 	mov ah, 3Dh				; Open
@@ -2164,8 +2332,11 @@ open_file_write:
 
 .error:
 	mov dx, msg.error_file_open_write
-	test byte [bp + ?bit_0_is_write], 1
+	test byte [bp + ?bit0_wo_bit1_rw], 1
 	jnz @F					; setup for write -->
+	mov dx, msg.error_file_open_readwrite
+	test byte [bp + ?bit0_wo_bit1_rw], 2
+	jnz @F					; setup for rw -->
 	mov dx, msg.error_file_open_read
 @@:
 	call disp_dos_error
@@ -2176,17 +2347,23 @@ open_file_write:
 	mov si, word [di + cmd_line_file_name_ofs]
 						; -> filename
 	xor cx, cx				; create attribute
-	test byte [bp + ?bit_0_is_write], 1
+	test byte [bp + ?bit0_wo_bit1_rw], 1
 	jnz @F					; setup for write -->
 	mov bx, 0110_0000_0010_0000b		; Auto-commit, no int 24h
 						; DENY WRITE, Read-only
 	mov dx, 0000_0000_0000_0001b		; open
+	test byte [bp + ?bit0_wo_bit1_rw], 2
+	jnz @FF					; setup for rw -->
 	retn
 
 @@:
 	mov bx, 0110_0000_0010_0001b		; Auto-commit, no int 24h
 						; DENY WRITE, Write-only
 	mov dx, 0000_0000_0001_0010b		; create / open-truncate
+	retn
+
+@@:
+	mov bl, 0010_0010b			; DENY WRITE, Read-write
 	retn
 
 	lleave ctx
@@ -2847,6 +3024,39 @@ symhint_store_and_label write_sector
 	push cx
 	push si
 .plw1:
+	cmp word [cmd_line_image_file.name], 0
+	je .drive
+
+	push di
+	push bx
+	call image_seek
+	pop dx
+	pop di
+	jc .image_fail_seek
+
+	mov cx, word [m_sector_size]
+	mov ah, 40h
+	stc
+	int 21h
+	jnc @F
+	mov dx, msg.image_fail.write
+	call disp_msg_asciz
+	call disp_dos_error
+	jmp write_sector.ww3_error
+
+@@:
+	cmp ax, cx
+	je write_sector.ww3		; (NC)
+	mov dx, msg.image_fail_enough.write
+	jmp @F
+
+.image_fail_seek:
+	mov dx, msg.image_fail_seek.write
+@@:
+	call disp_msg_asciz
+	jmp write_sector.ww3_error
+
+.drive:
 	push cx
 	add cl, 'A'
 	mov byte [driveno], cl
@@ -2920,6 +3130,7 @@ symhint_store_and_label write_sector
 	call disp_msg_asciz
 	mov dx, drive		; dx-> "ing drive _"
 	call disp_msg_asciz
+.ww3_error:
 	stc
 .ww3:
 	pop si
@@ -2953,6 +3164,39 @@ read_sector:
 	push cx
 	push si
 .plw1:
+	cmp word [cmd_line_image_file.name], 0
+	je .drive
+
+	push di
+	push bx
+	call image_seek
+	pop dx
+	pop di
+	jc .image_fail_seek
+
+	mov cx, word [m_sector_size]
+	mov ah, 3Fh
+	stc
+	int 21h
+	jnc @F
+	mov dx, msg.image_fail.read
+	call disp_msg_asciz
+	call disp_dos_error
+	jmp write_sector.ww3_error
+
+@@:
+	cmp ax, cx
+	je write_sector.ww3		; (NC)
+	mov dx, msg.image_fail_enough.read
+	jmp @F
+
+.image_fail_seek:
+	mov dx, msg.image_fail_seek.read
+@@:
+	call disp_msg_asciz
+	jmp write_sector.ww3_error
+
+.drive:
 	push cx
 	add cl, 'A'
 	mov byte [driveno], cl
@@ -3012,6 +3256,47 @@ read_sector:
 	mov dx, reading
 	jmp write_sector.ww1
 
+
+image_seek:
+	mov si, m_seek
+	mov di, m_sector_size
+	call multiply_dxax_dword_di_to_qword_si
+	mov di, -8
+	clc
+@@:
+	mov ax, word [m_offset + 8 + di]
+	adc word [m_seek + 8 + di], ax
+	inc di
+	inc di
+	jnz @B
+	jc .image_fail_seek
+
+	mov di, cmd_line_image_file
+	push si
+	call open_file_readwrite
+	pop si
+	jc .image_fail_seek
+
+	mov ax, 7142h
+	mov dx, si
+	mov cl, 0
+	stc
+	int 21h
+	jnc .image_seek_done
+	cmp word [si + 4], 0
+	jnz .image_fail_seek
+	cmp word [si + 6], 0
+	jnz .image_fail_seek
+	mov dx, word [si]
+	mov cx, word [si + 2]
+	mov ax, 4200h
+	int 21h
+	jc .image_fail_seek
+.image_seek_done:
+	db __TEST_IMM8		; (NC, skip stc)
+.image_fail_seek:
+	stc
+	retn
 
 
 		; INP:	dx:ax = first sector
@@ -3197,6 +3482,8 @@ msg:
 .invalid_argument:	asciz "Invalid argument.",13,10
 .no_drive_specified:	asciz "No drive specified.",13,10
 .error_multiple_drives:	asciz "Multiple drives specified.",13,10
+.drive_and_image_specified:
+			asciz "Drive and FS image specified.",13,10
 .no_sector_file_specified:
 		asciz "No boot sector file specified for /IB switch.",13,10
 .bootfail_sig:	asciz "Boot sector signature missing (is not AA55h).",13,10
@@ -3207,6 +3494,15 @@ msg:
 		asciz "BPB BpS differs from actual sector size.",13,10
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
 .boot_badchain:		asciz "Bad cluster chain.",13,10
+
+.image_fail.write:	asciz "Error writing image file, "
+.image_fail_enough.write:
+			asciz "Error: Did not write enough to image file.",13,10
+.image_fail_seek.read:
+.image_fail_seek.write:	asciz "Error: Failed to seek image file.",13,10
+.image_fail.read:	asciz "Error reading image file, "
+.image_fail_enough.read:
+			asciz "Error: Did not read enough from image file.",13,10
 .no_fsinfo:	asciz "No FSINFO sector found.",13,10
 .not_yet_non_fsinfo:
 		asciz "FAT32 with two sectors and not FSINFO not yet supported.",13,10
@@ -3363,6 +3659,8 @@ load_kernel_name: equ $
 
 .error_file_open_write:	asciz "Error opening file for writing, "
 .error_file_open_read:	asciz "Error opening file for reading, "
+.error_file_open_readwrite:
+			asciz "Error opening file for R/W, "
 .error_file_write:	asciz "Error writing file, "
 .error_file_read:	asciz "Error reading file, "
 .error_file_seek:	asciz "Error seeking file, "
@@ -3799,6 +4097,20 @@ AAAAAAAA00FFF
 	align 16
 	section BUFFERS
 
+	align 8
+m_seek:
+	dq -1
+m_offset:
+	dq 0
+m_sector_size:
+	dd 512
+m_1:
+	dd 1
+m_1024:
+	dd 1024
+m_1024_times_1024:
+	dd 1024 * 1024
+
 	align 4
 cmd_line_flags:		dd clfWriteSectorToSector | clfWriteInfoToSector \
 			| clfWriteCopySectorIfSector | clfWriteCopyInfoIfSector
@@ -3842,6 +4154,9 @@ cmd_line_sector_file:
 .name:		dw 0
 .handle:	dw -1
 cmd_line_info_file:
+.name:		dw 0
+.handle:	dw -1
+cmd_line_image_file:
 .name:		dw 0
 .handle:	dw -1
 cmd_line_file_name_ofs:		equ 0
