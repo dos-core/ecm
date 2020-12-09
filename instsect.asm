@@ -3040,7 +3040,6 @@ symhint_store_and_label write_sector
 	int 21h
 	jnc @F
 	mov dx, msg.image_fail.write
-	call disp_msg_asciz
 	call disp_dos_error
 	jmp write_sector.ww3_error
 
@@ -3180,7 +3179,6 @@ read_sector:
 	int 21h
 	jnc @F
 	mov dx, msg.image_fail.read
-	call disp_msg_asciz
 	call disp_dos_error
 	jmp write_sector.ww3_error
 
