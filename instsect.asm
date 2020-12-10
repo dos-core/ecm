@@ -3717,46 +3717,13 @@ symhint_store_string msg.dos_error_
 
 dos_error_table:
 .:
-	dw msg.dos_error_0
-	dw msg.dos_error_1
-	dw msg.dos_error_2
-	dw msg.dos_error_3
-	dw msg.dos_error_4
-	dw msg.dos_error_5
-	dw msg.dos_error_6
-	dw msg.dos_error_7
-	dw msg.dos_error_8
-	dw msg.dos_error_9
-	dw msg.dos_error_10
-	dw msg.dos_error_11
-	dw msg.dos_error_12
-	dw msg.dos_error_13
-	dw msg.dos_error_14
-	dw msg.dos_error_15
-	dw msg.dos_error_16
-	dw msg.dos_error_17
-	dw msg.dos_error_18
-	dw msg.dos_error_19
-	dw msg.dos_error_20
-	dw msg.dos_error_21
-	dw msg.dos_error_22
-	dw msg.dos_error_23
-	dw msg.dos_error_24
-	dw msg.dos_error_25
-	dw msg.dos_error_26
-	dw msg.dos_error_27
-	dw msg.dos_error_28
-	dw msg.dos_error_29
-	dw msg.dos_error_30
-	dw msg.dos_error_31
-	dw msg.dos_error_32
-	dw msg.dos_error_33
-	dw msg.dos_error_34
-	dw msg.dos_error_35
-	dw msg.dos_error_36
-	dw msg.dos_error_37
-	dw msg.dos_error_38
-	dw msg.dos_error_39
+%assign ii 0
+%rep 40
+	_autodigitsstrdef NUMBER, ii
+ %deftok _NUMBER _NUMBER
+	dw msg.dos_error_ %+ _NUMBER
+ %assign ii ii + 1
+%endrep
 .after_last:	equ ($ - .) >> 1
 
 
