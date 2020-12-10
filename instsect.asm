@@ -3115,9 +3115,9 @@ symhint_store_and_label write_sector
 	mov dx, writing
 .ww1:
 	jnc .ww3		; if no error
-	cmp al, 0Ch
+	cmp al, dskerrs.after_last - 1
 	jbe .ww2		; if in range
-	mov al, 0Ch
+	mov al, dskerrs.after_last - 1
 .ww2:
 	cbw			; ah = 0
 	mov bx, dskerrs		; -> byte table
@@ -3728,13 +3728,17 @@ dos_error_table:
 
 
 symhint_store_string dskerr
-dskerrs:	db dskerr0-dskerrs,dskerr1-dskerrs
-		db dskerr2-dskerrs,dskerr3-dskerrs
-		db dskerr4-dskerrs,dskerr9-dskerrs
-		db dskerr6-dskerrs,dskerr7-dskerrs
-		db dskerr8-dskerrs,dskerr9-dskerrs
-		db dskerra-dskerrs,dskerrb-dskerrs
-		db dskerrc-dskerrs
+dskerrs:
+.:
+%assign ii 0
+%rep 0Dh
+	_autohexitsstrdef NUMBER, ii
+ %strcat _NUMBER "dskerr",_NUMBER
+ %deftok _NUMBER _NUMBER
+	db _NUMBER - dskerrs
+ %assign ii ii + 1
+%endrep
+.after_last:	equ ($ - .)
 dskerr0:	asciz "Write protect error"
 dskerr1:	asciz "Unknown unit error"
 dskerr2:	asciz "Drive not ready"
@@ -3743,10 +3747,11 @@ dskerr4:	asciz "Data error (CRC)"
 dskerr6:	asciz "Seek error"
 dskerr7:	asciz "Unknown media type"
 dskerr8:	asciz "Sector not found"
+dskerr5:
 dskerr9:	asciz "Unknown error"
-dskerra:	asciz "Write fault"
-dskerrb:	asciz "Read fault"
-dskerrc:	asciz "General failure"
+dskerrA:	asciz "Write fault"
+dskerrB:	asciz "Read fault"
+dskerrC:	asciz "General failure"
 reading:	asciz " read"
 writing:	asciz " writ"
 drive:		db "ing drive "
