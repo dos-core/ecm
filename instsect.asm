@@ -2864,6 +2864,7 @@ isseparator?:
 	pop cx
 	retn
 
+	align 2
 %if 0	; _EXPRESSIONS
 separators:	countedw 32,9,13,",L;]:=)",0
 %else
@@ -3384,6 +3385,7 @@ runningnt	equ   20000h	; running in NTVDM
 detectedcopysector	equ 10h
 detectedcopyinfo	equ 20h
 
+	align 2
 hVdd:		dw 0
 load_unit:	dw -1
 drivenumber:	db 0
@@ -3715,6 +3717,7 @@ symhint_store_string msg.dos_error_
 .dos_error_unknown:	asciz "Unknown error"
 
 
+	align 2
 dos_error_table:
 .:
 %assign ii 0
@@ -3763,6 +3766,7 @@ imsg:
 .vdd:		asciz "DEBXXVDD.DLL"
 .dispatch:	asciz "Dispatch"
 .init:		asciz "Init"
+	align 2
 .mouse:		db "MOUSE",32,32,32		; Looks like a device name
 .andy:		db "Andy Watson"		; I don't know him and why he's inside the NTVDM mouse driver
 	endarea .andy
@@ -4116,6 +4120,7 @@ clfLeaveInfo:			equ 10_0000h
 clfInfoFromCopy:		equ 20_0000h
 clfZeroInfo:			equ 40_0000h
 
+	align 4
 cmd_line_readsector12_file:
 .name:		dw 0
 .handle:	dw -1
@@ -4139,7 +4144,7 @@ cmd_line_file_handle_ofs:	equ 2
 
 
 	dw 0		; insure there's an unused word in front of this (1)
-	align 16
+	align 16, db 0
 first_sector_buffer:
 second_sector_buffer:	equ first_sector_buffer - LOADDATA2 + 16 + 8192
 third_sector_buffer_512_bytes: \
