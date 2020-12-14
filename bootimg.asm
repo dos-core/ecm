@@ -102,9 +102,16 @@ along with a default loader (which aborts with an error).
 	numdef FSI_INIT_FREE, 1	; initialise FSINFO amount free clusters
 	numdef NUMFATS, 2	; number of FATs
 	numdef NUMROOT, 224	; number of root directory entries
-	numdef NUMRESERVED, 1	; number of reserved sectors
+%assign _SP512 (512 + _BPS - 1) / _BPS
+; (512 + 32 - 1) / 32 = 16
+; (512 + 64 - 1) / 64 = 8
+; (512 + 512 - 1) / 512 = 1
+; (512 + 1024 - 1) / 1024 = 1
+	numdef NUMRESERVED, _SP512
+				; number of reserved sectors
 %if _BPE == 32 && (_FSINFO || _BACKUP)
-	numdef NUMRESERVED, 16	; number of reserved sectors
+	numdef NUMRESERVED, _SP512 * 16
+				; number of reserved sectors
 %endif
 	numdef ALIGNDATA, 0, 16	; align data to this sector boundary
 				;  (done by increasing _NUMRESERVED)
@@ -618,13 +625,13 @@ mbr_signature:
 	dd rootcluster
 %1_fsinfo_sector:	; offset 30h (48)
 %if _FSINFO
-	dw 1
+	dw (%1_fsinfo - %1_boot_start) / _BPS
 %else
 	dw 0
 %endif
 %1_backup_sector:	; offset 32h (50)
 %if _BACKUP
-	dw 6
+	dw (backup_boot_start - _boot_start) / _BPS
 %else
 	dw 0
 %endif
@@ -744,7 +751,11 @@ at FSINFO.signature3
 %endif
 
 %if _BACKUP && _BPE == 32
+ %if _BPS < 512
+	zerobytes (6 * 512) - ($ - $$)
+ %else
 	zerobytes (6 * _BPS) - ($ - $$)
+ %endif
 %endif
 %assign bootused bootused + ($ - $$)
 
