@@ -119,6 +119,12 @@ along with a default loader (which aborts with an error).
 	numdef WARN_TOOMANYFAT, 1
 	numdef WARN_ALIGNDATA, 1
 	numdef WARN_FILLROOT, 1
+	numdef WARN_DEFAULT_OFF, 0
+%if _WARN_DEFAULT_OFF
+	numdef WARN_TOOMANYFAT, 0
+	numdef WARN_ALIGNDATA, 0
+	numdef WARN_FILLROOT, 0
+%endif
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
