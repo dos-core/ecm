@@ -3390,7 +3390,6 @@ hVdd:		dw 0
 load_unit:	dw -1
 drivenumber:	db 0
 
-%if _FAT32
 	align 4
 info_reset_struc:
 .signature1:
@@ -3404,7 +3403,6 @@ info_reset_struc:
 .signature3:
 	dd FSINFO.signature3_value
 .signature3_size: equ $ - .signature3
-%endif
 
 	align 4
 packet:	dd 0		; sector number
