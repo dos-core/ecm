@@ -646,7 +646,7 @@ mbr_signature:
 %endif
 %1_backup_sector:	; offset 32h (50)
 %if _BACKUP
-	dw (backup_boot_start - _boot_start) / _BPS
+	dw (_boot_end_2 - _boot_start) / _BPS
 %else
 	dw 0
 %endif
@@ -772,6 +772,7 @@ at FSINFO.signature3
 	zerobytes (6 * _BPS) - ($ - $$)
  %endif
 %endif
+%1_boot_end_2:
 %assign bootused bootused + ($ - $$)
 
 	%endmacro
