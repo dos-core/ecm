@@ -254,6 +254,7 @@ echo -ne 'failure\r\n' > result.txt
   -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
+  -D_WARN_DEFAULT_OFF=1 \
   -D_WARN_TOOMANYFAT=0 -D_WARN_ALIGNDATA=0 \
   $options_hdimage -D_MBR_PART_TYPE="$pitype" \
   -D_BPE="$bpe" -D_SPC="$spc" -D_SPI="$spi" \
