@@ -115,8 +115,10 @@ along with a default loader (which aborts with an error).
 %endif
 	numdef ALIGNDATA, 0, 16	; align data to this sector boundary
 				;  (done by increasing _NUMRESERVED)
+	numdef FILLROOT, 1
 	numdef WARN_TOOMANYFAT, 1
 	numdef WARN_ALIGNDATA, 1
+	numdef WARN_FILLROOT, 1
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
@@ -260,6 +262,13 @@ ptExtendedLinux:	equ 85h
 %endif
 
 %if _BPE != 32
+ %if _FILLROOT
+  %assign ii (_NUMROOT + _BPS / 32 - 1) & ~(_BPS / 32 - 1)
+  %if _WARN_FILLROOT && ii != _NUMROOT
+   %warning Expanding root to ii entries to fill last sector
+  %endif
+  %assign _NUMROOT ii
+ %endif
  %assign ROOTSECTORS (_NUMROOT * 32 + _BPS - 1) / _BPS
 %else
  %assign ROOTSECTORS 0
