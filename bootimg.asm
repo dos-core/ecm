@@ -1120,9 +1120,15 @@ at deSize,		dd %3
  %elifidni %1, ::endfill
   %assign isfill 4
  %elifnidni %1, ::empty
+  %ifidn %1, ""
+   %error Invalid filename
+  %elifempty %1
+   %error Invalid filename
+  %else
 	setup_a_section		; add a section for a file
 	incfile %1, %1, data %+ chainindex, %$parent
-  %assign chainindex chainindex + 1
+   %assign chainindex chainindex + 1
+  %endif
  %endif
  %rotate 1
 %endrep
