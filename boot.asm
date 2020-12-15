@@ -49,6 +49,12 @@ Public domain by C. Masloch, 2012
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
 	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
+	numdef RPL_GRACE_AREA,	130 * 1024
+					; alternative RPL support,
+					;  assume RPL fits in this area
+%if _RPL
+ %assign _RPL_GRACE_AREA 0
+%endif
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
@@ -1293,10 +1299,13 @@ found_it:
  %endif
  %if _RELOCATE
   %if _LOAD_NON_FAT
-	sub ax, (20 * 1024 + 512 + 7C00h) >> 4
+	sub ax, (_RPL_GRACE_AREA + 20 * 1024 \
+		+ 512 + 7C00h) >> 4
   %else
-	sub ax, (20 * 1024 + 8192 + (8192-16) + 512 + 7C00h) >> 4
+	sub ax, (_RPL_GRACE_AREA + 20 * 1024 \
+		+ 8192 + (8192-16) + 512 + 7C00h) >> 4
   %endif
+		; RPL grace	area preserved for RPL
 		; 20 KiB:	reserved for iniload
 		; 8 KiB:	FAT buffer
 		; 8 KiB - 16 B:	to allow rounding down FAT buffer position
@@ -1363,7 +1372,9 @@ relocated:
 
 	pop si
  %else
-	sub ax, (20 * 1024) >> 4	; 20 KiB reserved for iniload
+	sub ax, (_RPL_GRACE_AREA + 20 * 1024) >> 4
+					; RPL grace area, plus
+					;  20 KiB reserved for iniload
  %endif
 %elif _LOAD_ADR < ADR_FREE_UNTIL
  %if !_FIX_SECTOR_SIZE
