@@ -52,9 +52,6 @@ Public domain by C. Masloch, 2012
 	numdef RPL_GRACE_AREA,	130 * 1024
 					; alternative RPL support,
 					;  assume RPL fits in this area
-%if _RPL
- %assign _RPL_GRACE_AREA 0
-%endif
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
@@ -303,6 +300,10 @@ Notes about partial load compatibilities
  %if _LOAD_DIR_SEG == 0 || _ADD_DIR_SEG == 0
   %error Assuming dir segs should be set if add search set
  %endif
+%endif
+
+%if _RPL
+ %assign _RPL_GRACE_AREA 0
 %endif
 
 
