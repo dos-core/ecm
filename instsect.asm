@@ -1121,8 +1121,13 @@ error_badchain: equ $
 		; fall through and let it overwrite the field with the
 		; already current contents. saves a jump.
 @@:
-	mov [bp + bsBPB + bpbTotalSectorsLarge + 2], dx
-	mov [bp + bsBPB + bpbTotalSectorsLarge], ax
+	; mov [bp + bsBPB + bpbTotalSectorsLarge + 2], dx
+	; mov [bp + bsBPB + bpbTotalSectorsLarge], ax
+		; Do not modify BPB, as we initialise the
+		;  sector with this copy eventually.
+		;  It is arguably more correct for this to
+		;  read zero when not in use. By preserving
+		;  the original value this is enabled.
 
 	; dx:ax = total sectors
 
