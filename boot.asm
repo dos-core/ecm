@@ -707,7 +707,7 @@ dirseg:
 ; === error.tmp ===
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
-%if ! _MEMORY_CONTINUE || _RELOCATE
+%if ! _MEMORY_CONTINUE || _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
 	db __TEST_IMM16	; (skip mov)
 error_filetoobig:
 error_memory:
@@ -1375,6 +1375,7 @@ relocated:
 	sub ax, (_RPL_GRACE_AREA + 20 * 1024) >> 4
 					; RPL grace area, plus
 					;  20 KiB reserved for iniload
+	jb error_memory
  %endif
 %elif _LOAD_ADR < ADR_FREE_UNTIL
  %if !_FIX_SECTOR_SIZE
