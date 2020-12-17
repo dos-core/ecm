@@ -90,6 +90,14 @@ it is expected that the (E)BPB of that boot sector matches
 the file system parameters specified to the bootimg.asm file.
 If _BOOTFILE equals "" then a proper (E)BPB is created,
 along with a default loader (which aborts with an error).
+If _BOOTJUMPFILE and _BOOTCODEFILE are specified but
+_BOOTFILE is not then these files are used to initialise the
+first 512 bytes of the boot sector(s), excepting the (E)BPB.
+The size of the jump file has to match 3 bytes or 11 bytes.
+The size of the code file has to match the amount of bytes
+remaining after the BPBN fields to fill up 512 bytes, or two
+bytes less (for an 0AA55h signature), or four bytes less
+(for an 0AA55_0000h singnature).
 
 %endif
 
