@@ -42,6 +42,15 @@ keywords are:
 		 zero but not handled specifically to make use of
 		 _FILL=0 like it is for the literal value 0.
 
+::attrib	Followed by attribute byte value. Sets what
+		 attributes to use for the following directory
+		 entries. ATTR_DIRECTORY and ATTR_VOLLABEL are
+		 invalid to use for this. The _ATTRIB def is
+		 used to set the initial default.
+		The valid values are: ATTR_READONLY,
+		 ATTR_HIDDEN, ATTR_SYSTEM, ATTR_ARCHIVE, and
+		 any combination of those.
+
 File and directory names are checked for duplicates. If a
 string like ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
 the subdirectory will be detected as a duplicate. That is,
@@ -61,8 +70,6 @@ clusters each, that is, there is no fragmentation.
 Some things are not supported yet:
 
 * File dates and times.
-
-* Attributes other than the directory bit.
 
 * A volume label directory entry.
 
