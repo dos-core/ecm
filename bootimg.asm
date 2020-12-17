@@ -151,6 +151,7 @@ bytes less (for an 0AA55h signature), or four bytes less
 	strdef BOOTFILE, ""
 	strdef BOOTJUMPFILE, ""
 	strdef BOOTCODEFILE, ""
+	strdef BOOTINFOFILE, ""
 	gendef PAYLOADFILE, ""
 	gendef MAP, ""
 
@@ -763,10 +764,17 @@ mbr_signature:
 %if _BPE == 32 && _FSINFO
 %1_fsinfo:
 	istruc FSINFO
+ %ifnidn _BOOTINFOFILE, ""
+	incbin _BOOTINFOFILE
+ %else
 at FSINFO.signature1
 	dd "RRaA"
 at FSINFO.reserved1
 	_fill 480 + 4, 0, %1_fsinfo
+ %endif
+ %if $ - %1_fsinfo != FSINFO.signature2
+  Boot info file has wrong size
+ %endif
 at FSINFO.signature2
 	dd "rrAa"
 at FSINFO.numberfree
