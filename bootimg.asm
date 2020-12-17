@@ -143,6 +143,7 @@ along with a default loader (which aborts with an error).
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"NO NAME"
 	numdef VOLUMEID,	0
+	numdef ATTRIB, 0
 
 	numdef MBR,			0
 	strdef MBRCODEFILE, ""
@@ -473,6 +474,13 @@ dihDummy:	resb 1
 dihDEXEFlags:	resd 1
 	endstruc
 dih_our_size:	equ 8192	; (16 * 512)
+
+	%imacro checkattrib 0
+%if _ATTRIB & (ATTR_VOLLABEL | ATTR_DIRECTORY)
+ %error Invalid attribute: _ATTRIB
+%endif
+	%endmacro
+	checkattrib
 
 
 %define STARTSFOLLOWS start=0
@@ -853,7 +861,7 @@ at deSize,		dd 0
 	istruc DIRENTRY
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
-at deAttrib,		db ATTR_DIRECTORY
+at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd 0
@@ -904,6 +912,7 @@ at deSize,		dd 0
 	istruc DIRENTRY
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
+at deAttrib,		db _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd filesize
@@ -936,6 +945,7 @@ at deSize,		dd filesize
 	istruc DIRENTRY
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
+at deAttrib,		db _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd %3
@@ -1079,6 +1089,7 @@ at deSize,		dd %3
 %assign ischdir 0
 %assign isrename 0
 %assign isfill 0
+%assign isattrib 0
 %push ROOT
 %define %$namelist "", ""
 %define %$dirname "/"
@@ -1138,6 +1149,10 @@ at deSize,		dd %3
  %elif isfill == 6
 	incendfill %1, %$parent, filllength, fillvalue
   %assign isfill 0
+ %elif isattrib
+  %assign _ATTRIB %1
+	checkattrib
+  %assign isattrib 0
  %elifidni %1, ::chdir
   %assign ischdir 1
  %elifidni %1, ::rename
@@ -1146,6 +1161,8 @@ at deSize,		dd %3
   %assign isfill 1
  %elifidni %1, ::endfill
   %assign isfill 4
+ %elifidni %1, ::attrib
+  %assign isattrib 1
  %elifnidni %1, ::empty
   %ifidn %1, ""
    %error Invalid filename
@@ -1176,6 +1193,9 @@ at deSize,		dd %3
 %endif
 %if isfill == 3 || isfill == 6
  %error No fill target specified
+%endif
+%if isattrib
+ %error No attributes value specified
 %endif
 %rep 1024
  %ifctx ROOT
