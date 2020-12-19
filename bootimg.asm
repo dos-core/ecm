@@ -884,6 +884,8 @@ at deName,		fill 8,32,db "."
 at deExt,		fill 3,32,db 32
 at deAttrib,		db ATTR_DIRECTORY
 at deClusterHigh,	dw %%file_start_cluster >> 16
+at deTime,		dw _FATFILETIME
+at deDate,		dw _FATFILEDATE
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd 0
 	iend
@@ -892,6 +894,8 @@ at deName,		fill 8,32,db ".."
 at deExt,		fill 3,32,db 32
 at deAttrib,		db ATTR_DIRECTORY
 at deClusterHigh,	dw %4 >> 16
+at deTime,		dw _FATFILETIME
+at deDate,		dw _FATFILEDATE
 at deClusterLow,	dw %4 & 0FFFFh
 at deSize,		dd 0
 	iend
@@ -913,6 +917,8 @@ at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
+at deTime,		dw _FATFILETIME
+at deDate,		dw _FATFILEDATE
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd 0
 	iend
@@ -964,6 +970,8 @@ at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
+at deTime,		dw _FATFILETIME
+at deDate,		dw _FATFILEDATE
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd filesize
 	iend
@@ -997,6 +1005,8 @@ at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
+at deTime,		dw _FATFILETIME
+at deDate,		dw _FATFILEDATE
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
 at deSize,		dd %3
 	iend
