@@ -114,6 +114,12 @@ remaining after the BPBN fields to fill up 512 bytes, or two
 bytes less (for an 0AA55h signature), or four bytes less
 (for an 0AA55_0000h singnature).
 
+If the FAT type is FAT32 and _FSINFO is set, then the def
+_BOOTINFOFILE can be specified. The corresponding file must
+be exactly 484 bytes long. It is expected that the first
+4 bytes contain the FSINFO signature "RRaA". Otherwise the
+480-bytes FSIBOOT area is zero-filled.
+
 %endif
 
 
