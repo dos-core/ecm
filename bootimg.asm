@@ -874,8 +874,8 @@ at FSINFO.signature3
 		; %1 = directory name ("" if is root)
 		; %2 = data section name to use
 		; %3 = data section name of dir to write to (none if is root)
-		; %4 = data cluster number of parent dir (0 if root is parent)
-	%macro incdir 4.nolist
+		; %$parentcluster = data cluster number of parent dir (0 if root is parent)
+	%macro incdir 3.nolist
 	usesection %2
 %2 %+ _start:
 %ifnidni %1, ""
@@ -893,10 +893,10 @@ at deSize,		dd 0
 at deName,		fill 8,32,db ".."
 at deExt,		fill 3,32,db 32
 at deAttrib,		db ATTR_DIRECTORY
-at deClusterHigh,	dw %4 >> 16
+at deClusterHigh,	dw %$$parentcluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %4 & 0FFFFh
+at deClusterLow,	dw %$$parentcluster & 0FFFFh
 at deSize,		dd 0
 	iend
 %endif
@@ -1158,7 +1158,7 @@ at deSize,		dd %3
 %define %$dirname "/"
 %if _BPE == 32
 	setup_a_section		; add a section for root directory
-	incdir "", data %+ chainindex, none, 0
+	incdir "", data %+ chainindex, none
  %xdefine nextdir data %+ chainindex
  %xdefine DIRLIST DIRLIST,nextdir
  %xdefine %$parent nextdir
@@ -1179,7 +1179,7 @@ at deSize,		dd %3
    %endif
   %else
 	setup_a_section		; add a section for a directory
-	incdir %1, data %+ chainindex, %$parent, %$parentcluster
+	incdir %1, data %+ chainindex, %$parent
    %push SUB
    %define %$namelist "", ""
    %strcat %$dirname %$$dirname, %$$name, ".", %$$ext, "/"
