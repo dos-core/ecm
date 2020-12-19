@@ -51,6 +51,23 @@ keywords are:
 		 ATTR_HIDDEN, ATTR_SYSTEM, ATTR_ARCHIVE, and
 		 any combination of those.
 
+::date		Followed by numeric date value, eg 20110308.
+		 The _FILEDATE def is used to set the initial
+		 default. If _USE_FILE_DATETIME is set, this
+		 defaults to NASM's __DATE_NUM__, else it
+		 defaults to 1980_00_00.
+
+::time		Followed by numeric time value, eg 113842.
+		 The _FILETIME def is used to set the initial
+		 default. If _USE_FILE_DATETIME is set, this
+		 defaults to NASM's __TIME_NUM__, else it
+		 defaults to 0.
+
+::setdirdatetime	Special case: Set root directory
+			 datetime to current setting, instead
+			 of using default _FILEDATE _FILETIME.
+			 (Only affects subdir dotdot entries.)
+
 File and directory names are checked for duplicates. If a
 string like ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
 the subdirectory will be detected as a duplicate. That is,
@@ -68,8 +85,6 @@ Files and directories are always written into a single run of
 clusters each, that is, there is no fragmentation.
 
 Some things are not supported yet:
-
-* File dates and times.
 
 * A volume label directory entry.
 
