@@ -875,6 +875,9 @@ at FSINFO.signature3
 		; %2 = data section name to use
 		; %3 = data section name of dir to write to (none if is root)
 		; %$parentcluster = data cluster number of parent dir (0 if root is parent)
+		; %$parentattrib = attrib of parent dir (0 if root is parent)
+		; %$parentfiletime = file time of parent dir
+		; %$parentfiledate = file date of parent dir
 	%macro incdir 3.nolist
 	usesection %2
 %2 %+ _start:
@@ -882,7 +885,7 @@ at FSINFO.signature3
 	istruc DIRENTRY
 at deName,		fill 8,32,db "."
 at deExt,		fill 3,32,db 32
-at deAttrib,		db ATTR_DIRECTORY
+at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
 at deClusterHigh,	dw %%file_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
@@ -892,10 +895,10 @@ at deSize,		dd 0
 	istruc DIRENTRY
 at deName,		fill 8,32,db ".."
 at deExt,		fill 3,32,db 32
-at deAttrib,		db ATTR_DIRECTORY
+at deAttrib,		db ATTR_DIRECTORY | %$$parentattrib
 at deClusterHigh,	dw %$$parentcluster >> 16
-at deTime,		dw _FATFILETIME
-at deDate,		dw _FATFILEDATE
+at deTime,		dw %$$parentfiletime
+at deDate,		dw %$$parentfiledate
 at deClusterLow,	dw %$$parentcluster & 0FFFFh
 at deSize,		dd 0
 	iend
@@ -1169,6 +1172,9 @@ at deSize,		dd %3
  %define %$parent fixed_root
  %define %$parentcluster 0
 %endif
+%assign %$parentattrib 0
+%assign %$parentfiletime _FATFILETIME
+%assign %$parentfiledate _FATFILEDATE
 %rep %0
  %if ischdir
   %ifidni %1, ..
@@ -1187,6 +1193,9 @@ at deSize,		dd %3
    %xdefine DIRLIST DIRLIST,nextdir
    %xdefine %$parent nextdir
    %xdefine %$parentcluster %$parent %+ _start_cluster
+   %assign %$parentattrib _ATTRIB
+   %assign %$parentfiletime _FATFILETIME
+   %assign %$parentfiledate _FATFILEDATE
    %assign chainindex chainindex + 1
   %endif
   %assign ischdir 0
