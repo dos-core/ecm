@@ -1256,6 +1256,9 @@ at deSize,		dd %3
   %assign isdate 1
  %elifidni %1, ::time
   %assign istime 1
+ %elifidni %1, ::setdirdatetime
+  %assign %$parentfiletime _FATFILETIME
+  %assign %$parentfiledate _FATFILEDATE
  %elifnidni %1, ::empty
   %ifidn %1, ""
    %error Invalid filename
