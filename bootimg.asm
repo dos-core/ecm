@@ -160,6 +160,13 @@ bytes less (for an 0AA55h signature), or four bytes less
 	strdef DEFAULT_LABEL,	"NO NAME"
 	numdef VOLUMEID,	0
 	numdef ATTRIB, 0
+	numdef FILEDATE, 1980_00_00
+	numdef FILETIME, 0
+	numdef USE_FILE_DATETIME, 0
+%if _USE_FILE_DATETIME
+	numdef FILEDATE, __DATE_NUM__
+	numdef FILETIME, __TIME_NUM__
+%endif
 
 	numdef MBR,			0
 	strdef MBRCODEFILE, ""
@@ -497,6 +504,26 @@ dih_our_size:	equ 8192	; (16 * 512)
 %endif
 	%endmacro
 	checkattrib
+
+	%imacro convertdatetime 0
+%push
+%assign %$year _FILEDATE / 1_00_00
+%assign %$month _FILEDATE / 1_00 % 100
+%assign %$day _FILEDATE % 100
+%if %$year < 1980
+ %assign _FATFILEDATE 0 << 9 | 1 << 5 | 1
+%elif (%$year - 1980) >= 128
+ %assign _FATFILEDATE 127 << 9 | 12 << 5 | 31
+%else
+ %assign _FATFILEDATE (%$year - 1980) << 9 | %$month << 5 | %$day
+%endif
+%assign %$hour _FILETIME / 1_00_00
+%assign %$minute _FILETIME / 1_00 % 100
+%assign %$second _FILETIME % 100
+%assign _FATFILETIME %$hour << 11 | %$minute << 5 | %$second >> 1
+%pop
+	%endmacro
+	convertdatetime
 
 
 %define STARTSFOLLOWS start=0
@@ -1113,6 +1140,9 @@ at deSize,		dd %3
 %assign isrename 0
 %assign isfill 0
 %assign isattrib 0
+%assign isdatetime 0
+%assign isdate 0
+%assign istime 0
 %push ROOT
 %define %$namelist "", ""
 %define %$dirname "/"
@@ -1176,6 +1206,21 @@ at deSize,		dd %3
   %assign _ATTRIB %1
 	checkattrib
   %assign isattrib 0
+ %elif isdatetime == 1
+  %assign _FILEDATE %1
+  %assign isdatetime 2
+ %elif isdatetime == 2
+  %assign _FILETIME %1
+	convertdatetime
+  %assign isdatetime 0
+ %elif isdate
+  %assign _FILEDATE %1
+	convertdatetime
+  %assign isdate 0
+ %elif istime
+  %assign _FILETIME %1
+	convertdatetime
+  %assign istime 0
  %elifidni %1, ::chdir
   %assign ischdir 1
  %elifidni %1, ::rename
@@ -1186,6 +1231,12 @@ at deSize,		dd %3
   %assign isfill 4
  %elifidni %1, ::attrib
   %assign isattrib 1
+ %elifidni %1, ::datetime
+  %assign isdatetime 1
+ %elifidni %1, ::date
+  %assign isdate 1
+ %elifidni %1, ::time
+  %assign istime 1
  %elifnidni %1, ::empty
   %ifidn %1, ""
    %error Invalid filename
@@ -1219,6 +1270,18 @@ at deSize,		dd %3
 %endif
 %if isattrib
  %error No attributes value specified
+%endif
+%if isdatetime == 1
+ %error No datetime date value specified
+%endif
+%if isdatetime == 2
+ %error No datetime time value specified
+%endif
+%if isdate
+ %error No date value specified
+%endif
+%if istime
+ %error No time value specified
 %endif
 %rep 1024
  %ifctx ROOT
