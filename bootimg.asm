@@ -14,7 +14,18 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %if 0
 
-_PAYLOADFILE must be defined to a list of strings and/or keywords.
+_PAYLOADFILE must be defined to a list of names and/or keywords.
+The filenames and keywords are separated by commas.
+
+Filenames are accepted as tokens or strings. A plain filename that
+does not belong to a preceeding keyword is taken as a file to add
+to the image in the image's current directory. The entire name is
+interpreted as a source pathname, passed to the incbin directive
+in full, which in turn searches NASM's working directory and the
+directories specified to NASM with -I switches. The last component
+of the name, after the last slash or backslash, is converted into
+allcaps and taken as the target filename.
+
 Keywords are accepted only as (non-string) tokens. The available
 keywords are:
 
