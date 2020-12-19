@@ -112,7 +112,7 @@ The size of the jump file has to match 3 bytes or 11 bytes.
 The size of the code file has to match the amount of bytes
 remaining after the BPBN fields to fill up 512 bytes, or two
 bytes less (for an 0AA55h signature), or four bytes less
-(for an 0AA55_0000h singnature).
+(for an 0AA55_0000h signature).
 
 If the FAT type is FAT32 and _FSINFO is set, then the def
 _BOOTINFOFILE can be specified. The corresponding file must
