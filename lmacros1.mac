@@ -393,7 +393,8 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
 %push
  %defstr %$maj		%3
  %defstr %$min		%4
- %if %4 < 10
+ %strlen %$length %$min
+ %if %$length < 2
   %strcat %$min		'0', %$min		; one digit low numbers padded to two digits
  %endif
  %strcat %1_VER%2_STR	%$maj, '.', %$min
