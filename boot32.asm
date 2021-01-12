@@ -25,9 +25,9 @@ Public domain by C. Masloch, 2012
 	strdef OEM_NAME_FILL,	'_'
 	strdef DEFAULT_LABEL,	"lDOS"
 	numdef VOLUMEID,	0
-	strdef FSIBOOTNAME,	"FSIBOOT3"
+	strdef FSIBOOTNAME,	"FSIBOOT4"
 	; used to set experimental name
-	strdef FSIBOOTNAME,	"FSIBEX02"
+	; strdef FSIBOOTNAME,	"FSIBEX02"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
