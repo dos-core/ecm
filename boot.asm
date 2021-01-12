@@ -1343,7 +1343,7 @@ found_it:
 
 	mov di, relocated
 	push ax
-	push di				; -> relocation target .relocated
+	push di				; -> relocation target label relocated
 		; (We cannot use a near call here to push the target IP
 		;  because we do not control whether the ROM-BIOS loader
 		;  entered us at 0:7C00h or 7C0h:0. So we need to create
