@@ -2255,6 +2255,8 @@ open_file_write:
 	lvar 4, pathname_buffer
 	lenter
 
+	lodsw			; load first two bytes of pathname
+
 	push ss
 	pop ds
 	mov dx, sp		; ds:dx -> ?pathname_buffer
@@ -2262,7 +2264,6 @@ open_file_write:
 	pop es
 	mov di, sp		; es:di -> ?pathname_buffer
 
-	lodsw			; load first two bytes of pathname
 	cmp ah, ':'		; starts with drive specifier ?
 	je @F			; yes -->
 
