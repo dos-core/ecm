@@ -261,7 +261,6 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
 %undef asciiline
 %undef ascizline
 %undef ascicline
-%unimacro call 1-*.nolist
 %unimacro verdef 4.nolist
 %unimacro numdef 1-3.nolist
 %unimacro strdef 3.nolist
@@ -358,16 +357,6 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
   %assign %$len %$len+1
  %endif
  %rotate 1
-%endrep
-	%endmacro
-
-
-		; Call with word parameters behind opcode
-	%imacro call 1-*.nolist
-		%? %1
-%rep %0 - 1
-%rotate 1
-		dw %1
 %endrep
 	%endmacro
 
