@@ -1197,6 +1197,34 @@ next_ent:
 	jnz next_sect		; (jumps iff si >0 && cx ==0)
 				; ends up here iff si ==0
 				;  ie all root entries checked unsuccessfully
+%if 0
+
+qemu prior to 2020-08 has a bug which affects the above
+conditionals. The bug is that if NZ is set (like when the
+branch to the label found_it is not taken) and then another
+instruction sets ZR (like the dec si at the end of the root
+directory) and then loopnz is used which sets cx to zero
+then after the loopnz FL will be NZ leading to the jnz branch
+to be taken. Eventually the entire load unit is traversed and
+qemu returns error 01h when trying to read past the end of
+the unit (at least for 1440 KiB diskettes).
+
+The bug can be worked around in two ways as done by lDebug:
+
+https://hg.ulukai.org/ecm/ldebug/rev/c95e2955bbca
+
+https://hg.ulukai.org/ecm/ldebug/rev/c84047f15d9c
+
+However, both cost a few bytes each. Therefore the proper
+fix is considered to be updating qemu. Error behaviour occurs
+when a file is not found. In an unlikely case, another sector
+in the data area may hold a match for the searched entry.
+Otherwise, the read eventually fails and the loader aborts
+with an R error (instead of the expected F error).
+
+Reference: https://bugs.launchpad.net/qemu/+bug/1888165
+
+%endif
 
 	mov al,'F'	; File not 'F'ound
 	jmp error
