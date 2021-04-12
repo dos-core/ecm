@@ -59,6 +59,10 @@ if [[ "$1" == dosemu ]]
 then
   machine="$1"
   shift
+elif [[ "$1" == newdosemu ]]
+then
+  machine="$1"
+  shift
 elif [[ "$1" == qemu ]]
 then
   machine="$1"
@@ -67,7 +71,7 @@ fi
 
 dosemu=0
 qemu=0
-if [[ "$machine" == dosemu ]]
+if [[ "$machine" == dosemu ]] || [[ "$machine" == newdosemu ]]
 then
   dosemu=1
 elif [[ "$machine" == qemu ]]
@@ -89,11 +93,20 @@ then
   dosemu_category="disk"
   dosemu_device="hdimage"
   dosemu_drive="G:"
+  if [[ "$machine" == newdosemu ]]
+  then
+    dosemu_drive="E:"
+  fi
   qemu_switch="-hda"
   name="hdimage"
   bootfile=""
   unit=84h
   options_ldebug_unit="hde"
+  if [[ "$machine" == newdosemu ]]
+  then
+    unit=82h
+    options_ldebug_unit="hdc"
+  fi
   diskette=0
   if [[ "$1" == direct ]]
   then
@@ -110,6 +123,10 @@ then
       exit 1
     fi
     options_dosemu_direct="-C4"
+    if [[ "$machine" == newdosemu ]]
+    then
+      options_dosemu_direct="-C2"
+    fi
     unit=80h
     direct=1
   fi
