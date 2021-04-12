@@ -59,21 +59,47 @@ if [[ "$1" == dosemu ]]
 then
   machine="$1"
   shift
-elif [[ "$1" == newdosemu ]]
-then
-  machine="$1"
-  shift
 elif [[ "$1" == qemu ]]
 then
   machine="$1"
   shift
 fi
 
+driveletters=( {C..Z} )
+unitletters=( {a..z} )
 dosemu=0
 qemu=0
-if [[ "$machine" == dosemu ]] || [[ "$machine" == newdosemu ]]
+if [[ "$machine" == dosemu ]]
 then
   dosemu=1
+  if [ -z "$dosemu_drives" ] || [ "$dosemu_drives" == test ]
+  then
+    # Depending on the dosemu2 configuration, dosemu may
+    #  set up 2, 3, or 4 system drives. To support all
+    #  these cases, the variable dosemu_drives may now
+    #  be set to indicate the amount of drives.
+    # If it is not set or set to "test" we do a bit of
+    #  magic detection: Run dosemu -E lredir and count
+    #  the amount of redirections displayed. Also check
+    #  that all of the redirections are on the expected
+    #  drives, starting with C:.
+    # We assume that each of the system drives corresponds
+    #  to its own ROM-BIOS unit.
+    # Discussed here: https://github.com/dosemu2/dosemu2/discussions/1456
+    driveslist="$("$DOSEMU" -dumb -quiet -E lredir -te 2> /dev/null < /dev/null |
+      sed -re '/^about to execute|^current drive redirections/Id' )"
+    dosemu_drives="$(echo "$driveslist" | wc -l)"
+    for checkdrivenumber in $(seq 0 "$((dosemu_drives - 1))")
+    do
+      driveletter="${driveletters[checkdrivenumber]}"
+      if ! echo "$driveslist" | grep -Eiq "^$driveletter:"
+      then
+        echo "Error: Drive $driveletter: not found in lredir list" >&2
+        exit 1
+      fi
+    done
+  fi
+  ((debug)) && echo "Drive ${driveletters[dosemu_drives]}:"
 elif [[ "$machine" == qemu ]]
 then
   qemu=1
@@ -92,21 +118,12 @@ then
   fi
   dosemu_category="disk"
   dosemu_device="hdimage"
-  dosemu_drive="G:"
-  if [[ "$machine" == newdosemu ]]
-  then
-    dosemu_drive="E:"
-  fi
+  dosemu_drive="${driveletters[dosemu_drives]}:"
   qemu_switch="-hda"
   name="hdimage"
   bootfile=""
-  unit=84h
-  options_ldebug_unit="hde"
-  if [[ "$machine" == newdosemu ]]
-  then
-    unit=82h
-    options_ldebug_unit="hdc"
-  fi
+  unit="$(printf "%03Xh" "$((0x80 + $dosemu_drives))")"
+  options_ldebug_unit="hd${unitletters[dosemu_drives]}"
   diskette=0
   if [[ "$1" == direct ]]
   then
@@ -122,11 +139,7 @@ then
       echo "Error: dosemu lacks support for -C4 switch" >&2
       exit 1
     fi
-    options_dosemu_direct="-C4"
-    if [[ "$machine" == newdosemu ]]
-    then
-      options_dosemu_direct="-C2"
-    fi
+    options_dosemu_direct="-C$dosemu_drives"
     unit=80h
     direct=1
   fi
@@ -135,6 +148,7 @@ then
     unit=80h
     options_ldebug_unit="hda"
   fi
+  ((debug)) && echo "unit=\"$unit\""
   while true
   do
     if [[ "$1" == bpe && -n "$2" ]]
