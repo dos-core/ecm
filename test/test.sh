@@ -134,7 +134,7 @@ then
     #     (if -C4 switch is not supported, parsed as -C -4).
     # 2. Only the dosemu sign on with the error message as follows:
     #     "ERROR: Drive G not defined, can't boot!" (execution aborted).
-    if ((dosemu)) && "$DOSEMU" -dumb -E exitemu -C4 2>&1 | grep "CPU set to 486" > /dev/null
+    if ((dosemu)) && "$DOSEMU" -dumb -E exitemu -C4 < /dev/null 2>&1 | grep "CPU set to 486" > /dev/null
     then
       echo "Error: dosemu lacks support for -C4 switch" >&2
       exit 1
@@ -347,7 +347,7 @@ then
     timeout --foreground 10 "$DOSEMU" \
      -I "$dosemu_category { $dosemu_device $name.img }" \
      -dumb -quiet > result.log 2>&1 -K "$PWD" \
-     -E "inst${bpe}tw.com $dosemu_drive"
+     -E "inst${bpe}tw.com $dosemu_drive" < /dev/null
     rc=$?
     handle_timeout_process
     if ((rc))
@@ -415,7 +415,7 @@ then
      "$(echo -ne "boot $options_ldebug_unit"'\rif (rc) then boot quit\rq\r')" \
      -I "floppy { device diskldbg.img }" \
      -I "$dosemu_category { $dosemu_device $name.img }" \
-     -A -dumb 2> result.err > result.log
+     -A -dumb 2> result.err > result.log < /dev/null
   elif ((qemu))
   then
     ( (sleep 2; sendkeys "boot $options_ldebug_unit<ret>if (rc) then boot quit<ret>q<ret>" | socat - UNIX-CONNECT:qemu-monitor > /dev/null ) & > /dev/null)
@@ -426,7 +426,7 @@ else
   then
     timeout --foreground 10 "$DOSEMU" \
      -I "$dosemu_category { $dosemu_device $name.img }" \
-     "$options_dosemu_direct" -dumb 2> result.err > result.log
+     "$options_dosemu_direct" -dumb 2> result.err > result.log < /dev/null
   elif ((qemu))
   then
     timeout --foreground 10 "$QEMU" "$qemu_switch" "$name".img -display none 2> /dev/null
