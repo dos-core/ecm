@@ -228,7 +228,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .lodsb:
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
-	jb .retn
+	jb .error
 	lodsb
 .retn:
 	retn
@@ -244,7 +244,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .lodsw:
 	sub word [bp + ?length_of_source], 2
 	sbb word [bp + ?length_of_source + 2], 0
-	jb .retn
+	jb .error
 	lodsw
 	retn
 
