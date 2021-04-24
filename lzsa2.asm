@@ -66,6 +66,7 @@ depack:
 	 push bx		; initialise counter (high byte) to zero
 %endif
 	lvar dword,	src_behind_block
+	lvar word,	matchlength
 	lenter
 
 	call normalise_both_pointers
@@ -180,9 +181,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	test ax, ax
 	jz .end
 	push ax
-	push bp
 	call lzsa2_decompress
-	pop bp
 	pop cx
 	cmp cx, ax
 	jne .error
@@ -231,7 +230,7 @@ lzsa2_decompress:
 
    xor cx,cx
    mov bx,0100H
-   xor bp,bp
+   and word [bp + ?matchlength], 0
 
 .decode_token:
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
@@ -307,7 +306,8 @@ lzsa2_decompress:
    lodsb                   ; load match offset bits 0-7
 
 .get_match_length:
-   xchg bp,ax              ; bp: offset
+	xchg word [bp + ?matchlength], ax
+			; bp: offset
 .repeat_match:
    xchg ax,dx              ; ax: original token
    and al,07H              ; isolate match length in token (MMM)
@@ -334,7 +334,9 @@ lzsa2_decompress:
    xchg si,ax          
    push es
    pop ds
-   lea si,[bp+di]          ; ds:si now points at back reference in output data
+	mov si, di
+	add si, word [bp + ?matchlength]
+			; ds:si now points at back reference in output data
    rep movsb               ; copy match
    xchg si,ax              ; restore ds:si
    pop ds
