@@ -193,7 +193,14 @@ d0	mov byte [bp + ?errordata], 1Bh
 	mov word [bp + ?length_of_source_after_block], cx
 	mov word [bp + ?length_of_source_after_block + 2], bx
 
+	push es
+	push di
 	call lzsa2_decompress
+	xchg cx, ax
+	xor bx, bx
+	call normalise_pointer_with_displacement_bxcx
+	pop di
+	pop es
 	jmp .loop
 
 .end:
