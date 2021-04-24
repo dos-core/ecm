@@ -66,6 +66,7 @@ depack:
 	 push bx		; initialise counter (high byte) to zero
 %endif
 	lvar dword,	src_behind_block
+	lvar dword,	length_of_source_after_block
 	lvar word,	matchlength
 	lenter
 
@@ -169,6 +170,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call .lodsb
 	test al, 0111_1111b		; reserved bits + bit 16 of length
 	jnz .error			; error if nonzero -->
+
+	call normalise_both_pointers
+
 	test al, al			; uncompressed ?
 	xchg ax, dx
 	jns .compressed			; no -->
@@ -180,11 +184,16 @@ d0	mov byte [bp + ?errordata], 1Bh
 .compressed:
 	test ax, ax
 	jz .end
-	push ax
+	xor dx, dx
+	mov cx, word [bp + ?length_of_source]
+	mov bx, word [bp + ?length_of_source + 2]
+	sub cx, ax
+	sbb bx, dx
+	jc .error
+	mov word [bp + ?length_of_source_after_block], cx
+	mov word [bp + ?length_of_source_after_block + 2], bx
+
 	call lzsa2_decompress
-	pop cx
-	cmp cx, ax
-	jne .error
 	jmp .loop
 
 .end:
