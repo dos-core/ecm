@@ -310,6 +310,9 @@ lzsa2_decompress:
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jb depack.error
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb depack.error
    rep movsb               ; copy cx literals from ds:si to es:di
 
 	push dx
@@ -424,6 +427,9 @@ lzsa2_decompress:
 	pop cx
 	pop bx
 @@:
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb depack.error
    rep movsb               ; copy match
    xchg si,ax              ; restore ds:si
    pop ds
