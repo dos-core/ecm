@@ -24,6 +24,199 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _IMAGE_EXE || _DEBUG0 || _COUNTER
+	lenter early
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+ %endif
+ %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+ %endif
+%endif
+	lvar word,	counter
+%if _COUNTER
+	 push bx		; initialise counter (high byte) to zero
+%endif
+	lvar dword,	src_behind_block
+	lenter
+
+	call normalise_both_pointers
+
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
+	lvar dword,	dst
+	 push es
+	 push di
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+
+%if 0
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+%endif
+
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if 0 && _ALLOW_OVERLAPPING
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
+
+%if 0 && _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error
+%endif
+
+	lodsw
+	cmp ax, 7Bh | (9Eh << 8)	; signature
+	jne .error
+	lodsb
+	cmp al, 1 << 5			; traits byte, check for lzsa2
+	jne .error
+
+.loop:
+	call normalise_both_pointers
+
+	xor dx, dx
+	lodsw				; bits 0 to 15 of length
+	mov bx, di
+	add bx, ax			; fits in destination segment ?
+	jc .error			;  (assuming bit 16 = 0)
+	mov bx, si
+	add bx, ax			; fits in source segment ?
+	jc .error
+	xchg ax, dx
+	lodsb
+	test al, 0111_1111b		; reserved bits + bit 16 of length
+	jnz .error			; error if nonzero -->
+	test al, al			; uncompressed ?
+	xchg ax, dx
+	jns .compressed			; no -->
+.uncompressed:
+	xchg ax, cx
+	rep movsb			; copy this
+	jmp .loop
+
+.compressed:
+	test ax, ax
+	jz .end
+	push ax
+	push bp
+	call lzsa2_decompress
+	pop bp
+	pop cx
+	cmp cx, ax
+	jne .error
+	jmp .loop
+
+.end:
+	 push ds
+	 push si
+	call pointer_to_linear
+	sub ax, word [bp + ?length_of_source]
+	sbb dx, word [bp + ?length_of_source + 2]
+	jc .error
+
+	mov bx, dx
+	mov cx, ax		; bx:cx = source linear
+
+	 push word [bp + ?src + 2]
+	 push word [bp + ?src]
+	call pointer_to_linear
+
+	cmp bx, dx
+	jne .error
+	cmp cx, ax
+	jne .error
+
+.ret:
+	db __TEST_IMM8		; (skip stc, NC)
+.error:
+	stc
+
+	lleave code
+	lret
+
+
 ;  ---------------------------------------------------------------------------
 ;  Decompress raw LZSA2 block
 ;  inputs:
