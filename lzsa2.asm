@@ -228,7 +228,6 @@ d0	mov byte [bp + ?errordata], 1Bh
 
 lzsa2_decompress:
    push di                 ; remember decompression offset
-   cld                     ; make string operations (lods, movs, stos..) move forward
 
    xor cx,cx
    mov bx,0100H
