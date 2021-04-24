@@ -1,3 +1,8 @@
+
+; 8086 Assembly lDOS iniload payload LZSA2 depacker
+;  by C. Masloch, 2021
+;
+;  based on:
 ;  decompress_small.S - space-efficient decompressor implementation for 8088
 ;
 ;  Copyright (C) 2019 Emmanuel Marty
