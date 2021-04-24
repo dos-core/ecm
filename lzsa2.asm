@@ -308,6 +308,20 @@ lzsa2_decompress:
 	jb depack.error
    rep movsb               ; copy cx literals from ds:si to es:di
 
+	push dx
+	push ax
+	mov ax, word [bp + ?length_of_source]
+	mov dx, word [bp + ?length_of_source + 2]
+
+	cmp word [bp + ?length_of_source_after_block + 2], dx
+	jne @F
+	cmp word [bp + ?length_of_source_after_block], ax
+@@:
+	pop ax
+	pop dx
+	je .end
+	ja depack.error
+
    test dl,0C0h            ; check match offset mode in token (X bit)
    js .rep_match_or_large_offset
 
