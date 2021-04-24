@@ -272,9 +272,9 @@ lzsa2_decompress:
 	mov ax, word [bp + ?length_of_source]
 	mov dx, word [bp + ?length_of_source + 2]
 
-	cmp word [bp + ?length_of_source_after_block], ax
-	jne @F
 	cmp word [bp + ?length_of_source_after_block + 2], dx
+	jne @F
+	cmp word [bp + ?length_of_source_after_block], ax
 @@:
 	je .end
 	ja depack.error
