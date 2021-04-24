@@ -303,6 +303,9 @@ lzsa2_decompress:
 
 .got_literals:
    xchg cx,ax
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], 0
+	jb depack.error
    rep movsb               ; copy cx literals from ds:si to es:di
 
    test dl,0C0h            ; check match offset mode in token (X bit)
