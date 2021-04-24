@@ -276,6 +276,16 @@ lzsa2_decompress:
    and word [bp + ?matchlength], 0
 
 .decode_token:
+	mov ax, word [bp + ?length_of_source]
+	mov dx, word [bp + ?length_of_source + 2]
+
+	cmp word [bp + ?length_of_source_after_block], ax
+	jne @F
+	cmp word [bp + ?length_of_source_after_block + 2], dx
+@@:
+	je .end
+	ja depack.error
+
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
 	call .lodsb		; read token byte: XYZ|LL|MMMM
    mov dx,ax               ; keep token in dl
@@ -367,7 +377,7 @@ lzsa2_decompress:
 	call .lodsb		; grab extra length byte
    add al,018H             ; overflow?
    jnc .got_matchlen       ; if not, we have the entire length
-   je short .done_decompressing ; detect EOD code
+	je depack.error		; detect EOD code
 
 	call .lodsw		; grab 16-bit length
 
@@ -385,7 +395,7 @@ lzsa2_decompress:
    pop ds
    jmp .decode_token       ; go decode another token
 
-.done_decompressing:
+.end:
    pop ax                  ; retrieve the original decompression offset
    xchg di,ax              ; compute decompressed size
    sub ax,di
