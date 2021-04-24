@@ -400,6 +400,7 @@ lzsa2_decompress:
 	mov si, di
 	add si, word [bp + ?matchlength]
 			; ds:si now points at back reference in output data
+	jnc depack.error
    rep movsb               ; copy match
    xchg si,ax              ; restore ds:si
    pop ds
