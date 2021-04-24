@@ -414,6 +414,7 @@ lzsa2_decompress:
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop bx
+	jnc depack.error
 	cmp bx, word [bp + ?dst + 2]
 	jne @F
 	cmp si, word [bp + ?dst]
