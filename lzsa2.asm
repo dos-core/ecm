@@ -182,11 +182,13 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jmp .loop
 
 .compressed:
-	test ax, ax
-	jz .end
-	xor dx, dx
 	mov cx, word [bp + ?length_of_source]
 	mov bx, word [bp + ?length_of_source + 2]
+
+	test ax, ax
+	jz .end
+
+	xor dx, dx
 	sub cx, ax
 	sbb bx, dx
 	jc .error
@@ -204,24 +206,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jmp .loop
 
 .end:
-	 push ds
-	 push si
-	call pointer_to_linear
-	sub ax, word [bp + ?length_of_source]
-	sbb dx, word [bp + ?length_of_source + 2]
-	jc .error
-
-	mov bx, dx
-	mov cx, ax		; bx:cx = source linear
-
-	 push word [bp + ?src + 2]
-	 push word [bp + ?src]
-	call pointer_to_linear
-
-	cmp bx, dx
-	jne .error
-	cmp cx, ax
-	jne .error
+	or bx, cx
+	jnz .error
 
 .ret:
 	db __TEST_IMM8		; (skip stc, NC)
