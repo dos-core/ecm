@@ -200,6 +200,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call lzsa2_decompress
 	xchg cx, ax
 	xor bx, bx
+	test cx, cx
+	jnz @F
+	inc bx
+@@:
 	call normalise_pointer_with_displacement_bxcx
 	pop di
 	pop es
