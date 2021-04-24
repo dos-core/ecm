@@ -404,7 +404,19 @@ lzsa2_decompress:
 	mov si, di
 	add si, word [bp + ?matchlength]
 			; ds:si now points at back reference in output data
-	jnc depack.error
+	jc @F		; simple case branches here -->
+	push bx
+	push cx
+	mov cx, word [bp + ?matchlength]
+	mov bx, -1
+	 push es
+	 push di
+	call normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop ds
+	pop cx
+	pop bx
+@@:
    rep movsb               ; copy match
    xchg si,ax              ; restore ds:si
    pop ds
