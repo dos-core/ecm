@@ -218,6 +218,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .error:
 	stc
 
+d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
 
