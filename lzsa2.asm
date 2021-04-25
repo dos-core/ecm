@@ -159,18 +159,24 @@ d0	mov byte [bp + ?errordata], 1Bh
 
 	xor dx, dx
 	call .lodsw			; bits 0 to 15 of length
-	mov bx, di
-	add bx, ax			; fits in destination segment ?
-	jc .error			;  (assuming bit 16 = 0)
-	mov bx, si
-	add bx, ax			; fits in source segment ?
-	jc .error
 	xchg ax, dx
 	call .lodsb
 	test al, 0111_1111b		; reserved bits + bit 16 of length
 	jnz .error			; error if nonzero -->
 
 	call normalise_both_pointers
+
+		; This first check is only really relevant
+		;  for uncompressed blocks.
+	mov bx, di
+	add bx, dx			; fits in destination segment ?
+	jc .error			;  (assuming bit 16 = 0)
+		; This second check is to insure we don't
+		;  have to normalise the source pointer
+		;  until after the end of the block.
+	mov bx, si
+	add bx, dx			; fits in source segment ?
+	jc .error
 
 	test al, al			; uncompressed ?
 	xchg ax, dx
