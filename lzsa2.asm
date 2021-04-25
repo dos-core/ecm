@@ -65,7 +65,6 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
-	lvar dword,	src_behind_block
 	lvar dword,	length_of_source_after_block
 	lvar word,	matchlength
 	lenter
