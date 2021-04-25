@@ -253,15 +253,17 @@ d0	mov bx, word [bp + ?errordata]
 	retn
 
 
-;  ---------------------------------------------------------------------------
-;  Decompress raw LZSA2 block
-;  inputs:
-;  * ds:si: raw LZSA2 block
-;  * es:di: output buffer
-;  output:
-;  * ax:    decompressed size
-;  ---------------------------------------------------------------------------
-
+		; Decompress LZSA2 block
+		;
+		; INP:	ds:si -> LZSA2 block
+		;	es:di -> output buffer
+		;	?length_of_source
+		;	?length_of_source_after_block = block end target
+		;	?original_dst -> lowest valid back reference
+		; OUT:	ax = decompressed size (0 means 64 KiB)
+		;	ds:si -> behind source data
+		;	jumps to depack.error if error condition detected
+		; CHG:	all except bp
 lzsa2_decompress:
 .lodsb equ depack.lodsb
 .lodsw equ depack.lodsw
