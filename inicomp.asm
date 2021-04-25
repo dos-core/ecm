@@ -955,17 +955,18 @@ check_pointers_not_overlapping:
 		; OUT:	ds:si normalised
 		;	es:di normalised
 normalise_both_pointers:
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
-
 	 push es
 	 push di
 	call normalise_pointer
 	 pop di
 	 pop es
+
+normalise_dssi_pointer:
+	 push ds
+	 push si
+	call normalise_pointer
+	 pop si
+	 pop ds
 	retn
 
 
