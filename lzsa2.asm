@@ -418,9 +418,9 @@ lzsa2_decompress:
 	 pop si
 	 pop bx
 	jnc depack.error
-	cmp bx, word [bp + ?dst + 2]
+	cmp bx, word [bp + ?original_dst + 2]
 	jne @F
-	cmp si, word [bp + ?dst]
+	cmp si, word [bp + ?original_dst]
 @@:
 	jb depack.error
 	mov ds, bx
