@@ -1034,11 +1034,7 @@ read_le_data_src:
 	sub si, 4
 	add si, cx
 
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
+	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 
@@ -1119,11 +1115,7 @@ read_be_data_src:
 	pop si
 	add si, cx
 
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
+	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 

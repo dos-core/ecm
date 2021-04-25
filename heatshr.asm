@@ -481,11 +481,7 @@ read_byte:
 
 	lodsb
 
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
+	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 	clc

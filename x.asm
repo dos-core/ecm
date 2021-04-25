@@ -303,11 +303,8 @@ d0	mov bx, word [bp + ?errordata]
 	add si, CONTEXT_TABLE_size
 d0	mov byte [bp + ?errordata], 85h
 	jc .error
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds			; normalise, as the whole table is > 64 KiB
+	call normalise_dssi_pointer
+				; normalise, as the whole table is > 64 KiB
 	loop .init_loop_outer	; loop for 256 CONTEXT_TABLE tables
 
 	mov ax, ds
@@ -940,11 +937,7 @@ x_func_bx_with_src:
 	lds si, [bp + ?src]
 	call bx
 	pushf
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
+	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 	popf

@@ -600,11 +600,7 @@ lz4_func_bx_with_src:
 	lds si, [bp + ?src]
 	call bx
 	pushf
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
+	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 	popf
@@ -687,11 +683,7 @@ read_le_data_src:
 	sub si, 4
 	add si, cx
 
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop si
-	 pop ds
+	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 
