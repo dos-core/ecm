@@ -193,9 +193,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 	test ax, ax
 	jz .end
 
-	xor dx, dx
 	sub cx, ax
-	sbb bx, dx
+	sbb bx, 0
 	jc .error
 	mov word [bp + ?length_of_source_after_block], cx
 	mov word [bp + ?length_of_source_after_block + 2], bx
