@@ -164,7 +164,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	test al, 0111_1111b		; reserved bits + bit 16 of length
 	jnz .error			; error if nonzero -->
 
-	call normalise_both_pointers
+	call normalise_dssi_pointer
 
 		; This first check is only really relevant
 		;  for uncompressed blocks.
