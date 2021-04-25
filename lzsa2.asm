@@ -202,12 +202,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	push es
 	push di
 	call lzsa2_decompress
+	cmp ax, 1			; CY if ax == 0
 	xchg cx, ax
-	xor bx, bx
-	test cx, cx
-	jnz @F
-	inc bx
-@@:
+	sbb bx, bx			; -1 if cx == 0, else 0
+	neg bx				; 1 if cx == 0, else 0
 	call normalise_pointer_with_displacement_bxcx
 	pop di
 	pop es
