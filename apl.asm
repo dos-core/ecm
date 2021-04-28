@@ -284,7 +284,7 @@ d0	mov byte [bp + ?errordata], 1Bh
         pop     ds
 
         mov     bl,02H          ; set follows_literal to 2 (bx is unmodified by match commands)
-        jmp     short .next_command
+	jmp .next_command
 
         ; read gamma2-coded value into cx
 
@@ -322,7 +322,7 @@ d0	mov byte [bp + ?errordata], 1Bh
         adc     cx,cx           ; len in cx: 1*2 + carry bit = 2 or 3
 
         xor     dh,dh           ; clear high bits of offset
-        jmp     short .got_len
+	jmp .got_len
 
         ; 4 bits offset / 1 byte copy
 
