@@ -45,11 +45,9 @@ apl_decompress:
         ; dx: match offset (and rep-offset)
         ; si: input (compressed data) pointer
         ; di: output (decompressed data) pointer
-        ; bp: offset of .get_bit 
 
         mov     al,080H         ; clear bit queue(al) and set high bit to move into carry
         xor     dx,dx           ; invalidate rep offset
-        mov     bp,.get_bit     ; load offset of .get_bit, to be used with call bp
 
 .literal:
         movsb                   ; read and write literal byte
@@ -57,12 +55,12 @@ apl_decompress:
         mov     bx,03H          ; set follows_literal(bx) to 3
 
 .next_command:
-        call    bp              ; read 'literal or match' bit
+        call    .get_bit        ; read 'literal or match' bit
         jnc     .literal        ; if 0: literal
                                 
                                 ; 1x: match
 
-        call    bp              ; read '8+n bits or other type' bit
+        call    .get_bit        ; read '8+n bits or other type' bit
         jc      .other          ; 11x: other type of match
 
                                 ; 10: 8+n bits match
@@ -126,7 +124,7 @@ apl_decompress:
 
 .other:
         xor     cx,cx
-        call    bp              ; read '7+1 match or short literal' bit
+        call    .get_bit        ; read '7+1 match or short literal' bit
         jc      .short_literal  ; 111: 4 bit offset for 1-byte copy
 
                                 ; 110: 7 bits offset + 1 bit length
@@ -168,7 +166,7 @@ apl_decompress:
         ret
 
 .get_dibits:
-        call    bp              ; read data bit
+        call    .get_bit        ; read data bit
         adc     cx,cx           ; shift into cx
 
 .get_bit:
