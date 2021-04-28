@@ -168,15 +168,14 @@ d0	mov bx, word [bp + ?errordata]
 		; OUT:	CY if error (source buffer too small)
 		;	NC if success,
 		;	 al = value read
-		;	 ds:si incremented (NOT normalised)
+		;	 ds:si incremented (normalised)
 		;	 ?length_of_source decremented
 .lodsb:
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
 	lodsb
-.retn:
-	retn
+	jmp normalise_dssi_pointer
 
 
 ;  ---------------------------------------------------------------------------
