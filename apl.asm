@@ -113,7 +113,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push di
 	call pointer_to_linear
 
-%if 0 && _ALLOW_OVERLAPPING
+%if _ALLOW_OVERLAPPING
 	add cx, word [bp + ?length_of_source]
 	adc bx, word [bp + ?length_of_source + 2]
 		; In case of allowing overlapping source and destination,
@@ -136,7 +136,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push bx		; push into [bp + ?length_of_destination + 2]
 	 push cx		; push into [bp + ?length_of_destination]
 
-%if 0 && _ALLOW_OVERLAPPING
+%if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 		; Note:	We initially check here that the write pointer is
 		;	 low enough, ie below-or-equal the read pointer.
@@ -283,7 +283,22 @@ d0	mov byte [bp + ?errordata], 1Bh
         pop     si              ; restore ds:si
         pop     ds
 
+%if _ALLOW_OVERLAPPING
+	mov word [bp + ?src + 2], ds
+	mov word [bp + ?src], si
+	mov word [bp + ?dst + 2], es
+	mov word [bp + ?dst], di
+	push dx
+	push ax
+	call check_pointers_not_overlapping
+	pop ax
+	pop dx
+	jc .error
+
+	mov bx, 2		; set follows_literal to 2 (bx is unmodified by match commands)
+%else
         mov     bl,02H          ; set follows_literal to 2 (bx is unmodified by match commands)
+%endif
 	jmp .next_command
 
         ; read gamma2-coded value into cx
