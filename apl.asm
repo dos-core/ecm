@@ -179,21 +179,6 @@ d0	mov bx, word [bp + ?errordata]
 	retn
 
 
-		; INP:	ds:si -> source data
-		;	?length_of_source
-		; OUT:	CY if error (source buffer too small)
-		;	NC if success,
-		;	 ax = value read
-		;	 ds:si incremented (NOT normalised)
-		;	 ?length_of_source decremented
-.lodsw:
-	sub word [bp + ?length_of_source], 2
-	sbb word [bp + ?length_of_source + 2], 0
-	jb .error
-	lodsw
-	retn
-
-
 ;  ---------------------------------------------------------------------------
 ;  Decompress aPLib data
 ;  inputs:
@@ -205,7 +190,6 @@ d0	mov bx, word [bp + ?errordata]
 
 apl_decompress:
 .lodsb equ depack.lodsb
-.lodsw equ depack.lodsw
 
         push    di              ; remember decompression offset
         cld                     ; make string operations go forward
