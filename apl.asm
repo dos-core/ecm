@@ -65,6 +65,8 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
+	lvar word,	gamma_high_word
+	lvar word,	distance_high_word
 	lenter
 
 	call normalise_both_pointers
@@ -205,6 +207,7 @@ apl_decompress:
 
         mov     al,080H         ; clear bit queue(al) and set high bit to move into carry
         xor     dx,dx           ; invalidate rep offset
+	mov word [bp + ?distance_high_word], dx
 
 .literal:
 	sub word [bp + ?length_of_destination], 1
@@ -232,18 +235,28 @@ apl_decompress:
         sub     cx,bx           ; high offset bits == 2 when follows_literal == 3 ?
                                 ; (a gamma2 value is always >= 2, so substracting follows_literal when it
                                 ; is == 2 will never result in a negative value)
+	sbb word [bp + ?gamma_high_word], 0
         jae     .not_repmatch   ; if not, not a rep-match
 
         call    .get_gamma2     ; read match length
         jmp     short .got_len  ; go copy
 
 .not_repmatch:
+	mov dx, word [bp + ?gamma_high_word]
+	test dh, dh		; beyond 32-bit offset ?
+	jnz .error		; if so, error -->
+	mov byte [bp + ?distance_high_word + 1], dl
+	mov byte [bp + ?distance_high_word], ch
+				; get high word of distance
         mov     dh,cl           ; transfer high offset bits to dh
 	xchg ax, dx
 	call .lodsb
 	xchg ax, dx		; read low offset byte in dl
 
         call    .get_gamma2     ; read match length
+	cmp word [bp + ?distance_high_word], 0
+				; high word nonzero ?
+	jne .increase_len_by2	; then always offset >= 32k
         cmp     dh,07DH         ; offset >= 32000 ?
         jae     .increase_len_by2 ; if so, increase match len by 2
         cmp     dh,05H          ; offset >= 1280 ?
@@ -251,25 +264,69 @@ apl_decompress:
         cmp     dx,0080H        ; offset < 128 ?
         jae     .got_len        ; if so, increase match len by 2, otherwise it would be a 7+1 copy
 .increase_len_by2:
-        inc     cx              ; increase length
+	add cx, 1		; increase length
+	adc word [bp + ?gamma_high_word], 0
 .increase_len_by1:
-        inc     cx              ; increase length
+	add cx, 1		; increase length
+	adc word [bp + ?gamma_high_word], 0
 
-        ; copy cx bytes from match offset dx
+        ; copy ?gamma_high_word:cx bytes
+	;  from match offset ?distance_high_word:dx
 
 .got_len:
         push    ds              ; save ds:si (current pointer to compressed data)
         push    si
 
-        push    es
-        pop     ds
-        mov     si,di           ; point to destination in es:di - offset in dx
-        sub     si,dx
+	push bx
+	push cx
+	mov bx, word [bp + ?distance_high_word]
+	mov cx, dx
+
+	call .get_match_pointer
+
+	pop cx
+	pop bx
+
+.match_loop:
+	sub cx, 0FFF0h		; less than full transfer left ?
+	sbb word [bp + ?gamma_high_word], 0
+	jb .match_last		; yes -->
+	push cx
+	mov cx, 0FFF0h		; do full transfer
+	call .match_copy
+	pop cx
+	jmp .match_loop		; loop for more
+
+.match_copy:
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
-        rep     movsb           ; copy matched bytes
-	call normalise_both_pointers
+	rep movsb		; copy matched bytes
+	jmp normalise_both_pointers
+
+.get_match_pointer:
+	neg bx
+	neg cx
+	sbb bx, byte 0		; neg bx:cx
+
+	 push es
+	 push di
+	call normalise_pointer_with_displacement_bxcx
+				; -> match to copy
+	 pop si
+	 pop bx
+	jnc .error		; if too high (underflow) -->
+	cmp bx, word [bp + ?original_dst + 2]
+	jne @F
+	cmp si, word [bp + ?original_dst]
+@@:
+	jb .error		; if too low -->
+	mov ds, bx		; ds:si -> match to copy
+	retn
+
+.match_last:
+	add cx, 0FFF0h		; restore counter (high word discarded)
+	call .match_copy	; do last transfer (0 .. 0FFEFh bytes)
 
         pop     si              ; restore ds:si
         pop     ds
@@ -281,6 +338,8 @@ apl_decompress:
 
 .get_gamma2:
         xor     cx,cx           ; initialize to 1 so that value will start at 2
+	mov word [bp + ?gamma_high_word], cx
+				; initialise high word to zero
         inc     cx              ; when shifted left in the adc below
 
 .gamma2_loop:
@@ -297,6 +356,9 @@ apl_decompress:
         jc      .short_literal  ; 111: 4 bit offset for 1-byte copy
 
                                 ; 110: 7 bits offset + 1 bit length
+	mov word [bp + ?gamma_high_word], cx
+	mov word [bp + ?distance_high_word], cx
+				; clear both high words
 
 	xchg ax, dx
 	call .lodsb
@@ -321,9 +383,17 @@ apl_decompress:
         jz      .write_zero     ; if offset is 0, write a zero byte
 
                                 ; short offset 1-15
-        mov     bx,di           ; point to destination in es:di - offset in ax
-        sub     bx,ax           ; we trash bx, it will be reset to 3 when we loop
-        mov     al,[es:bx]      ; read byte from short offset
+	push cx
+	push ds
+	push si
+	xor bx, bx		; we trash bx, it will be reset to 3 when we loop
+	xchg ax, cx		; bx:cx = offset to subtract
+	call .get_match_pointer
+	lodsb			; al = byte [ds:si]
+				; read byte from short offset
+	pop si
+	pop ds
+	pop cx
 .write_zero:
 	sub word [bp + ?length_of_destination], 1
 	sbb word [bp + ?length_of_destination + 2], 0
@@ -346,6 +416,8 @@ apl_decompress:
 .get_dibits:
         call    .get_bit        ; read data bit
         adc     cx,cx           ; shift into cx
+	rcl word [bp + ?gamma_high_word], 1
+	jc .error
 
 .get_bit:
         add     al,al           ; shift bit queue, and high bit into carry
