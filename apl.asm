@@ -111,7 +111,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push di
 	call pointer_to_linear
 
-%if _ALLOW_OVERLAPPING
+%if 0 && _ALLOW_OVERLAPPING
 	add cx, word [bp + ?length_of_source]
 	adc bx, word [bp + ?length_of_source + 2]
 		; In case of allowing overlapping source and destination,
@@ -134,7 +134,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push bx		; push into [bp + ?length_of_destination + 2]
 	 push cx		; push into [bp + ?length_of_destination]
 
-%if _ALLOW_OVERLAPPING
+%if 0 && _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 		; Note:	We initially check here that the write pointer is
 		;	 low enough, ie below-or-equal the read pointer.
