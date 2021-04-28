@@ -147,38 +147,6 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
 
-.loop:
-	mov cx, word [bp + ?length_of_source]
-	mov bx, word [bp + ?length_of_source + 2]
-
-.end:
-	or bx, cx
-	jnz .error
-
-.ret:
-	db __TEST_IMM8		; (skip stc, NC)
-.error:
-	stc
-
-d0	mov bx, word [bp + ?errordata]
-	lleave code
-	lret
-
-
-		; INP:	ds:si -> source data
-		;	?length_of_source
-		; OUT:	CY if error (source buffer too small)
-		;	NC if success,
-		;	 al = value read
-		;	 ds:si incremented (normalised)
-		;	 ?length_of_source decremented
-.lodsb:
-	sub word [bp + ?length_of_source], 1
-	sbb word [bp + ?length_of_source + 2], 0
-	jb .error
-	lodsb
-	jmp normalise_dssi_pointer
-
 
         push    di              ; remember decompression offset
         cld                     ; make string operations go forward
@@ -399,6 +367,40 @@ d0	mov bx, word [bp + ?errordata]
         xchg    di,ax           ; compute decompressed size
         sub     ax,di
         ret
+
+
+.loop:
+	mov cx, word [bp + ?length_of_source]
+	mov bx, word [bp + ?length_of_source + 2]
+
+.end:
+	or bx, cx
+	jnz .error
+
+.ret:
+	db __TEST_IMM8		; (skip stc, NC)
+.error:
+	stc
+
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
+
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		; OUT:	CY if error (source buffer too small)
+		;	NC if success,
+		;	 al = value read
+		;	 ds:si incremented (normalised)
+		;	 ?length_of_source decremented
+.lodsb:
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	lodsb
+	jmp normalise_dssi_pointer
+
 
 .get_dibits:
         call    .get_bit        ; read data bit
