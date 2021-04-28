@@ -148,9 +148,6 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 
-        push    di              ; remember decompression offset
-        cld                     ; make string operations go forward
-
         ; === register map ===
         ; al: bit queue
         ; ah: unused, but value is trashed
@@ -363,21 +360,10 @@ d0	mov byte [bp + ?errordata], 1Bh
         jmp     .next_command_after_literal
 
 .done:
-        pop     ax              ; retrieve the original decompression offset
-        xchg    di,ax           ; compute decompressed size
-        sub     ax,di
-        ret
-
-
-.loop:
 	mov cx, word [bp + ?length_of_source]
-	mov bx, word [bp + ?length_of_source + 2]
-
-.end:
-	or bx, cx
+	or cx, word [bp + ?length_of_source + 2]
 	jnz .error
 
-.ret:
 	db __TEST_IMM8		; (skip stc, NC)
 .error:
 	stc
