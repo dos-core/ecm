@@ -204,6 +204,9 @@ d0	mov bx, word [bp + ?errordata]
 ;  ---------------------------------------------------------------------------
 
 apl_decompress:
+.lodsb equ depack.lodsb
+.lodsw equ depack.lodsw
+
         push    di              ; remember decompression offset
         cld                     ; make string operations go forward
 
@@ -245,8 +248,9 @@ apl_decompress:
 
 .not_repmatch:
         mov     dh,cl           ; transfer high offset bits to dh
-        mov     dl,[si]         ; read low offset byte in dl
-        inc     si
+	xchg ax, dx
+	call .lodsb
+	xchg ax, dx		; read low offset byte in dl
 
         call    .get_gamma2     ; read match length
         cmp     dh,07DH         ; offset >= 32000 ?
@@ -298,9 +302,10 @@ apl_decompress:
         jc      .short_literal  ; 111: 4 bit offset for 1-byte copy
 
                                 ; 110: 7 bits offset + 1 bit length
-                                
-        mov     dl,[si]         ; read offset + length in dl
-        inc     si
+
+	xchg ax, dx
+	call .lodsb
+	xchg ax, dx		; read offset + length in dl
 
         inc     cx              ; prepare cx for length below
         shr     dl,1            ; shift len bit into carry, and offset in place
@@ -342,7 +347,7 @@ apl_decompress:
 .get_bit:
         add     al,al           ; shift bit queue, and high bit into carry
         jnz     .got_bit        ; queue not empty, bits remain
-        lodsb                   ; read 8 new bits
+	call .lodsb		; read 8 new bits
         adc     al,al           ; shift bit queue, and high bit into carry
 .got_bit:
         ret
