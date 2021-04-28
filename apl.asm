@@ -397,7 +397,9 @@ d0	mov bx, word [bp + ?errordata]
 .get_bit:
         add     al,al           ; shift bit queue, and high bit into carry
         jnz     .got_bit        ; queue not empty, bits remain
+	pushf
 	call .lodsb		; read 8 new bits
+	popf
         adc     al,al           ; shift bit queue, and high bit into carry
 .got_bit:
         ret
