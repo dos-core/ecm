@@ -180,19 +180,6 @@ d0	mov bx, word [bp + ?errordata]
 	jmp normalise_dssi_pointer
 
 
-;  ---------------------------------------------------------------------------
-;  Decompress aPLib data
-;  inputs:
-;  * ds:si: compressed aPLib data
-;  * es:di: output buffer
-;  output:
-;  * ax:    decompressed size
-;  ---------------------------------------------------------------------------
-
-apl_decompress:
-.lodsb equ depack.lodsb
-.error equ depack.error
-
         push    di              ; remember decompression offset
         cld                     ; make string operations go forward
 
