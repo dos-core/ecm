@@ -327,6 +327,7 @@ d0	mov byte [bp + ?errordata], 1Bh
         ; 4 bits offset / 1 byte copy
 
 .short_literal:
+	mov word [bp + ?gamma_high_word], cx
         call    .get_dibits     ; read 2 offset bits
         adc     cx,cx
         call    .get_dibits     ; read 2 offset bits
