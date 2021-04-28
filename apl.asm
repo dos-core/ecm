@@ -189,6 +189,7 @@ d0	mov bx, word [bp + ?errordata]
 
 apl_decompress:
 .lodsb equ depack.lodsb
+.error equ depack.error
 
         push    di              ; remember decompression offset
         cld                     ; make string operations go forward
@@ -206,7 +207,14 @@ apl_decompress:
         xor     dx,dx           ; invalidate rep offset
 
 .literal:
+	sub word [bp + ?length_of_destination], 1
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .error
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
         movsb                   ; read and write literal byte
+	call normalise_both_pointers
 .next_command_after_literal:
         mov     bx,03H          ; set follows_literal(bx) to 3
 
@@ -257,7 +265,11 @@ apl_decompress:
         pop     ds
         mov     si,di           ; point to destination in es:di - offset in dx
         sub     si,dx
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .error
         rep     movsb           ; copy matched bytes
+	call normalise_both_pointers
 
         pop     si              ; restore ds:si
         pop     ds
@@ -313,7 +325,15 @@ apl_decompress:
         sub     bx,ax           ; we trash bx, it will be reset to 3 when we loop
         mov     al,[es:bx]      ; read byte from short offset
 .write_zero:
+	sub word [bp + ?length_of_destination], 1
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .error
         stosb                   ; copy matched byte
+	push es
+	push di
+	call normalise_pointer
+	pop di
+	pop es
         xchg    ax,cx           ; restore bit queue in al
         jmp     .next_command_after_literal
 
