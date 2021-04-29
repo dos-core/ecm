@@ -284,6 +284,10 @@ d0	mov byte [bp + ?errordata], 1Bh
         pop     ds
 
 %if _ALLOW_OVERLAPPING
+	call .checkoverlap
+	jmp .next_command
+
+.checkoverlap:
 	mov word [bp + ?src + 2], ds
 	mov word [bp + ?src], si
 	mov word [bp + ?dst + 2], es
@@ -296,10 +300,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 
 	mov bx, 2		; set follows_literal to 2 (bx is unmodified by match commands)
+	retn
 %else
         mov     bl,02H          ; set follows_literal to 2 (bx is unmodified by match commands)
-%endif
 	jmp .next_command
+%endif
 
         ; read gamma2-coded value into cx
 
@@ -373,6 +378,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 	pop di
 	pop es
         xchg    ax,cx           ; restore bit queue in al
+%if _ALLOW_OVERLAPPING
+	call .checkoverlap	; CHG: cx, bx
+%endif
         jmp     .next_command_after_literal
 
 .done:
