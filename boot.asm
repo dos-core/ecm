@@ -1211,9 +1211,9 @@ the unit (at least for 1440 KiB diskettes).
 
 The bug can be worked around in two ways as done by lDebug:
 
-https://hg.ulukai.org/ecm/ldebug/rev/c95e2955bbca
+https://hg.pushbx.org/ecm/ldebug/rev/c95e2955bbca
 
-https://hg.ulukai.org/ecm/ldebug/rev/c84047f15d9c
+https://hg.pushbx.org/ecm/ldebug/rev/c84047f15d9c
 
 However, both cost a few bytes each. Therefore the proper
 fix is considered to be updating qemu. Error behaviour occurs
