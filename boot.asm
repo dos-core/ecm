@@ -88,6 +88,7 @@ Public domain by C. Masloch, 2012
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+
 	numdef MEDIAID, 0F0h		; media ID
 	numdef UNIT, 0			; load unit in BPB
 	numdef CHS_SECTORS, 18		; CHS geometry field for sectors
@@ -100,6 +101,23 @@ Public domain by C. Masloch, 2012
 	numdef NUMFATS, 2		; number of FATs
 	numdef NUMROOT, 224		; number of root directory entries
 	numdef NUMRESERVED, 1		; number of reserved sectors
+
+%if _FAT16
+		; Unlike the 1440 KiB diskette image defaults for the FAT12
+		;  loader we just fill the FAT16 BPB with zeros by default.
+	numdef MEDIAID, 0		; media ID
+	numdef UNIT, 0			; load unit in BPB
+	numdef CHS_SECTORS, 0		; CHS geometry field for sectors
+	numdef CHS_HEADS, 0		; CHS geometry field for heads
+	numdef HIDDEN, 0		; number of hidden sectors
+	numdef SPI, 0			; sectors per image
+	numdef BPS, 0			; bytes per sector
+	numdef SPC, 0			; sectors per cluster
+	numdef SPF, 0			; sectors per FAT
+	numdef NUMFATS, 0		; number of FATs
+	numdef NUMROOT, 0		; number of root directory entries
+	numdef NUMRESERVED, 0		; number of reserved sectors
+%endif
 
 %if _DIRBUF_500
 	gendef _ADR_DIRBUF, 500h
