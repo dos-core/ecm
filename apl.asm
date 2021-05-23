@@ -24,6 +24,12 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 
+	numdef COUNTER,		0, 128
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
+%endif
+
+
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
@@ -174,6 +180,16 @@ d0	mov byte [bp + ?errordata], 1Bh
         mov     bx,03H          ; set follows_literal(bx) to 3
 
 .next_command:
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	push ax
+	mov al, '.'
+	call disp_al
+	pop ax
+@@:
+%endif
         call    .get_bit        ; read 'literal or match' bit
         jnc     .literal        ; if 0: literal
                                 
@@ -189,6 +205,7 @@ d0	mov byte [bp + ?errordata], 1Bh
                                 ; is == 2 will never result in a negative value)
 	sbb word [bp + ?gamma_high_word], 0
         jae     .not_repmatch   ; if not, not a rep-match
+
 
         call    .get_gamma2     ; read match length
         jmp     short .got_len  ; go copy
@@ -392,6 +409,14 @@ d0	mov byte [bp + ?errordata], 1Bh
 .error:
 	stc
 
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
 d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
