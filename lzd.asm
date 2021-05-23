@@ -22,6 +22,12 @@
 %endif
 
 
+	numdef COUNTER,		0, 128
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
+%endif
+
+
 amount_states equ 12
 
 	align 2
@@ -834,6 +840,10 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	repe cmpsb
 .error_NZ_a:
 	jne .error
+%if _COUNTER
+	mov al, '#'
+	call disp_al
+%endif
 	xor ax, ax
 	lodsb				; ax = lzip_header.coded_dict_size
 
@@ -956,6 +966,14 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	rep stosw
 
 .loop:
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al
+@@:
+%endif
 	mov bx, word [bp + ?localvariables]
 	mov ax, word [bx + lz_decoder.pos]
 	and ax, pos_state_mask
