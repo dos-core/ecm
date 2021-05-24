@@ -704,8 +704,8 @@ d0	mov byte [bp + ?errordata], 40h
 	 push si
 	call pointer_to_linear
 
-	mov bx, dx
-	mov cx, ax		; bx:cx = source linear
+	xchg bx, dx
+	xchg cx, ax		; bx:cx = source linear, clobber dx:ax
 
 	 push es
 	 push di
@@ -740,7 +740,11 @@ d0	mov byte [bp + ?errordata], 40h
 
 	push es
 	push di
+%if localvariables_size >> 16
 	mov bx, localvariables_size >> 16
+%else
+	xor bx, bx
+%endif
 	mov cx, localvariables_size & 0FFFFh
 	call normalise_pointer_with_displacement_bxcx
 	pop di
