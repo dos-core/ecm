@@ -681,8 +681,6 @@ depack:
 %endif
 d0	lvar word,	errordata
 d0	 push bx
-	lvar word,	frame_descriptor_flg_and_bd
-	lvar dword,	src_behind_block
 	lvar dword,	distance
 	lvar dword,	len
 	lvar dword,	dis_slot
