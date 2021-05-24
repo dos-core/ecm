@@ -242,11 +242,11 @@ Range_decoder.decode:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure
+		;	ss:bp -> depack.inner stack frame
 		; OUT:	al = read bit
 		;	NC if zero read
 		;	CY if one read
-		;	! If an error occurs, returns CY
-		;	 with the next caller's stack frame.
+		;	! If an error occurs, jumps to depack.error
 		; CHG:	cx, dx, ax
 Range_decoder.decode_bit:
 	mov dx, word [bx + range_decoder.range + 2]
@@ -308,10 +308,7 @@ Range_decoder.decode_bit:
 	retn
 
 .error:
-	mov sp, bp		; drop next stack frame's variables
-	pop bp			; drop next stack frame
-	stc			; CY = error
-	retn
+	jmp depack.error
 
 
 		; INP:	ds:bx -> range_decoder structure
