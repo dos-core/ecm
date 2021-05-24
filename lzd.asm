@@ -162,21 +162,16 @@ Range_decoder.init:
 	mov cx, 5
 .loop:
 	call getbyteshiftcode
-	jc .error
 	loop .loop
 	retn
 
-.error:
-	jmp depack.error
-
 
 		; INP:	ds:bx -> range_decoder structure
-		; OUT:	NC if success
-		;	CY if error
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
 		; CHG:	-
 normaliserange:
 	cmp byte [bx + range_decoder.range + 3], 0
-	clc			; (NC)
 	jnz @F			; (retn)
 	push ax
 	mov ax, word [bx + range_decoder.range + 1]
@@ -189,8 +184,8 @@ normaliserange:
 
 
 		; INP:	ds:bx -> range_decoder structure
-		; OUT:	NC if success
-		;	CY if error
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
 		; CHG:	-
 getbyteshiftcode:
 	push ax
@@ -198,6 +193,7 @@ getbyteshiftcode:
 	mov word [bx + range_decoder.code + 2], ax
 	mov ah, byte [bx + range_decoder.code]
 	call Range_decoder.get_byte
+	jc depack.error
 	mov word [bx + range_decoder.code], ax
 	pop ax
 @@:
@@ -206,9 +202,10 @@ getbyteshiftcode:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	cx = num_bits
-		; OUT:	NC if success,
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 dx:ax = symbol
-		;	CY if error
 		; CHG:	di, cx
 Range_decoder.decode:
 	xor dx, dx
@@ -233,11 +230,8 @@ Range_decoder.decode:
 	inc ax			; symbol |= 1 (lowest bit always was zero)
 @@:
 	call normaliserange
-	jc .ret
 	loop .loop
 .end:
-	clc
-.ret:
 	retn
 
 
@@ -303,7 +297,6 @@ Range_decoder.decode_bit:
 
 .after_if:
 	call normaliserange
-	jc .error
 	cmp al, 1		; CY if 0, NC if 1
 	cmc			; NC if 0, CY if 1
 	retn
@@ -1307,8 +1300,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 .not_dis_slot_below_end_dis_model:
 	sub cx, dis_align_bits
 	call Range_decoder.decode
-.error_CY_10:
-	jc short .error_CY_11
+.error_CY_10: equ .error_CY_11
 	mov cx, dis_align_bits
 @@:
 	shl ax, 1
