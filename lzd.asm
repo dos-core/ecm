@@ -812,10 +812,10 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	jc short .error_CY_b
 
 	push ax
-	mov cx, ax
+	and al, 1Fh
+	xchg cx, ax			; cx = coded dict size & 1Fh, clobber ax
 	mov ax, 1
 	xor dx, dx
-	and cl, 1Fh
 @@:
 	shl ax, 1
 	rcl dx, 1
@@ -1231,7 +1231,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	jc short .error_CY_9
 	stc
 	jnz short .error_CY_9
-	mov cx, ax			; = direct_bits
+	xchg cx, ax			; cx = direct_bits, clobber ax
 	xor dx, dx
 	mov ax, 1
 	and al, byte [bp + ?dis_slot]
