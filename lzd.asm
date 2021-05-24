@@ -1547,7 +1547,7 @@ d0	mov bx, word [bp + ?errordata]
 Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
-	jc .error
+	jc short .error
 
 		; INP:	ds:bx -> range_decoder structure
 		;	ss:bp -> depack stack frame
@@ -1561,7 +1561,7 @@ Range_decoder.get_byte:
 
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
-	jc .error
+	jc short .error
 
 	lds si, [bp + ?src]
 	lodsb
