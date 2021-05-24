@@ -642,26 +642,6 @@ lzip_header_bytes:
 .length: equ $ - .
 
 
-%if _DEBUG0 || _COUNTER
-depack:
-d0	lframe near
-d0	lvar word,	errordata
-d0	lenter
-d0	and word [bp + ?errordata], 0
-	call .inner
-%if _COUNTER
-	lahf
-	mov al, 13
-	call disp_al
-	mov al, 10
-	call disp_al
-	sahf
-%endif
-d0	pop bx				; pop from ?errordata
-d0	lleave
-	retn
-%endif
-
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
@@ -680,15 +660,9 @@ d0	lleave
 		; Note:	The destination reaches up to below the source.
 		; Note:	The input pointers need not be normalised yet.
 		;	 Normalised means that the offset part is below 16.
-%if _DEBUG0 || _COUNTER
-.inner:
-%else
 depack:
-%endif
 	lframe near
-d0	lpar word,	errordata
-d0	lpar_return
-%if _IMAGE_EXE || _COUNTER
+%if _IMAGE_EXE || _COUNTER || _DEBUG0
 	lenter early
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
@@ -697,14 +671,16 @@ d0	lpar_return
    %error exemode variable must be directly below bp
   %endif
  %endif
- %if _COUNTER
+ %if _COUNTER || _DEBUG0
 	xor bx, bx
  %endif
 %endif
-	lvar word,	counter
 %if _COUNTER
-	 push bx		; initialise counter (high byte) to zero
+	lvar word,	counter
+	 push bx		; initialise counter to zero
 %endif
+d0	lvar word,	errordata
+d0	 push bx
 	lvar word,	frame_descriptor_flg_and_bd
 	lvar dword,	src_behind_block
 	lvar dword,	distance
@@ -1574,6 +1550,15 @@ d0	mov byte [bp + ?errordata], 84h
 .error:
 	stc
 
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
 
