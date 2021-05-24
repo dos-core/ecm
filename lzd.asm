@@ -1591,9 +1591,8 @@ Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
 	jc .ret				; (CY)
+
 		; INP:	ds:bx -> range_decoder structure
-		;	thus ds:(bx - lz_decoder.range_decoder)
-		;	 -> lz_decoder structure, localvariables structure
 		;	ss:bp -> depack.inner stack frame
 		; OUT:	NC if success,
 		;	 al = value read
