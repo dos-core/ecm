@@ -536,10 +536,9 @@ LZ_decoder.peek:
 
 	call calculate_peek_pointer_disi
 
-	xchg si, di			; si:di -> peek address
-	mov es, si			; es:di -> peek address
+	mov es, di			; es:si -> peek address
 	xor ax, ax
-	mov al, byte [es:di]
+	es lodsb
 	retn
 
 .not_pos_above_distance:
