@@ -193,7 +193,6 @@ getbyteshiftcode:
 	mov word [bx + range_decoder.code + 2], ax
 	mov ah, byte [bx + range_decoder.code]
 	call Range_decoder.get_byte
-	jc depack.error
 	mov word [bx + range_decoder.code], ax
 	pop ax
 @@:
@@ -576,9 +575,10 @@ calculate_peek_pointer_disi:
 	retn
 
 
-		; OUT:	NC if success,
+		; INP:	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 al = byte
-		;	CY if error
 		; CHG:	-
 LZ_decoder.get_byte: equ Range_decoder.get_byte
 
@@ -1542,20 +1542,20 @@ d0	mov bx, word [bp + ?errordata]
 
 		; INP:	ds:bx -> range_decoder structure
 		;	ss:bp -> depack stack frame
-		; OUT:	NC if success,
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 al = byte read
-		;	CY if error
 		; CHG:	-
 Range_decoder.get_byte:
 	add word [bx + range_decoder.member_pos], 1
 	adc word [bx + range_decoder.member_pos + 2], 0
-	jc .ret				; (CY)
+	jc .error
 
 		; INP:	ds:bx -> range_decoder structure
 		;	ss:bp -> depack stack frame
-		; OUT:	NC if success,
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 al = value read
-		;	CY if error
 		; CHG:	-
 ; get_byte:
 	push ds
@@ -1563,7 +1563,7 @@ Range_decoder.get_byte:
 
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
-	jc .done			; (CY)
+	jc .error
 
 	lds si, [bp + ?src]
 	lodsb
@@ -1572,12 +1572,11 @@ Range_decoder.get_byte:
 	call normalise_pointer
 	 pop word [bp + ?src]
 	 pop word [bp + ?src + 2]
-	clc
-.done:
 	pop si
 	pop ds
-.ret:
 	retn
+
+.error: equ depack.error
 
 
 		; INP:	ds:bx -> lz_decoder structure
