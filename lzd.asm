@@ -996,7 +996,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	call Range_decoder.decode_matched
 @@:
 	call LZ_decoder.put_byte
-	jc short .error_CY_2
 	call State.set_char
 	jmp .loop
 
@@ -1067,7 +1066,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	mov dx, word [bx + rep0 + 2]
 	call LZ_decoder.peek
 	call LZ_decoder.put_byte
-	jc short .error_CY_4
 	jmp .loop
 
 .3rd_bit_not_zero:
@@ -1582,19 +1580,18 @@ Range_decoder.get_byte:
 		; INP:	ds:bx -> lz_decoder structure
 		;	al = byte to write to buffer
 		;	ss:bp -> depack stack frame
-		; OUT:	NC if success
-		;	CY if error
+		; OUT:	! If an error occurs, jumps to depack.error
 		; CHG:	cx, dx, ax, di, es
 LZ_decoder.put_byte:
 	les di, [bp + ?dst]
 
 	add word [bx + lz_decoder.pos], 1
 	adc word [bx + lz_decoder.pos + 2], 0
-	jc .ret			; (CY) -->
+	jc short .error
 
 	sub word [bp + ?length_of_destination], 1
 	sbb word [bp + ?length_of_destination + 2], 0
-	jb .ret			; (CY) -->
+	jb short .error
 
 	stosb
 	 push es
@@ -1607,11 +1604,11 @@ LZ_decoder.put_byte:
 	push bx
 	call check_pointers_not_overlapping
 	pop bx			; returns CF
-%else
-	clc			; (NC)
+	jc short .error
 %endif
-.ret:
 	retn
+
+.error: equ depack.error
 
 
 		; INP:	ds:si = pointer
