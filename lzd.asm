@@ -242,7 +242,7 @@ Range_decoder.decode:
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure
-		;	ss:bp -> depack.inner stack frame
+		;	ss:bp -> depack stack frame
 		; OUT:	al = read bit
 		;	NC if zero read
 		;	CY if one read
@@ -1373,7 +1373,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 		; INP:	dx:ax = length of match
 		;	di:si -> source (normalised)
 		;	ds:bx -> local variables structure
-		;	ss:bp -> depack.inner stack frame,
+		;	ss:bp -> depack stack frame,
 		;		with ?length_of_destination, ?dst
 		; OUT:	NC if success,
 		;	 ?length_of_destination and ?dst updated
@@ -1562,7 +1562,7 @@ d0	mov bx, word [bp + ?errordata]
 
 
 		; INP:	ds:bx -> range_decoder structure
-		;	ss:bp -> depack.inner stack frame
+		;	ss:bp -> depack stack frame
 		; OUT:	NC if success,
 		;	 al = byte read
 		;	CY if error
@@ -1573,7 +1573,7 @@ Range_decoder.get_byte:
 	jc .ret				; (CY)
 
 		; INP:	ds:bx -> range_decoder structure
-		;	ss:bp -> depack.inner stack frame
+		;	ss:bp -> depack stack frame
 		; OUT:	NC if success,
 		;	 al = value read
 		;	CY if error
@@ -1603,7 +1603,7 @@ Range_decoder.get_byte:
 
 		; INP:	ds:bx -> lz_decoder structure
 		;	al = byte to write to buffer
-		;	ss:bp -> depack.inner stack frame
+		;	ss:bp -> depack stack frame
 		; OUT:	NC if success
 		;	CY if error
 		; CHG:	cx, dx, ax, di, es
