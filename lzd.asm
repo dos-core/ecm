@@ -1489,10 +1489,8 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 
 .final:
 %if _COUNTER
-	push ax
 	mov al, '%'
 	call disp_al
-	pop ax
 %endif
 	les di, [bp + ?final_dst]
 				; -> destination
@@ -1501,8 +1499,8 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	 push ds
 	 push si
 	call pointer_to_linear	; dx:ax = linear ?original_dst
-	mov cx, ax
-	mov bx, dx		; bx:cx = linear ?original_dst
+	xchg cx, ax
+	xchg bx, dx		; bx:cx = linear ?original_dst, clobber dx:ax
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
 	call pointer_to_linear
