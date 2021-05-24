@@ -424,7 +424,7 @@ Range_decoder.decode_matched:
 .next:
 	loop .loop
 .end:
-	xor ah, ah		; return ax = symbol & 0FFh (NC)
+	xor ah, ah		; return ax = symbol & 0FFh
 	retn
 
 .error_pop_2:
