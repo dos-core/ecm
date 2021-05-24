@@ -143,8 +143,8 @@ State:
 	endstruc
 
 		; INP:	ds:bx -> range_decoder structure
-		; OUT:	NC if success
-		;	CY if error
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
 		; CHG:	es, di, ax, cx
 Range_decoder.init:
 	push ds
@@ -162,11 +162,12 @@ Range_decoder.init:
 	mov cx, 5
 .loop:
 	call getbyteshiftcode
-	jc .ret
+	jc .error
 	loop .loop
-				; (NC)
-.ret:
 	retn
+
+.error:
+	jmp depack.error
 
 
 		; INP:	ds:bx -> range_decoder structure
