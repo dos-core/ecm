@@ -1285,11 +1285,11 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 .not_dis_slot_below_end_dis_model:
 	sub cx, dis_align_bits
 	call Range_decoder.decode
-.error_CY_10: equ .error_CY_11
 	mov cx, dis_align_bits
 @@:
 	shl ax, 1
 	rcl dx, 1
+.error_CY_10:
 	jc short .error_CY_11
 	loop @B
 	add word [bx + rep0], ax
