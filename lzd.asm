@@ -308,9 +308,10 @@ Range_decoder.decode_bit:
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure array
 		;	cx = num_bits, <= 15
-		; OUT:	NC if success,
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 dx:ax = ax = symbol
-		;	CY if failure
 		; CHG:	cx, si
 Range_decoder.decode_tree:
 	mov si, 1		; symbol = 1
@@ -341,29 +342,26 @@ Range_decoder.decode_tree:
 	shl ax, cl		; = 1 << num_bits
 	sub si, ax		; symbol - ( 1 << num_bits )
 	xchg ax, si
-	xor dx, dx		; return symbol (NC)
+	xor dx, dx		; return symbol
 	retn
 
 .error_pop_2:
-	pop ax
-	pop ax
 .error:
-	stc
-	retn
+	jmp depack.error
 
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure array
 		;	cx = num_bits, <= 15
-		; OUT:	NC if success,
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 dx:ax = ax = reversed_symbol
-		;	CY if failure
 		; CHG:	cx, si
 Range_decoder.decode_tree_reversed:
 	push cx
 	call Range_decoder.decode_tree
 	pop cx
-	jc .ret
 	xchg dx, ax		; dx = symbol
 	xor ax, ax		; = reversed_symbol
 	jcxz .end
@@ -373,16 +371,16 @@ Range_decoder.decode_tree_reversed:
 	loop .loop
 .end:
 	xor dx, dx
-.ret:
 	retn
 
 
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> bit_model structure array
 		;	al = match_byte
-		; OUT:	NC if success,
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 al = return value (symbol & 0FFh)
-		;	CY if error
 		; CHG:	cx, dx, ax
 Range_decoder.decode_matched:
 	mov dh, al		; = match_byte
@@ -430,11 +428,8 @@ Range_decoder.decode_matched:
 	retn
 
 .error_pop_2:
-	pop ax
-	pop ax
 .error:
-	stc
-	retn
+	jmp depack.error
 
 
 .inner_loop:
@@ -461,9 +456,10 @@ Range_decoder.decode_matched:
 		; INP:	ds:bx -> range_decoder structure
 		;	es:di -> len_model structure
 		;	ax = pos_state
-		; OUT:	NC if success,
+		;	ss:bp -> depack stack frame
+		; OUT:	! If an error occurs, jumps to depack.error
+		;	If success,
 		;	 dx:ax = return
-		;	CY if error
 		; CHG:	cx, si
 Range_decoder.decode_len:
 	mov si, ax		; = pos_state
@@ -484,7 +480,7 @@ Range_decoder.decode_len:
 	jc .error
 	mov cx, len_low_bits
 	call Range_decoder.decode_tree
-	jmp .ret_CF
+	jmp .ret
 
 .not_decode_bit_choice1_equals_zero:
 	lea di, [di + len_model.choice2]
@@ -502,27 +498,22 @@ Range_decoder.decode_len:
 	jc .error
 	mov cx, len_mid_bits
 	call Range_decoder.decode_tree
-	pushf
 	add ax, len_low_symbols & 0FFFFh
 	adc dx, len_low_symbols >> 16
-	popf
-	jmp .ret_CF
+	jmp .ret
 
 .not_decode_bit_choice2_equals_zero:
 	lea di, [di + len_model.bm_high]
 	mov cx, len_high_bits
 	call Range_decoder.decode_tree
-	pushf
 	add ax, (len_low_symbols + len_mid_symbols) & 0FFFFh
 	adc dx, (len_low_symbols + len_mid_symbols) >> 16
-	popf
-.ret_CF:
+.ret:
 	 pop di
 	retn
 
 .error:
-	stc
-	jmp .ret_CF
+	jmp depack.error
 
 
 	struc lz_decoder
@@ -1004,7 +995,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop es
 	call Range_decoder.decode_matched
 @@:
-	jc short .error_CY_2
 	call LZ_decoder.put_byte
 	jc short .error_CY_2
 	call State.set_char
@@ -1162,10 +1152,9 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop es
 	lea di, [bx + rep_len_model]	; -> len_model to use
 	call Range_decoder.decode_len	; dx:ax = length
-.error_CY_5:
-	jc short .error_CY_6
 	add ax, min_match_len
 	adc dx, 0
+.error_CY_5:
 	jc short .error_CY_6
 	mov word [bp + ?len], ax
 	mov word [bp + ?len + 2], dx
@@ -1192,8 +1181,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop es
 	lea di, [bx + match_len_model]	; -> len_model to use
 	call Range_decoder.decode_len	; dx:ax = length
-.error_CY_6:
-	jc short .error_CY_7
 
 	mov word [bp + ?len_state], ax
 	test dx, dx
@@ -1206,6 +1193,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 
 	add ax, min_match_len
 	adc dx, 0
+.error_CY_6:
 	jc short .error_CY_7
 
 	mov word [bp + ?len], ax
@@ -1291,7 +1279,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	add di, ax			; index into the array
 	jc short .error_CY_10
 	call Range_decoder.decode_tree_reversed
-	jc short .error_CY_10
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
 	jc short .error_CY_10
@@ -1315,7 +1302,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	pop es
 	lea di, [bx + bm_align]
 	call Range_decoder.decode_tree_reversed
-	jc short .error_CY_11
 	add word [bx + rep0], ax
 	adc word [bx + rep0 + 2], dx
 .error_CY_11:
