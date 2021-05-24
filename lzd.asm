@@ -556,17 +556,16 @@ calculate_peek_pointer_disi:
 	 push word [bx + destinationbuffer_constant + 2]
 	 push word [bx + destinationbuffer_constant]
 
-	mov di, bx
+	neg dx
+	neg ax
+	sbb dx, byte 0			; neg dx:ax = - distance
+	sub ax, 1
+	sbb dx, 0			; - 1
+	add ax, word [bx + lz_decoder.pos]
+	adc dx, word [bx + lz_decoder.pos + 2]
+					; + pos
 	xchg cx, ax
 	xchg bx, dx
-	neg bx
-	neg cx
-	sbb bx, byte 0			; neg bx:cx = - distance
-	sub cx, 1
-	sbb bx, 0			; - 1
-	add cx, word [di + lz_decoder.pos]
-	adc bx, word [di + lz_decoder.pos + 2]
-					; + pos
 
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
