@@ -1216,7 +1216,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	mov word [bx + rep0], ax
 	mov word [bx + rep0 + 2], dx
 
-	cmp dx, 0
+	test dx, dx			; (same flags as cmp dx, 0)
 	jne @F
 	cmp ax, start_dis_model
 @@:
