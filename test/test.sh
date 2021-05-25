@@ -419,7 +419,7 @@ then
      -A -dumb 2> result.err > result.log < /dev/null
   elif ((qemu))
   then
-    ( (sleep 2; sendkeys "boot $options_ldebug_unit<ret>if (rc) then boot quit<ret>q<ret>" | socat - UNIX-CONNECT:qemu-monitor > /dev/null ) & > /dev/null)
+    ( (sleep 2; "$SENDKEYS" "boot $options_ldebug_unit<ret>if (rc) then boot quit<ret>q<ret>" | socat - UNIX-CONNECT:qemu-monitor > /dev/null ) & > /dev/null)
     timeout --foreground 10 "$QEMU" -fda diskldbg.img "$qemu_switch" "$name".img -boot order=a -monitor unix:qemu-monitor,server,nowait -display none 2> /dev/null
   fi
 else
