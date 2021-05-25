@@ -103,6 +103,7 @@ then
 elif [[ "$machine" == qemu ]]
 then
   qemu=1
+  dosemu_drives=0
 else
   echo "Error: invalid machine \"$machine\" selected" >&2
   exit 1
