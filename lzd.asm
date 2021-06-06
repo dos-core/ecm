@@ -30,14 +30,24 @@
 
 amount_states equ 12
 
+		numdef XLATBSEQ, 7
+		numdef WARNXLATBSEQ, 0
+
+
+%if _XLATBSEQ != 7
+next_states.beforealign:
 	align 2
 next_states:
 .:
 	times 4 db 0
 	db 1, 2, 3, 4, 5, 6, 4, 5
 .amount: equ $ - .
-%if .amount != amount_states
- %error Invalid next_states array content
+ %if .amount != amount_states
+  %error Invalid next_states array content
+ %endif
+ %assign XLATBTABSIZE $ - .beforealign
+%else
+ %assign XLATBTABSIZE 0
 %endif
 
 
@@ -51,9 +61,6 @@ State:
 	cmp byte [bx + state.st], 7
 	retn
 
-
-		numdef XLATBSEQ, 5
-		numdef WARNXLATBSEQ, 0
 
 		; INP:	ds:bx -> localvariables
 		;	byte [bx + state.st]
@@ -117,12 +124,23 @@ State:
 	xchg ax, bx
 	mov bl, byte [cs:next_states + bx]
 	xchg ax, bx
+%elif 7 == _XLATBSEQ	; 20, but minus 13 for table
+	mov al, byte [bx + state.st]
+	mov ah, 0		; 0 if < 4
+	sub al, 3		; below 4 ?
+	jbe .have		; yes -->
+	mov ah, al		; al - 3 (4 to 1, 5 to 2, etc)
+	cmp al, 10 - 3		; 10 or 11 initially ?
+	jb .have		; no -->
+	sub ah, 3		; convert
+.have:
+	mov al, ah		; result in al
 %else
  %error Invalid xlatb sequence specified
 %endif
 %if _WARNXLATBSEQ
 %assign SIZE $ - .xlatbseq
-%warning xlatb sequence takes SIZE bytes
+%warning xlatb sequence takes SIZE bytes plus XLATBTABSIZE table
 %endif
 .end:
 	mov byte [bx + state.st], al
