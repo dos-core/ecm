@@ -124,17 +124,17 @@ State:
 	xchg ax, bx
 	mov bl, byte [cs:next_states + bx]
 	xchg ax, bx
-%elif 7 == _XLATBSEQ	; 20, but minus 13 for table
+%elif 7 == _XLATBSEQ	; 16, but minus 13 for table
 	mov al, byte [bx + state.st]
-	mov ah, 0		; 0 if < 4
 	sub al, 3		; below 4 ?
-	jbe .have		; yes -->
-	mov ah, al		; al - 3 (4 to 1, 5 to 2, etc)
+	jbe .zero		; yes -->
 	cmp al, 10 - 3		; 10 or 11 initially ?
 	jb .have		; no -->
-	sub ah, 3		; convert
+	sub al, 3		; convert
 .have:
-	mov al, ah		; result in al
+	db __TEST_IMM16		; (skip xor)
+.zero:
+	xor ax, ax
 %else
  %error Invalid xlatb sequence specified
 %endif
