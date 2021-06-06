@@ -52,16 +52,78 @@ State:
 	retn
 
 
+		numdef XLATBSEQ, 5
+		numdef WARNXLATBSEQ, 0
+
 		; INP:	ds:bx -> localvariables
 		;	byte [bx + state.st]
 		; OUT:	byte [bx + state.st] = al = next state
-		; CHG:	al
+		; CHG:	al, ah (ah only if _XLATBSEQ == 6)
 .set_char:
+
+.xlatbseq:
+%if 0 == _XLATBSEQ	; 10
 	push bx
 	mov al, byte [bx + state.st]
 	mov bx, next_states
 	cs xlatb
+		; Problem: It is reported that prior to the 386
+		;  a segment override on an xlatb instruction
+		;  does not have any effect. So this choice is
+		;  possibly wrong on those machines.
 	pop bx
+%elif 1 == _XLATBSEQ	; 13
+	push bx
+	mov al, byte [bx + state.st]
+	mov bx, next_states
+	push ds
+	 push cs
+	 pop ds
+	xlatb
+	pop ds
+	pop bx
+%elif 2 == _XLATBSEQ	; 16
+	push bx
+	mov al, byte [bx + state.st]
+	mov bx, next_states
+	add bl, al
+	adc bh, 0
+	mov al, byte [cs:bx]
+	pop bx
+%elif 3 == _XLATBSEQ	; 14
+	push bx
+	mov al, byte [bx + state.st]
+	xor bx, bx
+	mov bl, al
+	mov al, byte [cs:next_states + bx]
+	pop bx
+%elif 4 == _XLATBSEQ	; 12
+	push bx
+	mov bl, byte [bx + state.st]
+	mov bh, 0
+	mov al, byte [cs:next_states + bx]
+	pop bx
+%elif 5 == _XLATBSEQ	; 10
+	push bx
+	mov bl, byte [bx + state.st]
+	; mov bh, 0
+		; ! because the pointer stored in ?localvariables
+		;    is normalised bh is already zero here.
+	mov al, byte [cs:next_states + bx]
+	pop bx
+%elif 6 == _XLATBSEQ	; 12
+	xor ax, ax
+	mov al, byte [bx + state.st]
+	xchg ax, bx
+	mov bl, byte [cs:next_states + bx]
+	xchg ax, bx
+%else
+ %error Invalid xlatb sequence specified
+%endif
+%if _WARNXLATBSEQ
+%assign SIZE $ - .xlatbseq
+%warning xlatb sequence takes SIZE bytes
+%endif
 .end:
 	mov byte [bx + state.st], al
 	retn
@@ -673,6 +735,7 @@ d0	 push bx
 
 	call normalise_both_pointers
 
+		; ! di < 16, so dih == 0
 	lvar dword,	src
 	 push ds
 	 push si
@@ -680,6 +743,8 @@ d0	 push bx
 	 push es
 	 push di
 	lequ ?final_dst,	localvariables
+		; ! offset of ?localvariables is always < 16
+		;  required for State.set_char with _XLATBSEQ == 5
 	lvar dword,	length_of_source
 	 push dx
 	 push cx
