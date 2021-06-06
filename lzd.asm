@@ -132,9 +132,9 @@ State:
 	jb .have		; no -->
 	sub al, 3		; convert
 .have:
-	db __TEST_IMM16		; (skip xor)
+	db __TEST_IMM16		; (skip mov)
 .zero:
-	xor ax, ax
+	mov al, 0
 %else
  %error Invalid xlatb sequence specified
 %endif
