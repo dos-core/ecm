@@ -168,10 +168,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jc .error
-	sub word [bp + ?length_of_destination], cx
-	sbb word [bp + ?length_of_destination + 2], 0
-	jc .error
-	rep movsb
+	call .copy_to_destination
 .next:
 	call normalise_dssi_pointer
 	call normalise_esdi_pointer_at_least_256
@@ -197,10 +194,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	mov si, di			; (at least 256 normalised)
 	sub si, ax			; should not carry
 	jc .error
-	sub word [bp + ?length_of_destination], cx
-	sbb word [bp + ?length_of_destination + 2], 0
-	jc .error
-	rep movsb
+	call .copy_to_destination
 	 pop si
 	 pop ds
 %if _ALLOW_OVERLAPPING
@@ -229,6 +223,14 @@ d0	mov byte [bp + ?errordata], 1Bh
 d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
+
+
+.copy_to_destination:
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jc .error
+	rep movsb
+	retn
 
 
 		; INP:	depack stack frame
