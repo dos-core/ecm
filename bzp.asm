@@ -149,9 +149,6 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
 
-	lds si, [bp + ?src]
-	les di, [bp + ?dst]
-
 .loop:
 %if _COUNTER
 	inc byte [bp + ?counter]
