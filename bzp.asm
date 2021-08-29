@@ -183,8 +183,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 @@:
 	; retn
 		; ds:si not normalised, incremented by at most 32
-	test ch, ch			; cx > 255 ?
-	jnz .end			; yes, end marker -->
+	test ch, ch			; cx > 255 ? (NC)
+	jnz .end_NC			; yes, end marker -->
 	call getbit
 		; ds:si not normalised, incremented by at most 33
 	jz .bitzero
@@ -222,7 +222,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	shr bx, cl			; round DOWN !
 	add ax, bx
 	cmp ax, word [bp + ?dst_max_segment]
-	jae .end
+	jae .end_NC			; (NC if it branches)
 
 	jmp .loop
 
@@ -257,10 +257,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 	jmp .next
 
-.end:
-	db __TEST_IMM8			; (NC)
 .error:
 	stc
+.end_NC:
 
 %if _COUNTER
 	lahf
