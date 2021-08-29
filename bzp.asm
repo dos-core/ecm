@@ -203,7 +203,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 		;	 di < 256 + 16
 		;	 di >= 256 if possible
 ; normalise_esdi_pointer_at_least_256:
-	sub di, 256			; subtract base and compare
+	mov ax, 256
+	sub di, ax			; subtract base and compare
 	jbe @F				; below/equal base,
 					;  just branch and restore -->
 	 push es
@@ -212,7 +213,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	 pop di
 	 pop es
 @@:
-	add di, 256			; restore base, now 0..256+15
+	add di, ax			; restore base, now 0..256+15
 	; retn
 
 	mov ax, es
