@@ -99,7 +99,7 @@ depack:
 		; If the normalised destination pointer's segment grows
 		;  to this segment then enough has been decompressed.
 d0	mov byte [bp + ?errordata], 40h
-	jc .error		; should not carry
+	jc .error_CY		; should not carry
 @@:
 	lvar word,	dst_max_segment
 	 push ax
@@ -146,7 +146,7 @@ d0	mov byte [bp + ?errordata], 40h
 		;	 copied match) allows us to drop the check done
 		;	 after moving literal bytes.
 d0	mov byte [bp + ?errordata], 1Bh
-	jc .error
+	jc .error_CY
 %endif
 
 .loop:
@@ -165,7 +165,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 		;	 cx = decoded value
 		;	 ds:si incremented by at most 32,
 		;	 not normalised
-		;	Jumps to depack.error if failure
+		;	Jumps to depack.error_CY if failure
 		; CHG:	ax
 ; decode_elias_1:
 	xor cx, cx			; value = 0 (next inc sets it to 1)
@@ -175,7 +175,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call getbit
 	jz @F				; read zero
 	shl cx, 1			; value <<= 1
-	jc .error			; value error
+	jc .error_CY			; value error
 	call getbit
 	jz @B
 	jmp @BB
@@ -192,7 +192,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .bitone:
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
-	jc .error
+	jc .error_CY
 	call .copy_to_destination
 		; ds:si not normalised, incremented by at most 33 + 256
 .next:
@@ -243,13 +243,13 @@ d0	mov byte [bp + ?errordata], 1Bh
 	pop ds
 	mov si, di			; (at least 256 normalised)
 	sub si, ax			; should not carry
-	jc .error
+	jc .error_CY
 	call .copy_to_destination
 %if _ALLOW_OVERLAPPING
 	mov word [bp + ?dst + 2], es
 	mov word [bp + ?dst], di	; (needn't be normalised)
 	call check_pointers_not_overlapping
-	jc .error
+	jc .error_CY
 	lds si, [bp + ?src]		; restore pointer
 %else
 	 pop si
@@ -257,8 +257,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 	jmp .next
 
-.error:
-	stc
+.error_CY:
 .end_NC:
 
 %if _COUNTER
@@ -277,7 +276,7 @@ d0	mov bx, word [bp + ?errordata]
 .copy_to_destination:
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
-	jc .error
+	jc .error_CY
 	rep movsb
 	retn
 
@@ -288,12 +287,12 @@ d0	mov bx, word [bp + ?errordata]
 		;	 al = byte read
 		;	 ds:si incremented by at most one,
 		;	 not normalised
-		;	Jumps to depack.error if failure
+		;	Jumps to depack.error_CY if failure
 		; CHG:	-
 getbyte:
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
-	jc depack.error
+	jc depack.error_CY
 	lodsb
 	retn
 
@@ -305,7 +304,7 @@ getbyte:
 		;	 ah = nonzero if bit set, and NZ
 		;	 ds:si incremented by at most one,
 		;	 not normalised
-		;	Jumps to depack.error if failure
+		;	Jumps to depack.error_CY if failure
 		; CHG:	al
 getbit:
 	mov ah, byte [bp + ?mask]
