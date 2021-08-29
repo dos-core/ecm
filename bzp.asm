@@ -196,7 +196,23 @@ d0	mov byte [bp + ?errordata], 1Bh
 		; ds:si not normalised, incremented by at most 33 + 256
 .next:
 	call normalise_dssi_pointer
-	call normalise_esdi_pointer_at_least_256
+	; call normalise_esdi_pointer_at_least_256
+		; INP:	es:di = pointer
+		; OUT:	es:di normalised,
+		;	 di < 256 + 16
+		;	 di >= 256 if possible
+; normalise_esdi_pointer_at_least_256:
+	sub di, 256			; subtract base and compare
+	jbe @F				; below/equal base,
+					;  just branch and restore -->
+	 push es
+	 push di
+	call normalise_pointer		; normalise pointer to offset 0..15
+	 pop di
+	 pop es
+@@:
+	add di, 256			; restore base, now 0..256+15
+	; retn
 
 	mov ax, es
 	mov bx, di
@@ -295,22 +311,4 @@ getbit:
 	and ah, byte [bp + ?bitbyte]
 	shr byte [bp + ?mask], 1
 	test ah, ah
-	retn
-
-
-		; INP:	es:di = pointer
-		; OUT:	es:di normalised,
-		;	 di < 256 + 16
-		;	 di >= 256 if possible
-normalise_esdi_pointer_at_least_256:
-	sub di, 256			; subtract base and compare
-	jbe @F				; below/equal base,
-					;  just branch and restore -->
-	 push es
-	 push di
-	call normalise_pointer		; normalise pointer to offset 0..15
-	 pop di
-	 pop es
-@@:
-	add di, 256			; restore base, now 0..256+15
 	retn
