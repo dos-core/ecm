@@ -158,7 +158,29 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call disp_al
 @@:
 %endif
-	call decode_elias_1		; cx = value of length
+	; call decode_elias_1		; cx = value of length
+		; INP:	depack stack frame
+		;	ds:si -> source
+		; OUT:	Only returns iff successful,
+		;	 cx = decoded value
+		;	 ds:si incremented by at most 32,
+		;	 not normalised
+		;	Jumps to depack.error if failure
+		; CHG:	ax
+; decode_elias_1:
+	mov cx, 1			; value = 1
+@@:
+	call getbit
+	jz @F				; read zero
+	shl cx, 1			; value <<= 1
+	jc .error			; value error
+	call getbit
+	jz @B
+	inc cx				; value += 1
+	jmp @B
+
+@@:
+	; retn
 		; ds:si not normalised, incremented by at most 32
 	test ch, ch			; cx > 255 ?
 	jnz .end			; yes, end marker -->
@@ -273,30 +295,6 @@ getbit:
 	and ah, byte [bp + ?bitbyte]
 	shr byte [bp + ?mask], 1
 	test ah, ah
-	retn
-
-
-		; INP:	depack stack frame
-		;	ds:si -> source
-		; OUT:	Only returns iff successful,
-		;	 cx = decoded value
-		;	 ds:si incremented by at most 32,
-		;	 not normalised
-		;	Jumps to depack.error if failure
-		; CHG:	ax
-decode_elias_1:
-	mov cx, 1			; value = 1
-@@:
-	call getbit
-	jz .ret				; read zero
-	shl cx, 1			; value <<= 1
-	jc depack.error			; value error
-	call getbit
-	jz @B
-	inc cx				; value += 1
-	jmp @B
-
-.ret:
 	retn
 
 
