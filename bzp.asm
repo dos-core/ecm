@@ -231,23 +231,29 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call getbyte			; ax = al = offset
 		; ds:si not normalised, incremented by at most 34
 	inc cx				; length ++
+%if _ALLOW_OVERLAPPING
+	mov word [bp + ?src + 2], ds
+	mov word [bp + ?src], si	; preserve pointer here,
+					;  also to initialise for check
+%else
 	 push ds
-	 push si
+	 push si			; preserve pointer on stack
+%endif
 	push es
 	pop ds
 	mov si, di			; (at least 256 normalised)
 	sub si, ax			; should not carry
 	jc .error
 	call .copy_to_destination
-	 pop si
-	 pop ds
 %if _ALLOW_OVERLAPPING
-	mov word [bp + ?src + 2], ds
-	mov word [bp + ?src], si
 	mov word [bp + ?dst + 2], es
 	mov word [bp + ?dst], di	; (needn't be normalised)
 	call check_pointers_not_overlapping
 	jc .error
+	lds si, [bp + ?src]		; restore pointer
+%else
+	 pop si
+	 pop ds				; restore pointer
 %endif
 	jmp .next
 
