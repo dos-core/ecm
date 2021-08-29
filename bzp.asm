@@ -159,11 +159,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 @@:
 %endif
 	call decode_elias_1		; cx = value of length
-	jc .error
 	test ch, ch			; cx > 255 ?
 	jnz .end			; yes, end marker -->
 	call getbit
-	jc .error
 	jz .bitzero
 
 .bitone:
@@ -191,7 +189,6 @@ d0	mov byte [bp + ?errordata], 1Bh
 .bitzero:
 	xor ax, ax			; initialise ah = 0
 	call getbyte			; ax = al = offset
-	jc .error
 	inc cx				; length ++
 	 push ds
 	 push si
@@ -236,27 +233,27 @@ d0	mov bx, word [bp + ?errordata]
 
 		; INP:	depack stack frame
 		;	ds:si -> source
-		; OUT:	NC iff successful,
+		; OUT:	Only returns iff successful,
 		;	 al = byte read
 		;	 ds:si incremented, normalised
+		;	Jumps to depack.error if failure
 		; CHG:	-
 getbyte:
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
-	jc .ret
+	jc depack.error
 	lodsb
 	call normalise_dssi_pointer
-	clc
-.ret:
 	retn
 
 
 		; INP:	depack stack frame
 		;	ds:si -> source
-		; OUT:	NC iff successful,
+		; OUT:	Only returns iff successful,
 		;	 ah = zero if bit clear, and ZR
 		;	 ah = nonzero if bit set, and NZ
 		;	 ds:si may be incremented, normalised
+		;	Jumps to depack.error if failure
 		; CHG:	al
 getbit:
 	mov ah, byte [bp + ?mask]
@@ -264,33 +261,29 @@ getbit:
 	jnz @F
 	mov ah, 128
 	call getbyte
-	jc .ret
 	mov word [bp + ?bitbyte_and_mask], ax
 @@:
 	and ah, byte [bp + ?bitbyte]
 	shr byte [bp + ?mask], 1
-	test ah, ah			; (NC)
-.ret:
+	test ah, ah
 	retn
 
 
 		; INP:	depack stack frame
 		;	ds:si -> source
-		; OUT:	NC iff successful,
+		; OUT:	Only returns iff successful,
 		;	 cx = decoded value
 		;	 ds:si may be incremented, normalised
+		;	Jumps to depack.error if failure
 		; CHG:	ax
 decode_elias_1:
 	mov cx, 1			; value = 1
 @@:
 	call getbit
-	; jc .ret			; read error
-	; jz .ret			; read zero (NC)
-	jbe .ret			; (branch if CY || ZR)
+	jz .ret				; read zero
 	shl cx, 1			; value <<= 1
-	jc .ret				; value error
+	jc depack.error			; value error
 	call getbit
-	jc .ret				; read error
 	jz @B
 	inc cx				; value += 1
 	jmp @B
