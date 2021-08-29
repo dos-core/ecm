@@ -308,7 +308,6 @@ getbit:
 	call getbyte
 	mov word [bp + ?bitbyte_and_mask], ax
 @@:
-	and ah, byte [bp + ?bitbyte]
 	shr byte [bp + ?mask], 1
-	test ah, ah
+	and ah, byte [bp + ?bitbyte]
 	retn
