@@ -168,7 +168,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 		;	Jumps to depack.error if failure
 		; CHG:	ax
 ; decode_elias_1:
-	mov cx, 1			; value = 1
+	xor cx, cx			; value = 0 (next inc sets it to 1)
+@@:
+	inc cx				; value += 1
 @@:
 	call getbit
 	jz @F				; read zero
@@ -176,8 +178,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error			; value error
 	call getbit
 	jz @B
-	inc cx				; value += 1
-	jmp @B
+	jmp @BB
 
 @@:
 	; retn
