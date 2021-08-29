@@ -159,9 +159,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 @@:
 %endif
 	call decode_elias_1		; cx = value of length
+		; ds:si not normalised, incremented by at most 32
 	test ch, ch			; cx > 255 ?
 	jnz .end			; yes, end marker -->
 	call getbit
+		; ds:si not normalised, incremented by at most 33
 	jz .bitzero
 
 .bitone:
@@ -169,6 +171,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sbb word [bp + ?length_of_source + 2], 0
 	jc .error
 	call .copy_to_destination
+		; ds:si not normalised, incremented by at most 33 + 256
 .next:
 	call normalise_dssi_pointer
 	call normalise_esdi_pointer_at_least_256
@@ -186,6 +189,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .bitzero:
 	xor ax, ax			; initialise ah = 0
 	call getbyte			; ax = al = offset
+		; ds:si not normalised, incremented by at most 34
 	inc cx				; length ++
 	 push ds
 	 push si
@@ -237,7 +241,8 @@ d0	mov bx, word [bp + ?errordata]
 		;	ds:si -> source
 		; OUT:	Only returns iff successful,
 		;	 al = byte read
-		;	 ds:si incremented, normalised
+		;	 ds:si incremented by at most one,
+		;	 not normalised
 		;	Jumps to depack.error if failure
 		; CHG:	-
 getbyte:
@@ -245,7 +250,6 @@ getbyte:
 	sbb word [bp + ?length_of_source + 2], 0
 	jc depack.error
 	lodsb
-	call normalise_dssi_pointer
 	retn
 
 
@@ -254,7 +258,8 @@ getbyte:
 		; OUT:	Only returns iff successful,
 		;	 ah = zero if bit clear, and ZR
 		;	 ah = nonzero if bit set, and NZ
-		;	 ds:si may be incremented, normalised
+		;	 ds:si incremented by at most one,
+		;	 not normalised
 		;	Jumps to depack.error if failure
 		; CHG:	al
 getbit:
@@ -275,7 +280,8 @@ getbit:
 		;	ds:si -> source
 		; OUT:	Only returns iff successful,
 		;	 cx = decoded value
-		;	 ds:si may be incremented, normalised
+		;	 ds:si incremented by at most 32,
+		;	 not normalised
 		;	Jumps to depack.error if failure
 		; CHG:	ax
 decode_elias_1:
