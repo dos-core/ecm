@@ -162,6 +162,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 @@:
 %endif
 	call decode_elias_1		; cx = value of length
+	jc .error
 	test ch, ch			; cx > 255 ?
 	jnz .end			; yes, end marker -->
 	call getbit
@@ -193,6 +194,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 .bitzero:
 	xor ax, ax			; initialise ah = 0
 	call getbyte			; ax = al = offset
+	jc .error
 	inc cx				; length ++
 	 push ds
 	 push si
