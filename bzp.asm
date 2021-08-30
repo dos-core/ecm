@@ -91,6 +91,7 @@ depack:
 	 push dx
 	 push cx
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?
@@ -106,6 +107,7 @@ d0	mov byte [bp + ?errordata], 40h
 @@:
 	lvar word,	dst_max_segment
 	 push ax
+%endif
 
 	 push ds
 	 push si
@@ -219,6 +221,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	add di, ax			; restore base, now 0..256+15
 	; retn
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	mov ax, es
 	mov bx, di
 	mov cl, 4
@@ -226,6 +229,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	add ax, bx
 	cmp ax, word [bp + ?dst_max_segment]
 	jae .end_NC			; (NC if it branches)
+%endif
 
 	jmp .loop
 

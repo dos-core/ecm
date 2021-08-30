@@ -132,6 +132,7 @@ d0	mov byte [bp + ?errordata], 9Dh
 	 push es
 	 push di
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?
@@ -148,6 +149,7 @@ d0	mov byte [bp + ?errordata], 80h
 @@:
 	lvar word,	dst_max_segment
 	 push ax
+%endif
 
 	 push ds
 	 push si
@@ -391,12 +393,14 @@ d0	mov byte [bp + ?errordata], 9Ah
 	jc .error
 %endif
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp word [bp + ?layers], 1
 	jne @F
 	mov ax, word [bp + ?dst + 2]
 	cmp ax, word [bp + ?dst_max_segment]
 	jae .end_no_src_remaining_check
 @@:
+%endif
 
 	jmp .decompress_loop
 

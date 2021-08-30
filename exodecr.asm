@@ -95,6 +95,7 @@ depack:
 	 push dx
 	 push cx
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?
@@ -110,6 +111,7 @@ d0	mov byte [bp + ?errordata], 40h
 @@:
 	lvar word,	dst_max_segment
 	 push ax
+%endif
 
 	 push ds
 	 push si
@@ -630,9 +632,11 @@ d0	inc byte [bp + ?errordata + 1]
 	call normalise_both_pointers	; normalise (again)
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es	; store to ?dst
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	mov di, es			; ! this is the *segment*
 	cmp di, word [bp + ?dst_max_segment]
 	jae depack.end
+%endif
 	clc
 .ret:
 	retn

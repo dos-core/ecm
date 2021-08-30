@@ -93,7 +93,7 @@ depack:
 	 push dx
 	 push cx
 
-%if 0
+%if 0 ; && _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?

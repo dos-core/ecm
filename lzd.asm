@@ -770,6 +770,7 @@ d0	 push bx
 	 push dx
 	 push cx
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?
@@ -785,6 +786,7 @@ d0	mov byte [bp + ?errordata], 40h
 @@:
 	lvar word,	dst_max_segment
 	 push ax
+%endif
 
 	 push ds
 	 push si
@@ -1490,11 +1492,13 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 .hm_end:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	mov ax, es
 	cmp ax, word [bp + ?dst_max_segment]
 	jae depack.end
 		; note that we have the depack stack frame pointed to by
 		;  ss:bp here, which is needed for running depack.end
+%endif
 	pop ds
 %if _ALLOW_OVERLAPPING
 	push bx

@@ -91,6 +91,7 @@ depack:
 	 push dx
 	 push cx
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?
@@ -106,6 +107,7 @@ d0	mov byte [bp + ?errordata], 40h
 @@:
 	lvar word,	dst_max_segment
 	 push ax
+%endif
 
 	 push ds
 	 push si
@@ -573,9 +575,11 @@ d0	inc byte [bp + ?errordata + 1]
 .end:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	mov ax, es
 	cmp ax, word [bp + ?dst_max_segment]
 	jae depack.end
+%endif
 
 	db __TEST_IMM8			; (NC)
 .error:

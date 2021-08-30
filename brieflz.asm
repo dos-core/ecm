@@ -121,6 +121,7 @@ d0	 push bx
 	 push dx
 	 push cx
 
+%if _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
 	je @FF			; retain -1 in ax -->
 	test di, di		; do we need an additional paragraph ?
@@ -136,6 +137,7 @@ d0	mov byte [bp + ?errordata], 40h
 @@:
 	lvar word,	dst_max_segment
 	 push ax
+%endif
 
 	 push ds
 	 push si
@@ -584,6 +586,7 @@ d0	mov byte [bp + ?errordata], 0Fh
 	adc word [bp + ?dst_size + 2], 0
 
 .loop:
+%if _PAYLOAD_KERNEL_MAX_PARAS
 		; Do the max segment check here, so it happens either
 		;  after the func_bx_* call with movsb (for literals)
 		;  or after .end_copy_match (for matches) has been
@@ -591,6 +594,7 @@ d0	mov byte [bp + ?errordata], 0Fh
 	mov ax, word [bp + ?dst + 2]	; get new dst segment (may have grown)
 	cmp ax, word [bp + ?dst_max_segment]
 	jae depack.end
+%endif
 
 	mov ax, word [bp + ?dst_size]
 	mov dx, word [bp + ?dst_size + 2]
