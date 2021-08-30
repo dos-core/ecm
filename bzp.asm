@@ -64,18 +64,16 @@ depack:
    %error exemode variable must be directly below bp
   %endif
  %endif
+%if _DEBUG0 || _COUNTER
 	xor bx, bx		; (unconditionally)
  %if _DEBUG0
 	lvar word,	errordata
 	 push bx
  %endif
-	lvar word,	bitbyte_and_mask
-	lequ ?bitbyte_and_mask + 1, mask
-	lequ ?bitbyte_and_mask, bitbyte
-	 push bx		; initialise mask to zero
-%if _COUNTER
+ %if _COUNTER
 	lvar word,	counter
 	 push bx		; initialise counter to zero
+ %endif
 %endif
 	lenter
 
@@ -153,6 +151,8 @@ d0	mov byte [bp + ?errordata], 40h
 d0	mov byte [bp + ?errordata], 1Bh
 	jc .error_CY
 %endif
+
+	xor dx, dx		; dh = mask, dl = bitbyte
 
 .loop:
 %if _COUNTER
@@ -255,7 +255,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 %if _ALLOW_OVERLAPPING
 	mov word [bp + ?dst + 2], es
 	mov word [bp + ?dst], di	; (needn't be normalised)
+	push dx
 	call check_pointers_not_overlapping
+	pop dx
 	jc .error_CY
 	lds si, [bp + ?src]		; restore pointer
 %else
@@ -314,13 +316,13 @@ getbyte:
 		;	Jumps to depack.error_CY if failure
 		; CHG:	al
 getbit:
-	mov ah, byte [bp + ?mask]
+	mov ah, dh
 	test ah, ah
 	jnz @F
 	mov ah, 128
 	call getbyte
-	mov word [bp + ?bitbyte_and_mask], ax
+	mov dx, ax
 @@:
-	shr byte [bp + ?mask], 1
-	and ah, byte [bp + ?bitbyte]
+	shr dh, 1
+	and ah, dl
 	retn
