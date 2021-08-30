@@ -604,8 +604,11 @@ init1_start:
 		;	bx = EXE mode flag
 		;	 (1 if EXE mode, 0 if kernel mode)
 		;	 (always 0 if this is a build without EXE mode)
-		;	ax = maximum amount in paragraphs of destination needed
-		;	 (-1 if unused, meaning entire destination needed)
+		;	if _PAYLOAD_KERNEL_MAX_PARAS:
+		;	 ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		;	else:
+		;	 ax = -1
 		; Note:	The destination reaches up to below the source.
 	call depack
 %ifn _TEST_PROGRAM

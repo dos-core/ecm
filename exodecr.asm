@@ -45,8 +45,11 @@ eteBase:	resw 1
 		;	 bx = EXE mode flag (bit 0)
 		;	else:
 		;	 bx = 0
-		;	ax = maximum amount in paragraphs of destination needed
+		;	if _PAYLOAD_KERNEL_MAX_PARAS:
+		;	 ax = maximum amount in paragraphs of destination needed
 		;	 (-1 if full source should be decompressed)
+		;	else:
+		;	 ax = -1
 		; OUT:	NC if success
 		;	CY if error,
 		;	 bx = ?errordata (if _DEBUG0)
