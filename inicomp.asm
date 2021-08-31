@@ -1061,16 +1061,18 @@ normalise_pointer_with_displacement_bxcx:
 @@:
 %endif
 
+	push bx
 	push cx
 	and cx, 15
 	mov word [bp + ?offset], cx
-	pop cx
+	pop bx
 
 %rep 4
 	shr dx, 1
-	rcr cx, 1
+	rcr bx, 1
 %endrep
-	mov word [bp + ?segment], cx
+	mov word [bp + ?segment], bx
+	pop bx
 
 	; test dx, dx
 	; jnz .error
