@@ -558,6 +558,7 @@ init1_start:
 		;		  far address of payload strategy entrypoint,
 		;		  far return address to DOS
 		;	  bp = unset
+		; STT:	UP
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
 %if _IMAGE_EXE || _DEVICE
 	lframe
@@ -571,8 +572,6 @@ init1_start:
 %else
 	xor bx, bx		; always tell them it is kernel mode
 %endif
-
-	cld
 
 %if _IMAGE_EXE
 	mov es, si		; es => destination
