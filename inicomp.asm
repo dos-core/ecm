@@ -799,13 +799,13 @@ device_header_copy:
 %endif
 
 
+disp_error.loop:
+	call disp_al
 disp_error:
-.:
 	lodsb
 	test al, al
-	jz .ret
-	call disp_al
-	jmp short .
+	jnz .loop
+	retn
 
 %if _DEBUG0 || _DEBUG1 || _DEBUG2 || _DEBUG3
 disp_ax_hex:			; ax
