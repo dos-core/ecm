@@ -847,7 +847,7 @@ disp_al:
 	test byte [bp - 2], 1 | 2
 	jz .display_kernel_mode
 
-	mov dl, al
+	xchg dx, ax				; dl = input al
 	mov ah, 02h
 	int 21h
 	jmp .common
