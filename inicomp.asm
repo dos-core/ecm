@@ -1066,10 +1066,12 @@ normalise_pointer_with_displacement_bxcx:
 	and cx, 15
 	mov word [bp + ?offset], cx
 
-%rep 4
+	mov cl, 4
+@@:
 	shr dx, 1
 	rcr bx, 1
-%endrep
+	loop @B
+
 	mov word [bp + ?segment], bx
 	pop bx
 
