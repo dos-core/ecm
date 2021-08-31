@@ -190,7 +190,7 @@ init0_kernel_entry:
 	hlt
 	jmp @B
 %endif
-	mov bx, 0		; kernel mode
+	xor bx, bx		; 0 = kernel mode
 	push ax
 	mov ax, cs
 	add ax, (init0_end - init0_start) >> 4
