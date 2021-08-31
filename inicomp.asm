@@ -877,6 +877,8 @@ msg:
 %endif
 
 
+%assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 1
+
 		; Specific depacker's file is included within label msg.
 		; In the file, lframe is used and lleave ctx is not used.
 
@@ -995,6 +997,7 @@ normalise_dssi_pointer:
 		; Note:	Does not work correctly with pointers that point to
 		;	 a HMA location. Do not use then!
 normalise_pointer:
+%if NEED_NORMALISE_POINTER_WITH_DISPLACEMENT
 	lframe near
 	lpar word,	segment
 	lpar word,	offset
@@ -1023,6 +1026,7 @@ normalise_pointer:
 		; OUT:	CY if the displacement carries
 		;	NC if not
 normalise_pointer_with_displacement_bxcx:
+%endif
 	lframe near
 	lpar word,	segment
 	lpar word,	offset
@@ -1036,6 +1040,7 @@ normalise_pointer_with_displacement_bxcx:
 	 push word [bp + ?offset]
 	call pointer_to_linear
 
+%if NEED_NORMALISE_POINTER_WITH_DISPLACEMENT
 	; push bx
 	; 				; sign-extend cx into bx:cx
 	; cmp cx, 8000h			; CY if < 8000h (NC if negative)
@@ -1046,6 +1051,9 @@ normalise_pointer_with_displacement_bxcx:
 	adc dx, bx			; dx:cx = dx:ax + bx:cx
 	; pop bx
 	lahf				; ah = flags
+%else
+	xchg ax, cx
+%endif
 
 %if 0
 		; Adds in HMA support for this function. Not currently used.
@@ -1080,7 +1088,9 @@ normalise_pointer_with_displacement_bxcx:
 
 .return:
 
+%if NEED_NORMALISE_POINTER_WITH_DISPLACEMENT
 	sahf				; restore flags from ah
+%endif
 	pop dx
 	pop cx
 	pop ax
