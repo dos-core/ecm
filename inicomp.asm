@@ -1099,10 +1099,13 @@ pointer_to_linear:
 
 	mov ax, word [bp + ?segment]
 	xor dx, dx
-%rep 4
+	push cx
+	mov cx, 4
+@@:
 	shl ax, 1
 	rcl dx, 1
-%endrep
+	loop @B
+	pop cx
 
 	add ax, word [bp + ?offset]
 	adc dx, 0
