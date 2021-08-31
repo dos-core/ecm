@@ -711,7 +711,7 @@ error:
 %if _DEBUG0
 	mov si, msg.error_begin
 	call disp_error
-	mov ax, bx
+	xchg ax, bx			; ax = error code
 	call disp_ax_hex
 	mov si, msg.error_end
 %else
