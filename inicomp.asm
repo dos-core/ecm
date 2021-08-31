@@ -685,7 +685,14 @@ init1_start:
 	xor cx, cx
 	push cx			; put zero on top of stack
 
+%if _IMAGE_EXE_IP < 256
+	mov cl, _IMAGE_EXE_IP
+%elif (_IMAGE_EXE_IP & 255) == 0
+	mov ch, _IMAGE_EXE_IP >> 8
+%else
 	mov cx, _IMAGE_EXE_IP
+%endif
+
 %if _IMAGE_EXE_CS == -16
 	add si, -16
 	mov ds, si
