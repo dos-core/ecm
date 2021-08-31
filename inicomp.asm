@@ -1062,10 +1062,9 @@ normalise_pointer_with_displacement_bxcx:
 %endif
 
 	push bx
-	push cx
+	mov bx, cx
 	and cx, 15
 	mov word [bp + ?offset], cx
-	pop bx
 
 %rep 4
 	shr dx, 1
