@@ -33,6 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %endif
 
 
+%assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
+
+
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
