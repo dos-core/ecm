@@ -841,6 +841,8 @@ disp_al:
 %endif
 	push bx
 	push bp
+	mov ah, 0Eh
+	mov bx, 7
 %if _IMAGE_EXE || _DEVICE
 	push dx
 
@@ -850,15 +852,12 @@ disp_al:
 	xchg dx, ax				; dl = input al
 	mov ah, 02h
 	int 21h
-	jmp .common
+	db __TEST_IMM16				; (skip int)
 
 .display_kernel_mode:
 %endif
-	mov ah, 0Eh
-	mov bx, 7
 	int 10h
 %if _IMAGE_EXE
-.common:
 	pop dx
 %endif
 	pop bp
