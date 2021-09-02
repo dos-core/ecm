@@ -36,8 +36,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-%if _IMAGE_EXE || _DEBUG0 || _COUNTER
-	lenter early
+	lenter
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
 	 push bx
@@ -52,13 +51,11 @@ depack:
 	lvar word,	errordata
 	 push bx
  %endif
-%endif
 %if _COUNTER
 	lvar word,	unused_and_counter
 	lequ ?unused_and_counter + 1, counter
 	 push bx		; initialise counter (high byte) to zero
 %endif
-	lenter
 
 	call normalise_both_pointers
 
