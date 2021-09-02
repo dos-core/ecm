@@ -59,7 +59,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-	lenter early		; (unconditionally)
+%if _DEBUG0 || _COUNTER || _IMAGE_EXE
+	lenter early
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
 	 push bx
@@ -67,15 +68,16 @@ depack:
    %error exemode variable must be directly below bp
   %endif
  %endif
-%if _DEBUG0 || _COUNTER
-	xor bx, bx		; (unconditionally)
- %if _DEBUG0
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+  %if _DEBUG0
 	lvar word,	errordata
 	 push bx
- %endif
- %if _COUNTER
+  %endif
+  %if _COUNTER
 	lvar word,	counter
 	 push bx		; initialise counter to zero
+  %endif
  %endif
 %endif
 	lenter
