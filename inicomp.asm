@@ -1120,10 +1120,10 @@ pointer_to_linear:
 	shl ax, 1
 	rcl dx, 1
 	loop @B
-	pop cx
 
 	add ax, word [bp + ?offset]
-	adc dx, 0
+	adc dx, cx			; cx = 0 here
+	pop cx
 
 	lleave
 	lret
