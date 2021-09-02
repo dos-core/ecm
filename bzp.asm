@@ -192,7 +192,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	; retn
 		; ds:si not normalised, incremented by at most 32
 	test ch, ch			; cx > 255 ? (NC)
-	jnz .end_NC			; yes, end marker -->
+	jnz .end_check			; yes, end marker -->
 	call getbit
 		; ds:si not normalised, incremented by at most 33
 	jz .bitzero
@@ -268,6 +268,13 @@ d0	mov byte [bp + ?errordata], 1Bh
 	 pop ds				; restore pointer
 %endif
 	jmp .next
+
+.end_check:
+		; The end marker should code 1FFh. Refer to
+		;  https://github.com/mbaze/bzpack/issues/7
+	cmp cx, 1FFh			; correct end marker ?
+	je .end_NC			; yes --> (NC)
+	stc				; no, error!
 
 .error_CY:
 .end_NC:
