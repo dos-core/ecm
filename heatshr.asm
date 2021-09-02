@@ -53,9 +53,9 @@ depack:
 	 push bx
  %endif
 %endif
+%if _COUNTER
 	lvar word,	unused_and_counter
 	lequ ?unused_and_counter + 1, counter
-%if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
 	lenter
