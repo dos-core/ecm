@@ -70,8 +70,8 @@ depack:
 	 push bx
  %endif
 %endif
-	lvar word,	counter
 %if _COUNTER
+	lvar word,	counter
 	 push bx		; initialise counter (high byte) to zero
 %endif
 	lvar word,	gamma_high_word
