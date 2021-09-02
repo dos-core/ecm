@@ -59,8 +59,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
-%if _DEBUG0 || _COUNTER || _IMAGE_EXE
-	lenter early
+	lenter
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
 	 push bx
@@ -79,8 +78,6 @@ depack:
 	 push bx		; initialise counter to zero
   %endif
  %endif
-%endif
-	lenter
 
 	call normalise_both_pointers
 
