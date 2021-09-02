@@ -1023,7 +1023,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	mov bx, word [bp + ?localvariables]
 	mov ax, word [bx + lz_decoder.pos]
 	and ax, pos_state_mask
-	mov cx, ax			; = pos_state
+	xchg cx, ax			; cx = pos_state, ax clobbered
 	mov word [bp + ?pos_state], cx
 
 	push ds

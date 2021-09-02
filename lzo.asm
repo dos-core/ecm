@@ -170,7 +170,7 @@ d0	mov byte [bp + ?errordata], 40h
 	call pointer_to_linear
 
 	mov bx, dx
-	mov cx, ax		; bx:cx = source linear
+	xchg cx, ax		; bx:cx = source linear
 
 	 push es
 	 push di
