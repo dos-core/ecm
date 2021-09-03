@@ -34,6 +34,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
 
 
 		; INP:	ds:si -> source
@@ -240,31 +242,22 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call getbyte			; ax = al = offset
 		; ds:si not normalised, incremented by at most 34
 	inc cx				; length ++
-%if _ALLOW_OVERLAPPING
-	mov word [bp + ?src + 2], ds
-	mov word [bp + ?src], si	; preserve pointer here,
-					;  also to initialise for check
-%else
 	 push ds
 	 push si			; preserve pointer on stack
-%endif
 	push es
 	pop ds
 	mov si, di			; (at least 256 normalised)
 	sub si, ax			; should not carry
 	jc .error_CY
 	call .copy_to_destination
+	 pop si
+	 pop ds				; restore pointer
 %if _ALLOW_OVERLAPPING
-	mov word [bp + ?dst + 2], es
-	mov word [bp + ?dst], di	; (needn't be normalised)
+		; pointers in es:di and ds:si needn't be normalised.
 	push dx
 	call check_pointers_not_overlapping
 	pop dx
 	jc .error_CY
-	lds si, [bp + ?src]		; restore pointer
-%else
-	 pop si
-	 pop ds				; restore pointer
 %endif
 	jmp .next
 
