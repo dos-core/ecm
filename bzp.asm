@@ -167,6 +167,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call disp_al
 @@:
 %endif
+d0	inc byte [bp + ?errordata + 1]
 	; call decode_elias_1		; cx = value of length
 		; INP:	depack stack frame
 		;	ds:si -> source
@@ -183,6 +184,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 @@:
 	call getbit
 	jz @F				; read zero
+d0	mov byte [bp + ?errordata], 01h
 	shl cx, 1			; value <<= 1
 	jc .error_CY			; value error
 	call getbit
@@ -199,6 +201,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jz .bitzero
 
 .bitone:
+d0	mov byte [bp + ?errordata], 02h
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jc .error_CY
@@ -246,6 +249,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	 push si			; preserve pointer on stack
 	push es
 	pop ds
+d0	mov byte [bp + ?errordata], 03h
 	mov si, di			; (at least 256 normalised)
 	sub si, ax			; should not carry
 	jc .error_CY
@@ -257,6 +261,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	push dx
 	call check_pointers_not_overlapping
 	pop dx
+d0	mov byte [bp + ?errordata], 04h
 	jc .error_CY
 %endif
 	jmp .next
@@ -267,6 +272,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	cmp cx, 1FFh			; correct end marker ?
 	je .end_NC			; yes --> (NC)
 	stc				; no, error!
+d0	mov byte [bp + ?errordata], 05h
 
 .error_CY:
 .end_NC:
@@ -285,6 +291,7 @@ d0	mov bx, word [bp + ?errordata]
 
 
 .copy_to_destination:
+d0	mov byte [bp + ?errordata], 06h
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jc .error_CY
@@ -301,6 +308,7 @@ d0	mov bx, word [bp + ?errordata]
 		;	Jumps to depack.error_CY if failure
 		; CHG:	-
 getbyte:
+d0	mov byte [bp + ?errordata], 07h
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
 	jc depack.error_CY
