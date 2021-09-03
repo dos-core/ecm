@@ -29,6 +29,9 @@
  %error COUNTER must be a power of two
 %endif
 
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
+
 
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
@@ -308,10 +311,6 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jmp .next_command
 
 .checkoverlap:
-	mov word [bp + ?src + 2], ds
-	mov word [bp + ?src], si
-	mov word [bp + ?dst + 2], es
-	mov word [bp + ?dst], di
 	push dx
 	push ax
 	call check_pointers_not_overlapping
