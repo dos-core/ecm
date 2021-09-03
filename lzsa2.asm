@@ -29,6 +29,9 @@
  %error COUNTER must be a power of two
 %endif
 
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
+
 
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
@@ -464,10 +467,6 @@ lzsa2_decompress:
    xchg si,ax              ; restore ds:si
    pop ds
 %if _ALLOW_OVERLAPPING
-	mov word [bp + ?src + 2], ds
-	mov word [bp + ?src], si
-	mov word [bp + ?dst + 2], es
-	mov word [bp + ?dst], di
 	push bx
 	call check_pointers_not_overlapping
 	pop bx
