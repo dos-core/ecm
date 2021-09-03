@@ -883,6 +883,8 @@ msg:
 
 
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 1
+%assign CHECK_POINTERS_VARIABLE_SRC 1
+%assign CHECK_POINTERS_VARIABLE_DST 1
 
 		; Specific depacker's file is included within label msg.
 		; In the file, lframe is used and lleave ctx is not used.
@@ -948,15 +950,25 @@ msg:
 		;	NC if success
 		; CHG:	ax, bx, cx, dx
 check_pointers_not_overlapping:
+%if CHECK_POINTERS_VARIABLE_DST
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
+%else
+	 push es
+	 push di
+%endif
 	call pointer_to_linear
 
 	xchg cx, ax
 	xchg bx, dx			; bx:cx = linear ?dst after write
 
+%if CHECK_POINTERS_VARIABLE_SRC
 	 push word [bp + ?src + 2]
 	 push word [bp + ?src]
+%else
+	 push ds
+	 push si
+%endif
 	call pointer_to_linear		; dx:ax = linear ?src before next read
 
 	cmp dx, bx			; ?src >= ?dst ?
