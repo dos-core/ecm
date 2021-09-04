@@ -769,9 +769,17 @@ error_outofmemory:
 	call error
 	db "Out of memory.", 0
 
-
 %assign num 512-($-$$)
-%warning num bytes in front of ms7_entry
+%if num >= 3
+%assign num num - 3
+ %warning num bytes in front of ms7_entry
+	_fill 512 - 3,38,start
+error_outofmemory_j1:
+	jmp error_outofmemory
+%else
+error_outofmemory_j1: equ error_outofmemory
+ %warning num bytes in front of ms7_entry
+%endif
 	_fill 512,38,start
 ms7_entry:
 		; This is the MS-DOS 7 compatible entry point.
@@ -823,12 +831,12 @@ finish_continue:
 	push ax
 	neg ax
 	add ax, bx	; ax = cs - paras to move down
-	jnc short error_outofmemory
+	jnc short error_outofmemory_j1
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
 	cmp ax, 60h + 1
-	jb short error_outofmemory
+	jb short error_outofmemory_j1
 	dec ax		; one less to allow relocator
 	mov es, ax
 
