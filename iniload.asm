@@ -441,6 +441,8 @@ query_geometry:
 	inc ax		; al = 1 to indicate LBA support
 .no_lba:
 	mov byte [bp + ldHasLBA], al
+%else
+	mov byte [bp + ldHasLBA], 0
 %endif
 
 %if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
@@ -1431,7 +1433,7 @@ init_memory:
 	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
 	;  uninitialised here (initialised by loaded_all later)
 .is_fat32:
-%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
+%if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	call query_geometry
 		; The ebpbNew BPBN needs to be initialised
 		;  to use this function. It must be called
