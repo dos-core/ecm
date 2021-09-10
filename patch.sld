@@ -1,3 +1,16 @@
+@goto :help
+
+Patch iniload script
+ by C. Masloch, 2021
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+
+@:help
 ; Avalaible patches:
 ;
 ; :patch_iniload_no_query_geometry
