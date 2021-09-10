@@ -26,7 +26,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 @goto :eof
 
 :patch_iniload_no_query_geometry
-@if not (vef) then r ysf |= C00
+@if not (vef) then r ysf |= C000
 r ve0 word (sp - 100)
 a ss:ve0
  mov ah, 08
