@@ -11,7 +11,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 @:help
-; Avalaible patches:
+; Available patches:
 ;
 ; :patch_iniload_no_query_geometry
 ; :patch_iniload_no_lba
