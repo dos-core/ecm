@@ -614,8 +614,14 @@ __lvar_define_var %2, %1
 %if %$enter != %$$enter
  %fatal Failed ldup (enter)
 %endif
-%ifnidn %$autoret, %$$autoret
- %fatal Failed ldup (autoret)
+%ifnempty %$autoret
+ %ifnidn %$autoret, %$$autoret
+  %fatal Failed ldup (autoret)
+ %endif
+%else
+ %ifnempty %$$autoret
+  %fatal Failed ldup (autoret one empty)
+ %endif
 %endif
 %if %$parofs != %$$parofs
  %fatal Failed ldup (parofs)
