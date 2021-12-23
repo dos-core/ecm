@@ -1078,6 +1078,9 @@ __@@_next
 	;  mmacro usage like @@ itself. Hmmm... allows eg "@@: @@:"
 	;  to define two @@ labels at once. May be useful.
 
+	numdef @@_check, 0	; 0 = none, 1 = warn, else = error
+	numdef @@_start, 1	; 0 = omit @S, else = do @S
+
 	; Only invalidate outstanding @@ forward references.
  %imacro @FI 0.nolist
 %assign __@@_num_inv __@@_num_inv+1
@@ -1166,8 +1169,6 @@ __@@_next 4
 %ifnnum __@@_num_inv
  %assign __@@_num_inv 0
 %endif
-	numdef @@_check, 0	; 0 = none, 1 = warn, else = error
-	numdef @@_start, 1	; 0 = omit @S, else = do @S
 %if _@@_start
  @S
 %endif
