@@ -1116,7 +1116,11 @@ __@@_next
 	; Invalidate all references.
 	;  The sequence flag is reset, unless non-zero %1 is given.
  %imacro @I 0-1.nolist 0
-%assign __@@_in_seq __@@_in_seq && %1
+%if __@@_in_seq && %1
+ %assign __@@_in_seq 1
+%else
+ %assign __@@_in_seq 0
+%endif
 @FI
 @BI
  %endmacro
