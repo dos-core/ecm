@@ -17,7 +17,7 @@ source files for the applicable usage conditions.
 
 %endif
 
-%include "lmacros2.mac"
+%include "lmacros3.mac"
 
 	struc LOADSTACKVARS, -10h
 lsvFirstCluster:	resd 1
@@ -207,6 +207,62 @@ init0_exe_entry:
 %endif
 	mov bx, 1		; EXE mode
 	push ax
+  %if _TEST_PROGRAM
+	mov si, 81h
+	xor dx, dx
+	xor ax, ax
+cmdline:
+.:
+	lodsb
+	cmp al, 9
+	je .
+	cmp al, 32
+	je .
+	cmp al, 13
+	je .end
+	cmp al, '0'
+	jb .notdigit
+	cmp al, '9'
+	ja .notdigit
+.digit:
+	sub al, '0'
+	mov cx, dx		; times 1
+	add dx, dx
+	jc .invalid
+	add dx, dx		; times 4
+	jc .invalid
+	add dx, cx		; times 5
+	jc .invalid
+	add dx, dx		; times 10
+	jc .invalid
+	add dx, ax		; add in low digit
+	jc .invalid
+	jmp .
+
+.notdigit:
+	cmp al, 'A'
+	je .a
+	cmp al, 'a'
+	je .a
+	cmp al, 'B'
+	je .b
+	cmp al, 'b'
+	je .b
+.invalid:
+	mov dx, -1		; invalid
+	jmp .end
+
+.a:
+	and bh, ~ 80h
+	jmp .
+
+.b:
+	or bh, 80h
+	jmp .
+
+.end:
+	push dx
+  %endif
 	mov dx, ss		; => after end of available space
 	mov ax, cs
 	add ax, (256 + (init0_end - init0_start)) >> 4	; => source
@@ -1204,7 +1260,10 @@ init2_start:
 		; si => after PSP
 		; cs => INIT2
 		; psp, free, payload, init1, init2, payload space, stack
-		;
+		; ss:sp -> word amount repetitions, word ax
+		; bx = 1 if A test, 8001h if B test
+	push bx
+
 		; The correct allocation for the test program
 		;  is image size (init0, payload, init1, init2)
 		;  minus init0 plus compressed payload size
@@ -1267,7 +1326,9 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 @@:
 %endif
 
-	lframe
+	lframe 0
+	lpar word,	repetitions
+	lpar word,	whichtest
 	lenter
 	lvar word,	upperbound
 	 push dx
@@ -1275,6 +1336,32 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	 push si
 	lvar word,	current_init1
 	 push ax
+
+	mov dx, word [bp + ?repetitions]
+	cmp dx, -1
+	jne @F
+
+.cmdline_error:
+%if _DEBUG0
+	mov bx, -1
+%endif
+	mov dx, init2_msg.cmdline_error
+	mov cx, init2_msg.cmdline_error.length
+	jmp init2_error
+
+
+@@:
+	testopt [bp + ?whichtest], 8000h
+	jz .a
+.b:
+	test dx, dx
+	jz .cmdline_error
+	jmp @F
+
+.a:
+	test dx, dx
+	jnz .cmdline_error
+@@:
 
 %if _TEST_PROGRESS
 	mov dx, init2_msg.progress.1
@@ -1705,6 +1792,8 @@ init2_msg:
 .subsequent_error_2:	db "Error: Test program decompressed wrongly during test.",13,10
 .subsequent_error_2.length: equ $ - .subsequent_error_2
 %endif
+.cmdline_error:	db "Error: Invalid command line input.",13,10
+.cmdline_error.length: equ $ - .cmdline_error
 .error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
 				+ (payload_end - payload) \
 				+ (init1_end - init1_start) \
