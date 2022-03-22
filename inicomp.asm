@@ -1386,12 +1386,35 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 %endif
 
 	mov dx, [bp + ?upperbound]
+
+	testopt [bp + ?whichtest], 8000h
+	jz @F
+
+	dec word [bp + ?repetitions]
+	jnz .test_b_skip_bound
+
+%if _TEST_PROGRESS
+	push cs
+	pop ds
+	mov dx, init2_msg.progress.linebreak
+	mov cx, init2_msg.progress.linebreak.length
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+%endif
+	mov ax, 4C00h
+	int 21h
+
+
+@@:
 	sub dx, [bp + ?lowerbound]
 	jz .found
 	shr dx, 1
 		; Rounding down, so that we never retry upper bound.
 		;  The upper bound is known to be working.
 	add dx, [bp + ?lowerbound]
+
+.test_b_skip_bound:
 	push dx
 	add dx, (payload_end - payload) >> 4
 	mov ax, [bp + ?current_init1]
@@ -1418,9 +1441,14 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 		; Returns here after decompression.
 		; CY if error.
 	jnc @F
+
+	testopt [bp + ?whichtest], 8000h
+	jnz .test_b_fail
+
 		; error: this attempt is one below the new lower bound
 	inc dx
 	mov word [bp + ?lowerbound], dx
+
 %if _TEST_PROGRESS
 	mov dx, init2_msg.progress.fail
 	mov cx, init2_msg.progress.fail.length
@@ -1436,6 +1464,7 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	call writefiles
 %endif
 
+.test_b_fail:
 %if _TEST_PROGRESS
 	push cs
 	pop ds
