@@ -257,15 +257,18 @@ init0_common:
 		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		) >> 4
+		; => INIT2
 %else
 	add ax, ( \
 		+ (payload_end - payload) \
 		) >> 4
+		; => INIT1
 %endif
 	xor cx, cx
 	push ax
 	push cx
 	retf			; jump to relocated INIT1:init1_start
+				;  or INIT2:init2_start
 
 
 %if _TEST_PROGRAM
