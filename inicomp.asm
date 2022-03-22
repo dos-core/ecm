@@ -329,6 +329,8 @@ init0_common:
 
 %if _TEST_PROGRAM
 .error:
+	mov di, bx
+
 	push cs
 	pop ds
 	mov dx, init0_msg.error_stderr + 256
@@ -336,11 +338,15 @@ init0_common:
 	mov bx, 2
 	mov ah, 40h
 	int 21h
+
+	test di, 8000h
+	jnz @F
 	mov dx, init0_msg.error_stdout + 256
 	mov cx, init0_msg.error_stdout.length
 	mov bx, 1
 	mov ah, 40h
 	int 21h
+@@:
 	mov ax, 4CFFh
 	int 21h
 %endif
@@ -1264,6 +1270,11 @@ init2_start:
 		; bx = 1 if A test, 8001h if B test
 	push bx
 
+	lframe 0
+	lpar word,	repetitions
+	lpar word,	whichtest
+	lenter
+
 		; The correct allocation for the test program
 		;  is image size (init0, payload, init1, init2)
 		;  minus init0 plus compressed payload size
@@ -1326,10 +1337,6 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 @@:
 %endif
 
-	lframe 0
-	lpar word,	repetitions
-	lpar word,	whichtest
-	lenter
 	lvar word,	upperbound
 	 push dx
 	lvar word,	lowerbound
@@ -1475,8 +1482,6 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	call init2_disp_al
 	mov ax, 4C00h
 	int 21h
-
-	lleave ctx
 
 
 .transfer:
@@ -1635,14 +1640,19 @@ init2_error:
 	int 21h
 %endif
 
+	testopt [bp + ?whichtest], 8000h
+	jnz @F
+
 	mov dx, init2_msg.error_stdout
 	mov cx, init2_msg.error_stdout.length
 	mov bx, 1
 	mov ah, 40h
 	int 21h
-
+@@:
 	mov ax, 4CFFh
 	int 21h
+
+	lleave ctx
 
 
 %if _DEBUG0
