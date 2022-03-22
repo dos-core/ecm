@@ -1228,8 +1228,8 @@ init2_start:
 	push dx
 	push ax
 	push si			; si => target
-	push cs
-	call .transfer		; call decompression
+	 push cs
+	 call .transfer		; call decompression
 	pop si
 	pop ax
 	pop dx
@@ -1312,8 +1312,8 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	mov bx, 1
 	push dx
 	push si
-	push cs
-	call .transfer
+	 push cs
+	 call .transfer
 	pop si
 	pop dx
 		; Returns here after decompression.
