@@ -1266,6 +1266,13 @@ init2_start:
 		; si => after PSP
 		; cs => INIT2
 		; psp, free, payload, init1, init2, payload space, stack
+		;
+		; The correct allocation for the test program
+		;  is image size (init0, payload, init1, init2)
+		;  minus init0 plus compressed payload size
+		;  plus decompressed size plus stack. For
+		;  simplicity, init0 subtraction may be skipped.
+
 		; ss:sp -> word amount repetitions, word ax
 		; bx = 1 if A test, 8001h if B test
 	push bx
@@ -1275,11 +1282,32 @@ init2_start:
 	lpar word,	whichtest
 	lenter
 
-		; The correct allocation for the test program
-		;  is image size (init0, payload, init1, init2)
-		;  minus init0 plus compressed payload size
-		;  plus decompressed size plus stack. For
-		;  simplicity, init0 subtraction may be skipped.
+	mov dx, word [bp + ?repetitions]
+	cmp dx, -1
+	jne @F
+
+.cmdline_error:
+%if _DEBUG0
+	mov bx, -1
+%endif
+	mov dx, init2_msg.cmdline_error
+	mov cx, init2_msg.cmdline_error.length
+	jmp init2_error
+
+
+@@:
+	testopt [bp + ?whichtest], 8000h
+	jz .a
+.b:
+	test dx, dx
+	jz .cmdline_error
+	jmp @F
+
+.a:
+	test dx, dx
+	jnz .cmdline_error
+@@:
+
 	mov dx, cs
 	add dx, (init2_end - init2_start) >> 4
 				; => payload saving area
@@ -1343,32 +1371,6 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 	 push si
 	lvar word,	current_init1
 	 push ax
-
-	mov dx, word [bp + ?repetitions]
-	cmp dx, -1
-	jne @F
-
-.cmdline_error:
-%if _DEBUG0
-	mov bx, -1
-%endif
-	mov dx, init2_msg.cmdline_error
-	mov cx, init2_msg.cmdline_error.length
-	jmp init2_error
-
-
-@@:
-	testopt [bp + ?whichtest], 8000h
-	jz .a
-.b:
-	test dx, dx
-	jz .cmdline_error
-	jmp @F
-
-.a:
-	test dx, dx
-	jnz .cmdline_error
-@@:
 
 %if _TEST_PROGRESS
 	mov dx, init2_msg.progress.1
