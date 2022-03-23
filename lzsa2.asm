@@ -481,16 +481,10 @@ lzsa2_decompress:
 %if _ALLOW_OVERLAPPING
 .zero:
 	push es
-	push di
-	mov bx, 1
-	xor cx, cx
-	push es
-	push di
-	call normalise_pointer_with_displacement_bxcx
-	pop di
-	pop es
+	mov bx, es		; => our block
+	add bx, 1000h		; => next 64 KiB block
+	mov es, bx		; es:di -> after our block
 	call check_pointers_not_overlapping
-	pop di
 	pop es
 	jmp .waszero
 %endif
