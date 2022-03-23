@@ -467,8 +467,38 @@ lzsa2_decompress:
    xchg si,ax              ; restore ds:si
    pop ds
 %if _ALLOW_OVERLAPPING
+
+	numdef TEST1
+%if _TEST1
+	test di, di
+	jnz .notzero
+	int3
+.notzero:
+%endif
 	push bx
+
+	numdef TEST2
+%if _TEST2
+	push es
+	push di
+	test di, di
+	jnz .notzero2
+	push cx
+	mov bx, 1
+	xor cx, cx
+	push es
+	push di
+	call normalise_pointer_with_displacement_bxcx
+	pop di
+	pop es
+	pop cx
+.notzero2:
+%endif
 	call check_pointers_not_overlapping
+%if _TEST2
+	pop di
+	pop es
+%endif
 	pop bx
 	jc depack.error
 	xor cx, cx
