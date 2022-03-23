@@ -1037,13 +1037,11 @@ check_pointers_not_overlapping:
 	call pointer_to_linear		; dx:ax = linear ?src before next read
 
 	cmp dx, bx			; ?src >= ?dst ?
-	ja @F
-	jb .ret				; (CY)
+	jne @F
 	cmp ax, cx
-	; jb .ret			; (CY)
-					; (NC) yes, no error
 @@:
-.ret:
+					; (CY) if error (src < dst)
+					; (NC) if no error
 	retn
 %endif
 
