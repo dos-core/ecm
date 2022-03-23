@@ -293,10 +293,11 @@ lzsa2_decompress:
 
    push di                 ; remember decompression offset
 
-   xor cx,cx
    mov bx,0100H
    and word [bp + ?matchlength], 0
 
+.decode_token_clear_cx:
+   xor cx,cx
 .decode_token:
 %if _COUNTER
 	inc byte [bp + ?counter]
@@ -474,11 +475,9 @@ lzsa2_decompress:
 .waszero:
 	pop bx
 	jc depack.error
-	xor cx, cx
-%endif
-   jmp .decode_token       ; go decode another token
+	jmp .decode_token_clear_cx
+				; go decode another token
 
-%if _ALLOW_OVERLAPPING
 .zero:
 	push es
 	mov bx, es		; => our block
@@ -487,6 +486,9 @@ lzsa2_decompress:
 	call check_pointers_not_overlapping
 	pop es
 	jmp .waszero
+%else
+	jmp .decode_token
+				; go decode another token
 %endif
 
 .end:
