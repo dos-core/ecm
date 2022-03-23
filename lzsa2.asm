@@ -468,14 +468,20 @@ lzsa2_decompress:
    pop ds
 %if _ALLOW_OVERLAPPING
 	push bx
+	test di, di
+	jz .zero
+	call check_pointers_not_overlapping
+.waszero:
+	pop bx
+	jc depack.error
+	xor cx, cx
+%endif
+   jmp .decode_token       ; go decode another token
 
-	numdef TEST2
-%if _TEST2
+%if _ALLOW_OVERLAPPING
+.zero:
 	push es
 	push di
-	test di, di
-	jnz .notzero2
-	push cx
 	mov bx, 1
 	xor cx, cx
 	push es
@@ -483,19 +489,11 @@ lzsa2_decompress:
 	call normalise_pointer_with_displacement_bxcx
 	pop di
 	pop es
-	pop cx
-.notzero2:
-%endif
 	call check_pointers_not_overlapping
-%if _TEST2
 	pop di
 	pop es
+	jmp .waszero
 %endif
-	pop bx
-	jc depack.error
-	xor cx, cx
-%endif
-   jmp .decode_token       ; go decode another token
 
 .end:
    pop ax                  ; retrieve the original decompression offset
