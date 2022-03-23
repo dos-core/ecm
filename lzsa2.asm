@@ -467,14 +467,6 @@ lzsa2_decompress:
    xchg si,ax              ; restore ds:si
    pop ds
 %if _ALLOW_OVERLAPPING
-
-	numdef TEST1
-%if _TEST1
-	test di, di
-	jnz .notzero
-	int3
-.notzero:
-%endif
 	push bx
 
 	numdef TEST2
