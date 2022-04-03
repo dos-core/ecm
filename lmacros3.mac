@@ -117,5 +117,21 @@ Intended for 86 Mode programs.
 	%endmacro
 
 
+	%macro subcpu 1.nolist
+%push SUBCPU
+%xdefine %$CPU_PREV __CPU__
+	cpu %1
+	%endmacro
+
+	%macro subcpureset 0.nolist
+%ifnctx SUBCPU
+ %error Wrong context
+%endif
+%xdefine __CPU__ %$CPU_PREV
+%pop
+__CPU__
+	%endmacro
+
+
 %endif
 [list +]
