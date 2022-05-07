@@ -271,9 +271,18 @@ cmdline:
  %endif
 
 init0_common:
-		; NOTE:	This part must be position-independent, as it is
-		;	 called either with ip = init0_common (kernel mode)
-		;	 or ip = init0_common + 256 (EXE mode).
+		; REM:	This part must be position-independent, as it is
+		;	 called either with ip = init0_common (kernel mode
+		;	 or device mode)
+		;	 or ip = init0_common + 256 (application mode).
+		; INP:	si => depack destination
+		;	ax => source of payload + INIT1
+		;	dx => behind available memory
+		; OUT:	cs:ip -> init1_start:
+		;	ax => INIT1
+		;	dx => payload source
+		;	si => depack destination
+		;	bx = mode
 	cld
 %if _TEST_PROGRAM
 	sub dx, ( (payload_end - payload) ) >> 4
@@ -290,10 +299,12 @@ init0_common:
 	mov cx, ( (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		) >> 4
-	sub dx, cx
+				; cx = amount paragraphs in payload + INIT1
+	sub dx, cx		; => destination for payload + INIT1
+				;  (highest possible spot in available memory)
 %endif
-	push si
-	call init0_movp
+	push si			; preserve destination
+	call init0_movp		; move up payload + INIT1
 	pop si
 %else
 	cld
@@ -307,18 +318,16 @@ init0_common:
 	call init0_movp
 %endif
 
-	mov ax, dx
+	mov ax, dx		; => payload
 %if _TEST_PROGRAM
 	add ax, ( \
 		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
-		) >> 4
-		; => INIT2
+		) >> 4		; => INIT2
 %else
 	add ax, ( \
 		+ (payload_end - payload) \
-		) >> 4
-		; => INIT1
+		) >> 4		; => INIT1
 %endif
 	xor cx, cx
 	push ax
@@ -614,6 +623,7 @@ init1_start:
 		;	 si => destination (60h for kernel mode,
 		;		after PSP for EXE mode,
 		;		at device header for device mode)
+		;		(not set if only kernel mode supported)
 		;	 if EXE mode:
 		;	  ss:sp -> valid stack above INIT1
 		;	  bp = unset
