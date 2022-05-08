@@ -1237,8 +1237,8 @@ init0_msg:
 		db 13,10
 .error_stdout.length: equ $ - .error_stdout
 
-	align 512
-%if ($ - $$) != 512
+	align 1024
+%if ($ - $$) != 1024
  %error Wrong INIT0 size
 %endif
 %endif
