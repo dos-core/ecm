@@ -81,11 +81,6 @@ ldLoadUntilSeg:	resw 1
 	gendef DEVICE_NAME,		""
 	numdef DEVICE_ATTRIBUTE,	8000h
 	numdef DEVICE_ZERO_ENTRYPOINT,	0
-%if _DEVICE
- %ifidn _DEVICE_NAME, ""
-  %error Device name must be set
- %endif
-%endif
 
 	numdef BRIEFLZ,		0
 	numdef LZ4,		0
@@ -133,6 +128,17 @@ ldLoadUntilSeg:	resw 1
 	numdef COUNTER,		0, 32
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
+%endif
+
+	strdef INILOAD_CFG, ""
+%ifnidn _INILOAD_CFG, ""
+ %include _INILOAD_CFG
+%endif
+
+%if _DEVICE
+ %ifidn _DEVICE_NAME, ""
+  %error Device name must be set
+ %endif
 %endif
 
 
