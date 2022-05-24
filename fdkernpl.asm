@@ -89,7 +89,7 @@ ldLoadUntilSeg:	resw 1
 	cpu 8086
 	org 0
 	addsection ENTRY, start=0 vstart=0
-entry_start:
+entry:
 
 	mov ax, cs
 	add ax, entry_size_p + payload_size_p
@@ -99,20 +99,14 @@ entry_start:
 	retf
 
 	align 16
-
-entry_end:
-entry_size equ entry_end - entry_start
-	endarea entry, 1
+	endarea entry
 
 
 	addsection PAYLOAD, follows=ENTRY
 payload:
-.:
 	incbin _PAYLOAD_FILE
 	align 16, db 38
-.end:
-payload_size equ .end - .
-	endarea payload, 1
+	endarea payload
 
 
 	addsection RELOCATE, follows=PAYLOAD vstart=0
@@ -180,7 +174,7 @@ relocate:
 	rep movsw
 @@:
 
-	mov ax, 60h + ((payload.end - payload) >> 4)
+	mov ax, 60h + payload_size_p
 	mov es, ax
 	xor di, di
 	xor si, si
