@@ -73,16 +73,34 @@ lsvLoadSeg:		resw 1
 lsvDataStart:		resd 1
 	endstruc
 
+
+lsvclSignature		equ "CL"
+lsvclBufferLength	equ 256
+
 	struc LOADDATA, LOADSTACKVARS - 10h
 ldMemoryTop:	resw 1
 ldLoadTop:	resw 1
 ldSectorSeg:	resw 1
 ldFATType:	resb 1
-		resb 1
+ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
-ldLoadingSeg:	resw 1
-ldLoadUntilSeg:	resw 1
+ldLoadingSeg:		; word
+lsvCommandLine:		; word
+.start:		equ $ - lsvclBufferLength
+.signature:	resw 1
+ldLoadUntilSeg:		; word
+lsvExtra:		; word
+.partition:	resb 1	; byte
+.flags:		resb 1	; byte
+	endstruc
+
+lsvefNoDataStart	equ 1
+lsvefPartitionNumber	equ 2
+
+	struc LOADCMDLINE, LOADDATA - lsvclBufferLength
+ldCommandLine:
+.start:		resb lsvclBufferLength
 	endstruc
 
 
@@ -119,9 +137,27 @@ stackrelocate:
 	xor si, si
 	lea cx, [ bp + 512 ]
 	rep movsb
+	mov ds, ax
+	mov si, bp
+	xor di, di
+	cmp word [ds:bp + ldCommandLine], 0FF00h
+	je @F
+	lea si, [bp + ldCommandLine + lsvclBufferLength - 2]
+	lea di, [bp + lsvCommandLine.start + lsvclBufferLength - 2]
+	mov cx, words(lsvclBufferLength)
+%if words(lsvclBufferLength) <= 20
+ %error AMD erratum 109 workaround needed
+%endif
+	std
+	rep movsw
+	cld
+	lea si, [bp + lsvCommandLine.start]
+	mov di, lsvclSignature
+@@:
 	cli
 	mov ss, ax
-	mov sp, bp
+	mov sp, si
+	mov word [bp + lsvCommandLine.signature], di
 	sti
 
 	jmp 60h:0
