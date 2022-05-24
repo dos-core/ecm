@@ -13,7 +13,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
-%include "lmacros2.mac"
+%include "lmacros3.mac"
 
 	struc BS
 bsJump:	resb 3
@@ -88,31 +88,45 @@ ldLoadUntilSeg:	resw 1
 
 	cpu 8086
 	org 0
-start:
+	addsection ENTRY, start=0 vstart=0
+entry_start:
 
-	xor cx, cx
-	 push cs
-	 pop ds
-	mov si, relocator
-	mov ax, 60h - ((relocator.end - relocator + 15) >> 4)
-	mov es, ax
-	xor di, di
+	mov ax, cs
+	add ax, entry_size_p + payload_size_p
+	xor bx, bx
 	push ax
-	push di		; stack: 5Ch (or thereabouts):0
-	mov cx, (relocator.end - relocator + 1) >> 1
-	rep movsw
+	push bx
+	retf
+
+	align 16
+
+entry_end:
+entry_size equ entry_end - entry_start
+	endarea entry, 1
+
+
+	addsection PAYLOAD, follows=ENTRY
+payload:
+.:
+	incbin _PAYLOAD_FILE
+	align 16, db 38
+.end:
+payload_size equ .end - .
+	endarea payload, 1
+
+
+	addsection RELOCATE, follows=PAYLOAD vstart=0
+relocate:
 	mov bx, 1000h
 	mov ax, 60h
 	mov es, ax
+	mov cx, payload_size_p
 	mov ax, cs
-	add ax, (payload -$$+0) >> 4
+	sub ax, cx
 	mov ds, ax
-	mov cx, (payload.end - payload) >> 4
 	xor si, si
 	xor di, di
-	retf
 
-relocator:
 	mov ax, cx
 	cmp ax, bx
 	jbe @F
@@ -178,11 +192,3 @@ relocator:
 	sti
 
 	jmp 60h:0
-.end:
-
-	align 16
-payload:
-	incbin _PAYLOAD_FILE
-	align 16, db 38
-.end:
-
