@@ -198,8 +198,4 @@ relocate:
 	rep movsw
 @@:
 
-	mov ax, 60h + realpayload_size_p
-	xor cx, cx
-	push ax
-	push cx
-	retf
+	jmp 60h + realpayload_size_p:0
