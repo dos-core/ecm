@@ -104,12 +104,36 @@ entry:
 
 	addsection PAYLOAD, follows=ENTRY
 payload:
+realpayload:
 	incbin _PAYLOAD_FILE
 	align 16, db 38
-	endarea payload
+	endarea realpayload
 
 
-	addsection RELOCATE, follows=PAYLOAD vstart=0
+	addsection STACKRELOCATE, follows=PAYLOAD vstart=0
+stackrelocate:
+
+	mov ax, 60h + payload_size_p
+	mov es, ax
+	xor di, di
+	xor si, si
+	lea cx, [ bp + 512 ]
+	rep movsb
+	cli
+	mov ss, ax
+	mov sp, bp
+	sti
+
+	jmp 60h:0
+
+	align 16
+	endarea stackrelocate
+
+payload_size equ realpayload_size + stackrelocate_size
+	endarea payload, 1
+
+
+	addsection RELOCATE, follows=STACKRELOCATE vstart=0
 relocate:
 	mov bx, 1000h
 	mov ax, 60h
@@ -174,15 +198,8 @@ relocate:
 	rep movsw
 @@:
 
-	mov ax, 60h + payload_size_p
-	mov es, ax
-	xor di, di
-	xor si, si
-	lea cx, [ bp + 512 ]
-	rep movsb
-	cli
-	mov ss, ax
-	mov sp, bp
-	sti
-
-	jmp 60h:0
+	mov ax, 60h + realpayload_size_p
+	xor cx, cx
+	push ax
+	push cx
+	retf
