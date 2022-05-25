@@ -183,6 +183,7 @@ dos_com_entrypoint:
 	mov ax, cs
 	add ax, 10h	; simulate kernel loading
 	push ax
+jump_common_entrypoint:
 	mov ax, common_entrypoint
 	push ax
 	retf		; jump to cs + 10h : common_entrypoint
@@ -202,7 +203,14 @@ zero_entrypoint:
 	cmp ax, 100h
 	je dos_com_entrypoint
 
-	jmp common_entrypoint
+	push cx
+	mov cl, 4
+	shr ax, cl
+	mov cx, cs
+	add ax, cx
+	pop cx
+	push ax
+	jmp jump_common_entrypoint
 
 
 device_entrypoint:
