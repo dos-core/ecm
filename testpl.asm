@@ -200,8 +200,11 @@ zero_entrypoint:
 	sub ax, .push_ip
 	push ax	; +20 IP
 
+	cmp word [cs:0], 20CDh
+	jne @F
 	cmp ax, 100h
 	je dos_com_entrypoint
+@@:
 
 	push cx
 	mov cl, 4
