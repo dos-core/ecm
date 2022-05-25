@@ -15,6 +15,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %include "lmacros2.mac"
 
+		numdef LARGE, 1
+
 	struc BS
 bsJump:	resb 3
 bsOEM:	resb 8
@@ -841,7 +843,9 @@ signature:
 	dw 2638h
 	align 16, db 0
 
+%if _LARGE
 	times 64 * 1024 db 0
+%endif
 
 signature2:
 	dw 2638h
