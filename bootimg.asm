@@ -221,10 +221,12 @@ be exactly 484 bytes long. It is expected that the first
  %error Negative count given to zerobytes
 %else
 [warning -zeroing]
+[warning -other]
  %rep (%1) / (_ZEROBYTES_MAX)
 	resb (_ZEROBYTES_MAX)
  %endrep
 	resb (%1) % (_ZEROBYTES_MAX)
+[warning *other]
 [warning *zeroing]
 %endif
 	%endmacro
