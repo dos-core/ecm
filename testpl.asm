@@ -16,6 +16,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %include "lmacros2.mac"
 
 		numdef LARGE, 1
+		numdef PADDING, 0
 
 	struc BS
 bsJump:	resb 3
@@ -860,3 +861,7 @@ signature:
 
 signature2:
 	dw 2638h
+
+%if _PADDING
+	times _PADDING - ($ - $$) db 0
+%endif
