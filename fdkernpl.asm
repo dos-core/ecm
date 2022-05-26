@@ -158,6 +158,15 @@ stackrelocate:
 	mov ss, ax
 	mov sp, si
 	mov word [bp + lsvCommandLine.signature], di
+		; Note that this access uses the new ss.
+		; Also note: If no command line is passed,
+		;  si will equal bp. That means the word
+		;  written here is technically below sp,
+		;  that is it belongs to the unused stack.
+		; This does not cause any problems however.
+		; It hardens the next load stage against
+		;  accidentally expecting a command line if
+		;  it does not check the offsets properly.
 	sti
 
 	jmp 60h:0
