@@ -54,6 +54,5 @@ entry: equ $
 entry_common: equ $
 
 	incbin _FILE
-	align 16, db 38
 .actual_end:
 .end:
