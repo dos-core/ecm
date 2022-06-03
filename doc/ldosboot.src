@@ -13,6 +13,7 @@
 \cfg{html-leaf-level}{0}
 \cfg{html-template-fragment}{%k}{%b}
 \cfg{html-head-end}{<meta name="viewport" content="width=device-width, initial-scale=1.0">}
+\cfg{html-heading-hashtag-links}{true}
 
 \cfg{pdf-filename}{ldosboot.pdf}
 
