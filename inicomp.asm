@@ -1099,6 +1099,10 @@ normalise_pointer:
 	lpar word,	offset
 	lpar_return
 	lenter
+
+	cmp word [bp + ?offset], 15
+	jbe .ret
+
 	push bx
 	push cx
 
@@ -1112,6 +1116,7 @@ normalise_pointer:
 
 	pop cx
 	pop bx
+.ret:
 	lleave
 	lret
 
@@ -1128,6 +1133,12 @@ normalise_pointer_with_displacement_bxcx:
 	lpar word,	offset
 	lpar_return
 	lenter
+
+%ifn NEED_NORMALISE_POINTER_WITH_DISPLACEMENT
+	cmp word [bp + ?offset], 15
+	jbe .ret
+%endif
+
 	push ax
 	push cx
 	push dx
@@ -1190,6 +1201,9 @@ normalise_pointer_with_displacement_bxcx:
 	pop dx
 	pop cx
 	pop ax
+%ifn NEED_NORMALISE_POINTER_WITH_DISPLACEMENT
+.ret:
+%endif
 	lleave
 	lret
 
