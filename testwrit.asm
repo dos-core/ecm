@@ -766,12 +766,10 @@ write_sector:
 @@:
 ; try read again
 	pop ax		; restore function number
-%if _LBA
-	call .int13_preserve_lpcount
-%else
+%if ! _LBA
 	int 13h		; retry, CF error status, ah error number
-%endif
 	retn
+%endif		; else: fall through to .int13_preserve_lpcount
 %endif
 
 %if _LBA
