@@ -474,7 +474,7 @@ read_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -530,9 +530,9 @@ read_sector:
 	jne .lba_error
 
 	; push word [si + 4 + 0]
-	push word [si + 4 + 2]	; user buffer
-	 push word [bp + ldSectorSeg]
-	 pop word [si + 4 + 2]
+	push es		; => user buffer
+	 mov es, word [bp + ldSectorSeg]
+	 mov word [si + 4 + 2], es
 	; and word [si + 4 + 0], byte 0
 
 	mov ah, 42h
@@ -554,8 +554,7 @@ read_sector:
 
 .lba_done:
 	add sp, 10h
-	pop bx
-	jmp short .chs_done
+	jmp short .done
 
 .lba_error: equ .err
 
@@ -640,7 +639,6 @@ read_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 
 			mov ax, 0201h	; read one sector
 %if _CHS_RETRY
@@ -668,14 +666,11 @@ read_sector:
 
 	pop es
 	call .sectorseg_helper
+%endif		; _CHS
 
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
-	mov es, bx
 	add bx, word [bp + ldParaPerSector]
 
 	pop si

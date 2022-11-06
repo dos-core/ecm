@@ -501,7 +501,7 @@ write_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -557,7 +557,8 @@ write_sector:
 	testopt [bp + ldHasLBA], 2
 	jz @F
 
-	mov es, word [si + 4 + 2]	; user buffer
+			; es => user buffer
+	push es
 	call .sectorseg_helper_write
 	mov word [si + 4 + 2], es	; => sector buffer
 	mov ah, 43h
@@ -567,14 +568,16 @@ write_sector:
 	int 13h
 		; (don't need .int13_preserve_lpcount as no further call)
 %endif
+	pop es		; ! restore es => user buffer
 	jc .lba_error
 	jmp .lba_done
 
 @@:
 	; push word [si + 4 + 0]
-	push word [si + 4 + 2]	; user buffer
-	 push word [bp + ldSectorSeg]
-	 pop word [si + 4 + 2]
+	push es		; => user buffer
+	 mov es, word [bp + ldSectorSeg]
+	 mov word [si + 4 + 2], es
+			; => sector buffer
 	; and word [si + 4 + 0], byte 0
 
 	mov ah, 42h
@@ -586,14 +589,13 @@ write_sector:
 %endif
 	jc .lba_error
 
-	pop es
+	pop es		; => user buffer
 	; pop cx
 	call .sectorseg_helper_read
 
 .lba_done:
 	add sp, 10h
-	pop bx
-	jmp short .chs_done
+	jmp short .done
 
 .lba_error: equ .err
 
@@ -678,7 +680,6 @@ write_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 
 	call .get_ah_3_write_2_read
 	mov al, 01h	; access one sector
@@ -722,14 +723,11 @@ write_sector:
 
 	pop es
 	call .sectorseg_helper_read
+%endif		; _CHS
 
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
-	mov es, bx
 	add bx, word [bp + ldParaPerSector]
 
 	pop si

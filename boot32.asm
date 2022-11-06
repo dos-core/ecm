@@ -1076,7 +1076,7 @@ read_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx	; => buffer
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -1156,10 +1156,8 @@ read_sector:
 	mov byte [bp + 2], 0Ch	; LBA-enabled FAT32 FS partition type
 %endif
 	add sp, 10h
-	pop bx
-	mov es, bx
 %if _CHS
-	jmp short .chs_done
+	jmp short .done
 %endif
 
 .lba_error: equ .err
@@ -1230,7 +1228,6 @@ read_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 %if _CHS_RETRY_REPEAT
 			mov si, _CHS_RETRY_REPEAT + 1
 .loop_chs_retry_repeat:
@@ -1260,12 +1257,11 @@ read_sector:
 .err_CY:	equ .err
 %endif
 
+%endif		; _CHS
+
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
 %if _FIX_SECTOR_SIZE
 	add bx, _FIX_SECTOR_SIZE >> 4
 %else
