@@ -755,8 +755,15 @@ write_sector:
 ; reset drive
 	xor ax, ax
 	int 13h
-	jc @F		; CY, reset failed, error in ah -->
+	jnc @FF		; NC, reset succeeded -->
+			; CY, reset failed, error in ah
 
+@@:			; NC or CY, stack has function number
+	inc sp
+	inc sp		; discard word on stack, preserve CF
+	retn
+
+@@:
 ; try read again
 	pop ax		; restore function number
 %if _LBA
@@ -764,11 +771,6 @@ write_sector:
 %else
 	int 13h		; retry, CF error status, ah error number
 %endif
-	retn
-
-@@:			; NC or CY, stack has function number
-	inc sp
-	inc sp		; discard word on stack, preserve CF
 	retn
 %endif
 
