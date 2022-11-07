@@ -80,6 +80,10 @@ Currently the following signatures are defined:
 
 \dd lDDebug (debuggable lDebug)
 
+\dt \cq{lDbC}
+
+\dd lCDebug (conditionally debuggable lDebug)
+
 \dt \cq{lDTP}
 
 \dd lDOS test payload kernel (testpl.asm)
