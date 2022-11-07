@@ -218,6 +218,28 @@ None of the memory areas may overlap.
 This does not include the FAT buffer in case it is uninitialised.
 
 
+\S{protocol-sector-iniload-loadname} Load filename in the boot sector
+
+The boot sector area may be expected to contain a valid
+8.3 format (blank-padded FCB) filename behind the (E)BPB.
+This name should not contain blanks other than trailing in the
+file name portion or trailing in the file extension portion.
+It should consist of printable ASCII codepoints.
+That is, byte values between 20h and 7Eh inclusive.
+It should not consist of eleven times the same byte value.
+Additional FAT Short File Name restrictions may be assumed.
+
+Although a loader should not depend on this for crucial operation,
+it may want to detect the kernel name it was presumably loaded from
+for informational or optional purposes.
+The canonical implementation of this is currently the function
+\cq{findname} in the \cw{testpl.asm} test payload kernel.
+It is found within
+\W{https://hg.pushbx.org/ecm/ldosboot/file/e0c17723f953/testpl.asm#l668}{the ldosboot repo}.
+This handling is based on the function of the same name
+\W{https://hg.pushbx.org/ecm/instsect/file/53e4327aacd6/instsect.asm#l2442}{in the instsect application}.
+
+
 \H{protocol-iniload-payload} Iniload to payload protocol
 
 The payload is loaded to an arbitrary segment.
