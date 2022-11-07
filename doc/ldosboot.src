@@ -195,6 +195,29 @@ which is always a power of two and always below-or-equal 100h.
 sets \cq{sp = bp - 10h}
 
 
+\S{protocol-sector-iniload-memory} Memory map
+
+The initial loader part that is loaded must be loaded
+at above or equal to linear 00600h.
+The FAT buffer segment (if used) must also be stored
+at above or equal to linear 00600h.
+The stack (which should extend at least 512 bytes below \cq{ss:bp})
+and boot sector (pointed to by \cq{ss:bp}, at least 512 bytes length)
+should also be stored at above or equal to linear 00600h.
+
+There is an additional memory area,
+the Low Memory Area top reservation,
+which should be unused by the load protocol at handoff time
+but be at least 20 KiB in size.
+It is located below the usable Low Memory Area top.
+That is, directly below the EBDA, RPL-reserved memory, video memory,
+or otherwise UMA.
+This area is reserved in order to facilitate initial loader operation.
+
+None of the memory areas may overlap.
+This does not include the FAT buffer in case it is uninitialised.
+
+
 \H{protocol-iniload-payload} Iniload to payload protocol
 
 The payload is loaded to an arbitrary segment.
