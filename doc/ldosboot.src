@@ -220,8 +220,11 @@ This does not include the FAT buffer in case it is uninitialised.
 
 \S{protocol-sector-iniload-loadname} Load filename in the boot sector
 
-The boot sector area may be expected to contain a valid
-8.3 format (blank-padded FCB) filename behind the (E)BPB.
+The boot sector may be expected to contain a valid
+8.3 format (blank-padded FCB) filename
+in the area of the boot sector starting behind the (E)BPB,
+extending up to below the boot sector signature word with value AA55h
+(at offset 510 in the boot sector).
 This name should not contain blanks other than trailing in the
 file name portion or trailing in the file extension portion.
 It should consist of printable ASCII codepoints.
