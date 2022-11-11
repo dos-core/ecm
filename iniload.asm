@@ -398,11 +398,12 @@ disp_error:
 query_geometry:
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+				; magic bytes
  %if _QUERY_PATCH
-	mov ax, 0
-	test dl, dl
-	jns @F
-	xchg al, ah
+	mov ax, 0		; magic bytes, checked by patch script
+	test dl, dl		; hard disk unit ?
+	jns @F			; no -->
+	xchg al, ah		; get high byte into al
 @@:
  %endif
 %endif
