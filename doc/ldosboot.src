@@ -54,6 +54,27 @@ The entrypoint is found by applying no segment adjustment (0)
 and choosing the offset 400h (1024).
 
 
+\S{protocol-sector-iniload-file} File properties
+
+The file must be at least 4096 bytes long.
+This is now required, beyond the former lower bound of 1536 bytes,
+to support an optimisation of the FAT12 and FAT16 boot sector loaders.
+The lDebug loader and the FAT32+FSIBOOT loader currently retain the 1536 bytes limit.
+
+The file may allow multi-use as a flat .COM format executable,
+flat .SYS format device driver, or MZ .EXE format executable
+and/or device driver.
+It is also valid to append arbitrary sized data such as a .ZIP archive.
+
+The file needs to be placed in the root directory for the boot sector loaders.
+The lDebug loader allows to load a file
+from any subdirectory and this is also allowed.
+The file may be fragmented in any part.
+The file data may be located anywhere in the file system.
+The supported cluster sizes should be between 32 Bytes and 2 MiB, inclusive.
+The sector size should be between 32 Bytes and 8 KiB, inclusive.
+
+
 \S{protocol-sector-iniload-signatures} Signatures
 
 At offset 1020 (3FCh) there is the signature \cq{lD}.
