@@ -11,6 +11,7 @@
 
 # Reason to use this: https://bugzilla.nasm.us/show_bug.cgi?id=3392679
 # Example usage: https://hg.ulukai.org/ecm/ldosboot/rev/b394f54d9d31
+# Full example: https://hg.pushbx.org/ecm/ldebug/rev/293dc6e14681
 
 use warnings;
 use strict;
