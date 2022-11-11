@@ -39,7 +39,7 @@ r ve1 := aao - 1
 r vec := ve1 - ve0
 s cs:0 l #8192 range ss:ve0 l vec
 if not (src) then goto :error
-r byte [srs:sro + vec - 1] := EB
+r word [srs:sro + vec - 3] := 9090
 goto :success
 
 :patch_iniload_no_lba
@@ -73,7 +73,7 @@ s cs:0 l #8192 range ss:ve0 l vec
 if not (src) then goto :error
 
 :patch_iniload_no_lba.success
-r byte [srs:sro + vec - 1] := EB
+r word [srs:sro + vec - 5] := 9090
 goto :success
 
 :success
