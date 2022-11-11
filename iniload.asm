@@ -2470,3 +2470,6 @@ second_payload:
 .end:
 %endif
 
+%if ($ - start) < 4096
+	_fill 4096, 38, start	; fill to new minimum limit
+%endif
