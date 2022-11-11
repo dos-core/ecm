@@ -847,8 +847,6 @@ ms7_entry:
 
 
 finish_continue:
-	add ax, bx	; = cs + rounded up length
-	sub ax, word [bp + ldLoadTop]	; = paras to move down
 	jbe short finish_load
 
 	push ax
@@ -1591,6 +1589,8 @@ init_memory:
 		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 
 	mov bx, cs
+	add ax, bx	; = cs + rounded up length
+	sub ax, word [bp + ldLoadTop]	; = paras to move down
 	jmp finish_continue
 
 
