@@ -132,7 +132,7 @@ ptExtendedLinux:	equ 85h
 
 	defaulting
 
-	numdef QUERY_PATCH,	0	; use new style patch of CHS/LBA/geometry
+	numdef QUERY_PATCH,	1	; use new style patch of CHS/LBA/geometry
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
@@ -410,10 +410,10 @@ query_geometry:
 
 %if _QUERY_GEOMETRY	; +30 bytes
  %if !_LBA_SKIP_CHECK
+	push dx
   %if _QUERY_PATCH
 	push ax
   %endif
-	push dx
  %endif
 
   %if _QUERY_PATCH
