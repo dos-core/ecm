@@ -777,6 +777,15 @@ read_sector_dirbuf:
  %endif
 read_sector_fatbuf:
 	mov bx, ADR_FATBUF>>4
+ %if _FAT16 && _SET_FAT_SEG
+	mov word [VAR(fat_seg)], bx
+		; Optimisation: Set FAT buffer segment here where
+		;  we have it ready in a register, instead of
+		;  wasting a word immediate on it. If the FAT is
+		;  never read then we do not need to set the
+		;  variable anyway, only the sector variable has
+		;  to contain a -1 to indicate it's uninitialised.
+ %endif
 %endif
 
 		; Read a sector using Int13.02 or Int13.42
@@ -1507,9 +1516,6 @@ relocated:
 %if _FAT16 && !_LOAD_NON_FAT
 		mov di, -1		; = no FAT sector read yet
  %if _SET_FAT_SEG
-  %if ! _RELOCATE
-		mov word [VAR(fat_seg)], ADR_FATBUF>>4
-  %endif
 		mov word [VAR(fat_sector)], di
  %endif
 %endif
