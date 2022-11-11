@@ -819,8 +819,6 @@ ms7_entry:
 		;	    load unit field set, hidden sectors set
 	inc dx
 	dec dx		; "BJ" signature (apparently not about FAT32 support)
-	cli
-	cld
 
 	jmp .continue	; jump to handler above 600h (sector loads 800h bytes)
 
@@ -1645,6 +1643,8 @@ loaded_all.3stack_j:
 
 
 ms7_entry.continue:
+	cli
+	cld
 	pop bx
 	pop es
 	pop word [es:bx]
