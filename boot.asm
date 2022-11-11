@@ -30,7 +30,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
-	numdef LOAD_MIN_PARA,	paras(1536)
+	numdef LOAD_MIN_PARA,	paras(4096)
 	numdef LOAD_NON_FAT,	0, 2048	; use FAT-less loading (value is amount bytes)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
@@ -244,7 +244,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"
 	numdef LOAD_ADR,	02000h
-	numdef LOAD_MIN_PARA,	paras(1536)
+	numdef LOAD_MIN_PARA,	paras(4096)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
 	numdef CHECKOFFSET,	1020
