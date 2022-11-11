@@ -16,8 +16,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 ; :patch_iniload_no_query_geometry
 ; :patch_iniload_no_lba
 ; :patch_iniload_no_chs
+; :query_patch_iniload
 ;
 ; Inputs: vef = nonzero to debug
+;	  ve8 = what to set for new style query patch
+;	  ve9 = what to clear for new style query patch
 ;         cs:0 -> iniload
 ; Output: vee = nonzero if error
 ;         iniload patched
@@ -27,7 +30,9 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 @goto :eof
 
 
-:query_patch_common
+:query_patch_iniload
+@if not (vef) then r ysf |= C000
+@:query_patch_common
 r ve0 word (sp - 100)
 a ss:ve0
  mov dl, byte [bp + 40]
@@ -46,6 +51,7 @@ if (word [srs:sro + vec + 2] != word [ss:ve0 + 0]) then goto :query_patch_error
 if (word [srs:sro + vec + 4] != word [ss:ve0 + 2]) then goto :query_patch_error
 if (word [srs:sro + vec + 6] != word [ss:ve0 + 4]) then goto :query_patch_error
 r word [srs:sro + vec] or:= ve8
+r word [srs:sro + vec] and:= ~ve9
 :query_patch_success
 r vee := 0
 r ve8 := 0
