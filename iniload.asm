@@ -132,6 +132,7 @@ ptExtendedLinux:	equ 85h
 
 	defaulting
 
+	numdef QUERY_PATCH,	0	; use new style patch of CHS/LBA/geometry
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
@@ -398,11 +399,30 @@ msg:
 
 
 query_geometry:
-%if _QUERY_GEOMETRY	; +30 bytes
+%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+ %if _QUERY_PATCH
+	mov ax, 0
+	test dl, dl
+	jns @F
+	xchg al, ah
+@@:
+ %endif
+%endif
+
+%if _QUERY_GEOMETRY	; +30 bytes
  %if !_LBA_SKIP_CHECK
+  %if _QUERY_PATCH
+	push ax
+  %endif
 	push dx
  %endif
+
+  %if _QUERY_PATCH
+	test al, 4		; don't query geometry ?
+	jnz @F			; yes -->
+  %endif
+
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -423,15 +443,23 @@ query_geometry:
 %endif
 
 %if !_LBA_SKIP_CHECK
-	mov ah, 41h
  %if _QUERY_GEOMETRY
-	pop dx
- %else
-	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+  %if _QUERY_PATCH
+	pop ax			; restore query patch flags in al
+  %endif
+	pop dx			; restore unit number in dl
  %endif
+ %if _QUERY_PATCH
+	shr al, 1		; CY if force CHS
+	jc @F			; if so -->
+	and al, 1		; force LBA ?
+	jnz .done_lba		; yes -->
+ %endif
+	mov ah, 41h
 	mov bx, 55AAh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
+@@:
 	mov al, 0	; zero in case of no LBA support
 	jc .no_lba
 	cmp bx, 0AA55h
@@ -440,6 +468,7 @@ query_geometry:
 	jz .no_lba
 	inc ax		; al = 1 to indicate LBA support
 .no_lba:
+.done_lba:
 	mov byte [bp + ldHasLBA], al
 %else
 	mov byte [bp + ldHasLBA], 0
