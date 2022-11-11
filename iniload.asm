@@ -394,9 +394,6 @@ disp_error:
 	; pop bp
 	jmp short .
 
-msg:
-.error:	db "Load error: ", 0
-
 
 query_geometry:
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
@@ -844,6 +841,9 @@ ms7_entry:
 		;  We use this to store specific handling in that last sector.
 
 	jmp ldos_entry.ms7_common
+
+msg:
+.error:	db "Load error: ", 0
 
 
 finish_continue:
