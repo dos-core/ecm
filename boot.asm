@@ -1678,7 +1678,7 @@ next_cluster:
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 @@:
- %if _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+ %if ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 		cmp bx, (ADR_FREE_UNTIL >> 4) - (_FIX_SECTOR_SIZE >> 4)
  %else
 		cmp bx, [VAR(last_available_sector)]
