@@ -1718,7 +1718,13 @@ next_cluster:
 @@:
 
 %if _LOAD_MIN_PARA
+ %if ((_LOAD_ADR >> 4) + _LOAD_MIN_PARA) & 255 == 0
+	; If the value is divisible by 256 we can compare only the
+	;  high byte for the same CF result: NC iff bx >= limit.
+		cmp bh, ((_LOAD_ADR >> 4) + _LOAD_MIN_PARA) >> 8
+ %else
 		cmp bx, (_LOAD_ADR >> 4) + _LOAD_MIN_PARA
+ %endif
 		mov al, 'E'
 		jb error
 %endif
