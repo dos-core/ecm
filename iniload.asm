@@ -822,23 +822,22 @@ ms7_entry:
 
 	jmp .continue	; jump to handler above 600h (sector loads 800h bytes)
 
-.ms6_common:
+.ms6_common:		; cx = 0
 	mov ax, cs
-	add ax, (3 * 512) >> 4
+	add ax, (3 * 512) >> 4		; MS6 entry has 3 sectors loaded
 
-.continue2_set_extra_and_empty_cmdline:
+.continue2_set_extra_and_empty_cmdline:	; cx = 0, ax => behind loaded
 %if _LSVEXTRA
-	and word [bp + lsvExtra], 0
+	mov word [bp + lsvExtra], cx
 %endif
-	and word [bp + lsvCommandLine], 0
-.continue2:
+	mov word [bp + lsvCommandLine], cx
+.continue2:				; cx = 0, ax => behind loaded
 	mov word [bp + lsvLoadSeg], ax
 
-	xor ax, ax
-	mov word [bp + lsvFATSeg], ax	; initialise to zero (for FAT12)
-	dec ax
-	mov word [bp + lsvFATSector + 0], ax
-	mov word [bp + lsvFATSector + 2], ax	; initialise to -1
+	mov word [bp + lsvFATSeg], cx	; initialise to zero (for FAT12)
+	dec cx
+	mov word [bp + lsvFATSector + 0], cx
+	mov word [bp + lsvFATSector + 2], cx	; initialise to -1
 
 		; Actually it seems that the MS-DOS 7 loaders load 4 sectors
 		;  instead of only three (as the MS-DOS 6 loaders do).
@@ -1175,25 +1174,25 @@ check_clust:
 
 
 ms6_continue1:
-	mov es, cx
-	mov bp, 7C00h
+	mov es, cx			; cx = 0
+	mov bp, 7C00h			; 0:bp -> boot sector with BPB
 
 	mov word [es:di], si
 	mov word [es:di + 2], ds	; restore old int 1Eh address
 
-	mov ss, cx
+	mov ss, cx			; = 0
 	mov sp, 7C00h + lsvCommandLine
 
-	mov dx, word [es:500h + 26]
-	mov cx, word [es:500h + 20]
-	mov word [bp + lsvFirstCluster + 0], dx
-	mov word [bp + lsvFirstCluster + 2], cx
+	push word [es:500h + 20]
+	push word [es:500h + 26]
+	pop word [bp + lsvFirstCluster + 0]
+	pop word [bp + lsvFirstCluster + 2]
 
 	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
 	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
 	mov word [bp + lsvDataStart + 0], bx
 	mov word [bp + lsvDataStart + 2], ax
-	jmp ms7_entry.ms6_common
+	jmp ms7_entry.ms6_common	; passing cx = 0
 
 
 %assign num 1020-($-$$)
@@ -1664,8 +1663,8 @@ ms7_entry.continue:
 	sbb word [bp + lsvDataStart + 2], dx
 
 	mov ax, cs
-	add ax, (4 * 512) >> 4
-
+	add ax, (4 * 512) >> 4	; MS7 entry has 4 sectors loaded
+	xor cx, cx		; cx = 0
 	jmp ms7_entry.continue2_set_extra_and_empty_cmdline
 
 
@@ -1839,7 +1838,8 @@ d3	test ax, "F0"
 .multiboot_entry:
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
-
+				; Multiboot1/2 and FreeDOS have whole image
+	xor cx, cx		; cx = 0
 	jmp ms7_entry.continue2
 
 
