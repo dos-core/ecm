@@ -823,8 +823,8 @@ ms7_entry:
 	jmp .continue	; jump to handler above 600h (sector loads 800h bytes)
 
 .ms6_common:		; cx = 0
-	mov ax, cs
-	add ax, (3 * 512) >> 4		; MS6 entry has 3 sectors loaded
+	mov ax, 70h + ((3 * 512) >> 4)	; MS6 entry has 3 sectors loaded
+					;  (and is always segment 70h)
 
 .continue2_set_extra_and_empty_cmdline:	; cx = 0, ax => behind loaded
 %if _LSVEXTRA
