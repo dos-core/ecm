@@ -54,14 +54,12 @@ r word [srs:sro + vec] or:= ve8
 r word [srs:sro + vec] and:= ~ve9
 :query_patch_success
 r vee := 0
-r ve8 := 0
 r ysf &= ~C000
 ; Patched successfully (new style)
 @goto :eof
 
 :query_patch_error
 r vee := 1
-r ve8 := 0
 r ysf &= ~C000
 ; Patch failed (new style)
 @goto :eof
@@ -69,9 +67,10 @@ r ysf &= ~C000
 
 :patch_iniload_no_query_geometry
 @if not (vef) then r ysf |= C000
+r vee := -1
 if not (ve8) then r ve8 := 404
 if not (ve8 == -1) then y :query_patch_common
-@if not (ve8) then goto :eof
+@if not (vee == -1) then goto :eof
 
 r ve0 word (sp - 100)
 a ss:ve0
@@ -91,9 +90,10 @@ goto :success
 
 :patch_iniload_no_lba
 @if not (vef) then r ysf |= C000
+r vee := -1
 if not (ve8) then r ve8 := 101
 if not (ve8 == -1) then y :query_patch_common
-@if not (ve8) then goto :eof
+@if not (vee == -1) then goto :eof
 
 r ve0 word (sp - 100)
 a ss:ve0
@@ -136,9 +136,10 @@ r ysf &= ~C000
 
 :patch_iniload_no_chs
 @if not (vef) then r ysf |= C000
+r vee := -1
 if not (ve8) then r ve8 := 202
 if not (ve8 == -1) then y :query_patch_common
-@if not (ve8) then goto :eof
+@if not (vee == -1) then goto :eof
 
 :error
 r vee := 1
