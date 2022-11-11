@@ -788,6 +788,9 @@ read_sector_fatbuf:
 		;  never read then we do not need to set the
 		;  variable anyway, only the sector variable has
 		;  to contain a -1 to indicate it's uninitialised.
+		; If we get here from read_sector_dirbuf we will
+		;  also initialise this variable but that does not
+		;  cause any problems.
   %endif
  %endif
 %endif
