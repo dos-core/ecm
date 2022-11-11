@@ -775,9 +775,12 @@ error:
  %if ADR_DIRBUF == ADR_FATBUF
 read_sector_dirbuf:
  %endif
+ %if _FAT16 && ! _LOAD_NON_FAT
 read_sector_fatbuf:
+ %endif
+ %if (ADR_DIRBUF == ADR_FATBUF) || (_FAT16 && ! _LOAD_NON_FAT)
 	mov bx, ADR_FATBUF>>4
- %if _FAT16 && _SET_FAT_SEG && ! _LOAD_NON_FAT
+  %if _FAT16 && _SET_FAT_SEG && ! _LOAD_NON_FAT
 	mov word [VAR(fat_seg)], bx
 		; Optimisation: Set FAT buffer segment here where
 		;  we have it ready in a register, instead of
@@ -785,6 +788,7 @@ read_sector_fatbuf:
 		;  never read then we do not need to set the
 		;  variable anyway, only the sector variable has
 		;  to contain a -1 to indicate it's uninitialised.
+  %endif
  %endif
 %endif
 
