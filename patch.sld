@@ -15,6 +15,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 ;
 ; :patch_iniload_no_query_geometry
 ; :patch_iniload_no_lba
+; :patch_iniload_no_chs
 ;
 ; Inputs: vef = nonzero to debug
 ;         cs:0 -> iniload
@@ -25,8 +26,47 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 ; Requires lDebug release 3 or later
 @goto :eof
 
+
+:query_patch_common
+r ve0 word (sp - 100)
+a ss:ve0
+ mov dl, byte [bp + 40]
+ mov ax, 0
+ .
+r ve1 := aao - 2
+r vec := ve1 - ve0
+s cs:0 l #8192 range ss:ve0 l vec
+if not (src) then goto :eof
+a ss:ve0
+ test dl, dl
+ jns (ve0 + 6)
+ db 86,C4	; xchg al, ah
+ .
+if (word [srs:sro + vec + 2] != word [ss:ve0 + 0]) then goto :query_patch_error
+if (word [srs:sro + vec + 4] != word [ss:ve0 + 2]) then goto :query_patch_error
+if (word [srs:sro + vec + 6] != word [ss:ve0 + 4]) then goto :query_patch_error
+r word [srs:sro + vec] or:= ve8
+:query_patch_success
+r vee := 0
+r ve8 := 0
+r ysf &= ~C000
+; Patched successfully (new style)
+@goto :eof
+
+:query_patch_error
+r vee := 1
+r ve8 := 0
+r ysf &= ~C000
+; Patch failed (new style)
+@goto :eof
+
+
 :patch_iniload_no_query_geometry
 @if not (vef) then r ysf |= C000
+if not (ve8) then r ve8 := 404
+if not (ve8 == -1) then y :query_patch_common
+@if not (ve8) then goto :eof
+
 r ve0 word (sp - 100)
 a ss:ve0
  mov ah, 08
@@ -42,8 +82,13 @@ if not (src) then goto :error
 r word [srs:sro + vec - 3] := 9090
 goto :success
 
+
 :patch_iniload_no_lba
 @if not (vef) then r ysf |= C000
+if not (ve8) then r ve8 := 101
+if not (ve8 == -1) then y :query_patch_common
+@if not (ve8) then goto :eof
+
 r ve0 word (sp - 100)
 a ss:ve0
  mov ah, 41
@@ -81,6 +126,13 @@ r vee := 0
 r ysf &= ~C000
 ; Patched successfully
 @goto :eof
+
+
+:patch_iniload_no_chs
+@if not (vef) then r ysf |= C000
+if not (ve8) then r ve8 := 202
+if not (ve8 == -1) then y :query_patch_common
+@if not (ve8) then goto :eof
 
 :error
 r vee := 1
