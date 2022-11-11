@@ -121,6 +121,18 @@ a ss:ve0
 r ve1 := aao - 1
 r vec := ve1 - ve0
 s cs:0 l #8192 range ss:ve0 l vec
+if (src) then goto :patch_iniload_no_lba.success
+a ss:ve0
+ mov ah, 41
+ mov bx, 55AA
+ stc
+ int 13
+ mov al, 0
+ jc (ve0)
+ .
+r ve1 := aao - 1
+r vec := ve1 - ve0
+s cs:0 l #8192 range ss:ve0 l vec
 if not (src) then goto :error
 
 :patch_iniload_no_lba.success
