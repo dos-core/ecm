@@ -777,7 +777,7 @@ read_sector_dirbuf:
  %endif
 read_sector_fatbuf:
 	mov bx, ADR_FATBUF>>4
- %if _FAT16 && _SET_FAT_SEG
+ %if _FAT16 && _SET_FAT_SEG && ! _LOAD_NON_FAT
 	mov word [VAR(fat_seg)], bx
 		; Optimisation: Set FAT buffer segment here where
 		;  we have it ready in a register, instead of
