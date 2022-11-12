@@ -129,6 +129,7 @@ query_no_chs equ 2
 query_no_lba equ 1
 query_fd_multiplier equ 1
 query_hd_multiplier equ 256
+query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 
 
 %ifndef _MAP
