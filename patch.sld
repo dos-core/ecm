@@ -22,7 +22,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 ; :patch_iniload_detect_geometry        (new style only)
 ;
 ; Inputs: vef = nonzero to debug
-;         cs:0 -> iniload
+;         cs:ve7 -> iniload
 ; Output: vee = nonzero if error
 ;         iniload patched if successful
 ; Change: ve0 to vef, src, sro, aao, stack
@@ -46,7 +46,7 @@ a ss:ve0
  .
 r ve1 := aao - 2
 r vec := ve1 - ve0
-s cs:0 l #1536 range ss:ve0 l vec
+s cs:ve7 l #1536 range ss:ve0 l vec
 if (src == 0 && vee == -1) then goto :eof
 if not (src) then goto :query_patch_error
 a ss:ve0
@@ -105,7 +105,7 @@ a ss:ve0
  .
 r ve1 := aao - 1
 r vec := ve1 - ve0
-s cs:0 l #1536 range ss:ve0 l vec
+s cs:ve7 l #1536 range ss:ve0 l vec
 if not (src) then goto :error
 r word [srs:sro + vec - 3] := 9090
 goto :success
@@ -133,7 +133,7 @@ a ss:ve0
  .
 r ve1 := aao - 1
 r vec := ve1 - ve0
-s cs:0 l #1536 range ss:ve0 l vec
+s cs:ve7 l #1536 range ss:ve0 l vec
 if (src) then goto :patch_iniload_no_lba.success
 a ss:ve0
  mov ah, 41
@@ -146,7 +146,7 @@ a ss:ve0
  .
 r ve1 := aao - 1
 r vec := ve1 - ve0
-s cs:0 l #1536 range ss:ve0 l vec
+s cs:ve7 l #1536 range ss:ve0 l vec
 if (src) then goto :patch_iniload_no_lba.success
 a ss:ve0
  mov ah, 41
@@ -158,7 +158,7 @@ a ss:ve0
  .
 r ve1 := aao - 1
 r vec := ve1 - ve0
-s cs:0 l #1536 range ss:ve0 l vec
+s cs:ve7 l #1536 range ss:ve0 l vec
 if not (src) then goto :error
 
 :patch_iniload_no_lba.success
