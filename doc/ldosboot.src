@@ -264,6 +264,47 @@ This handling is based on the function of the same name
 \W{https://hg.pushbx.org/ecm/instsect/file/53e4327aacd6/instsect.asm#l2442}{in the instsect application}.
 
 
+\S{protocol-sector-iniload-patch} Query patch support
+
+The ldosboot repo includes a patch Script for lDebug (.sld) file
+which allows to patch the initial loader stage.
+The patches concern handling of the CHS geometry detection,
+and whether LBA or CHS access is used.
+There are several legacy patch sites in which patch.sld
+can directly patch the initial loader's code.
+
+However, the preferred way is to find the query patch sequence.
+It should appear within the first 1536 bytes,
+that is within the part of the initial loader that must be loaded.
+This is the sequence:
+
+\c 8A5640  mov dl, byte [bp + 40h]
+\c B8xxyy  mov ax, yyxxh
+\c 84D2    test dl, dl
+\c 7902    jns @F
+\c 86C4    xchg al, ah
+\c @@:
+
+The immediate word of the \cw{mov ax} instruction is to be patched.
+The sequence should be scanned for without regard as to what
+the current contents of this word are.
+
+The following flag values are used:
+
+\b 01h Force CHS access, do not detect LBA support with 13.41
+
+\b 02h Force LBA access, do not detect LBA support with 13.41
+
+\b 04h Force use of BPB's CHS geometry, do not detect with 13.08
+
+The flag 01h takes precedence over 02h if both are set.
+
+The low byte (xxh) is used in case the loader loads
+from a diskette unit, that is a unit number below 80h.
+The high byte (yyh) is used otherwise, in case the loader loads
+from a hard disk unit, that is a unit number above-or-equal 80h.
+
+
 \H{protocol-iniload-payload} Iniload to payload protocol
 
 The payload is loaded to an arbitrary segment.
