@@ -13,15 +13,15 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 @:help
 ; Available patches:
 ;
-; :patch_iniload_no_query_geometry	(new or old style)
-; :patch_iniload_no_lba			(new or old style)
-; :patch_iniload_no_chs			(new style only)
-; :query_patch_iniload			(new style)
+; :patch_iniload_no_query_geometry      (new or old style)
+; :patch_iniload_no_lba                 (new or old style)
+; :patch_iniload_no_chs                 (new style only)
+; :query_patch_iniload                  (new style)
 ;
 ; Inputs: vef = nonzero to debug
-;	  ve8 = what to set for new style query patch
-;		0 = default, -1 = none (do old style patch)
-;	  ve9 = what to clear for new style query patch
+;         ve8 = what to set for new style query patch
+;               0 = default, -1 = none (do old style patch)
+;         ve9 = what to clear for new style query patch
 ;         cs:0 -> iniload
 ; Output: vee = nonzero if error
 ;         iniload patched
