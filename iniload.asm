@@ -124,6 +124,13 @@ ptLinux:		equ 83h
 ptExtendedLinux:	equ 85h
 
 
+query_no_geometry equ 4
+query_no_chs equ 2
+query_no_lba equ 1
+query_fd_multiplier equ 1
+query_hd_multiplier equ 256
+
+
 %ifndef _MAP
 %elifempty _MAP
 %else	; defined non-empty, str or non-str
@@ -133,6 +140,7 @@ ptExtendedLinux:	equ 85h
 	defaulting
 
 	numdef QUERY_PATCH,	1	; use new style patch of CHS/LBA/geometry
+	numdef QUERY_DEFAULT,	0
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
@@ -397,13 +405,15 @@ disp_error:
 
 query_geometry:
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
+		; magic bytes start
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 				; magic bytes
  %if _QUERY_PATCH
-	mov ax, 0		; magic bytes, checked by patch script
+	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
 	test dl, dl		; hard disk unit ?
 	jns @F			; no -->
 	xchg al, ah		; get high byte into al
+		; magic bytes end
 @@:
  %endif
 %endif
