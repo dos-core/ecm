@@ -94,6 +94,7 @@ y :query_patch_common
 @if not (vee == -1) then goto :eof
 
 :patch_iniload_no_query_geometry_old
+@if not (vef) then r ysf |= C000
 r ve0 word (sp - 100)
 a ss:ve0
  mov ah, 08
@@ -119,6 +120,7 @@ y :query_patch_common
 @if not (vee == -1) then goto :eof
 
 :patch_iniload_no_lba_old
+@if not (vef) then r ysf |= C000
 r ve0 word (sp - 100)
 a ss:ve0
  mov ah, 41
