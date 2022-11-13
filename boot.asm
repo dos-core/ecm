@@ -94,6 +94,7 @@ Public domain by C. Masloch, 2012
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
 	numdef CHS_RETRY_NORMAL,1	; do not use aggressive optimisation
+	numdef RETRY_RESET,	1	; call reset disk system 13.00 on retries
 
 	numdef MEDIAID, 0F0h		; media ID
 	numdef UNIT, 0			; load unit in BPB
@@ -883,8 +884,10 @@ read_sector:
 	int 13h		; 13.42 extensions read
 	jnc .lba_done
 
+ %if _RETRY_RESET
 	xor ax, ax
-	int 13h
+	int 13h		; reset disk
+ %endif
 
 		; have to reset the LBAPACKET's lpCount, as the handler may
 		;  set it to "the number of blocks successfully transferred".
@@ -999,19 +1002,22 @@ read_sector:
 ; may fail if we cross a track or 64K boundary
 %if _CHS_RETRY_REPEAT
 			mov si, _CHS_RETRY_REPEAT + 1
- %if _CHS_RETRY_NORMAL
+ %if _CHS_RETRY_NORMAL && _RETRY_RESET
 			db __TEST_IMM16	; (skip int 13h)
 .loop_chs_retry_repeat:
- %else
+			int 13h		; reset disk
+ %elif _RETRY_RESET
 .loop_chs_retry_repeat:
 			xor ax, ax
- %endif
 			int 13h		; reset disk
+ %else
+.loop_chs_retry_repeat:
+ %endif
 			dec si		; another attempt ?
 			js .nz_err	; no -->
 			mov ax, 0201h
 			int 13h		; read one sector
- %if _CHS_RETRY_NORMAL
+ %if _CHS_RETRY_NORMAL && _RETRY_RESET
 			mov ax, bx	; ax = 0
  %endif
 			jc .loop_chs_retry_repeat
@@ -1021,9 +1027,11 @@ read_sector:
 			mov ax, 0201h
 			int 13h		; read one sector
 			jnc .done
+  %if _RETRY_RESET
 ; reset drive
 			xor ax, ax
 			int 13h
+  %endif
  %endif
 ; try read again
 			mov ax, 0201h
