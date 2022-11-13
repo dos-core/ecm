@@ -1220,13 +1220,13 @@ next_sect:
 
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
+	push si
+	push cx
+	push di
 %if _CHECK_ATTRIB
 	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
 	jnz @F			; directory, label, or LFN entry --> (NZ)
 %endif
-	push si
-	push cx
-	push di
 %if _ADD_SEARCH
 	mov si, [VAR(filename)]
 %else
@@ -1234,12 +1234,12 @@ next_ent:
 %endif
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
+@@:
 	pop di
 	pop cx
 	pop si
-@@:
 	lea di, [di + DIRENTRY_size]
-	je found_it		; found entry -->
+	jz found_it		; found entry -->
 
 	dec si			; count down entire root's entries
 	loopnz next_ent		; count down sector's entries (jumps iff si >0 && cx >0)
