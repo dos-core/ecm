@@ -41,6 +41,7 @@ Public domain by C. Masloch, 2012
 	strdef ADD_NAME,	""
 	strdef ADD_EXT,		""	; name of second file to search
 	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
+	numdef CHECK_ATTRIB,	0	; check attribute for LFN, label, directory
 
 	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
@@ -1219,6 +1220,10 @@ next_sect:
 
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
+%if _CHECK_ATTRIB
+	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
+	jnz @F			; directory, label, or LFN entry --> (NZ)
+%endif
 	push si
 	push di
 	push cx
@@ -1232,6 +1237,7 @@ next_ent:
 	pop cx
 	pop di
 	pop si
+@@:
 	lea di, [di + DIRENTRY_size]
 	je found_it		; found entry -->
 
