@@ -293,7 +293,7 @@ echo -ne 'failure\r\n' > result.txt
   -D_SPF="$(( (spi / spc * bpe / 8 + 511) / 512 ))" \
   -D_NUMROOT="$nr" \
   -o $name.img -l $name.lst \
-  -D_PAYLOADFILE="testwrit.sys,result.txt" \
+  -D_PAYLOADFILE="testwrit.sys,result.txt,::chdir,dir" \
   -D_BOOTFILE="'$bootfile'" \
   -D_UNIT=$unit \
   "$@" \
