@@ -997,7 +997,7 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 %if _CHS_RETRY_REPEAT
-			mov si, _CHS_RETRY_REPEAT + 1
+			mov si, _CHS_RETRY_REPEAT
 .loop_chs_retry_repeat:
 			mov ax, 0201h
 			int 13h		; read one sector
@@ -1005,8 +1005,8 @@ read_sector:
 			xor ax, ax
 			int 13h		; reset disk
 			dec si		; another attempt ?
-			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err
+			jns .loop_chs_retry_repeat	; yes -->
+			jmp .nz_err
 %else
  %if _CHS_RETRY
 			mov ax, 0201h

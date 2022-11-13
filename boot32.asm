@@ -1238,13 +1238,14 @@ read_sector:
 	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
 			 or bl, ah	; collect set bits from ah
 			mov dl,[VAR(boot_unit)] ; dl = drive
+.nz_err:
 			 jnz .err_2	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 %if _CHS_RETRY_REPEAT
-			mov si, _CHS_RETRY_REPEAT + 1
+			mov si, _CHS_RETRY_REPEAT
 .loop_chs_retry_repeat:
 			mov ax, 0201h
 			int 13h		; read one sector
@@ -1252,8 +1253,8 @@ read_sector:
 			xor ax, ax
 			int 13h		; reset disk
 			dec si		; another attempt ?
-			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err_2
+			jns .loop_chs_retry_repeat	; yes -->
+			jmp .nz_err
 %else
  %if _CHS_RETRY
 			mov ax, 0201h
