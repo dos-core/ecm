@@ -76,6 +76,7 @@ Public domain by C. Masloch, 2012
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
+	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
@@ -1123,6 +1124,9 @@ read_sector:
  %endif
 
 %if _LBA_RETRY
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_ANY
+	stc
+ %endif
 	mov ah, 42h
 	int 13h		; 13.42 extensions read
 	jnc .lba_done
@@ -1136,15 +1140,24 @@ read_sector:
 	mov byte [si + 2], 1
 %endif
 
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_ANY
+	stc
+ %endif
 	mov ah, 42h
 	int 13h
  %if _LBA_SKIP_CHECK && _CHS
+  %if _LBA_SKIP_ANY
+	jc .no_lba
+.err_CY: equ .err
+.err_2: equ .err
+  %else
 	jnc .lba_done
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
 .err_CY:
 .err_2:
 	jmp .lba_error
+  %endif
  %else
 .err_CY:
 	jc .lba_error
