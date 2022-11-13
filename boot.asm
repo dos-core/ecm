@@ -723,8 +723,6 @@ add_name:
 	;  This happens to be aligned anyway. But even if
 	;  it didn't, we'd rather save that byte than use
 	;  it to align these fields. So comment this out.
-filename:
-	dw add_name
 dirseg:
 	dw _ADD_DIR_SEG
 %endif
@@ -1243,7 +1241,8 @@ next_ent:
 	jnz @F			; directory, label, or LFN entry --> (NZ)
 %endif
 %if _ADD_SEARCH
-	mov si, [VAR(filename)]
+	mov si, add_name
+filename equ $ - 2		; SMC to update to load_name later
 %else
 	mov si, load_name	; ds:si-> name to match
 %endif
