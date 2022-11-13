@@ -1023,18 +1023,27 @@ read_sector:
 			jc .loop_chs_retry_repeat
 	; fall through to .done
 %else
- %if _CHS_RETRY
 			mov ax, 0201h
+ %if _CHS_RETRY
+  %if _RETRY_RESET
+	; In this case we cannot store to the stack and
+	;  pop the value at the right moment for both
+	;  cases of the "jnc .done" branch. So use the
+	;  original code to re-init ax to 0201h.
 			int 13h		; read one sector
 			jnc .done
-  %if _RETRY_RESET
 ; reset drive
 			xor ax, ax
 			int 13h
+			mov ax, 0201h
+  %else
+			push ax
+			int 13h		; read one sector
+			pop ax		; restore ax = 0201h
+			jnc .done
   %endif
  %endif
 ; try read again
-			mov ax, 0201h
 			int 13h
  %if _LBA_SKIP_CHECK
 			inc bx
