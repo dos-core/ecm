@@ -870,8 +870,8 @@ read_sector:
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
-	test cl, 1	; support bitmap bit 0
-	jz .no_lba
+	shr cl, 1	; support bitmap bit 0
+	jnc .no_lba
  %endif
 
 %if _LBA_RETRY

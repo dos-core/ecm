@@ -474,8 +474,8 @@ query_geometry:
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
-	test cl, 1	; support bitmap bit 0
-	jz .no_lba
+	shr cl, 1	; support bitmap bit 0
+	jnc .no_lba
 	inc ax		; al = 1 to indicate LBA support
 .no_lba:
 .done_lba:
