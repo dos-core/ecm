@@ -42,6 +42,7 @@ Public domain by C. Masloch, 2012
 	strdef ADD_EXT,		""	; name of second file to search
 	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
 	numdef CHECK_ATTRIB,	0	; check attribute for LFN, label, directory
+	numdef ATTRIB_SAVE,	_CHECK_ATTRIB
 
 	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
@@ -626,6 +627,18 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 %endif
 
 %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+ %if _ATTRIB_SAVE
+  %ifn _ADD_SEARCH || _LOAD_DIR_SEG
+   %ifn _DIR_ENTRY_500
+; three words left on the stack after directory search
+	nextvariable dirsearchstack, 6
+   %else
+; two words left on the stack after directory search
+	nextvariable dirsearchstack, 4
+   %endif
+  %endif
+ %endif
+
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
 %endif
@@ -1223,7 +1236,7 @@ next_ent:
 	push si
 	push cx
 	push di
-%if _CHECK_ATTRIB
+%if _CHECK_ATTRIB && ! _ATTRIB_SAVE
 	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
 	jnz @F			; directory, label, or LFN entry --> (NZ)
 %endif
@@ -1234,12 +1247,22 @@ next_ent:
 %endif
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
+%if _ATTRIB_SAVE
+ %if _CHECK_ATTRIB
+	jnz @F
+	test byte [es:di], ATTR_DIRECTORY | ATTR_VOLLABEL
+				; directory, label, or LFN entry ?
+ %endif
+	jz found_it		; found entry -->
+%endif
 @@:
 	pop di
 	pop cx
 	pop si
 	lea di, [di + DIRENTRY_size]
+%if ! _ATTRIB_SAVE
 	jz found_it		; found entry -->
+%endif
 
 	dec si			; count down entire root's entries
 	loopnz next_ent		; count down sector's entries (jumps iff si >0 && cx >0)
@@ -1280,9 +1303,14 @@ Reference: https://bugs.launchpad.net/qemu/+bug/1888165
 
 found_it:
 %if _ADD_SEARCH || _LOAD_DIR_SEG
+ %if _ATTRIB_SAVE
+	pop di			; es:di -> dir entry
+ %endif
 	mov cx, 32
 	mov ax, _LOAD_DIR_SEG
+ %if ! _ATTRIB_SAVE
 	sub di, cx		; es:di -> dir entry
+ %endif
  %if _ADD_SEARCH
 	xchg ax, word [VAR(dirseg)]
  %endif
@@ -1312,6 +1340,10 @@ found_it:
 %else
  %error Must not store directory entries to same segment
 %endif
+ %if _ATTRIB_SAVE
+	pop si			; discard cx
+	pop si			; discard si
+ %endif
 	pop si
 	pop ax
 	pop dx			; restore root start and count
@@ -1325,10 +1357,14 @@ found_it:
 %else
  %if _DIR_ENTRY_500	; +24 bytes, probably
 	mov cx, 32
-	 push ds
-	 push es
+ %if _ATTRIB_SAVE
+	pop si		; es:si -> dir entry
+ %else
 	xchg si, di
 	sub si, cx
+ %endif
+	 push ds
+	 push es
 	push es
 	pop ds		; ds:si -> directory entry
 	xor ax, ax
@@ -1477,6 +1513,8 @@ relocated:
 %if ! _RELOCATE
  %if _ADD_SEARCH || _LOAD_DIR_SEG
 		mov si,[es:di + deClusterLow]
+ %elif _ATTRIB_SAVE && ! _DIR_ENTRY_500
+		mov si,[es:di - deAttrib + deClusterLow]
  %else
 		mov si,[es:di + deClusterLow - DIRENTRY_size \
 			- (DIRENTRY_size * !!_DIR_ENTRY_520)]
