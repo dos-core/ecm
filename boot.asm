@@ -1251,6 +1251,7 @@ filename equ $ - 2		; SMC to update to load_name later
 %if _ATTRIB_SAVE
  %if _CHECK_ATTRIB
 	jnz @F
+		; deAttrib == 11, right after the 11-byte name
 	test byte [es:di], ATTR_DIRECTORY | ATTR_VOLLABEL
 				; directory, label, or LFN entry ?
  %endif
