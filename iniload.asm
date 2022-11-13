@@ -173,6 +173,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
  %include "inicheck.mac"
 %endif
 
+	numdef PADDING, 0
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -2513,4 +2514,12 @@ second_payload:
 
 %if ($ - start) < 4096
 	_fill 4096, 38, start	; fill to new minimum limit
+%endif
+
+%if _PADDING
+ %if ($ - $$) > _PADDING
+  %warning No padding needed
+ %else
+	times _PADDING - ($ - $$) db 0
+ %endif
 %endif

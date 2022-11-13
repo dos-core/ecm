@@ -293,6 +293,7 @@ fi
   "$options_i_ldosboot" \
   "$options_i_lmacros" \
   "$options_i_scanptab" \
+  -D_PADDING='(48 * 1024)' \
   -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \

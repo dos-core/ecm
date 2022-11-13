@@ -128,6 +128,7 @@ ATTR_ARCHIVE	equ 20h
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
 
+	numdef PADDING, 0
 	strdef FILE_NAME,	"RESULT"
 	strdef FILE_EXT,	"TXT"	; name of file to write
 	strdef FILE_SUCCESS_MSG,"success"
@@ -1019,3 +1020,11 @@ check_clust:
 
 	align 16, db 38
 end:
+
+%if _PADDING
+ %if ($ - $$) > _PADDING
+  %warning No padding needed
+ %else
+	times _PADDING - ($ - $$) db 0
+ %endif
+%endif
