@@ -381,11 +381,16 @@ then
     cp -aL "$BOOT_KERNEL" "${BOOT_KERNEL##*/}"
     cp -aL "$BOOT_COMMAND" "${BOOT_COMMAND##*/}"
     echo -ne "@echo off\r\ninst${bpe}tw.com C:\r\nquit.com\r\n" > autoexec.bat
+if [[ -n "$TMPINC" ]]
+then
+	"$MKTMPINC" "${LDOSBOOT_DIR%/}"/boot.asm > /dev/null
+fi
     "$NASM" quit.asm \
      "$options_i_lmacros" \
      -o quit.com &&
     "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
      "$options_i_lmacros" \
+     $TMPINC \
      -D_COMPAT_"$BOOT_PROTOCOL"=1 \
      -D_LBA=0 -D_USE_PART_INFO=0 -D_QUERY_GEOMETRY=0 \
     $BOOT_OPTIONS \
@@ -399,6 +404,10 @@ then
      -D_PAYLOADFILE="${BOOT_KERNEL##*/},${BOOT_COMMAND##*/},autoexec.bat,inst${bpe}tw.com,quit.com" \
      -D_BOOTFILE="'bootinst.bin'"
     (($?)) && exit $?
+if [[ -n "$TMPINC" ]]
+then
+	rm -f *.tmp
+fi
     timeout --foreground 10 "$QEMU" -fda diskinst.img "$qemu_switch" "$name".img -boot order=a -display none 2> /dev/null
     rc=$?
     handle_timeout_process
@@ -412,8 +421,13 @@ fi
 
 if ((! direct))
 then
+if [[ -n "$TMPINC" ]]
+then
+	"$MKTMPINC" "${LDOSBOOT_DIR%/}"/boot.asm > /dev/null
+fi
  "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
   "$options_i_lmacros" \
+  $TMPINC \
   -D_LOAD_NAME="'LDEBUG'" -D_LOAD_EXT="'COM'" \
   -D_MAP=boot12db.map -l boot12db.lst -o boot12db.bin &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
@@ -424,6 +438,10 @@ then
   -o diskldbg.img -l diskldbg.lst \
   -D_PAYLOADFILE="ldebug.com" -D_BOOTFILE="'boot12db.bin'"
  (($?)) && exit $?
+if [[ -n "$TMPINC" ]]
+then
+	rm -f *.tmp
+fi
 
   if ((dosemu))
   then
