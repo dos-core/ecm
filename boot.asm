@@ -1225,8 +1225,8 @@ next_ent:
 	jnz @F			; directory, label, or LFN entry --> (NZ)
 %endif
 	push si
-	push di
 	push cx
+	push di
 %if _ADD_SEARCH
 	mov si, [VAR(filename)]
 %else
@@ -1234,8 +1234,8 @@ next_ent:
 %endif
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
-	pop cx
 	pop di
+	pop cx
 	pop si
 @@:
 	lea di, [di + DIRENTRY_size]
