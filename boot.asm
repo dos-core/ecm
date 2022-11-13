@@ -93,6 +93,7 @@ Public domain by C. Masloch, 2012
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+	numdef CHS_RETRY_NORMAL,1	; do not use aggressive optimisation
 
 	numdef MEDIAID, 0F0h		; media ID
 	numdef UNIT, 0			; load unit in BPB
@@ -997,6 +998,7 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 %if _CHS_RETRY_REPEAT
+ %if _CHS_RETRY_NORMAL
 			mov si, _CHS_RETRY_REPEAT
 .loop_chs_retry_repeat:
 			mov ax, 0201h
@@ -1007,6 +1009,18 @@ read_sector:
 			dec si		; another attempt ?
 			jns .loop_chs_retry_repeat	; yes -->
 			jmp .nz_err
+ %else
+			mov si, _CHS_RETRY_REPEAT + 1
+.loop_chs_retry_repeat:
+			xor ax, ax
+			int 13h		; reset disk
+			dec si		; another attempt ?
+			js .nz_err	; no -->
+			mov ax, 0201h
+			int 13h		; read one sector
+			jc .loop_chs_retry_repeat
+	; fall through to .done
+ %endif
 %else
  %if _CHS_RETRY
 			mov ax, 0201h
