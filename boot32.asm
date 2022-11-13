@@ -1246,29 +1246,24 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 %if _CHS_RETRY_REPEAT
- %if _CHS_RETRY_NORMAL
-			mov si, _CHS_RETRY_REPEAT
-.loop_chs_retry_repeat:
-			mov ax, 0201h
-			int 13h		; read one sector
-			jnc .done
-			xor ax, ax
-			int 13h		; reset disk
-			dec si		; another attempt ?
-			jns .loop_chs_retry_repeat	; yes -->
-			jmp .nz_err
- %else
 			mov si, _CHS_RETRY_REPEAT + 1
+ %if _CHS_RETRY_NORMAL
+			db __TEST_IMM16	; (skip int 13h)
+.loop_chs_retry_repeat:
+ %else
 .loop_chs_retry_repeat:
 			xor ax, ax
+ %endif
 			int 13h		; reset disk
 			dec si		; another attempt ?
 			js .nz_err	; no -->
 			mov ax, 0201h
 			int 13h		; read one sector
+ %if _CHS_RETRY_NORMAL
+			mov ax, bx	; ax = 0
+ %endif
 			jc .loop_chs_retry_repeat
 	; fall through to .done
- %endif
 %else
  %if _CHS_RETRY
 			mov ax, 0201h
