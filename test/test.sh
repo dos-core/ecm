@@ -270,7 +270,17 @@ fi
 
 echo -ne 'failure\r\n' > result.txt
 
+TMPINC=""
+if command -v "$MKTMPINC" &> /dev/null
+then
+	TMPINC="-D_TMPINC"
+fi
+if [[ -n "$TMPINC" ]]
+then
+	"$MKTMPINC" "${LDOSBOOT_DIR%/}"/$bootname.asm > /dev/null
+fi
  "$NASM" "${LDOSBOOT_DIR%/}"/$bootname.asm -w-user \
+  $TMPINC \
   -D_LOAD_NAME="'TESTWRIT'" -D_LOAD_EXT="'SYS'" -D_FAT$bpe \
   -D_UNIT=$unit \
   "$@" \
@@ -301,6 +311,10 @@ echo -ne 'failure\r\n' > result.txt
   "$options_i_lmacros" \
   "$options_i_bootimg"
 (($?)) && exit $?
+if [[ -n "$TMPINC" ]]
+then
+	rm -f *.tmp
+fi
 
 pgid="$(ps -o pgid= $$)"
 function handle_timeout_process() {
