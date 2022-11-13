@@ -136,7 +136,7 @@ Public domain by C. Masloch, 2012
 
 %if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + \
 	!!_COMPAT_MS7 + !!_COMPAT_MS6 + \
-	!!_COMPAT_LDOS || _COMPAT_KERNEL7E) > 1
+	!!_COMPAT_LDOS + !!_COMPAT_KERNEL7E) > 1
  %error At most one set must be selected.
 %endif
 
