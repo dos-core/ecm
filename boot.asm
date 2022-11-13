@@ -75,6 +75,7 @@ Public domain by C. Masloch, 2012
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
 	numdef SET_LOAD_SEG,	1	; if to set load_seg (word [ss:bp - 6])
 	numdef SET_FAT_SEG,	1	; if to set fat_seg (word [ss:bp - 8])
+	numdef SET_FAT_SEG_NORMAL, 1	; do not use aggressive optimisation
 	numdef SET_CLUSTER,	1	; if to set first_cluster (word [ss:bp - 16])
 	numdef ZERO_ES,		0	; if to set es = 0 before jump
 	numdef ZERO_DS,		0	; if to set ds = 0 before jump
@@ -1607,7 +1608,9 @@ relocated:
 		mov bx, _LOAD_ADR>>4	; => load address
 %if _FAT16 && !_LOAD_NON_FAT
 		mov di, -1		; = no FAT sector read yet
- %if _SET_FAT_SEG
+ %if _SET_FAT_SEG && _SET_FAT_SEG_NORMAL
+	; This is not strictly needed because a FAT sector is
+	;  read in any case, initialising this variable later.
 		mov word [VAR(fat_sector)], di
  %endif
 %endif
