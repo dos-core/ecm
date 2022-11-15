@@ -1544,7 +1544,7 @@ init_memory:
 @@:
 	cmp ax, 0FFF7h - 2
 	ja .badclusters
-	mov byte [bp + ldFATType], 16
+	shr byte [bp + ldFATType], 1	; = 16
 	cmp ax, 0FF7h - 2
 	ja .got_fat_type
 
