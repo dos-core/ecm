@@ -75,6 +75,8 @@ Public domain by C. Masloch, 2012
 	numdef FIX_CLUSTER_SIZE_SKIP_CHECK,	0	; don't check cluster size
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
+	numdef WARN_PART_SIZE,	0
+
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
 	numdef LBA_SKIP_CY,	1	; skip check: set up CY before 13.42
 	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
@@ -633,6 +635,11 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 fsiboot_name:
 	fill 8, 32, db _FSIBOOTNAME
 
+%if _WARN_PART_SIZE
+ %assign num $ - start
+ %warning BPB + data size is num bytes
+%endif
+
 
 ; Code
 
@@ -859,6 +866,13 @@ load_fsiboot:
 %endif
 
 
+%if _WARN_PART_SIZE
+ %assign num $ - skip_bpb
+ %warning init size is num bytes
+%endif
+
+
+finish_start:
 		; INP:	es:bx -> found dir entry in dir sector buffer
 		;	si:di = loaded sector-in-FAT
 		; CHG:	ax, cx, dx
@@ -1035,6 +1049,13 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
+%if _WARN_PART_SIZE
+ %assign num $ - finish_start
+ %warning finish size is num bytes
+%endif
+
+
+error_start:
 
 error_fsiboot:
 	mov al,'I'
@@ -1061,6 +1082,11 @@ error:
 	int 16h
 
 	int 19h		; re-start the boot process
+
+%if _WARN_PART_SIZE
+ %assign num $ - error_start
+ %warning error size is num bytes
+%endif
 
 
 		; Read a sector using Int13.02 or Int13.42
@@ -1322,6 +1348,11 @@ read_sector:
 
 .retn:
 	retn
+
+%if _WARN_PART_SIZE
+ %assign num $ - read_sector
+ %warning read_sector size is num bytes
+%endif
 
 
 %if _ADD_SEARCH

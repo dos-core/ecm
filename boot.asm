@@ -86,6 +86,8 @@ Public domain by C. Masloch, 2012
 	numdef FIX_CLUSTER_SIZE_SKIP_CHECK,	0	; don't check cluster size
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
+	numdef WARN_PART_SIZE,	0
+
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
 	numdef LBA_SKIP_CY,	1	; skip check: set up CY before 13.42
 	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
@@ -742,6 +744,8 @@ dirseg:
  [list -]
 %else
 ; === error.tmp ===
+error_start:
+
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
 %if ! _MEMORY_CONTINUE || _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
@@ -769,6 +773,11 @@ error:
 	int 16h
 
 	int 19h		; re-start the boot process
+
+%if _WARN_PART_SIZE
+ %assign num $ - error_start
+ %warning error size is num bytes
+%endif
 ; === eof ===
 %endif
 %if _TMPINC
@@ -783,6 +792,7 @@ error:
  [list -]
 %else
 ; === read.tmp ===
+read_sector_start:
 		; INP:	dx:ax = sector
 		; OUT:	only if successful
 		;	dx:ax = incremented
@@ -1076,6 +1086,11 @@ read_sector:
 @@:
 
 	retn
+
+%if _WARN_PART_SIZE
+ %assign num $ - read_sector_start
+ %warning read_sector size is num bytes
+%endif
 ; === eof ===
 %endif
 %if _TMPINC
@@ -1084,6 +1099,11 @@ read_sector:
 		%endmacro
 %if _TMPINC
  [list +]
+%endif
+
+%if _WARN_PART_SIZE
+ %assign num $ - start
+ %warning BPB + data size is num bytes
 %endif
 
 
@@ -1205,6 +1225,14 @@ skip_bpb:
 ; 32-byte FAT directory entries per sector
 	shr bx, 1			; /2 = 32-byte entries per sector
 %endif
+
+%if _WARN_PART_SIZE
+ %assign num $ - skip_bpb
+ %warning init size is num bytes
+%endif
+
+
+dirsearch_start:
 
 ; number of sectors used for root directory (store in CX)
 	mov si, [VAR(num_root_dir_ents)]
@@ -1415,7 +1443,14 @@ found_it:
  %endif
 %endif
 
+%if _WARN_PART_SIZE
+ %assign num $ - dirsearch_start
+ %warning dirsearch size is num bytes
+%endif
+
+
 %if _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
+memory_start:
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
@@ -1502,6 +1537,11 @@ found_it:
 	rep movsw			; relocate stack, sector
 	retf				; jump to relocated code
 
+%if _WARN_PART_SIZE
+ %assign num $ - memory_start
+ %warning memory size is num bytes
+%endif
+
 
 	readhandler
 
@@ -1538,6 +1578,7 @@ relocated:
 		push ax		; push into word [VAR(last_available_sector)]
 %endif
 
+read_fat_start:
 ; get starting cluster of file
 %if ! _RELOCATE
  %if _ADD_SEARCH || _LOAD_DIR_SEG
@@ -1805,6 +1846,13 @@ next_cluster:
 %endif	; _LOAD_NON_FAT
 @@:
 
+%if _WARN_PART_SIZE
+ %assign num $ - read_fat_start
+ %warning read_fat size is num bytes
+%endif
+
+
+finish_start:
 %if _LOAD_MIN_PARA
  %if ((_LOAD_ADR >> 4) + _LOAD_MIN_PARA) & 255 == 0
 	; If the value is divisible by 256 we can compare only the
@@ -1928,6 +1976,12 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 %endif
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
+
+
+%if _WARN_PART_SIZE
+ %assign num $ - finish_start
+ %warning finish size is num bytes
+%endif
 
 
 %if ! _RELOCATE
