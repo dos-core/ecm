@@ -179,8 +179,6 @@ device_header:
 %endif
 
 
-j_zero_entrypoint:
-
 %if _IMAGE_EXE || _DEVICE
 	nop
 	align 32, nop
@@ -196,6 +194,9 @@ init0_kernel_entry:
 	hlt
 	jmp @B
 %endif
+%if ! _IMAGE_EXE
+j_zero_entrypoint:
+%endif
 	xor bx, bx		; 0 = kernel mode
 	push ax
 	mov ax, cs
@@ -206,6 +207,7 @@ init0_kernel_entry:
 
  %if _IMAGE_EXE
 	align 64, nop
+j_zero_entrypoint:
 init0_exe_entry:
 		; NOTE:	This part is called with ip = 256 + 64, cs = PSP.
 %if ($ - $$) != 64
