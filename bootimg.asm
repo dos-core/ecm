@@ -834,7 +834,7 @@ at FSINFO.reserved1
 	_fill 480 + 4, 0, %1_fsinfo
  %endif
  %if $ - %1_fsinfo != FSINFO.signature2
-  Boot info file has wrong size
+  %error Boot info file has wrong size
  %endif
 at FSINFO.signature2
 	dd "rrAa"
