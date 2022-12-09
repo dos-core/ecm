@@ -111,7 +111,14 @@ Some things are not supported yet:
 A directory is always terminated with one or more directory
 entries that are filled with all-zeros.
 
-If _BOOTFILE is specified (not the empty quoted string),
+If _BOOTPATCHFILE is specified (not the empty quoted string),
+then it is used with incbin to extract the boot loader's
+jump instruction (3 bytes) and the boot code that's to be
+placed after the BPBN (size depends on FAT type). The (E)BPB,
+including BPBN, is then created by this script to match the
+filesystem that is being written.
+
+Else, if _BOOTFILE is specified (not the empty quoted string),
 it is expected that the (E)BPB of that boot sector matches
 the file system parameters specified to the bootimg.asm file.
 If _BOOTFILE equals "" then a proper (E)BPB is created,
@@ -180,6 +187,7 @@ be exactly 484 bytes long. It is expected that the first
 	numdef CHS_HEADS, 2	; CHS geometry field for heads
 	numdef HIDDEN, 0	; number of hidden sectors
 
+	strdef BOOTPATCHFILE, ""
 	strdef BOOTFILE, ""
 	strdef BOOTJUMPFILE, ""
 	strdef BOOTCODEFILE, ""
@@ -201,6 +209,7 @@ be exactly 484 bytes long. It is expected that the first
 %endif
 
 	numdef MBR,			0
+	strdef MBRPATCHFILE, ""
 	strdef MBRCODEFILE, ""
 	gendef MBR_PART_TYPE,		fat %+ _BPE
 	numdef MBR_DOSEMU_IMAGE_HEADER,	0
@@ -585,7 +594,9 @@ at dihHeaderSize,	dd dih_our_size
  %define STARTSFOLLOWS follows=mbr
 
 mbr_start:
- %ifnidn _MBRCODEFILE, ""
+ %ifnidn _MBRPATCHFILE, ""
+	incbin _MBRPATCHFILE, 0, 512 - 2 - 4 * 16
+ %elifnidn _MBRCODEFILE, ""
 	incbin _MBRCODEFILE
  %else
 	cli
@@ -654,10 +665,20 @@ mbr_signature:
  %define STARTSFOLLOWS follows=%1_boot
 
 %1_boot_start:
-%ifnidn _BOOTFILE, ""
+%ifnidn _BOOTPATCHFILE, ""
+ %assign USEBOOTFILE 0
+%elifnidn _BOOTFILE, ""
+ %assign USEBOOTFILE 1
+%else
+ %assign USEBOOTFILE 0
+%endif
+
+%if USEBOOTFILE
 	incbin _BOOTFILE
 %else
- %ifnidn _BOOTJUMPFILE, ""
+ %ifnidn _BOOTPATCHFILE, ""
+	incbin _BOOTPATCHFILE, 0, 3
+ %elifnidn _BOOTJUMPFILE, ""
 	incbin _BOOTJUMPFILE
  %else
 	jmp strict short %1_boot_after_bpb
@@ -759,7 +780,9 @@ mbr_signature:
 
 
 %1_boot_after_bpb:
- %ifnidn _BOOTCODEFILE, ""
+ %ifnidn _BOOTPATCHFILE, ""
+	incbin _BOOTPATCHFILE, ($ - $$), 512 - 2 - ($ - $$)
+ %elifnidn _BOOTCODEFILE, ""
 	incbin _BOOTCODEFILE
  %else
 	cli
@@ -826,7 +849,11 @@ mbr_signature:
 %1_fsinfo:
 	istruc FSINFO
  %ifnidn _BOOTINFOFILE, ""
+  %ifidni _BOOTINFOFILE, "::bootpatchfile"
+	incbin _BOOTPATCHFILE, 512, 484
+  %else
 	incbin _BOOTINFOFILE
+  %endif
  %else
 at FSINFO.signature1
 	dd "RRaA"
