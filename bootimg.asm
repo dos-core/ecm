@@ -44,6 +44,9 @@ keywords are:
 		 appended so as to make sure the last cluster contains
 		 one byte, and all prior clusters are full.
 
+::fragmentsame	Followed by number of fragments, followed by one value
+		 that specifies the length of all the fragments.
+
 ::nextfragment	Places next fragment of a fragmented file. At the
 		 end of the image all remaining fragments are placed.
 		 (The exact order that fragments appear in is not yet
@@ -1346,6 +1349,7 @@ at deSize,		dd %3
 %assign chainindex 0
 %assign ischdir 0
 %assign isfragment 0
+%assign isfragmentsame 0
 %assign isrename 0
 %assign isfill 0
 %assign isattrib 0
@@ -1397,6 +1401,9 @@ at deSize,		dd %3
   %assign ischdir 0
  %elif isfragment == -1
    %assign isfragment %1
+ %elif isfragment == -2
+   %assign isfragmentsame %1
+   %assign isfragment 0
  %elif isfragment
   %ifn %1
    %error Zero clusters fragment is invalid
@@ -1404,6 +1411,15 @@ at deSize,		dd %3
   %assign ONEFRAGMENT %1
   %xdefine FRAGMENTLIST FRAGMENTLIST, ONEFRAGMENT
   %assign isfragment isfragment - 1
+ %elif isfragmentsame
+  %ifn %1
+   %error Zero clusters fragment is invalid
+  %endif
+  %assign ONEFRAGMENT %1
+  %rep isfragmentsame
+   %xdefine FRAGMENTLIST FRAGMENTLIST, ONEFRAGMENT
+  %endrep
+  %assign isfragmentsame 0
  %elif isrename == 1
   %xdefine renamesource %1
   %assign isrename 2
@@ -1449,6 +1465,8 @@ at deSize,		dd %3
   %assign ischdir 1
  %elifidni %1, ::fragment
   %assign isfragment -1
+ %elifidni %1, ::fragmentsame
+  %assign isfragment -2
  %elifidni %1, ::nextfragment
   %ifidn NEXTFRAGMENTS, none
    %error No next fragments to write
@@ -1491,6 +1509,9 @@ at deSize,		dd %3
 %endif
 %if isfragment
  %error No fragment list specified
+%endif
+%if isfragmentsame
+ %error No fragment size specified
 %endif
 %if isrename == 1
  %error No rename source specified
