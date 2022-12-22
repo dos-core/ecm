@@ -1009,6 +1009,20 @@ at deSize,		dd 0
 	%endmacro
 
 
+		; %1 = source pathname
+		; %2 = offset behind data already read
+		; %3 = fixed, 0
+		; %4 = size of fragment in amount clusters, nonzero
+		; %5 only defined if more fragments to follow
+		;
+		; Recreates the FRAGMENTLIST smacro by defining
+		;  it to 0 then appending %5 and subsequent
+		;  parameters, if any.
+		; Sets FRAGMENTOFFSET to the next offset after
+		;  the data possibly read in by this mmacro.
+		; If the file is shorter, this mmacro will fill
+		;  the space with appended NUL bytes to use up
+		;  the specified amount clusters.
 	%macro incbinpart 4-*.nolist
 %%start:
 incbin %1, %2, %4 * _BPS * _SPC
@@ -1032,46 +1046,71 @@ incbin %1, %2, %4 * _BPS * _SPC
 %1 %+ _start:
 %3_chain_end equ %%fragment_start_cluster
 	; equate prior fragment's end entry to start of this fragment
-%xdefine %%sourcename %4
-%xdefine %%offset %5
+%xdefine %%sourcename %4	; source pathname to read from
+%xdefine %%offset %5		; offset to -> after already read data
 %xdefine %%oldfragmentlist FRAGMENTLIST
-%xdefine FRAGMENTLIST %6
+				; if we have one preserve the new FRAGMENTLIST
+%xdefine FRAGMENTLIST %6	; set up our remaining as the current list
 
-%define NEXTFRAGMENTS none
-%rotate 6
+	; In this mmacro we eat the next fragment to allocate.
+	;  %1 = section name, %2 = "none" token, %3 = fragment
+	;  identifier for prior fragment (macro-local name),
+	;  %4 = pathname, %5 = file offset, %6 = FRAGMENTLIST
+	;  (which starts with 0 and may have embedded commas).
+	; So %7 and up are the parameters of the subsequent
+	;  fragment, if any, in groups of four. 
+%define NEXTFRAGMENTS none	; reset the list to a none token
+%rotate 6			; rotate past the section name, none,
+				;  and all four of our current fragment
 %assign COUNTER 1
-%rep %0 - 6
+%rep %0 - 6			; repeat for all remaining parameters
  %if COUNTER % 4
   %xdefine NEXTFRAGMENTS NEXTFRAGMENTS, %1
+				; append this parameter
  %else
   %xdefine NEXTFRAGMENTS NEXTFRAGMENTS, {%1}
+				; this is a FRAGMENTLIST, so we make
+				;  sure to pass along curly braces
  %endif
- %rotate 1
+ %rotate 1			; next parameter
  %assign COUNTER COUNTER + 1
-%endrep
+%endrep				; note: rotated 6 + %0 - 6 times equals
+				;  %0 times, all back to the beginning
 
- %ifidn FRAGMENTLIST, 0
+ %ifidn FRAGMENTLIST, 0		; if no further fragment
 %%start:
-  incbin %%sourcename, %%offset
+  incbin %%sourcename, %%offset	; include remaining data
 %%fragment_chain_end equ EOFENTRY
+				; tell FAT cnain allocation to end after this
 %if ($ - %%start) == 0
  %warning File %%sourcename is shorter than expected, appending a NUL byte
-	db 0
+	db 0			; for proper FAT chain size mustn't be zero
 %endif
-%3_size equ ($ - %1 %+ _start)
+%3_next_size equ ($ - %1 %+ _start)
+				; communicate to prior fragment what its
+				;  next size (ie, this fragment's) is
  %else
 	incbinpart %%sourcename, %%offset, FRAGMENTLIST
+				; incbin a part, specified by this mmacro's
+				;  %4, and re-create FRAGMENTLIST
 %xdefine NEXTFRAGMENTS \
 	NEXTFRAGMENTS, %%fragment, %%sourcename, FRAGMENTOFFSET, \
-	{FRAGMENTLIST}
-%define FRAGMENTLIST 0
-%3_size equ ($ - %1 %+ _start) + %%fragment_size
+	{FRAGMENTLIST}		; remember at the end of NEXTFRAGMENTS list
+%define FRAGMENTLIST 0		; reset FRAGMENTLIST
+%3_next_size equ ($ - %1 %+ _start) + %%fragment_next_size
+				; communicate to prior fragment what its
+				;  next size (ie, this fragment's) is
+				; this includes the size of the fragment
+				;  that's subsequent to this one, so it
+				;  includes this fragment and all the
+				;  fragments that are still to come.
  %endif
 
 %xdefine CHAINLIST CHAINLIST,%%fragment
 	; remember base name for this fragment's chain
 
 %xdefine FRAGMENTLIST %%oldfragmentlist
+				; preserve current FRAGMENTLIST for new file
 	%endmacro
 
 
@@ -1109,7 +1148,7 @@ incbin %1, %2, %4 * _BPS * _SPC
 	NEXTFRAGMENTS, %%fragment, %%sourcename, FRAGMENTOFFSET, \
 	{FRAGMENTLIST}
 %define FRAGMENTLIST 0
-%%filesize equ ($ - %3 %+ _start) + %%fragment_size
+%%filesize equ ($ - %3 %+ _start) + %%fragment_next_size
  %endif
 %endif
 
