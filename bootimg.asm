@@ -933,7 +933,7 @@ at FSINFO.signature3
 
 		; %1 = name for the equ to receive the start cluster,
 		;	_start_cluster will be appended
-		; also name for the equ with end entry,
+		; also name for the equ from which to read end entry,
 		;	_chain_end will be appended
 		; %2 = how many clusters/entries to allocate
 		;	(if zero, %1_start_cluster equ will be zero)
@@ -962,10 +962,10 @@ secondentry_chain_end equ EOFENTRY
 at deName,		fill 8,32,db "."
 at deExt,		fill 3,32,db 32
 at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
-at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterHigh,	dw %%dir_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deClusterLow,	dw %%dir_start_cluster & 0FFFFh
 at deSize,		dd 0
 	iend
 	istruc DIRENTRY
@@ -980,8 +980,8 @@ at deSize,		dd 0
 	iend
 %endif
 
-%%file_chain_end equ EOFENTRY
-%xdefine CHAINLIST CHAINLIST,%%file
+%%dir_chain_end equ EOFENTRY
+%xdefine CHAINLIST CHAINLIST,%%dir
 
 %ifnidni %3, none
 
@@ -996,16 +996,16 @@ at deSize,		dd 0
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
-at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterHigh,	dw %%dir_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deClusterLow,	dw %%dir_start_cluster & 0FFFFh
 at deSize,		dd 0
 	iend
 %else
- rootcluster equ %%file_start_cluster
+ rootcluster equ %%dir_start_cluster
 %endif
-%2 %+ _start_cluster equ %%file_start_cluster
+%2 %+ _start_cluster equ %%dir_start_cluster
 	%endmacro
 
 
@@ -1030,10 +1030,11 @@ incbin %1, %2, %4 * _BPS * _SPC
 	%macro nextfragment 6-*.nolist
 	usesection %1
 %1 %+ _start:
-%3 equ %%file_start_cluster
+%3_chain_end equ %%fragment_start_cluster
+	; equate prior fragment's end entry to start of this fragment
 %xdefine %%sourcename %4
 %xdefine %%offset %5
-%xdefine %%fragmentlist FRAGMENTLIST
+%xdefine %%oldfragmentlist FRAGMENTLIST
 %xdefine FRAGMENTLIST %6
 
 %define NEXTFRAGMENTS none
@@ -1052,7 +1053,7 @@ incbin %1, %2, %4 * _BPS * _SPC
  %ifidn FRAGMENTLIST, 0
 %%start:
   incbin %%sourcename, %%offset
-%%file_chain_end equ EOFENTRY
+%%fragment_chain_end equ EOFENTRY
 %if ($ - %%start) == 0
  %warning File %%sourcename is shorter than expected, appending a NUL byte
 	db 0
@@ -1061,15 +1062,16 @@ incbin %1, %2, %4 * _BPS * _SPC
  %else
 	incbinpart %%sourcename, %%offset, FRAGMENTLIST
 %xdefine NEXTFRAGMENTS \
-	NEXTFRAGMENTS, %%file_chain_end, %%sourcename, FRAGMENTOFFSET, \
+	NEXTFRAGMENTS, %%fragment, %%sourcename, FRAGMENTOFFSET, \
 	{FRAGMENTLIST}
 %define FRAGMENTLIST 0
-%3_size equ ($ - %1 %+ _start) + %%file_chain_end_size
+%3_size equ ($ - %1 %+ _start) + %%fragment_size
  %endif
 
-%xdefine CHAINLIST CHAINLIST,%%file
+%xdefine CHAINLIST CHAINLIST,%%fragment
+	; remember base name for this fragment's chain
 
-%xdefine FRAGMENTLIST %%fragmentlist
+%xdefine FRAGMENTLIST %%oldfragmentlist
 	%endmacro
 
 
@@ -1099,19 +1101,19 @@ incbin %1, %2, %4 * _BPS * _SPC
  %xdefine %%sourcename string
  %ifidn FRAGMENTLIST, 0
   incbin %%sourcename
-%%file_chain_end equ EOFENTRY
+%%fragment_chain_end equ EOFENTRY
 %%filesize equ ($ - %3 %+ _start)
  %else
 	incbinpart %%sourcename, 0, FRAGMENTLIST
 %xdefine NEXTFRAGMENTS \
-	NEXTFRAGMENTS, %%file_chain_end, %%sourcename, FRAGMENTOFFSET, \
+	NEXTFRAGMENTS, %%fragment, %%sourcename, FRAGMENTOFFSET, \
 	{FRAGMENTLIST}
 %define FRAGMENTLIST 0
-%%filesize equ ($ - %3 %+ _start) + %%file_chain_end_size
+%%filesize equ ($ - %3 %+ _start) + %%fragment_size
  %endif
 %endif
 
-%xdefine CHAINLIST CHAINLIST,%%file
+%xdefine CHAINLIST CHAINLIST,%%fragment
 
 %define string %2
 %ifnstr string
@@ -1124,10 +1126,10 @@ incbin %1, %2, %4 * _BPS * _SPC
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db _ATTRIB
-at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterHigh,	dw %%fragment_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deClusterLow,	dw %%fragment_start_cluster & 0FFFFh
 at deSize,		dd %%filesize
 	iend
 	%endmacro
@@ -1634,13 +1636,13 @@ dumpfatentry (_MEDIAID | (MAXENTRY - 15))
 				;  next is index 1
 %rep %0 / 2			; for each pair
  %if %2
-  %1_start_cluster equ ii	; equ for start cluster
-  %rep %2 - 1			; as many as are non-EOF entries
+  %1_start_cluster equ ii	; equ for chain start cluster
+  %rep %2 - 1			; as many as are non-end entries
    %assign ii ii + 1
    dumpfatentry ii		; link to next cluster
   %endrep
   %assign ii ii + 1
-  dumpfatentry %1_chain_end	; EOF entry
+  dumpfatentry %1_chain_end	; end of contiguous chain entry
  %else
   %1_start_cluster equ 0	; empty chain, start cluster is 0
  %endif
