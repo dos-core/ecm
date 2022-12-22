@@ -303,7 +303,7 @@ fi
   -D_BPE="$bpe" -D_SPC="$spc" -D_SPI="$spi" \
   -D_SPF="$(( (spi / spc * bpe / 8 + 511) / 512 ))" \
   -D_NUMROOT="$nr" \
-  -o $name.img -l $name.lst \
+  -D_MAP=$name.map -o $name.img -l $name.lst \
   -D_PAYLOADFILE="testwrit.sys,result.txt,::chdir,dir" \
   -D_BOOTFILE="'$bootfile'" \
   -D_UNIT=$unit \
