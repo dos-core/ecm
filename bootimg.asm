@@ -37,6 +37,18 @@ keywords are:
 		 create (relative to the current directory),
 		 as a string, is expected in the next list item.
 
+::fragment	Followed by number of fragments, followed by length
+		 (in number of clusters) of each fragment. Note that
+		 if the file is shorter than the sum of fragment
+		 lengths plus 1 cluster then it will have NUL bytes
+		 appended so as to make sure the last cluster contains
+		 one byte, and all prior clusters are full.
+
+::nextfragment	Places next fragment of a fragmented file. At the
+		 end of the image all remaining fragments are placed.
+		 (The exact order that fragments appear in is not yet
+		  fixed; only the first fragment is certain.)
+
 ::rename	Followed by source pathname, then a target filename.
 
 ::fill		Followed by length, byte value, target filename.
@@ -921,12 +933,15 @@ at FSINFO.signature3
 
 		; %1 = name for the equ to receive the start cluster,
 		;	_start_cluster will be appended
+		; also name for the equ with end entry,
+		;	_chain_end will be appended
 		; %2 = how many clusters/entries to allocate
 		;	(if zero, %1_start_cluster equ will be zero)
 	%macro addfatchain 2.nolist
 %xdefine FATCHAINS FATCHAINS,%1,%2
 	%endmacro
 %define FATCHAINS secondentry,1
+secondentry_chain_end equ EOFENTRY
 
 
 	addsection fixed_root, follows=fat align=_BPS
@@ -965,6 +980,7 @@ at deSize,		dd 0
 	iend
 %endif
 
+%%file_chain_end equ EOFENTRY
 %xdefine CHAINLIST CHAINLIST,%%file
 
 %ifnidni %3, none
@@ -993,6 +1009,70 @@ at deSize,		dd 0
 	%endmacro
 
 
+	%macro incbinpart 4-*.nolist
+%%start:
+incbin %1, %2, %4 * _BPS * _SPC
+%assign FRAGMENTOFFSET %2 + %4 * _BPS * _SPC
+%define FRAGMENTLIST 0
+%rotate 4
+%rep %0 - 4
+ %xdefine FRAGMENTLIST FRAGMENTLIST, %1
+ %rotate 1
+%endrep
+%if ($ - %%start) < %4 * _BPS * _SPC
+ %assign TAIL %4 * _BPS * _SPC -  ($ - %%start)
+ %warning File %1 is shorter than expected, appending TAIL NUL bytes
+	times TAIL db 0
+%endif
+	%endmacro
+
+
+	%macro nextfragment 6-*.nolist
+	usesection %1
+%1 %+ _start:
+%3 equ %%file_start_cluster
+%xdefine %%sourcename %4
+%xdefine %%offset %5
+%xdefine %%fragmentlist FRAGMENTLIST
+%xdefine FRAGMENTLIST %6
+
+%define NEXTFRAGMENTS none
+%rotate 6
+%assign COUNTER 1
+%rep %0 - 6
+ %if COUNTER % 4
+  %xdefine NEXTFRAGMENTS NEXTFRAGMENTS, %1
+ %else
+  %xdefine NEXTFRAGMENTS NEXTFRAGMENTS, {%1}
+ %endif
+ %rotate 1
+ %assign COUNTER COUNTER + 1
+%endrep
+
+ %ifidn FRAGMENTLIST, 0
+%%start:
+  incbin %%sourcename, %%offset
+%%file_chain_end equ EOFENTRY
+%if ($ - %%start) == 0
+ %warning File %%sourcename is shorter than expected, appending a NUL byte
+	db 0
+%endif
+%3_size equ ($ - %1 %+ _start)
+ %else
+	incbinpart %%sourcename, %%offset, FRAGMENTLIST
+%xdefine NEXTFRAGMENTS \
+	NEXTFRAGMENTS, %%file_chain_end, %%sourcename, FRAGMENTOFFSET, \
+	{FRAGMENTLIST}
+%define FRAGMENTLIST 0
+%3_size equ ($ - %1 %+ _start) + %%file_chain_end_size
+ %endif
+
+%xdefine CHAINLIST CHAINLIST,%%file
+
+%xdefine FRAGMENTLIST %%fragmentlist
+	%endmacro
+
+
 		; %1 = source filename, may include a directory
 		;	(the directory is used to locate
 		;	the file on the host system)
@@ -1016,9 +1096,20 @@ at deSize,		dd 0
  %ifnstr string
   %defstr string string
  %endif
- incbin string
+ %xdefine %%sourcename string
+ %ifidn FRAGMENTLIST, 0
+  incbin %%sourcename
+%%file_chain_end equ EOFENTRY
+%%filesize equ ($ - %3 %+ _start)
+ %else
+	incbinpart %%sourcename, 0, FRAGMENTLIST
+%xdefine NEXTFRAGMENTS \
+	NEXTFRAGMENTS, %%file_chain_end, %%sourcename, FRAGMENTOFFSET, \
+	{FRAGMENTLIST}
+%define FRAGMENTLIST 0
+%%filesize equ ($ - %3 %+ _start) + %%file_chain_end_size
+ %endif
 %endif
-%assign filesize ($ - %3 %+ _start)
 
 %xdefine CHAINLIST CHAINLIST,%%file
 
@@ -1037,7 +1128,7 @@ at deClusterHigh,	dw %%file_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
 at deClusterLow,	dw %%file_start_cluster & 0FFFFh
-at deSize,		dd filesize
+at deSize,		dd %%filesize
 	iend
 	%endmacro
 
@@ -1204,6 +1295,8 @@ at deSize,		dd %3
 
 %define DIRLIST none
 %define CHAINLIST none
+%define FRAGMENTLIST 0
+%define NEXTFRAGMENTS none
 %define LISTENDFILL none, none, none
 %define LISTENDFILLZEROS none, none, none
 	%macro multiincfile 1-*.nolist
@@ -1211,6 +1304,7 @@ at deSize,		dd %3
 %define ff fixed_root
 %assign chainindex 0
 %assign ischdir 0
+%assign isfragment 0
 %assign isrename 0
 %assign isfill 0
 %assign isattrib 0
@@ -1260,6 +1354,15 @@ at deSize,		dd %3
    %assign chainindex chainindex + 1
   %endif
   %assign ischdir 0
+ %elif isfragment == -1
+   %assign isfragment %1
+ %elif isfragment
+  %ifn %1
+   %error Zero clusters fragment is invalid
+  %endif
+  %assign ONEFRAGMENT %1
+  %xdefine FRAGMENTLIST FRAGMENTLIST, ONEFRAGMENT
+  %assign isfragment isfragment - 1
  %elif isrename == 1
   %xdefine renamesource %1
   %assign isrename 2
@@ -1303,6 +1406,15 @@ at deSize,		dd %3
   %assign istime 0
  %elifidni %1, ::chdir
   %assign ischdir 1
+ %elifidni %1, ::fragment
+  %assign isfragment -1
+ %elifidni %1, ::nextfragment
+  %ifidn NEXTFRAGMENTS, none
+   %error No next fragments to write
+  %endif
+	setup_a_section		; add a section for next data fragment
+	nextfragment data %+ chainindex, NEXTFRAGMENTS
+   %assign chainindex chainindex + 1
  %elifidni %1, ::rename
   %assign isrename 1
  %elifidni %1, ::fill
@@ -1335,6 +1447,9 @@ at deSize,		dd %3
 %endrep
 %if ischdir
  %error No directory to create specified
+%endif
+%if isfragment
+ %error No fragment list specified
 %endif
 %if isrename == 1
  %error No rename source specified
@@ -1377,6 +1492,15 @@ at deSize,		dd %3
 	%endmacro
 	multiincfile _PAYLOADFILE
 
+ %rep 1024
+  %ifidn NEXTFRAGMENTS, none
+   %exitrep
+  %else
+	setup_a_section		; add a section for next data fragment
+	nextfragment data %+ chainindex, NEXTFRAGMENTS
+   %assign chainindex chainindex + 1
+  %endif
+ %endrep
 
 	%macro extenddirectories 1-*.nolist
 %ifnidni %1, none
@@ -1516,7 +1640,7 @@ dumpfatentry (_MEDIAID | (MAXENTRY - 15))
    dumpfatentry ii		; link to next cluster
   %endrep
   %assign ii ii + 1
-  dumpfatentry EOFENTRY		; EOF entry
+  dumpfatentry %1_chain_end	; EOF entry
  %else
   %1_start_cluster equ 0	; empty chain, start cluster is 0
  %endif
