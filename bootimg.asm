@@ -154,10 +154,18 @@ bytes less (for an 0AA55h signature), or four bytes less
 (for an 0AA55_0000h signature).
 
 If the FAT type is FAT32 and _FSINFO is set, then the def
-_BOOTINFOFILE can be specified. The corresponding file must
-be exactly 484 bytes long. It is expected that the first
-4 bytes contain the FSINFO signature "RRaA". Otherwise the
-480-bytes FSIBOOT area is zero-filled.
+_BOOTINFOFILE can be specified. If it is defined to the quoted
+string "::bootpatchfile" then the FSIBOOT loader is extracted
+from the file specified in _BOOTPATCHFILE, for 484 bytes that
+start at offset 512 in the file. It is expected that the first
+4 bytes of this area contain the FSINFO signature "RRaA".
+
+Otherwise, if a file is specified as _BOOTINFOFILE (not the
+empty quoted string) that file must be exactly 484 bytes long.
+The first four bytes should again contain the FSINFO signature
+reading "RRaA".
+
+Otherwise the 480-bytes FSIBOOT area is zero-filled.
 
 %endif
 
