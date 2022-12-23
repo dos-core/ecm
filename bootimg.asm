@@ -53,7 +53,10 @@ keywords are:
 		  fixed; only the first fragment is certain.)
 
 ::nextfragments	Followed by number of fragments to place. Places the
-		 next fragments of fragmented files.
+		 next fragments of fragmented files. The number is
+		 allowed to be higher than the amount of fragments
+		 that remain to be placed; this is handled the same
+		 as if that exact amount was specified.
 
 ::rename	Followed by source pathname, then a target filename.
 
@@ -1427,11 +1430,12 @@ at deSize,		dd %3
  %elif isnextfragments
   %rep %1
    %ifidn NEXTFRAGMENTS, none
-    %error No next fragments to write
-   %endif
+    %exitrep
+   %else
 	setup_a_section		; add a section for next data fragment
 	nextfragment data %+ chainindex, NEXTFRAGMENTS
-   %assign chainindex chainindex + 1
+    %assign chainindex chainindex + 1
+   %endif
   %endrep
   %assign isnextfragments 0
  %elif isrename == 1
