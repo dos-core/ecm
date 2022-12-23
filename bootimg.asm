@@ -167,6 +167,68 @@ reading "RRaA".
 
 Otherwise the 480-bytes FSIBOOT area is zero-filled.
 
+
+=== Examples
+
+Empty default (90mm 1440 KiB FAT12 diskette) image:
+
+nasm bootimg.asm -I ../lmacros/ -o bootimg.img -D_PAYLOADFILE=::empty
+
+
+A FAT16 image with some fragmented data files,
+and automatic calculation of a large enougn or
+too large FAT:
+
+nasm a.asm -o a.bin
+nasm a.asm -o b.bin -DCONTENT="'b'"
+nasm a.asm -o minus.bin -DCONTENT=-1
+nasm bootimg.asm -o bootimg.img -I ../lmacros/ \
+ -D_BPE=16 -D_SPC=1 -D_SPI=$(( 1024 * 2 * 32 )) \
+ -D_SPF=$(( (1024 * 2 * 32 / 1 * 2 + 511) / 512 )) \
+ -D_NUMROOT=512 -D_ALIGNDATA \
+ -D_PAYLOADFILE=::fragmentsame,15,1,a.bin,\
+::fragmentsame,7,1,b.bin,\
+::nextfragments,1024,minus.bin
+
+
+lDOS boot tests can also specify a custom _PAYLOADFILE def:
+
+./test.sh diskette -D_PAYLOADFILE="::fragmentsame,3,1,testwrit.sys,\
+result.txt,::nextfragment,::chdir,dir,::nextfragment,::rename,result.txt,result2"
+
+
+A FAT32 image in an MBR partition, with a FAT32+FSIBOOT loader
+read at build time, and some files loaded into it:
+
+nasm bootimg.asm \
+ -D_WARN_DEFAULT_OFF=1 -D_WARN_TOOMANYFAT=0 -D_WARN_ALIGNDATA=0 \
+ -D_MBR -D_ALIGNDATA -D_CHS_HEADS=8 -D_CHS_SECTORS=8 \
+ -D_MBR_PART_TYPE=ptFAT32 \
+ -D_BPE=32 -D_SPC=1 -D_SPI=69632 -D_SPF=544 -D_NUMROOT=224 \
+ -o hdimage.img -l hdimage.lst \
+ -D_PAYLOADFILE=testwrit.sys,result.txt,::chdir,dir \
+ -D_BOOTPATCHFILE="'boot32tw.bin'" -D_UNIT=80h \
+ -I ../lmacros/ \
+ -D_BOOTINFOFILE=::bootpatchfile -D_MBRPATCHFILE=oldmbr.bin
+
+
+A FAT32 image with auto-calculated FAT size, depicting some
+uses of attributes and filetimes, wrapped into a dosemu2
+image of an MBR-partitioned unit:
+
+nasm -D_ATTRIB=ATTR_SYSTEM -I ../lmacros/ \
+ bootimg.asm -D_BPS=512 \
+ -D_PAYLOADFILE=::empty,::rename,"'test.dat'",test.bin,\
+::time,030826,::setdirdatetime,::time,012638,\
+::attrib,ATTR_HIDDEN+ATTR_READONLY+ATTR_SYSTEM,\
+"'test.dat'",::chdir,testdir,"'test.dat'" \
+ -D_BPE=32 -D_SPI="(34 * 2 * 1024)" \
+ -D_SPF="((_SPI / _SPC * _BPE / 8 + _BPS - 1) / _BPS)" \
+ -D_SPC=1 -D_CHS_HEADS=8 -D_CHS_SECTORS=8 \
+ -D_MBR -D_MBR_DOSEMU_IMAGE_HEADER \
+ -D_BOOTPATCHFILE="'boot32tw.bin'" -D_BOOTINFOFILE="'::bootpatchfile'" \
+ -D_USE_FILE_DATETIME=1 -o part.img && mdir -i part.img@@80s -a ::.
+
 %endif
 
 
