@@ -52,6 +52,9 @@ keywords are:
 		 (The exact order that fragments appear in is not yet
 		  fixed; only the first fragment is certain.)
 
+::nextfragments	Followed by number of fragments to place. Places the
+		 next fragments of fragmented files.
+
 ::rename	Followed by source pathname, then a target filename.
 
 ::fill		Followed by length, byte value, target filename.
@@ -1350,6 +1353,7 @@ at deSize,		dd %3
 %assign ischdir 0
 %assign isfragment 0
 %assign isfragmentsame 0
+%assign isnextfragments 0
 %assign isrename 0
 %assign isfill 0
 %assign isattrib 0
@@ -1420,6 +1424,16 @@ at deSize,		dd %3
    %xdefine FRAGMENTLIST FRAGMENTLIST, ONEFRAGMENT
   %endrep
   %assign isfragmentsame 0
+ %elif isnextfragments
+  %rep %1
+   %ifidn NEXTFRAGMENTS, none
+    %error No next fragments to write
+   %endif
+	setup_a_section		; add a section for next data fragment
+	nextfragment data %+ chainindex, NEXTFRAGMENTS
+   %assign chainindex chainindex + 1
+  %endrep
+  %assign isnextfragments 0
  %elif isrename == 1
   %xdefine renamesource %1
   %assign isrename 2
@@ -1474,6 +1488,8 @@ at deSize,		dd %3
 	setup_a_section		; add a section for next data fragment
 	nextfragment data %+ chainindex, NEXTFRAGMENTS
    %assign chainindex chainindex + 1
+ %elifidni %1, ::nextfragments
+  %assign isnextfragments 1
  %elifidni %1, ::rename
   %assign isrename 1
  %elifidni %1, ::fill
@@ -1512,6 +1528,9 @@ at deSize,		dd %3
 %endif
 %if isfragmentsame
  %error No fragment size specified
+%endif
+%if isnextfragments
+ %error No amount of fragments specified
 %endif
 %if isrename == 1
  %error No rename source specified
