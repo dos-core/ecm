@@ -1131,6 +1131,8 @@ skip_bpb:
 ;	 FF FF FF FF 08 00 08 01 FF FF FF FF FF FF FF FF, which was detected
 ;	 as a valid partition table entry by this handling. Therefore, we
 ;	 only accept partition information when booting from a hard disk now.
+
+		; start of magic byte sequence for instsect
 	test dl, dl		; floppy ?
 	jns @F			; don't attempt detection -->
 ; Check whether an MBR left us partition information.
@@ -1147,12 +1149,15 @@ skip_bpb:
 	movsw
 	movsw			; overwrite BPB field with value from info
 @@:
+		; end of magic byte sequence for instsect
 %endif
 	mov ds, cx
 	sti
 
 
 %if _QUERY_GEOMETRY	; +27 bytes
+
+		; start of magic byte sequence for instsect
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -1171,6 +1176,7 @@ skip_bpb:
 	inc cx			; cx = number of heads (H is 0-based)
 	mov [VAR(heads)], cx
 @@:
+		; end of magic byte sequence for instsect
 %endif
 
 %if _FIX_SECTOR_SIZE
