@@ -78,6 +78,7 @@ ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
 ldLoadingSeg:		; word
+ldQueryPatchValue:	; word
 lsvCommandLine:		; word
 .start:		equ $ - lsvclBufferLength
 .signature:	resw 1
@@ -412,6 +413,7 @@ query_geometry:
 				; magic bytes
  %if _QUERY_PATCH
 	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
+..@query_patch_site equ $ - 2
 	test dl, dl		; hard disk unit ?
 	jns @F			; no -->
 	xchg al, ah		; get high byte into al
@@ -1758,6 +1760,13 @@ loaded_all:
 	pop ax			; al = 0FFh if no command line given
 				; al = 0 else
 	rep stosb		; clear remainder of buffer
+
+%if _QUERY_PATCH
+	mov ax, word [cs:..@query_patch_site]
+%else
+	mov ax, _QUERY_DEFAULT
+%endif
+	mov word [bp + ldQueryPatchValue], ax
 
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT

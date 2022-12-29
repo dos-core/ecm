@@ -297,6 +297,8 @@ The following flag values are used:
 
 \b 04h Force use of BPB's CHS geometry, do not detect with 13.08
 
+\b 80h Reserved for lDebug use
+
 The flag 01h takes precedence over 02h if both are set.
 
 The low byte (xxh) is used in case the loader loads
@@ -351,7 +353,9 @@ Below the LSV, iniload passes the LOADDATA (1) structure.
 \c ldHasLBA:       resb 1
 \c ldClusterSize:  resw 1
 \c ldParaPerSector:resw 1
-\c ldLoadingSeg:   resw 1
+\c ldLoadingSeg:
+\c ldQueryPatchValue:
+\c                 resw 1
 \c ldLoadUntilSeg: resw 1
 \c         endstruc
 
@@ -408,6 +412,15 @@ May be given as zero for non-FAT filesystems.
 
 \dd Word. Internally used by iniload.
 Available for re-use by payload.
+However, ldQueryPatchValue re-uses the same field.
+
+\dt ldQueryPatchValue
+
+\dd Word. Passes the query patch value from the initial loader.
+This provides an opportunity to patch a well-known site
+in the initial loader to change its behaviour in some ways.
+Near the end of its operation, the initial loader
+passes along this value in this variable for the next stage to use.
 
 \dt ldLoadUntilSeg
 
