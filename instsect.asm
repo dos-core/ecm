@@ -312,6 +312,10 @@ start:
 %endif
 	cmp al, 'U'
 	je .switch_u
+	cmp al, 'P'
+	je .switch_p
+	cmp al, 'Q'
+	je .switch_q
 	cmp al, 'I'
 	je .switch_i
 	cmp al, 'B'
@@ -433,6 +437,60 @@ disp_error: equ $
 	dec si
 @@:
 	mov word [load_unit], ax
+	jmp .loop
+
+
+.switch_p:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	mov dx, msg.keep
+	dec si
+	call isstring?
+	mov ax, 0FFFFh
+	je @F
+	mov dx, msg.auto
+	call isstring?
+	mov ax, 0FF00h
+	je @F
+	mov dx, msg.none
+	call isstring?
+	mov ax, 00FFh
+	je @F
+	jmp .error
+@@:
+	mov word [load_use_partinfo], ax
+	jmp .loop
+
+
+.switch_q:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	mov dx, msg.keep
+	dec si
+	call isstring?
+	mov ax, 0FFFFh
+	je @F
+	mov dx, msg.auto
+	call isstring?
+	mov ax, 0FF00h
+	je @F
+	mov dx, msg.none
+	call isstring?
+	mov ax, 00FFh
+	je @F
+	jmp .error
+@@:
+	mov word [load_use_query_geometry], ax
 	jmp .loop
 
 
@@ -1921,6 +1979,244 @@ set_unit:
 .done:
 
 
+set_partinfo:
+	mov si, first_sector_buffer
+	lodsb
+	cmp al, 0E9h
+	je .nearjmp
+	cmp al, 0E8h
+	je .nearjmp
+	cmp al, 0EBh
+	je .shortjmp
+
+.notfound:
+	mov dx, msg.partinfo_not_found
+	cmp word [load_use_partinfo], -1
+	jne disp_error
+	mov dx, msg.partinfo_not_found.keep
+	jmp .done_msg
+
+
+.nearjmp:
+	lodsw
+	db __TEST_IMM16		; (skip lodsb, cbw)
+.shortjmp:
+	lodsb
+	cbw
+	add si, ax
+
+	mov dx, 128
+	mov bx, partinfo_search_strings.keep
+	mov di, partinfo_search_strings.mov
+	mov cx, partinfo_search_strings.mov_length
+
+@@:
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	je .found_mov
+	xchg bx, di
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	xchg bx, di
+	je .found_keep
+	inc si
+	dec dx
+	jnz @B
+
+	jmp .notfound
+
+.setup_pointers:
+	mov ax, partinfo_search_strings.mov
+	mov di, partinfo_search_strings.keep
+	mov cx, partinfo_search_strings.keep_length
+	retn
+
+
+.found_mov:
+	call .setup_pointers
+	mov dx, msg.partinfo_found.mov
+	jmp @F
+
+.found_keep:
+	call .setup_pointers
+	mov dx, msg.partinfo_found.keep
+%if 0
+	call disp_msg_asciz
+
+	push ax
+	mov al, [bx]
+	call disp_al_hex
+	pop ax
+
+	mov dx, msg.partinfo_found.keep.after
+%endif
+@@:
+	call disp_msg_asciz
+
+	mov dx, msg.partinfo_found.keeping
+	cmp word [load_use_partinfo], -1
+	je .done_msg
+
+	push ax
+	mov ax, [load_use_partinfo]
+
+	test ah, ah
+	jnz @F			; if to set auto partinfo -->
+
+	mov dx, msg.using_fix_partinfo
+%if 0
+	call disp_msg_asciz
+
+	call disp_al_hex
+	mov byte [bx], al
+
+	mov dx, msg.using_fix_partinfo_after
+%endif
+	pop ax
+	jmp @FF			; di -> keep
+
+@@:
+	pop di			; di -> mov
+	mov dx, msg.using_auto_partinfo
+@@:
+
+	xchg si, di
+	rep movsb		; write to there
+
+.done_msg:
+	call disp_msg_asciz
+.done:
+
+
+set_query:
+	mov si, first_sector_buffer
+	lodsb
+	cmp al, 0E9h
+	je .nearjmp
+	cmp al, 0E8h
+	je .nearjmp
+	cmp al, 0EBh
+	je .shortjmp
+
+.notfound:
+	mov dx, msg.query_not_found
+	cmp word [load_use_query_geometry], -1
+	jne disp_error
+	mov dx, msg.query_not_found.keep
+	jmp .done_msg
+
+
+.nearjmp:
+	lodsw
+	db __TEST_IMM16		; (skip lodsb, cbw)
+.shortjmp:
+	lodsb
+	cbw
+	add si, ax
+
+	mov dx, 128
+	mov bx, query_search_strings.keep
+	mov di, query_search_strings.query
+	mov cx, query_search_strings.query_length
+
+@@:
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	je .found_query
+	xchg bx, di
+	push si
+	push di
+	push cx
+	repe cmpsb
+	pop cx
+	pop di
+	pop si
+	xchg bx, di
+	je .found_keep
+	inc si
+	dec dx
+	jnz @B
+
+	jmp .notfound
+
+.setup_pointers:
+	mov ax, query_search_strings.query
+	mov di, query_search_strings.keep
+	mov cx, query_search_strings.keep_length
+	retn
+
+
+.found_query:
+	call .setup_pointers
+	mov dx, msg.query_found.query
+	jmp @F
+
+.found_keep:
+	call .setup_pointers
+	mov dx, msg.query_found.keep
+%if 0
+	call disp_msg_asciz
+
+	push ax
+	mov al, [bx]
+	call disp_al_hex
+	pop ax
+
+	mov dx, msg.query_found.keep.after
+%endif
+@@:
+	call disp_msg_asciz
+
+	mov dx, msg.query_found.keeping
+	cmp word [load_use_query_geometry], -1
+	je .done_msg
+
+	push ax
+	mov ax, [load_use_query_geometry]
+
+	test ah, ah
+	jnz @F			; if to set auto query -->
+
+	mov dx, msg.using_fix_query
+%if 0
+	call disp_msg_asciz
+
+	call disp_al_hex
+	mov byte [bx], al
+
+	mov dx, msg.using_fix_query_after
+%endif
+	pop ax
+	jmp @FF			; di -> keep
+
+@@:
+	pop di			; di -> query
+	mov dx, msg.using_auto_query
+@@:
+
+	xchg si, di
+	rep movsb		; write to there
+
+.done_msg:
+	call disp_msg_asciz
+.done:
+
+
 validate_fsinfo:
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
@@ -2435,6 +2731,102 @@ unit_search_strings:
 .32_set_dl_length:	equ $ - .32_set_dl
 %if .32_set_bpbn_length != .32_set_dl_length
  %error Unit fixing replacement string not same length!
+%endif
+
+
+partinfo_search_strings:
+.mov:
+	test dl, dl		; floppy ?
+	jns @F			; don't attempt detection -->
+; Check whether an MBR left us partition information.
+; byte[ds:si] bit 7 means active and must be set if valid.
+	cmp byte [si], cl	; flags for xx-00h (result is xx), SF = bit 7
+	jns @F			; xx < 80h, ie info invalid -->
+; byte[ds:si+4] is the file system type. Check for valid one.
+	cmp byte [si+4], cl	; is it zero?
+	je @F			; yes, info invalid -->
+; Info valid, trust their hidden sectors over hardcoded.
+; Assume the movsw instructions won't run with si = FFFFh.
+	mov di, 7C00h + bsBPB + bpbHiddenSectors
+				; -> BPB field
+	add si, 8		; -> partition start sector in info
+	movsw
+	movsw			; overwrite BPB field with value from info
+@@:
+.mov_length:	equ $ - .mov
+.keep:
+	test dl, dl		; floppy ?
+	jns @F			; don't attempt detection -->
+; Check whether an MBR left us partition information.
+; byte[ds:si] bit 7 means active and must be set if valid.
+	cmp byte [si], cl	; flags for xx-00h (result is xx), SF = bit 7
+	jns @F			; xx < 80h, ie info invalid -->
+; byte[ds:si+4] is the file system type. Check for valid one.
+	cmp byte [si+4], cl	; is it zero?
+	je @F			; yes, info invalid -->
+; Info valid, trust their hidden sectors over hardcoded.
+; Assume the movsw instructions won't run with si = FFFFh.
+	mov di, 7C00h + bsBPB + bpbHiddenSectors
+				; -> BPB field
+	add si, 8		; -> partition start sector in info
+
+		; Patched out movsw twice
+	nop
+	nop			; overwrite BPB field with value from info
+@@:
+.keep_length:	equ $ - .keep
+%if .mov_length != .keep_length
+ %error Partinfo fixing replacement string not same length!
+%endif
+
+
+query_search_strings:
+.query:
+;	test dl, dl		; floppy?
+;	jns @F			; don't attempt query, might fail -->
+	; Note that while the original PC BIOS doesn't support this function
+	;  (for its diskettes), it does properly return the error code 01h.
+	; https://sites.google.com/site/pcdosretro/ibmpcbios (IBM PC version 1)
+	mov ah, 08h
+	; xor cx, cx		; initialise cl to 0
+	; Already from prologue cx = 0.
+	stc			; initialise to CY
+	int 13h			; query drive geometry
+	jc @F			; apparently failed -->
+	and cx, 3Fh		; get sectors
+	jz @F			; invalid (S is 1-based), don't use -->
+	mov [bp + bsBPB + bpbCHSSectors], cx
+	mov cl, dh		; cx = maximum head number
+	inc cx			; cx = number of heads (H is 0-based)
+	mov [bp + bsBPB + bpbCHSHeads], cx
+@@:
+.query_length:	equ $ - .query
+.keep:
+;	test dl, dl		; floppy?
+;	jns @F			; don't attempt query, might fail -->
+	; Note that while the original PC BIOS doesn't support this function
+	;  (for its diskettes), it does properly return the error code 01h.
+	; https://sites.google.com/site/pcdosretro/ibmpcbios (IBM PC version 1)
+	mov ah, 08h
+	; xor cx, cx		; initialise cl to 0
+	; Already from prologue cx = 0.
+	stc			; initialise to CY
+
+		; Patched out int 13h
+	nop
+	nop
+
+	jc @F			; apparently failed -->
+	and cx, 3Fh		; get sectors
+	jz @F			; invalid (S is 1-based), don't use -->
+	mov [bp + bsBPB + bpbCHSSectors], cx
+	mov cl, dh		; cx = maximum head number
+	inc cx			; cx = number of heads (H is 0-based)
+	mov [bp + bsBPB + bpbCHSHeads], cx
+@@:
+.keep_length:	equ $ - .keep
+%if .query_length != .keep_length
+ %error Query geometry fixing replacement string not same length!
 %endif
 
 
@@ -3394,6 +3786,8 @@ detectedcopyinfo	equ 20h
 	align 2
 hVdd:		dw 0
 load_unit:	dw -1
+load_use_partinfo:	dw -1
+load_use_query_geometry:dw -1
 drivenumber:	db 0
 
 	align 4
@@ -3442,6 +3836,14 @@ msg:
 	db 9,"/U KEEP",9,9,"keep default/current boot unit handling (default)",13,10
 	db 9,"/U AUTO",9,9,"patch boot loader to use auto boot unit handling",13,10
 	db 9,"/U xx",9,9,"patch boot loader to use XXh as a fixed unit",13,10
+	db 13,10
+	db 9,"/P KEEP",9,9,"keep default/current part info handling (default)",13,10
+	db 9,"/P AUTO",9,9,"patch boot loader to use auto part info handling",13,10
+	db 9,"/P NONE",9,9,"patch boot loader to use fixed part info",13,10
+	db 13,10
+	db 9,"/Q KEEP",9,9,"keep default/current query geometry handling (default)",13,10
+	db 9,"/Q AUTO",9,9,"patch boot loader to use auto query geometry handling",13,10
+	db 9,"/Q NONE",9,9,"patch boot loader to use fixed geometry",13,10
 	db 13,10
 	db 9,"/SR",9,9,"do not read boot sector from source file (default)",13,10
 	db 9,"/S=filename",9,"read boot sector loader from source file",13,10
@@ -3611,6 +4013,7 @@ load_kernel_name: equ $
 
 .keep:			asciz "KEEP"
 .auto:			asciz "AUTO"
+.none:			asciz "NONE"
 .error_invalid_number:	asciz "Invalid number.",13,10
 .using_fix_unit:	asciz " Using fixed unit of "
 .using_fix_unit_after:	asciz "h.",13,10
@@ -3620,8 +4023,24 @@ load_kernel_name: equ $
 .unit_found.set_dl:	asciz "Fixed unit selection found in sector, unit "
 .unit_found.set_dl.after:
 			asciz "h."
+.query_found.keeping:
+.partinfo_found.keeping:
 .unit_found.keeping:	asciz " Keeping as is.",13,10
 .using_auto_unit:	asciz " Using auto unit.",13,10
+
+.using_fix_partinfo:	asciz " Using fixed part info.",13,10
+.partinfo_not_found:	asciz "Error: Part info code not found in sector.",13,10
+.partinfo_not_found.keep:asciz "Part info code not found in sector. Keeping as is.",13,10
+.partinfo_found.mov:	asciz "Auto part info found in sector."
+.partinfo_found.keep:	asciz "Fixed part info found in sector."
+.using_auto_partinfo:	asciz " Using auto part info.",13,10
+
+.using_fix_query:	asciz " Using fixed geometry.",13,10
+.query_not_found:	asciz "Error: Query geometry code not found in sector.",13,10
+.query_not_found.keep:	asciz "Query geometry code not found in sector. Keeping as is.",13,10
+.query_found.query:	asciz "Auto query geometry found in sector."
+.query_found.keep:	asciz "Fixed geometry (disabled query) found in sector."
+.using_auto_query:	asciz " Using auto query geometry.",13,10
 
 .switch_requires_filename:
 			asciz "Switch requires a filename.",13,10
