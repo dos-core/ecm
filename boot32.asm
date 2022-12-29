@@ -44,7 +44,9 @@ Public domain by C. Masloch, 2012
 	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
+	numdef QUERY_GEOMETRY_DISABLED, 0
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
+	numdef USE_PART_INFO_DISABLED, 0
 	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
@@ -681,8 +683,13 @@ skip_bpb:
 ; Assume the movsw instructions won't run with si = FFFFh.
 	mov di, hidden_sectors	; -> BPB field
 	add si, 8		; -> partition start sector in info
+ %if _USE_PART_INFO_DISABLED
+	nop
+	nop			; size has to match enabled code
+ %else
 	movsw
 	movsw			; overwrite BPB field with value from info
+ %endif
 @@:
 		; end of magic byte sequence for instsect
 %endif
@@ -702,7 +709,12 @@ skip_bpb:
 	; xor cx, cx		; initialise cl to 0
 	; Already from prologue cx = 0.
 	stc			; initialise to CY
+ %if _QUERY_GEOMETRY_DISABLED
+	nop
+	nop			; size has to match enabled code
+ %else
 	int 13h			; query drive geometry
+ %endif
 	jc @F			; apparently failed -->
 	and cx, 3Fh		; get sectors
 	jz @F			; invalid (S is 1-based), don't use -->
