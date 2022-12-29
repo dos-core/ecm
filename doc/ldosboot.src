@@ -297,7 +297,11 @@ The following flag values are used:
 
 \b 04h Force use of BPB's CHS geometry, do not detect with 13.08
 
-\b 80h Reserved for lDebug use
+\b 80h Used by lDebug. If this value is set for the load unit,
+then lDebug will make use of the other flags set up for that unit.
+The corresponding flags will be saved in lDebug's load_unit_flags.
+This affects only the load unit (LD in lDebug terminology),
+which suffices to pass commands in the startup Script for lDebug.
 
 The flag 01h takes precedence over 02h if both are set.
 
