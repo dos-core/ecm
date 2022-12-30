@@ -2269,11 +2269,21 @@ set_lba:
 
 
 @@:
+	mov al, byte [di]	; get first byte
+	xchg si, di		; es:di -> to search
+	xchg dx, cx		; cx = count remaining, at least 1
+	repne scasb		; scan for byte
+	xchg dx, cx
+	xchg si, di		; restore register setup
+	jne .nextpattern
+
+	dec si			; scasb left a pointer behind match
+	inc dx			; also fix counter
 	push bx
 	push si
 	push di
 	push cx
-	call .patchwildcards
+	call .patchwildcards	; patch potential match candidate's wildcards
 	cmp cx, dx
 	ja .mismatchpattern	; (NZ) if doesn't fit in 512 bytes
 	repe cmpsb
@@ -2287,13 +2297,18 @@ set_lba:
 	dec dx
 	jnz @B
 
-%if 0
+.nextpattern:
+%if 1
 @@:
 	cmp word [bx], 0
 	lea bx, [bx + 2]
 	jne @B
-%endif
+%else
+		; With the repne scasb optimisation we may get
+		;  al = first byte, and .patchwildcards may have
+		;  never run for this pattern. So don't use this.
 	xchg bx, ax		; get .patchwildcards return
+%endif
 	jmp .looppattern
 
 
