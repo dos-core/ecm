@@ -3110,6 +3110,12 @@ search_wildcard %%start, -1
 %endif
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
 	 dw %%message, dw %%other, WILDCARDS, dw 0
+%[%%identifier %+ _length]: equ %%end - %%start
+%if _FORCE_CHS
+ %if %[%%identifier %+ _length] != %[%%other %+ _length]
+  %error Expected same length of replacement
+ %endif
+%endif
 	%endmacro
 
 lba_search_msg:
