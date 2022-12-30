@@ -2246,16 +2246,6 @@ set_query:
 .done:
 
 set_lba:
-	jmp .search
-
-.notfound:
-	mov dx, msg.lba_not_found
-	cmp word [load_use_lba], -1
-	jne disp_error
-	mov dx, msg.lba_not_found.keep
-	jmp .done_msg
-
-.search:
 	mov bx, lba_search_metadata
 
 .looppattern:
@@ -2335,6 +2325,14 @@ set_lba:
 	 lea ax, [bx + 2]
 	 pop bx			; restore -> start of displacement list
 	retn
+
+
+.notfound:
+	mov dx, msg.lba_not_found
+	cmp word [load_use_lba], -1
+	jne disp_error
+	mov dx, msg.lba_not_found.keep
+	jmp .done_msg
 
 
 .foundpattern:
