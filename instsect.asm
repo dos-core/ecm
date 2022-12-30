@@ -2283,9 +2283,9 @@ set_lba:
 	push si
 	push di
 	push cx
-	call .patchwildcards	; patch potential match candidate's wildcards
 	cmp cx, dx
 	ja .mismatchpattern	; (NZ) if doesn't fit in 512 bytes
+	call .patchwildcards	; patch potential match candidate's wildcards
 	repe cmpsb
 .mismatchpattern:
 	pop cx
