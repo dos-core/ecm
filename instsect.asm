@@ -316,6 +316,8 @@ start:
 	je .switch_p
 	cmp al, 'Q'
 	je .switch_q
+	cmp al, 'L'
+	je .switch_l
 	cmp al, 'I'
 	je .switch_i
 	cmp al, 'B'
@@ -491,6 +493,33 @@ disp_error: equ $
 	jmp .error
 @@:
 	mov word [load_use_query_geometry], ax
+	jmp .loop
+
+
+.switch_l:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+
+	mov dx, msg.keep
+	dec si
+	call isstring?
+	mov ax, 0FFFFh
+	je @F
+	mov dx, msg.auto
+	call isstring?
+	mov ax, 0FF00h
+	je @F
+	mov dx, msg.none
+	call isstring?
+	mov ax, 00FFh
+	je @F
+	jmp .error
+@@:
+	mov word [load_use_lba], ax
 	jmp .loop
 
 
@@ -2216,6 +2245,133 @@ set_query:
 	call disp_msg_asciz
 .done:
 
+set_lba:
+	jmp .search
+
+.notfound:
+	mov dx, msg.lba_not_found
+	cmp word [load_use_lba], -1
+	jne disp_error
+	mov dx, msg.lba_not_found.keep
+	jmp .done_msg
+
+.search:
+	mov bx, lba_search_metadata
+
+.looppattern:
+	mov si, first_sector_buffer
+	mov dx, 512
+	mov di, [bx]
+	test di, di
+	jz .notfound
+	mov cx, [bx + 2]
+	add bx, 8
+
+
+@@:
+	push bx
+	push si
+	push di
+	push cx
+	call .patchwildcards
+	cmp cx, dx
+	ja .mismatchpattern	; (NZ) if doesn't fit in 512 bytes
+	repe cmpsb
+.mismatchpattern:
+	pop cx
+	pop di
+	pop si
+	pop bx
+	je .foundpattern
+	inc si
+	dec dx
+	jnz @B
+
+%if 0
+@@:
+	cmp word [bx], 0
+	lea bx, [bx + 2]
+	jne @B
+%endif
+	xchg bx, ax		; get .patchwildcards return
+	jmp .looppattern
+
+
+		; INP:	bx -> wildcard displacement list, zero-terminated
+		;	si -> candidate match or match in our loader
+		;	di -> pattern to patch with wildcard contents
+		; OUT:	ax -> behind zero terminator of list
+		; CHG:	none
+.patchwildcards:
+	 push bx
+.loopwildcard:
+	 push bx
+	 mov bx, [bx]		; = displacement to wildcard byte
+	test bx, bx		; zero ?
+	jz .donewildcard	; yes, done -->
+	mov al, byte [si + bx]	; get actual value
+	mov byte [di + bx], al	; store it in wildcard position
+	 pop bx
+	 inc bx
+	 inc bx			; -> next wildcard displacement
+	 jmp .loopwildcard
+.donewildcard:
+	 pop bx
+	 lea ax, [bx + 2]
+	 pop bx			; restore -> start of displacement list
+	retn
+
+
+.foundpattern:
+	mov dx, word [bx - 8 + 4]
+	call disp_msg_asciz	; display what we found
+
+	mov dx, msg.lba_found_suffix
+	call disp_msg_asciz
+
+	mov dx, msg.lba_found.keeping
+	cmp word [load_use_lba], -1
+	je .done_msg		; done, no change -->
+
+	mov di, word [bx - 8]	; -> what we matched (eg LBA)
+	push di
+	mov bx, word [bx - 8 + 6]
+	mov di, word [bx]	; -> the other code
+	add bx, 8
+	call .patchwildcards	; patch other code in case we use it
+	mov ax, di		; ax -> the other code
+	pop bx
+	mov di, bx		; bx = di -> what we matched
+	push ax
+	mov ax, [load_use_lba]
+
+	test ah, ah
+	jnz @F			; if to set auto LBA -->
+
+	mov dx, msg.using_none_lba
+	pop ax
+	xchg ax, di		; di -> what we didn't match (eg CHS)
+	jmp @FF
+
+@@:
+	pop ax
+				; di -> what we matched (eg LBA)
+	mov dx, msg.using_auto_lba
+@@:
+
+	cmp bx, lba_search_strings_chs
+				; matched CHS ? (this checks what we matched)
+	jb @F			; no -->
+	xchg ax, di		; reverse (we matched CHS instead)
+@@:
+
+	xchg si, di
+	rep movsb		; write to there
+
+.done_msg:
+	call disp_msg_asciz
+.done:
+
 
 validate_fsinfo:
 	test byte [bp + ldHasLBA], 2
@@ -2828,6 +2984,172 @@ query_search_strings:
 %if .query_length != .keep_length
  %error Query geometry fixing replacement string not same length!
 %endif
+
+
+%define SEARCHES dw ""
+	%macro search_wildcard 1-2 0
+%assign %%wc $ + %2 - %1
+%if %%wc == 0
+ %error Wildcard at beginning of search string is not allowed
+%endif
+%xdefine WILDCARDS WILDCARDS, dw %%wc
+	%endmacro
+
+	%macro ldosboot_lba_search_string 9
+%define WILDCARDS dw ""
+%assign _FORCE_CHS %2
+%assign _LBA_SKIP_CHECK %3
+%assign _LBA_SKIP_CY %4
+%assign _LBA_SKIP_LBA_RETRY %5
+%assign _LBA_SKIP_ANY %6
+%assign _RETRY_RESET %7
+%assign _LBA_RETRY %8
+%assign _CHS %9
+
+
+%if _FORCE_CHS
+ %define %%identifier label_%1_chs
+ %define %%other label_%1_lba
+%else
+ %define %%identifier label_%1_lba
+ %define %%other label_%1_chs
+%endif
+
+%%start:
+%[%%identifier %+ _search_string]:
+
+ %if _LBA_SKIP_CHECK		; -14 bytes
+	mov dl, [bp + 127]
+search_wildcard %%start, -1
+ %else
+	mov ah, 41h
+	mov dl, [bp + 127]
+search_wildcard %%start, -1
+	mov bx, 55AAh
+	stc
+%if _FORCE_CHS
+	nop
+	nop
+%else
+	int 13h		; 13.41.bx=55AA extensions installation check
+%endif
+	jc .no_lba
+search_wildcard %%start, -1
+	cmp bx, 0AA55h
+	jne .no_lba
+search_wildcard %%start, -1
+	shr cl, 1	; support bitmap bit 0
+	jnc .no_lba
+search_wildcard %%start, -1
+ %endif
+
+%if _LBA_RETRY
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
+	stc
+ %endif
+	mov ah, 42h
+%if _FORCE_CHS
+	nop
+	stc
+%else
+	int 13h		; 13.42 extensions read
+%endif
+	jnc .lba_done
+search_wildcard %%start, -1
+
+ %if _RETRY_RESET
+	xor ax, ax
+	int 13h		; reset disk
+ %endif
+
+		; have to reset the LBAPACKET's lpCount, as the handler may
+		;  set it to "the number of blocks successfully transferred".
+		; (in any case, the high byte is still zero.)
+	mov byte [si + 2], 1
+%endif
+
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
+	stc
+ %endif
+%if _FORCE_CHS
+	mov ah, 01h
+	nop
+	stc
+%else
+	mov ah, 42h
+	int 13h
+%endif
+ %if _LBA_SKIP_CHECK && _CHS
+  %if _LBA_SKIP_ANY
+	jc .no_lba
+search_wildcard %%start, -1
+  %else
+	jc .lba_check_error_1
+search_wildcard %%start, -1
+  %endif
+ %else
+.cy_err:
+	jc .lba_error
+search_wildcard %%start, -1
+ %endif
+
+.lba_error:
+.lba_check_error_1:
+.lba_done:
+.no_lba:
+%%end:
+
+%if _FORCE_CHS
+ %define %%message lba_search_msg.forcechs
+%else
+ %if _LBA_SKIP_CHECK
+  %define %%message lba_search_msg.autoskip
+ %else
+  %define %%message lba_search_msg.auto
+ %endif
+%endif
+%xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
+	 dw %%message, dw %%other, WILDCARDS, dw 0
+	%endmacro
+
+lba_search_msg:
+.auto:		asciz "Auto LBA detection"
+; .autohdd:	asciz "Auto LBA detection (hard disks only)"
+.autoskip:	asciz "Auto LBA detection (skip check)"
+.forcechs:	asciz "Forced CHS access"
+
+lba_search_strings_lba:
+%assign variant 0
+%rep 256
+ %if variant == 128
+lba_search_strings_chs:
+ %endif
+ %assign identifier variant & ~128
+	ldosboot_lba_search_string \
+	 identifier, \
+	 variant & 128, \
+	 variant & 1, \
+	 variant & 2, \
+	 variant & 4, \
+	 variant & 8, \
+	 variant & 16, \
+	 variant & 32, \
+	 variant & 64
+ %assign variant variant + 1
+%endrep
+lba_search_strings_end:
+
+	%macro dumpsearches 1-*
+%rep %0
+ %1
+ %rotate 1
+%endrep
+	%endmacro
+
+	align 2, db 0
+lba_search_metadata:
+dumpsearches SEARCHES
+	dw 0,0
 
 
 %if _NUM_DETECT_NAMES
@@ -3788,6 +4110,7 @@ hVdd:		dw 0
 load_unit:	dw -1
 load_use_partinfo:	dw -1
 load_use_query_geometry:dw -1
+load_use_lba:		dw -1
 drivenumber:	db 0
 
 	align 4
@@ -4023,6 +4346,7 @@ load_kernel_name: equ $
 .unit_found.set_dl:	asciz "Fixed unit selection found in sector, unit "
 .unit_found.set_dl.after:
 			asciz "h."
+.lba_found.keeping:
 .query_found.keeping:
 .partinfo_found.keeping:
 .unit_found.keeping:	asciz " Keeping as is.",13,10
@@ -4041,6 +4365,12 @@ load_kernel_name: equ $
 .query_found.query:	asciz "Auto query geometry found in sector."
 .query_found.keep:	asciz "Fixed geometry (disabled query) found in sector."
 .using_auto_query:	asciz " Using auto query geometry.",13,10
+
+.using_none_lba:	asciz " Using no LBA.",13,10
+.using_auto_lba:	asciz " Using auto LBA detection.",13,10
+.lba_not_found:		asciz "Error: LBA detection not found in sector.",13,10
+.lba_not_found.keep:	asciz "LBA detection not found in sector. Keeping as is.",13,10
+.lba_found_suffix:	asciz " found in sector."
 
 .switch_requires_filename:
 			asciz "Switch requires a filename.",13,10
