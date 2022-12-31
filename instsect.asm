@@ -3145,10 +3145,11 @@ search_wildcard %%start, -1
 %endif
 	%endmacro
 
-	%macro freedos_lba_search_string 3
+	%macro freedos_lba_search_string 4
 %define WILDCARDS dw ""
 %assign _FORCE_CHS %2
-%assign _FORCE_CHS_DISKETTE %3
+%assign _OEM_BOOT %3
+%assign _FORCE_CHS_DISKETTE %4
 
 
 %if _FORCE_CHS
@@ -3183,12 +3184,25 @@ search_wildcard %%start, -1
 	shr cx, 1
 	sbb bx, 0AA55h - 1
 	jne @F
+
+%if _OEM_BOOT
+	lea si, [bp + 1023]
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+	mov word [bp + 1023], bx
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+	mov word [bp + 1023], bx
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+%else
 	lea si, [bp - 128]
 search_wildcard %%start, -1
 	mov word [bp - 128], bx
 search_wildcard %%start, -1
 	mov word [bp - 128], bx
 search_wildcard %%start, -1
+%endif
 	mov ah, 42h
 	jmp strict short @F
 search_wildcard %%start, -1
@@ -3223,12 +3237,14 @@ lba_search_msg:
 .forcechs:	asciz "Forced CHS access"
 
 lba_search_strings_lba:
-	freedos_lba_search_string freedos, 0, 0
+	freedos_lba_search_string freedos, 0, 0, 0
+	freedos_lba_search_string freedos_oem, 0, 1, 0
 %assign variant 0
 %rep 256
  %if variant == 128
 lba_search_strings_chs:
-	freedos_lba_search_string freedos, 1, 0
+	freedos_lba_search_string freedos, 1, 0, 0
+	freedos_lba_search_string freedos_oem, 1, 1, 0
  %endif
  %assign identifier variant & ~128
 	ldosboot_lba_search_string \
