@@ -3336,6 +3336,20 @@ lba_search_strings_hdd:
 	freedos_lba_search_string freedos_hdd_oem, 0, 1, 1
 lba_search_strings_end:
 
+%ifn label_freedos_chs_length == label_freedos_hdd_chs_diskette_length
+  %error Expected same length of replacement
+%endif
+%ifn label_freedos_lba_length == label_freedos_hdd_chs_diskette_length
+  %error Expected same length of replacement
+%endif
+%ifn label_freedos_oem_chs_length == label_freedos_hdd_oem_chs_diskette_length
+  %error Expected same length of replacement
+%endif
+%ifn label_freedos_oem_lba_length == label_freedos_hdd_oem_chs_diskette_length
+  %error Expected same length of replacement
+%endif
+
+
 	align 2, db 0
 label_hdd_special:
 
