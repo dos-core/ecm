@@ -3008,7 +3008,7 @@ query_search_strings:
 %xdefine WILDCARDS WILDCARDS, dw %%wc
 	%endmacro
 
-	%macro ldosboot_lba_search_string 8
+	%macro ldosboot_lba_search_string 9
 %define WILDCARDS dw ""
 %assign _FORCE_CHS %2
 %assign _LBA_SKIP_CHECK %3
@@ -3018,6 +3018,7 @@ query_search_strings:
 %assign _RETRY_RESET %7
 %assign _LBA_RETRY %8
 %assign _CHS 1
+%assign _LDOSBOOT32 %9
 
 
 %if _FORCE_CHS
@@ -3093,6 +3094,18 @@ search_wildcard %%start, -1
 	int 13h
 %endif
  %if _LBA_SKIP_CHECK && _CHS
+ %if _LDOSBOOT32
+  %if _LBA_SKIP_ANY
+	jc .no_lba
+search_wildcard %%start, -1
+  %else
+	jnc .lba_done
+search_wildcard %%start, -1
+	cmp ah, 1	; invalid function?
+	je .no_lba	; try CHS instead -->
+search_wildcard %%start, -1
+  %endif
+ %else
   %if _LBA_SKIP_ANY
 	jc .no_lba
 search_wildcard %%start, -1
@@ -3100,6 +3113,7 @@ search_wildcard %%start, -1
 	jc .lba_check_error_1
 search_wildcard %%start, -1
   %endif
+ %endif
  %else
 .cy_err:
 	jc .lba_error
@@ -3139,20 +3153,21 @@ lba_search_msg:
 
 lba_search_strings_lba:
 %assign variant 0
-%rep 128
- %if variant == 64
+%rep 256
+ %if variant == 128
 lba_search_strings_chs:
  %endif
- %assign identifier variant & ~64
+ %assign identifier variant & ~128
 	ldosboot_lba_search_string \
 	 identifier, \
-	 variant & 64, \
+	 variant & 128, \
 	 variant & 1, \
 	 variant & 2, \
 	 variant & 4, \
 	 variant & 8, \
 	 variant & 16, \
-	 variant & 32
+	 variant & 32, \
+	 variant & 64
  %assign variant variant + 1
 %endrep
 lba_search_strings_end:
