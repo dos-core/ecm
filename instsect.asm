@@ -2355,6 +2355,9 @@ set_lba:
 	cmp di, lba_search_strings_hdd
 	jb .nothddmatch
 
+	cmp byte [load_use_lba + 1], 1
+	je .done_msg
+
 	mov bx, word [bx - 8 + 6]
 	push bx
 	mov bx, word [bx + 2]
@@ -2383,6 +2386,34 @@ set_lba:
 	jmp .do_patch
 
 .nothddmatch:
+	cmp byte [load_use_lba + 1], 1
+	jne .nothddreplace
+	sub bx, 8
+	mov di, label_hdd_special
+@@:
+	cmp word [di], 0
+	je .hddreplacenotfound
+	cmp word [di + 2], bx
+	je @F
+	cmp word [di + 4], bx
+	je @F
+	add di, 6
+	jmp @B
+
+@@:
+	mov bx, word [di]
+	mov di, word [bx]
+	add bx, 8
+	call .patchwildcards
+	mov dx, msg.using_autohdd_lba
+	jmp .do_patch
+
+.hddreplacenotfound:
+	mov dx, msg.lba_autohdd_not_found
+	jmp disp_error
+
+
+.nothddreplace:
 	push di
 	mov bx, word [bx - 8 + 6]
 	mov di, word [bx]	; -> the other code
@@ -3272,7 +3303,7 @@ search_wildcard %%start, -1
 
 lba_search_msg:
 .auto:		asciz "Auto LBA detection"
-.autohdd:	asciz "Auto LBA detection (hard disks only)"
+.autohdd:	asciz "Auto LBA detection (HDD only)"
 .autoskip:	asciz "Auto LBA detection (skip check)"
 .forcechs:	asciz "Forced CHS access"
 
@@ -3306,6 +3337,8 @@ lba_search_strings_hdd:
 lba_search_strings_end:
 
 	align 2, db 0
+label_hdd_special:
+
 label_freedos_hdd_special:
 	dw label_freedos_hdd_chs_diskette
 	dw label_freedos_chs
@@ -4552,6 +4585,8 @@ load_kernel_name: equ $
 .lba_not_found:		asciz "Error: LBA detection not found in sector.",13,10
 .lba_not_found.keep:	asciz "LBA detection not found in sector. Keeping as is.",13,10
 .lba_found_suffix:	asciz " found in sector."
+.lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detection to auto detection for HDD only.",13,10
+.using_autohdd_lba:	asciz " Using auto LBA detection (HDD only).",13,10
 
 .switch_requires_filename:
 			asciz "Switch requires a filename.",13,10
