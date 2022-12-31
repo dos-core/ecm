@@ -2347,6 +2347,38 @@ set_lba:
 	je .done_msg		; done, no change -->
 
 	mov di, word [bx - 8]	; -> what we matched (eg LBA)
+
+	cmp di, lba_search_strings_hdd
+	jb .nothddmatch
+
+	mov bx, word [bx - 8 + 6]
+	push bx
+	mov bx, word [bx + 2]
+	mov di, word [bx]	; -> the other code
+	add bx, 8
+	call .patchwildcards
+	pop bx
+	push bx
+	mov bx, word [bx + 4]
+	mov di, word [bx]	; -> the other code
+	add bx, 8
+	call .patchwildcards
+	pop bx
+	cmp byte [load_use_lba + 1], 0
+	jne .hddsetauto
+.hddsetnone:
+	mov bx, word [bx + 2]
+	mov di, word [bx]
+	mov dx, msg.using_none_lba
+	jmp .do_patch
+
+.hddsetauto:
+	mov bx, word [bx + 4]
+	mov di, word [bx]
+	mov dx, msg.using_auto_lba
+	jmp .do_patch
+
+.nothddmatch:
 	push di
 	mov bx, word [bx - 8 + 6]
 	mov di, word [bx]	; -> the other code
@@ -2378,6 +2410,7 @@ set_lba:
 	xchg ax, di		; reverse (we matched CHS instead)
 @@:
 
+.do_patch:
 	xchg si, di
 	rep movsb		; write to there
 
@@ -3152,7 +3185,10 @@ search_wildcard %%start, -1
 %assign _FORCE_CHS_DISKETTE %4
 
 
-%if _FORCE_CHS
+%if _FORCE_CHS_DISKETTE
+ %define %%identifier label_%1_chs_diskette
+ %define %%other label_%1_special
+%elif _FORCE_CHS
  %define %%identifier label_%1_chs
  %define %%other label_%1_lba
 %else
@@ -3259,7 +3295,25 @@ lba_search_strings_chs:
 	 variant & 64
  %assign variant variant + 1
 %endrep
+
+lba_search_strings_hdd:
+	freedos_lba_search_string freedos_hdd, 0, 0, 1
+	freedos_lba_search_string freedos_hdd_oem, 0, 1, 1
 lba_search_strings_end:
+
+	align 2, db 0
+label_freedos_hdd_special:
+	dw label_freedos_hdd_chs_diskette
+	dw label_freedos_chs
+	dw label_freedos_lba
+
+label_freedos_hdd_oem_special:
+	dw label_freedos_hdd_oem_chs_diskette
+	dw label_freedos_oem_chs
+	dw label_freedos_oem_lba
+
+	dw 0,0,0
+
 
 	%macro dumpsearches 1-*
 %rep %0
