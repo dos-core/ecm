@@ -4395,6 +4395,11 @@ msg:
 	db 9,"/Q AUTO",9,9,"patch boot loader to use auto query geometry handling",13,10
 	db 9,"/Q NONE",9,9,"patch boot loader to use fixed geometry",13,10
 	db 13,10
+	db 9,"/L KEEP",9,9,"keep default/current LBA handling (default)",13,10
+	db 9,"/L AUTO",9,9,"patch boot loader to use auto LBA handling",13,10
+	db 9,"/L AUTOHDD",9,"patch boot loader to use auto LBA (HDD-only) handling",13,10
+	db 9,"/L NONE",9,9,"patch boot loader to use only CHS",13,10
+	db 13,10
 	db 9,"/SR",9,9,"do not read boot sector from source file (default)",13,10
 	db 9,"/S=filename",9,"read boot sector loader from source file",13,10
 	db 9,"/S12=filename",9,"as /S=filename but only for FAT12 (also /S16, /S32)",13,10
