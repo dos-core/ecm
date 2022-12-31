@@ -3145,17 +3145,90 @@ search_wildcard %%start, -1
 %endif
 	%endmacro
 
+	%macro freedos_lba_search_string 3
+%define WILDCARDS dw ""
+%assign _FORCE_CHS %2
+%assign _FORCE_CHS_DISKETTE %3
+
+
+%if _FORCE_CHS
+ %define %%identifier label_%1_chs
+ %define %%other label_%1_lba
+%else
+ %define %%identifier label_%1_lba
+ %define %%other label_%1_chs
+%endif
+
+%%start:
+%[%%identifier %+ _search_string]:
+
+	mov ah, 41h
+	mov bx, 55AAh
+	mov dl, [bp + 127]
+search_wildcard %%start, -1
+
+%if _FORCE_CHS
+	xor dl, dl
+	jz @F
+%elif _FORCE_CHS_DISKETTE
+	test dl, dl
+	jz @F
+%else
+	test dl, dl
+	nop
+	nop
+%endif
+	int 13h
+	jc @F
+	shr cx, 1
+	sbb bx, 0AA55h - 1
+	jne @F
+	lea si, [bp - 128]
+search_wildcard %%start, -1
+	mov word [bp - 128], bx
+search_wildcard %%start, -1
+	mov word [bp - 128], bx
+search_wildcard %%start, -1
+	mov ah, 42h
+	jmp strict short @F
+search_wildcard %%start, -1
+@@:
+%%end:
+
+
+%if _FORCE_CHS
+ %define %%message lba_search_msg.forcechs
+%else
+ %if _FORCE_CHS_DISKETTE
+  %define %%message lba_search_msg.autohdd
+ %else
+  %define %%message lba_search_msg.auto
+ %endif
+%endif
+%xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
+	 dw %%message, dw %%other, WILDCARDS, dw 0
+%[%%identifier %+ _length]: equ %%end - %%start
+%if _FORCE_CHS
+ %if %[%%identifier %+ _length] != %[%%other %+ _length]
+  %error Expected same length of replacement
+ %endif
+%endif
+	%endmacro
+
+
 lba_search_msg:
 .auto:		asciz "Auto LBA detection"
-; .autohdd:	asciz "Auto LBA detection (hard disks only)"
+.autohdd:	asciz "Auto LBA detection (hard disks only)"
 .autoskip:	asciz "Auto LBA detection (skip check)"
 .forcechs:	asciz "Forced CHS access"
 
 lba_search_strings_lba:
+	freedos_lba_search_string freedos, 0, 0
 %assign variant 0
 %rep 256
  %if variant == 128
 lba_search_strings_chs:
+	freedos_lba_search_string freedos, 1, 0
  %endif
  %assign identifier variant & ~128
 	ldosboot_lba_search_string \
