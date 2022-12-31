@@ -3008,7 +3008,7 @@ query_search_strings:
 %xdefine WILDCARDS WILDCARDS, dw %%wc
 	%endmacro
 
-	%macro ldosboot_lba_search_string 9
+	%macro ldosboot_lba_search_string 8
 %define WILDCARDS dw ""
 %assign _FORCE_CHS %2
 %assign _LBA_SKIP_CHECK %3
@@ -3017,7 +3017,7 @@ query_search_strings:
 %assign _LBA_SKIP_ANY %6
 %assign _RETRY_RESET %7
 %assign _LBA_RETRY %8
-%assign _CHS %9
+%assign _CHS 1
 
 
 %if _FORCE_CHS
@@ -3139,21 +3139,20 @@ lba_search_msg:
 
 lba_search_strings_lba:
 %assign variant 0
-%rep 256
- %if variant == 128
+%rep 128
+ %if variant == 64
 lba_search_strings_chs:
  %endif
- %assign identifier variant & ~128
+ %assign identifier variant & ~64
 	ldosboot_lba_search_string \
 	 identifier, \
-	 variant & 128, \
+	 variant & 64, \
 	 variant & 1, \
 	 variant & 2, \
 	 variant & 4, \
 	 variant & 8, \
 	 variant & 16, \
-	 variant & 32, \
-	 variant & 64
+	 variant & 32
  %assign variant variant + 1
 %endrep
 lba_search_strings_end:
