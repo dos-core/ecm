@@ -513,6 +513,10 @@ disp_error: equ $
 	call isstring?
 	mov ax, 0FF00h
 	je @F
+	mov dx, msg.autohdd
+	call isstring?
+	mov ax, 0100h
+	je @F
 	mov dx, msg.none
 	call isstring?
 	mov ax, 00FFh
@@ -4512,6 +4516,7 @@ load_kernel_name: equ $
 
 .keep:			asciz "KEEP"
 .auto:			asciz "AUTO"
+.autohdd:		asciz "AUTOHDD"
 .none:			asciz "NONE"
 .error_invalid_number:	asciz "Invalid number.",13,10
 .using_fix_unit:	asciz " Using fixed unit of "
