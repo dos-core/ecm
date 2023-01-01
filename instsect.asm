@@ -217,7 +217,7 @@ ptExtendedLinux:	equ 85h
 %endif
 
 
-	align 16
+	align 16, db 0
 %if _FAT12
 fat12_payload:		incbin _PAYLOAD_FAT12
 .end:
@@ -3960,7 +3960,7 @@ isseparator?:
 	pop cx
 	retn
 
-	align 2
+	align 2, db 0
 %if 0	; _EXPRESSIONS
 separators:	countedw 32,9,13,",L;]:=)",0
 %else
@@ -4472,7 +4472,7 @@ unlockdrive:
 	retn
 
 
-	align 4
+	align 4, db 0
 internalflags:	dd 0
 oldpacket	equ	  1	; Int25/Int26 packet method available (L, W)
 newpacket	equ	  2	; Int21.7305 packet method available (L, W)
@@ -4481,7 +4481,7 @@ runningnt	equ   20000h	; running in NTVDM
 detectedcopysector	equ 10h
 detectedcopyinfo	equ 20h
 
-	align 2
+	align 2, db 0
 oemname:	times 8 db 0
 hVdd:		dw 0
 load_unit:	dw -1
@@ -4490,7 +4490,7 @@ load_use_query_geometry:dw -1
 load_use_lba:		dw -1
 drivenumber:	db 0
 
-	align 4
+	align 4, db 0
 info_reset_struc:
 .signature1:
 	dd FSINFO.signature1_value
@@ -4504,7 +4504,7 @@ info_reset_struc:
 	dd FSINFO.signature3_value
 .signature3_size: equ $ - .signature3
 
-	align 4
+	align 4, db 0
 packet:	dd 0		; sector number
 	dw 0		; number of sectors to read
 	dd 0		; transfer address Segm:OOOO
@@ -4635,7 +4635,7 @@ msg:
 %endif
 
 %if _NUM_DETECT_NAMES
-	align 4
+	align 4, db 0
 load_kernel_name: equ $
 	times 12 db 0
 		; buffer for base name (8) + ext (3) + NUL (1) = 12
@@ -4644,15 +4644,15 @@ load_kernel_name: equ $
 	times 12 * _NUM_REPLACEMENTS db 0
 		; name replacement buffers, 4 times same as load_kernel_name
  %endif
-	align 4
+	align 4, db 0
 .foundname:
 	times 8+1+3+1 db 0
 		; buffer for base name (8) + dot (1) + ext (3) + NUL (1)
-	align 2
+	align 2, db 0
 .foundname_none:
 	asciz "(None)"
 .foundname_none_size: equ $ - .foundname_none
-	align 4
+	align 4, db 0
 .names:
  %assign ii 1
  %rep _NUM_DETECT_NAMES
@@ -4700,7 +4700,7 @@ load_kernel_name: equ $
  %endif
 %endif
 
-	align 2
+	align 2, db 0
 .fat12sig:	fill 8, 32, db "FAT12"
 .fat16sig:	fill 8, 32, db "FAT16"
 .fat32sig:	fill 8, 32, db "FAT32"
@@ -4856,7 +4856,7 @@ symhint_store_string msg.dos_error_
 .dos_error_unknown:	asciz "Unknown error"
 
 
-	align 2
+	align 2, db 0
 dos_error_table:
 .:
 %assign ii 0
@@ -4905,7 +4905,7 @@ imsg:
 .vdd:		asciz "DEBXXVDD.DLL"
 .dispatch:	asciz "Dispatch"
 .init:		asciz "Init"
-	align 2
+	align 2, db 0
 .mouse:		db "MOUSE",32,32,32		; Looks like a device name
 .andy:		db "Andy Watson"		; I don't know him and why he's inside the NTVDM mouse driver
 	endarea .andy
@@ -5212,10 +5212,10 @@ AAAAAAAA00FFF
 	stc
 	retn
 
-	align 16
+	align 16, db 0
 	section BUFFERS
 
-	align 8
+	align 8, db 0
 m_seek:
 	dq -1
 m_offset:
@@ -5229,7 +5229,7 @@ m_1024:
 m_1024_times_1024:
 	dd 1024 * 1024
 
-	align 4
+	align 4, db 0
 cmd_line_flags:		dd clfWriteSectorToSector | clfWriteInfoToSector \
 			| clfWriteCopySectorIfSector | clfWriteCopyInfoIfSector
 clfWriteSectorToFile:		equ   1
@@ -5261,7 +5261,7 @@ clfZeroInfo:			equ 40_0000h
 clfSetOEMName:			equ 100_0000h
 clfPreserveOEMName:		equ 200_0000h
 
-	align 4
+	align 4, db 0
 cmd_line_readsector12_file:
 .name:		dw 0
 .handle:	dw -1
