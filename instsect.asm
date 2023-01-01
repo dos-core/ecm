@@ -310,6 +310,8 @@ start:
 	cmp al, 'F'
 	je .switch_f
 %endif
+	cmp al, 'O'
+	je .switch_o
 	cmp al, 'U'
 	je .switch_u
 	cmp al, 'P'
@@ -411,6 +413,139 @@ disp_error: equ $
 	jmp .loop
 %endif
 
+
+.switch_o:
+	lodsb
+	call uppercase
+	cmp al, 'N'
+	jne @F
+	clropt [cmd_line_flags], clfSetOEMName | clfPreserveOEMName
+	jmp .loop
+
+@@:
+	cmp al, 'P'
+	jne @F
+	setopt [cmd_line_flags], clfPreserveOEMName
+	clropt [cmd_line_flags], clfSetOEMName
+	jmp .loop
+
+@@:
+	 cmp al, '='
+	 je @F
+	 cmp al, ':'
+	 je @F
+	jmp .switch_not_supported
+
+@@:
+	clropt [cmd_line_flags], clfPreserveOEMName
+	setopt [cmd_line_flags], clfSetOEMName
+	mov di, oemname
+	lodsb
+	mov ah, al
+	cmp al, '"'
+	je .o_quoted
+	cmp al, "'"
+	je .o_quoted
+	mov ah, 0
+	db __TEST_IMM8
+.o_quoted:
+.o_loop:
+	lodsb
+	cmp al, ah
+	je .o_end_lod
+	test ah, ah
+	jnz @F
+	cmp al, 9
+	je .o_end
+	cmp al, 32
+	je .o_end
+	cmp al, 13
+	je .o_end
+@@:
+	cmp al, 13
+	je .o_error
+	cmp di, oemname + 8
+	jae .o_error
+	cmp al, '\'
+	jne .o_store
+	lodsb
+	cmp al, 13
+	je .o_error
+	cmp al, 'x'
+	je .o_x
+	cmp al, 'X'
+	je .o_x
+.o_store:
+	stosb
+	jmp .o_loop
+
+.o_end_lod:
+	lodsb
+.o_end:
+	mov cx, di
+	sub cx, oemname
+	cmp cx, 8
+	jae .o_done
+	push si
+	push ax
+	mov di, oemname + 7
+	mov si, oemname
+	add si, cx
+	dec si
+	std		; AMD erratum 109 workaround below
+	jcxz @FF
+@@:
+	movsb
+	loop @B
+@@:
+	; rep movsb
+@@:
+	cmp di, oemname
+	jb @F
+	mov al, 32
+	stosb
+	jmp @B
+@@:
+	cld
+	pop ax
+	pop si
+.o_done:
+	jmp .loop_got_byte
+
+.o_error:
+	mov dx, msg.o_error
+	jmp disp_error
+
+.o_x:
+	lodsb
+	call getexpression.lit_ishexdigit?
+	jc .o_error
+	call uppercase
+	sub al, '0'
+	cmp al, 9		; was decimal digit ?
+	jbe @F			; yes -->
+	sub al, 'A'-('9'+1)	; else adjust for hexadecimal digit
+@@:
+	mov bl, al
+	lodsb
+	call getexpression.lit_ishexdigit?
+	jc .o_store_bl_dec_si
+	call uppercase
+	sub al, '0'
+	cmp al, 9		; was decimal digit ?
+	jbe @F			; yes -->
+	sub al, 'A'-('9'+1)	; else adjust for hexadecimal digit
+@@:
+	add bl, bl
+	add bl, bl
+	add bl, bl
+	add bl, bl
+	add bl, al
+	inc si
+.o_store_bl_dec_si:
+	dec si
+	mov al, bl
+	jmp .o_store
 
 .switch_u:
 @@:
@@ -1580,6 +1715,20 @@ check_valid_sector:
 
 .valid:
 	call disp_msg_asciz
+
+
+write_sector_oem:
+	mov si, oemname
+	mov di, first_sector_buffer + bsOEM
+	mov cx, 4
+	testopt [cmd_line_flags], clfSetOEMName
+	jnz @F
+	mov si, second_sector_buffer + bsOEM
+	testopt [cmd_line_flags], clfPreserveOEMName
+	jnz @F
+	db __TEST_IMM16				; skip rep movsw
+@@:
+	rep movsw
 
 
 write_sector_bpb:
@@ -4333,6 +4482,7 @@ detectedcopysector	equ 10h
 detectedcopyinfo	equ 20h
 
 	align 2
+oemname:	times 8 db 0
 hVdd:		dw 0
 load_unit:	dw -1
 load_use_partinfo:	dw -1
@@ -4445,6 +4595,7 @@ msg:
 .boot_sector_not_power:	asciz "Sector size not a power of two.", 13,10
 .out_of_memory:		asciz "Out of memory.",13,10
 .switch_not_supported:	asciz "Switch not supported.",13,10
+.o_error:		asciz "Switch /O invalid content.",13,10
 .invalid_argument:	asciz "Invalid argument.",13,10
 .no_drive_specified:	asciz "No drive specified.",13,10
 .error_multiple_drives:	asciz "Multiple drives specified.",13,10
@@ -5107,6 +5258,8 @@ clfSectorFromCopy:		equ  2_0000h
 clfLeaveInfo:			equ 10_0000h
 clfInfoFromCopy:		equ 20_0000h
 clfZeroInfo:			equ 40_0000h
+clfSetOEMName:			equ 100_0000h
+clfPreserveOEMName:		equ 200_0000h
 
 	align 4
 cmd_line_readsector12_file:
