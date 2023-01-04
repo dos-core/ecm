@@ -1211,6 +1211,8 @@ incbin %1, %2, %4 * _BPS * _SPC
 %3 %+ _start:
 %if %5
  fillbytes %6, %7
+%%fragment_chain_end equ EOFENTRY
+%%filesize equ ($ - %3 %+ _start)
 %else
  %define string %1
  %ifnstr string
