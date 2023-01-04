@@ -1716,6 +1716,7 @@ data %+ ii %+ _start:
  %assign clusters (%2 + _BPS * _SPC - 1) / (_BPS * _SPC)
  %assign data_used data_used + (clusters * _BPS * _SPC)
 	addfatchain %1,clusters
+%1_chain_end equ EOFENTRY
  %assign ii ii + 1
 %endrep
 	%endmacro
