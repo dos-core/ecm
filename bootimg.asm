@@ -1708,6 +1708,7 @@ at deSize,		dd %3
 	usesection data %+ ii
 data %+ ii %+ _start:
  %if isendfillzeros
+	; zerobytes_if_full (%2 + _BPS * _SPC - 1) & ~(_BPS * _SPC - 1)
 	zerobytes_if_full %2
  %else
 	fillbytes %2, %3
