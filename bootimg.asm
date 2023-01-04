@@ -264,12 +264,15 @@ nasm -D_ATTRIB=ATTR_SYSTEM -I ../lmacros/ \
 	numdef WARN_TOOMANYFAT, 1
 	numdef WARN_ALIGNDATA, 1
 	numdef WARN_FILLROOT, 1
+	numdef WARN_SMALL32, 1
 	numdef WARN_DEFAULT_OFF, 0
 %if _WARN_DEFAULT_OFF
 	numdef WARN_TOOMANYFAT, 0
 	numdef WARN_ALIGNDATA, 0
 	numdef WARN_FILLROOT, 0
+	numdef WARN_SMALL32, 0
 %endif
+	numdef ERROR_SMALL32, 1
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
@@ -471,7 +474,7 @@ ptExtendedLinux:	equ 85h
  %endif
 %endif
 
-%macro detectionerror 1.nolist
+%macro detectionerror 1-2.nolist 0
  %assign len 8
  %assign ii 0
  %assign sum 0
@@ -490,7 +493,13 @@ ptExtendedLinux:	equ 85h
   %define string "0"
  %endif
  %deftok string string
- %error FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
+ %if %2 && !_ERROR_SMALL32
+  %if _WARN_SMALL32
+   %warning FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
+  %endif
+ %else
+  %error FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
+ %endif
 %endmacro
 
 %if (DATACLUSTERS + 2) > 0FFF0h
@@ -503,12 +512,15 @@ ptExtendedLinux:	equ 85h
  %endif
 %endif
 %if (DATACLUSTERS + 2) < 1000h
- %if _BPE == 16 || _BPE == 32
+ %if _BPE == 16
   detectionerror as FAT12
+ %endif
+ %if _BPE == 32
+  detectionerror as FAT12, 1
  %endif
 %elif (DATACLUSTERS + 2) < 10000h
  %if _BPE == 32
-  detectionerror as FAT16
+  detectionerror as FAT16, 1
  %endif
 %endif
 
