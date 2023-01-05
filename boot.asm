@@ -631,8 +631,7 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 %endif
 
 %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
- %if _ATTRIB_SAVE
-  %ifn _ADD_SEARCH || _LOAD_DIR_SEG
+ %if _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
    %ifn _DIR_ENTRY_500
 ; three words left on the stack after directory search
 	nextvariable dirsearchstack, 6
@@ -640,7 +639,21 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 ; two words left on the stack after directory search
 	nextvariable dirsearchstack, 4
    %endif
+ %elifn !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
+	nextvariable cmdline_signature_placeholder, 2
+  %if cmdline_signature_placeholder != start - 14h
+   %error Unexpected placeholder position
   %endif
+		; This stack slot is used to insure that
+		;  the "CL" signature is not present at this
+		;  location. If not relocate and load address
+		;  is below loader then the next variable
+		;  (last_available_sector) will always receive
+		;  a value < 7C0h so cannot hold "CL".
+		; If _ATTRIB_SAVE is in use and neither the
+		;  _ADD_SEARCH nor the _LOAD_DIR_SEG options
+		;  are set, the first word of dirsearchstack
+		;  will be at word [ss:bp - 14h].
  %endif
 
 ; (word) segment of last available memory for sector
@@ -1430,6 +1443,15 @@ found_it:
 	 pop es
 	 pop ds
 	xchg si, di	; es:di -> behind (second) directory entry
+ %endif
+ %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+  %ifn _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
+   %ifn !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
+	push bx			; push into cmdline_signature_placeholder
+		; Push the entries per sector value into this
+		;  stack slot to ensure that it does not hold "CL".
+   %endif
+  %endif
  %endif
  %if _RELOCATE
 	push word [es:di + deClusterLow - DIRENTRY_size \
