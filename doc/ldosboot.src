@@ -205,8 +205,8 @@ must not equal the string \cq{CL}.
 \b dosemu2's RxDOS.3 support sets \cq{sp = bp - 10h}
 
 \b ldosboot boot.asm (FAT12/FAT16) loader
-uses the variable for a \q{paragraphs per sector} value
-which is always a power of two and always below-or-equal 200h.
+makes sure not to pass the variable with the content "CL".
+Refer to placeholder and DIRSEARCHSTACK_CL_FIRST uses in the source.
 
 \b ldosboot boot32.asm (FAT32) loader
 uses the variable for an \q{entries per sector} value
