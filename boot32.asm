@@ -1570,12 +1570,10 @@ found_load_file:
 		jc ..@CY_3_fsiboot_error_badchain
 
 next_load_cluster:
+		push dx
+		push ax			; preserve cluster number for later
 		call clust_to_first_sector
 			; dx:ax = first sector of cluster
-			; cx:bx = cluster value
-		push cx
-		push bx			; preserve cluster number for later
-
 		mov cx, [VAR(adj_sectors_per_cluster)]
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
@@ -1623,9 +1621,9 @@ dirsearch:
 	jc fsiboot_error_badchain
 
 next_root_clust:
+	push dx
+	push ax
 	call clust_to_first_sector
-	push cx
-	push bx
 	mov cx, [VAR(adj_sectors_per_cluster)]
 next_root_sect:
 	push cx
