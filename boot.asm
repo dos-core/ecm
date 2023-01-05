@@ -1454,9 +1454,14 @@ found_it:
   %endif
  %endif
  %if _RELOCATE
+  %if _DIR_ENTRY_500 || !_ATTRIB_SAVE
 	push word [es:di + deClusterLow - DIRENTRY_size \
 		- (DIRENTRY_size * !!_DIR_ENTRY_520)]
 			; (word on stack) = first cluster number
+  %else
+	push word [es:di + deClusterLow - (deName + 11)]
+			; (word on stack) = first cluster number
+  %endif
  %endif
 %endif
 
