@@ -1298,7 +1298,7 @@ next_sect:
 next_ent:
 	push si
 	push cx
-	push di
+	push di			; dirsearchstack
 %if _CHECK_ATTRIB && ! _ATTRIB_SAVE
 	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
 	jnz @F			; directory, label, or LFN entry --> (NZ)
@@ -1323,7 +1323,7 @@ filename equ $ - 2		; SMC to update to load_name later
 @@:
 	pop di
 	pop cx
-	pop si
+	pop si			; pop from dirsearchstack
 	lea di, [di + DIRENTRY_size]
 %if ! _ATTRIB_SAVE
 	jz found_it		; found entry -->
@@ -1369,7 +1369,7 @@ Reference: https://bugs.launchpad.net/qemu/+bug/1888165
 found_it:
 %if _ADD_SEARCH || _LOAD_DIR_SEG
  %if _ATTRIB_SAVE
-	pop di			; es:di -> dir entry
+	pop di			; es:di -> dir entry (pop from dirsearchstack)
  %endif
 	mov cx, 32
 	mov ax, _LOAD_DIR_SEG
@@ -1407,7 +1407,7 @@ found_it:
 %endif
  %if _ATTRIB_SAVE
 	pop si			; discard cx
-	pop si			; discard si
+	pop si			; discard si (dirsearchstack)
  %endif
 	pop si
 	pop ax
@@ -1423,7 +1423,7 @@ found_it:
  %if _DIR_ENTRY_500	; +24 bytes, probably
 	mov cx, 32
  %if _ATTRIB_SAVE
-	pop si		; es:si -> dir entry
+	pop si		; es:si -> dir entry (pop from dirsearchstack)
  %else
 	xchg si, di
 	sub si, cx
