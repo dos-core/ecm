@@ -633,7 +633,7 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 %assign DIRSEARCHSTACK_CL_FIRST 0
 %assign DIRSEARCHSTACK_CL_SECOND 0
 %assign PLACEHOLDER 0
-%ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+
  %if _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
    %if _LASTVARIABLE == start - 12h
     %assign DIRSEARCHSTACK_CL_FIRST 1
@@ -679,8 +679,19 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 		;  will be at word [ss:bp - 14h].
  %endif
 
+%ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
+%else
+  %if _LASTVARIABLE == start - 12h
+	nextvariable cmdline_signature_placeholder, 2, relocatestart
+   %assign PLACEHOLDER 1
+  %elif _LASTVARIABLE == start - 10h
+   %if _PUSH_DPT
+	nextvariable cmdline_signature_placeholder, 4, relocatestart
+    %assign PLACEHOLDER 2
+   %endif
+  %endif
 %endif
 
 lowest_variable		equ _LASTVARIABLE
