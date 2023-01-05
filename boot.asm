@@ -625,11 +625,6 @@ start:
 
 ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 
-%ifn _FIX_CLUSTER_SIZE
-; (word) actual sectors per cluster
-	nextvariable adj_sectors_per_cluster, 2, relocatestart
-%endif
-
 %ifn _FIX_SECTOR_SIZE
 ; (word) number of 16-byte paragraphs per sector
 	nextvariable para_per_sector, 2, relocatestart
@@ -1204,15 +1199,6 @@ skip_bpb:
 	mov al, 'C'
 	jne error
   %endif
- %else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
-	xor ax, ax
-	mov al, [VAR(sectors_per_cluster)]
-	dec al
-	inc ax
-	push ax			; push into word [VAR(adj_sectors_per_cluster)]
  %endif
 	mov ch, 0			; ! ch = 0
 %else
@@ -1227,16 +1213,7 @@ skip_bpb:
 	jne error
   %endif
  %else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
 				; ! ch = 0
-	mov cl, [VAR(sectors_per_cluster)]
-				; therefore cx = sectors_per_cluster
-	dec cl
-	inc cx
-	push cx			; push into word [VAR(adj_sectors_per_cluster)]
-	dec cx			; ! ch = 0
  %endif
 	push bx				; push into word [VAR(para_per_sector)]
 
@@ -1793,7 +1770,10 @@ next_cluster:
 
 %else ; _LOAD_NON_FAT
 		mov di, _LOAD_NON_FAT
-		mov ax, word [VAR(adj_sectors_per_cluster)]
+	mov al, [VAR(sectors_per_cluster)]
+	dec ax
+	mov ah, 0
+	inc ax
 		mov cx, ax
 		mul word [VAR(bytes_per_sector)]
 		test dx, dx
@@ -1812,7 +1792,12 @@ next_cluster:
 %if _FIX_CLUSTER_SIZE
 		mov cx, _FIX_CLUSTER_SIZE
 %else
-		mov cx, [VAR(adj_sectors_per_cluster)]
+; adjusted sectors per cluster
+; decode EDR-DOS's special value 0 meaning 256
+	mov cl, [VAR(sectors_per_cluster)]
+	dec cx
+	mov ch, 0
+	inc cx
 %endif
 %endif
 
