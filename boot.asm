@@ -630,8 +630,15 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 	nextvariable para_per_sector, 2, relocatestart
 %endif
 
+%assign DIRSEARCHSTACK_CL_FIRST 0
+%assign DIRSEARCHSTACK_CL_SECOND 0
 %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
  %if _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
+   %if _LASTVARIABLE == start - 12h
+    %assign DIRSEARCHSTACK_CL_FIRST 1
+   %elif _LASTVARIABLE == start - 10h
+    %assign DIRSEARCHSTACK_CL_SECOND 1
+   %endif
    %ifn _DIR_ENTRY_500
 ; three words left on the stack after directory search
 	nextvariable dirsearchstack, 6, relocatestart
@@ -1296,8 +1303,13 @@ next_sect:
 
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
+ %if DIRSEARCHSTACK_CL_FIRST
+	push cx			; first dirsearchstack word = entries-in-sector
+	push si			; other: entries total
+ %else
 	push si
-	push cx
+	push cx			; second dirsearchstack word = entries-in-sector
+ %endif
 	push di			; dirsearchstack
 %if _CHECK_ATTRIB && ! _ATTRIB_SAVE
 	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
@@ -1322,8 +1334,13 @@ filename equ $ - 2		; SMC to update to load_name later
 %endif
 @@:
 	pop di
+ %if DIRSEARCHSTACK_CL_FIRST
+	pop si
+	pop cx			; pop from dirsearchstack
+ %else
 	pop cx
 	pop si			; pop from dirsearchstack
+ %endif
 	lea di, [di + DIRENTRY_size]
 %if ! _ATTRIB_SAVE
 	jz found_it		; found entry -->
@@ -1406,8 +1423,8 @@ found_it:
  %error Must not store directory entries to same segment
 %endif
  %if _ATTRIB_SAVE
-	pop si			; discard cx
-	pop si			; discard si (dirsearchstack)
+	pop si			; discard cx/si
+	pop si			; discard si/cx (dirsearchstack)
  %endif
 	pop si
 	pop ax
