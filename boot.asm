@@ -634,13 +634,13 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
  %if _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
    %ifn _DIR_ENTRY_500
 ; three words left on the stack after directory search
-	nextvariable dirsearchstack, 6
+	nextvariable dirsearchstack, 6, relocatestart
    %else
 ; two words left on the stack after directory search
-	nextvariable dirsearchstack, 4
+	nextvariable dirsearchstack, 4, relocatestart
    %endif
  %elifn !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
-	nextvariable cmdline_signature_placeholder, 2
+	nextvariable cmdline_signature_placeholder, 2, relocatestart
   %if cmdline_signature_placeholder != start - 14h
    %error Unexpected placeholder position
   %endif
