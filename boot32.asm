@@ -1675,16 +1675,18 @@ fsiboot_error:
 		; OUT:	dx:ax = first sector of that cluster
 		; CHG:	bx, cx
 clust_to_first_sector:
+	mov cx, word [VAR(adj_sectors_per_cluster)]
 	 push dx
-	mul word [VAR(adj_sectors_per_cluster)]
+	mul cx
 	xchg bx, ax
-	xchg cx, dx
 	 pop ax
-	mul word [VAR(adj_sectors_per_cluster)]
+	push dx
+	mul cx
 	test dx, dx
 	jnz fsiboot_error_badchain
 	xchg dx, ax
-	add dx, cx
+	pop ax
+	add dx, ax
 	jc ..@CY_fsiboot_error_badchain
 	xchg ax, bx
 
