@@ -4165,9 +4165,13 @@ symhint_store_and_label write_sector
 	xchg ax, cx		; al = drive number
 	mov cx, 1
 .oldint:
+	push bp
+	push di
 	int 26h
 	inc sp
 	inc sp
+	pop di
+	pop bp
 	jmp .done
 
 		; disk I/O packet for Int25/Int26, Int21.7305, VDD
@@ -4304,9 +4308,13 @@ read_sector:
 	xchg ax, cx		; al = drive number
 	mov cx, 1
 .oldint:
+	push bp
+	push di
 	int 25h
 	inc sp
 	inc sp
+	pop di
+	pop bp
 	jmp .done
 
 		; disk I/O packet for Int25/Int26, Int21.7305, VDD
