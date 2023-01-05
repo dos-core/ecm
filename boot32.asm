@@ -1574,7 +1574,7 @@ next_load_cluster:
 		push ax			; preserve cluster number for later
 		call clust_to_first_sector
 			; dx:ax = first sector of cluster
-		mov cx, [VAR(adj_sectors_per_cluster)]
+			; cx = adjusted sectors per cluster
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
@@ -1624,7 +1624,8 @@ next_root_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
-	mov cx, [VAR(adj_sectors_per_cluster)]
+			; dx:ax = first sector of cluster
+			; cx = adjusted sectors per cluster
 next_root_sect:
 	push cx
 	mov cx, [VAR(entries_per_sector)]
@@ -1673,7 +1674,8 @@ fsiboot_error:
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
 		; OUT:	dx:ax = first sector of that cluster
-		; CHG:	bx, cx
+		;	cx = adjusted sectors per cluster
+		; CHG:	bx
 clust_to_first_sector:
 	mov cx, word [VAR(adj_sectors_per_cluster)]
 	 push dx
