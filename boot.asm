@@ -632,6 +632,7 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 
 %assign DIRSEARCHSTACK_CL_FIRST 0
 %assign DIRSEARCHSTACK_CL_SECOND 0
+%assign PLACEHOLDER 0
 %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
  %if _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
    %if _LASTVARIABLE == start - 12h
@@ -647,9 +648,24 @@ ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 	nextvariable dirsearchstack, 4, relocatestart
    %endif
  %elifn !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
+  %if _LASTVARIABLE == start - 12h
 	nextvariable cmdline_signature_placeholder, 2, relocatestart
-  %if cmdline_signature_placeholder != start - 14h
-   %error Unexpected placeholder position
+   %assign PLACEHOLDER 1
+  %elif _LASTVARIABLE == start - 10h
+   %if _PUSH_DPT
+	nextvariable cmdline_signature_placeholder, 4, relocatestart
+    %assign PLACEHOLDER 2
+	; In this case, part of the original DPT pointer may
+	;  overlap the CL signature word. Therefore allocate
+	;  two placeholder words to insure no CL match.
+   %else
+	; In this case the last_available_sector variable
+	;  will be at word [ss:bp - 12h] (or none) and the
+	;  stack pointer will be equal to bp - 12h (or - 10h)
+	;  at handover time. Thus no placeholder is needed.
+   %endif
+  %else
+   %error Placeholder not placed
   %endif
 		; This stack slot is used to insure that
 		;  the "CL" signature is not present at this
@@ -1432,6 +1448,8 @@ found_it:
 				;  (bx still holds entries per sector)
 	je next_dir_search	; jump to search load file next -->
  %endif
+	times PLACEHOLDER push bx
+			; push into cmdline_signature_placeholder
  %if _RELOCATE
 	push word [es:di + deClusterLow]
 			; (word on stack) = first cluster number
@@ -1461,15 +1479,10 @@ found_it:
 	 pop ds
 	xchg si, di	; es:di -> behind (second) directory entry
  %endif
- %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
-  %ifn _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
-   %ifn !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
-	push bx			; push into cmdline_signature_placeholder
+	times PLACEHOLDER push bx
+			; push into cmdline_signature_placeholder
 		; Push the entries per sector value into this
 		;  stack slot to ensure that it does not hold "CL".
-   %endif
-  %endif
- %endif
  %if _RELOCATE
   %if _DIR_ENTRY_500 || !_ATTRIB_SAVE
 	push word [es:di + deClusterLow - DIRENTRY_size \
