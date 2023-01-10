@@ -624,6 +624,14 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 			; => directory sector buffer (one sector)
 %endif
 .writedirentry:	dw writedirentry.loaddir
+			; INP:	es:bx -> found dir entry in dir sector buffer
+			;	si:di = loaded sector-in-FAT
+			; CHG:	ax, cx, dx
+			; STT:	ss:bp -> boot sector
+			;	ds = ss
+			;	UP
+			; OUT:	directory entry copied if so desired
+			;	(is a no-op if not to copy dir entry)
 .filename:	dw .load_name
 			; -> name to search
 .minpara:	dw _LOAD_MIN_PARA
