@@ -1380,6 +1380,7 @@ init_memory:
 	mov di, _STACKSIZE - LOADCMDLINE + ldCommandLine.start
 			; -> cmd line target
 	push cx		; top of memory below buffers
+	push ax		; => sector seg
 	mov cx, (LOADCMDLINE_size + 1) >> 1
 	rep movsw	; copy cmd line
 %if lsvCommandLine.start + fromwords(words(LOADCMDLINE_size)) != lsvCommandLine.signature
@@ -1396,7 +1397,6 @@ init_memory:
 			;  = 0 if given (also truncates if too long)
 			;  = 0FFh if not given
 
-	push ax
 %if lsvCommandLine.signature + 2 != lsvExtra
  %error Unexpected structure layout
 %endif
