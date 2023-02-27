@@ -1311,9 +1311,9 @@ init_memory:
 	dec cx		; => last paragraph of higher buffer (16-byte trailer)
 	mov dx, ax	; => first paragraph of higher buffer
 	mov bx, cx
-	and dx, 0F000h	; 64 KiB chunk of first paragraph of higher buffer
-	and bx, 0F000h	; 64 KiB chunk of last paragraph of higher buffer
-	cmp bx, dx	; in same chunk?
+	and dh, 0F0h	; 64 KiB chunk of first paragraph of higher buffer
+	and bh, 0F0h	; 64 KiB chunk of last paragraph of higher buffer
+	cmp bh, dh	; in same chunk?
 	mov bx, ax
 	je .gotsectorseg	; yes, use higher buffer as sector buffer ->
 			; bx = use higher buffer as FAT buffer
