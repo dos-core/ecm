@@ -1386,7 +1386,8 @@ init_memory:
 %if lsvCommandLine.start + fromwords(words(LOADCMDLINE_size)) != lsvCommandLine.signature
  %error Unexpected structure layout
 %endif
-	cmp word [si], lsvclSignature
+	lodsw
+	cmp ax, lsvclSignature
 	je @F		; if command line given -->
 	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], cl
 			; truncate as if empty line given
@@ -1400,7 +1401,6 @@ init_memory:
 %if lsvCommandLine.signature + 2 != lsvExtra
  %error Unexpected structure layout
 %endif
-	lodsw
 	; lea si, [bp + lsvExtra]
 			; ds:si -> lsv + BPB
 	mov di, _STACKSIZE - LOADCMDLINE + lsvExtra
