@@ -118,6 +118,7 @@ Currently the following signatures are defined:
 
 Under this protocol, the pointer \cq{ss:bp} is passed.
 It points to a boot sector with (E)BPB.
+\cq{bp} must be even.
 The stack pointer must be at most \cq{bp - 10h}.
 Below the pointed to location there live the Load Stack Variables.
 These follow this structure:
