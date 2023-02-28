@@ -864,11 +864,13 @@ msg:
 finish_continue:
 	jbe short finish_load
 
-	push ax
 	mov cx, word [bp + lsvLoadSeg]
 			; => after end of loaded data
+	sub word [bp + lsvLoadSeg], ax
+			; relocate this pointer already
 	neg ax
 	add ax, bx	; ax = cs - paras to move down
+			; want to relocate cs to this
 	jnc short error_outofmemory_j1
 	mov di, relocate_to
 	push ax
@@ -943,8 +945,6 @@ relocate_to:
 	test ax, ax	; another round needed?
 	jnz @BB		; yes -->
 
-	pop ax
-	sub word [bp + lsvLoadSeg], ax
 	push ss
 	pop ds
 
