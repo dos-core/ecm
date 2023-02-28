@@ -1375,13 +1375,21 @@ init_memory:
 	inc cx		; => stack + BPB buffer
 	push ss
 	pop ds
-	lea si, [bp + lsvCommandLine.start]
 	mov es, cx
-	mov di, _STACKSIZE - LOADCMDLINE + ldCommandLine.start
-			; -> cmd line target
 	push cx		; top of memory below buffers
 	push ax		; => sector seg
-	mov cx, (LOADCMDLINE_size + 1) >> 1
+
+	xor cx, cx
+	cmp bp, - lsvCommandLine.start
+			; can have command line ?
+			;  (also makes sure movsw and lodsw never run
+			;  with si = 0FFFFh which'd cause a fault.)
+	jb .no_cmdline
+
+	lea si, [bp + lsvCommandLine.start]
+	mov di, _STACKSIZE - LOADCMDLINE + ldCommandLine.start
+			; -> cmd line target
+	mov cl, (LOADCMDLINE_size + 1) >> 1
 	rep movsw	; copy cmd line
 %if lsvCommandLine.start + fromwords(words(LOADCMDLINE_size)) != lsvCommandLine.signature
  %error Unexpected structure layout
@@ -1389,19 +1397,21 @@ init_memory:
 	lodsw
 	cmp ax, lsvclSignature
 	je @F		; if command line given -->
+.no_cmdline:
 	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], cl
 			; truncate as if empty line given
 	dec cx		; cl = 0FFh
 @@:
-	mov byte [es:di - 1], cl
+	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start \
+		+ fromwords(words(LOADCMDLINE_size)) - 1 ], cl
 			; remember whether command line given
 			;  = 0 if given (also truncates if too long)
 			;  = 0FFh if not given
 
-%if lsvCommandLine.signature + 2 != lsvExtra
- %error Unexpected structure layout
-%endif
-	; lea si, [bp + lsvExtra]
+		; si happens to be already correct here if we didn't
+		;  branch to .no_cmdline, however make sure to set
+		;  it here to support this case.
+	lea si, [bp + lsvExtra]
 			; ds:si -> lsv + BPB
 	mov di, _STACKSIZE - LOADCMDLINE + lsvExtra
 			; es:di -> where to place lsv
