@@ -352,13 +352,15 @@ d3	test ax, "00"
 @@:
 	pop cx
 	cmp cx, @B + 100h
-	je .ZR_freedos_or_msdos1_com_entry
+	je .freedos_or_msdos1_com_entry
 @@:
 
 	mov cx, cs
 	cmp cx, 60h
-.ZR_freedos_or_msdos1_com_entry:
-	je freedos_or_msdos1_com_entry
+	jne @F
+.freedos_or_msdos1_com_entry:
+	jmp freedos_or_msdos1_com_entry
+@@:
 
 	xor cx, cx
 
