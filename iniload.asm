@@ -1803,7 +1803,10 @@ error_data_checksum_failed:
 
 
 freedos_or_msdos1_com_entry:
-	cmp cx, 60h
+	call @F
+@@:
+	pop cx
+	cmp cx, @B
 	jne msdos1_com_entry
 
 freedos_entry:
