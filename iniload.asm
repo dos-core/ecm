@@ -985,20 +985,16 @@ skip_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack
 
-	push cx
-
-	mov cx, bx
-	add cx, [bp + ldParaPerSector]
-	cmp cx, [bp + lsvLoadSeg]
+	add bx, [bp + ldParaPerSector]
+				; bx += paras per sector
+	cmp bx, [bp + lsvLoadSeg]
 	ja skipped_all
 	inc ax			; emulate read_sector:
 	jnz @F
 	inc dx			; dx:ax += 1
 @@:
-	mov bx, cx		; bx += paras per sector
 	mov [bp + ldLoadingSeg], bx
 
-	pop cx
 	loop skip_next_sect
 	pop ax
 	pop dx
@@ -1018,7 +1014,8 @@ loaded_all_if_ae:
 
 
 skipped_all:
-	pop cx
+	sub bx, [bp + ldParaPerSector]
+				; restore bx => next sector to read
 	call read_sector
 		; we can depend on the fact that at least
 		;  up to end was already loaded, so this
