@@ -1380,13 +1380,12 @@ init_memory:
 	push ax		; => sector seg
 
 	xor cx, cx
-	cmp bp, - lsvCommandLine.start
-			; can have command line ?
+	lea si, [bp + lsvCommandLine.start]
+	cmp bp, si	; can have command line ?
 			;  (also makes sure movsw and lodsw never run
 			;  with si = 0FFFFh which'd cause a fault.)
 	jb .no_cmdline
 
-	lea si, [bp + lsvCommandLine.start]
 	mov di, _STACKSIZE - LOADCMDLINE + ldCommandLine.start
 			; -> cmd line target
 	mov cl, (LOADCMDLINE_size + 1) >> 1
