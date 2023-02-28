@@ -352,12 +352,13 @@ d3	test ax, "00"
 @@:
 	pop cx
 	cmp cx, @B + 100h
-	je msdos1_com_entry
+	je .ZR_freedos_or_msdos1_com_entry
 @@:
 
 	mov cx, cs
 	cmp cx, 60h
-	je freedos_entry
+.ZR_freedos_or_msdos1_com_entry:
+	je freedos_or_msdos1_com_entry
 
 	xor cx, cx
 
@@ -1798,6 +1799,10 @@ error_data_checksum_failed:
 	db "Data checksum failed.", 0
 %endif
 
+
+freedos_or_msdos1_com_entry:
+	cmp cx, 60h
+	jne msdos1_com_entry
 
 freedos_entry:
 		; This is the FreeDOS compatible entry point.
