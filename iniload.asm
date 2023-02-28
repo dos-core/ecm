@@ -894,6 +894,9 @@ relocator_size equ relocator.end - relocator
 %rep (relocator_size + 1) / 2
 	movsw		; place relocator
 %endrep
+%if relocator_size > 16
+ %error Relocator is too large
+%endif
 	mov es, ax
 	xor di, di	; -> where to relocate to
 	xor si, si	; ds:si = cs:0
