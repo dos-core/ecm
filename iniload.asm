@@ -1001,8 +1001,8 @@ skip_next_sect:
 
 	pop cx
 	loop skip_next_sect
-	pop bx
-	pop cx
+	pop ax
+	pop dx
 	call clust_next
 	jnc skip_next_clust
 end_of_chain:
@@ -1071,7 +1071,7 @@ clust_to_first_sector:
 	retn
 
 
-		; INP:	cx:bx = cluster (0-based)
+		; INP:	dx:ax = cluster (0-based)
 		;	si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
 		;	NC if next cluster found,
@@ -1079,8 +1079,6 @@ clust_to_first_sector:
 		;	si:di = loaded FAT sector
 		; CHG:	cx, bx
 clust_next:
-	mov ax, bx
-	mov dx, cx
 	add ax, 2
 	adc dx, 0
 
@@ -1641,8 +1639,8 @@ skipped_all_continue:
 	mov [bp + ldLoadingSeg], bx
 	pop cx
 	loop load_next_sect
-	pop bx
-	pop cx
+	pop ax
+	pop dx
 	call clust_next
 	jnc load_next_clust
 	jmp end_of_chain
