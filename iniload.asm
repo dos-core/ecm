@@ -981,7 +981,6 @@ skip_next_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
-	mov cx, [bp + ldClusterSize]
 skip_next_sect:
 	push cx
 
@@ -1046,7 +1045,8 @@ relocator:
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
 		; OUT:	dx:ax = first sector of that cluster
-		; CHG:	bx, cx
+		;	cx = adjusted sectors per cluster
+		; CHG:	bx
 clust_to_first_sector:
 	mov cx, word [bp + ldClusterSize]
 	 push dx
@@ -1630,7 +1630,6 @@ load_next_clust:
 end:
 
 load_next_clust_continue:
-	mov cx, [bp + ldClusterSize]
 load_next_sect:
 	push cx
 	mov bx, [bp + ldLoadingSeg]
