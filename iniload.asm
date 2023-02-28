@@ -1447,7 +1447,8 @@ init_memory:
 	test bx, bx
 	jz .is_fat32
 
-	lea si, [bp + 510]			; -> last source word
+	; lea si, [bp + 510]			; -> last source word
+	mov si, _STACKSIZE - LOADCMDLINE + 510
 	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 			; move sector up, except common BPB start part
