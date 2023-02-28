@@ -1227,7 +1227,8 @@ ldos_entry:
 	cli
 	cld
 
-		; cs:ip = 70h:400h
+		; ip = 400h
+		; cs = arbitrary; typically 60h, 70h, or 200h
 		; dwo [ss:bp - 4] = first data sector (without hidden sectors)
 		; wo [ss:bp - 6] = load_seg, => after last loaded data
 		; wo [ss:bp - 8] = fat_seg, 0 if invalid
