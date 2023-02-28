@@ -1045,12 +1045,9 @@ relocator:
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
-		; OUT:	cx:bx = input dx:ax
-		;	dx:ax = first sector of that cluster
-		; CHG:	-
+		; OUT:	dx:ax = first sector of that cluster
+		; CHG:	bx, cx
 clust_to_first_sector:
-	push dx
-	push ax
 	 push dx
 	mul word [bp + ldClusterSize]
 	xchg bx, ax
@@ -1069,8 +1066,6 @@ clust_to_first_sector:
 	adc dx, [bp + lsvDataStart + 2]
 	jc short .cy_error_badchain
 				; dx:ax = first sector in cluster
-	pop bx
-	pop cx			; cx:bx = cluster
 	retn
 
 
