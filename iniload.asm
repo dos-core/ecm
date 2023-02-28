@@ -591,7 +591,8 @@ read_sector:
 
 	pop es
 	; pop cx
-	call .sectorseg_helper
+	add sp, 10h
+	jmp .sectorseg_helper_then_done
 
 .lba_done:
 	add sp, 10h
@@ -706,8 +707,20 @@ read_sector:
 	jc .err
 
 	pop es
-	call .sectorseg_helper
 %endif		; _CHS
+
+.sectorseg_helper_then_done:
+	xor si, si
+	mov ds, word [bp + ldSectorSeg]
+	 push di
+	; mov di, cx
+	xor di, di
+	mov cx, word [bp + bsBPB + bpbBytesPerSector]
+	rep movsb
+	 pop di
+
+	push ss
+	pop ds
 
 .done:
 ; increment segment
@@ -779,19 +792,6 @@ error_diskaccess: equ $
 	retn
 %endif
 
-.sectorseg_helper:
-	xor si, si
-	mov ds, word [bp + ldSectorSeg]
-	 push di
-	; mov di, cx
-	xor di, di
-	mov cx, word [bp + bsBPB + bpbBytesPerSector]
-	rep movsb
-	 pop di
-
-	push ss
-	pop ds
-	retn
 
 error_shortfile:
 	call error
