@@ -981,11 +981,11 @@ skip_next_clust:
 	push ax
 	call clust_to_first_sector
 skip_next_sect:
-	push cx
-
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.3stack
+	jae loaded_all.2stack
+
+	push cx
 
 	mov cx, bx
 	add cx, [bp + ldParaPerSector]
@@ -1018,6 +1018,7 @@ loaded_all_if_ae:
 
 
 skipped_all:
+	pop cx
 	call read_sector
 		; we can depend on the fact that at least
 		;  up to end was already loaded, so this
@@ -1628,15 +1629,13 @@ end:
 
 load_next_clust_continue:
 load_next_sect:
-	push cx
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.3stack_j
+	jae loaded_all.2stack_j
 
 	call read_sector
 skipped_all_continue:
 	mov [bp + ldLoadingSeg], bx
-	pop cx
 	loop load_next_sect
 	pop ax
 	pop dx
@@ -1651,8 +1650,8 @@ skipped_all_continue:
 		; if we jump to here, then the whole file has
 		;  been loaded, so this jump doesn't have to
 		;  stay in the 32 bytes after the end label.
-loaded_all.3stack_j:
-	jmp loaded_all.3stack
+loaded_all.2stack_j:
+	jmp loaded_all.2stack
 
 
 ms7_entry.continue:
@@ -1693,8 +1692,7 @@ end2:
 		; This handling is in the second header part,
 		;  behind the needed part to finish loading.
 		;  It is only used when the file is completely loaded.
-loaded_all.3stack:
-	pop ax
+loaded_all.2stack:
 	pop ax
 	pop ax
 loaded_all:
