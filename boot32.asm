@@ -1733,8 +1733,8 @@ found_it:
 		; INP:	dx:ax = cluster (0-based)
 		;	si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
-		;	NC if next cluster found,
-		;	 dx:ax = next cluster value (0-based)
+		;	NC if next cluster found
+		;	dx:ax = next cluster value (0-based)
 		;	si:di = loaded FAT sector
 		; CHG:	cx, bx, es
 clust_next:
