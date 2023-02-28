@@ -978,9 +978,9 @@ finish_load:
 	jc short error_badchain_j
 
 skip_next_clust:
+	push dx
+	push ax
 	call clust_to_first_sector
-	push cx
-	push bx
 	mov cx, [bp + ldClusterSize]
 skip_next_sect:
 	push cx
@@ -1615,24 +1615,24 @@ init_memory:
 	jmp finish_continue
 
 
-%assign num 1024+512-4-($-$$)
+%assign num 1024+512-5-($-$$)
 %warning num bytes in front of end
-	_fill 1024+512-4,38,start
-		; -4 is for the following two instructions.
+	_fill 1024+512-5,38,start
+		; -5 is for the following three instructions.
 		;  they want execution to fall through to
 		;  load_next_clust_continue. placing them
 		;  at the very end of the 3 sectors allows
 		;  not to use a jump here.
 
 load_next_clust:
+	push dx
+	push ax
 	call clust_to_first_sector
-	push cx
 	align 16, nop
 	_fill 1024+512,90h,start	; check that we are at 3 sectors end
 end:
 
 load_next_clust_continue:
-	push bx
 	mov cx, [bp + ldClusterSize]
 load_next_sect:
 	push cx
