@@ -727,6 +727,12 @@ read_sector:
 	retn
 
 
+.err:
+error_diskaccess: equ $
+	call error
+	db "Disk read error.", 0
+
+
 %if (_LBA && _LBA_RETRY) || (_CHS && _CHS_RETRY)
 .int13_retry:
 	push ax
@@ -786,11 +792,6 @@ read_sector:
 	push ss
 	pop ds
 	retn
-
-.err:
-error_diskaccess:
-	call error
-	db "Disk read error.", 0
 
 error_shortfile:
 	call error
