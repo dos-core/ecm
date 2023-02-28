@@ -1249,6 +1249,7 @@ ldos_entry:
 		;
 		; Extension 2:
 		; word [ss:bp - 20] = signature "CL" if valid
+		; bp >= 20 + 256 if valid
 		; 256bytes [ss:bp - 20 - 256] = ASCIZ command line string
 
 	xor ax, ax
