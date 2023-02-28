@@ -1048,16 +1048,18 @@ relocator:
 		; OUT:	dx:ax = first sector of that cluster
 		; CHG:	bx, cx
 clust_to_first_sector:
+	mov cx, word [bp + ldClusterSize]
 	 push dx
-	mul word [bp + ldClusterSize]
+	mul cx
 	xchg bx, ax
-	xchg cx, dx
 	 pop ax
-	mul word [bp + ldClusterSize]
+	push dx
+	mul cx
 	test dx, dx
 	jnz short error_badchain_j
 	xchg dx, ax
-	add dx, cx
+	pop ax
+	add dx, ax
 .cy_error_badchain:
 	jc short error_badchain_j
 	xchg ax, bx
