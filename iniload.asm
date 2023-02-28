@@ -392,18 +392,19 @@ error:
 	int 16h
 	int 19h
 
-disp_error:
-.:
-	lodsb
-	test al, al
-	jz .ret
+
+disp_error.loop:
 	mov ah, 0Eh
 	mov bx, 7
 	; push bp
 		; (call may change bp, but it is not used here any longer.)
 	int 10h
 	; pop bp
-	jmp short .
+disp_error:
+	lodsb
+	test al, al
+	jnz .loop
+	retn
 
 
 query_geometry:
@@ -487,7 +488,6 @@ query_geometry:
 %endif
 
 %if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
-disp_error.ret:
 	retn
 %endif
 
