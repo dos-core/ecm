@@ -340,6 +340,13 @@ ms6_entry:
 d3	call d3_display_two_characters
 d3	test ax, "00"
 
+	mov cx, cs
+	cmp cx, 60h
+	jne @F
+.freedos_or_msdos1_com_entry:
+	jmp freedos_or_msdos1_com_entry
+@@:
+
 ;	test dx, dx
 ;	jnz @FF
 		; Actual DOS will always put a zero word on top of
@@ -353,13 +360,6 @@ d3	test ax, "00"
 	pop cx
 	cmp cx, @B + 100h
 	je .freedos_or_msdos1_com_entry
-@@:
-
-	mov cx, cs
-	cmp cx, 60h
-	jne @F
-.freedos_or_msdos1_com_entry:
-	jmp freedos_or_msdos1_com_entry
 @@:
 
 	xor cx, cx
