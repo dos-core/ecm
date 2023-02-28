@@ -704,10 +704,18 @@ read_sector:
 	int 13h
 %endif
 .err_CY_1:
-	jc .err
-
-	pop es
+	jnc .sectorseg_helper_es
 %endif		; _CHS
+.err:
+error_diskaccess: equ $
+	call error
+	db "Disk read error.", 0
+
+
+%if _CHS
+.sectorseg_helper_es:
+	pop es
+%endif
 
 .sectorseg_helper_then_done:
 	xor si, si
@@ -738,12 +746,6 @@ read_sector:
 	inc dx
 @@:
 	retn
-
-
-.err:
-error_diskaccess: equ $
-	call error
-	db "Disk read error.", 0
 
 
 %if (_LBA && _LBA_RETRY) || (_CHS && _CHS_RETRY)
