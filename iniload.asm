@@ -865,6 +865,8 @@ finish_continue:
 	jbe short finish_load
 
 	push ax
+	mov cx, word [bp + lsvLoadSeg]
+			; => after end of loaded data
 	neg ax
 	add ax, bx	; ax = cs - paras to move down
 	jnc short error_outofmemory_j1
@@ -894,7 +896,7 @@ relocator_size equ relocator.end - relocator
 	xor di, di	; -> where to relocate to
 	xor si, si	; ds:si = cs:0
 
-	mov cx, word [bp + lsvLoadSeg]
+			; cx => after end of loaded data
 	sub cx, bx	; length of currently loaded fragment
 	mov bx, 1000h
 	mov ax, cx
