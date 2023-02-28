@@ -171,6 +171,7 @@ Allows iniload to determine how much of it is already loaded.
 
 
 An LSV extension allows to pass a command line to the kernel.
+The base pointer must be at least \cq{114h} then.
 The stack pointer must be at most \cq{bp - 114h} then.
 This follows the structure like this:
 
