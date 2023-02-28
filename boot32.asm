@@ -1603,8 +1603,8 @@ next_load_cluster:
 		jbe @F		; read enough -->
 
 		loop @BB
-		pop bx
-		pop cx
+		pop ax
+		pop dx
 
 		call clust_next
 		jnc next_load_cluster
@@ -1666,8 +1666,8 @@ next_ent:
 	pop di
 	pop cx
 	loop next_root_sect
-	pop bx
-	pop cx
+	pop ax
+	pop dx
 	call clust_next
 	jnc next_root_clust
 file_not_found:
@@ -1730,7 +1730,7 @@ found_it:
 	retn
 
 
-		; INP:	cx:bx = cluster (0-based)
+		; INP:	dx:ax = cluster (0-based)
 		;	si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
 		;	NC if next cluster found,
@@ -1738,8 +1738,6 @@ found_it:
 		;	si:di = loaded FAT sector
 		; CHG:	cx, bx, es
 clust_next:
-	xchg ax, bx		; ax = low word cluster, clobbers bx
-	mov dx, cx
 	add ax, 2
 	adc dx, 0
 
