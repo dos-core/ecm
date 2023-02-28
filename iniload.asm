@@ -877,6 +877,7 @@ finish_continue:
 	push di		; dword on stack: relocate_to
 	cmp ax, 60h + 1
 	jb short error_outofmemory_j1
+	push ax		; word on stack => where to relocate to
 	dec ax		; one less to allow relocator
 	mov es, ax
 
@@ -888,7 +889,6 @@ finish_relocation:
 	push di		; dword on stack: relocator destination
 
 	mov ds, bx	; ds => unrelocated cs
-	inc ax		; ax => where to relocate to
 	mov si, relocator	; ds:si -> relocator
 relocator_size equ relocator.end - relocator
 %rep (relocator_size + 1) / 2
@@ -897,8 +897,7 @@ relocator_size equ relocator.end - relocator
 %if relocator_size > 16
  %error Relocator is too large
 %endif
-	mov es, ax
-	xor di, di	; -> where to relocate to
+	xor di, di	; word [ss:sp+4]:di -> where to relocate to
 	xor si, si	; ds:si = cs:0
 
 			; cx => after end of loaded data
@@ -1036,9 +1035,10 @@ error_badchain_j:
 
 
 		; ds => first chunk of to be relocated data
-		; es => first chunk of relocation destination
+		; word [ss:sp] => first chunk of relocation destination
 		; cx = number of words in first chunk
 relocator:
+	pop es		; => where to relocate to
 	rep movsw
 	retf		; jump to relocated relocate_to
 .end:
