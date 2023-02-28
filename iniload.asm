@@ -347,8 +347,9 @@ d3	test ax, "00"
 	jmp freedos_or_msdos1_com_entry
 @@:
 
-;	test dx, dx
-;	jnz @FF
+;	xor cx, cx
+;;	test dx, dx
+;;	jnz @FF
 		; Actual DOS will always put a zero word on top of
 		;  the stack. But when the debugger loads us as
 		;  a flat format binary it may set up another
@@ -358,11 +359,10 @@ d3	test ax, "00"
 	call @F
 @@:
 	pop cx
-	cmp cx, @B + 100h
-	je .freedos_or_msdos1_com_entry
+	sub cx, @B	; cx == 0 iff entered at offset 0
+	jne .freedos_or_msdos1_com_entry
 @@:
-
-	xor cx, cx
+			; cx = 0
 
 		; Note: It has been observed that some IBMBIO.COM / IO.SYS
 		;	 boot sector loaders pass the int 1Eh address on the
