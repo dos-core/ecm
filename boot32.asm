@@ -1476,9 +1476,9 @@ fsiboot:
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
-	xor ax, ax
 	mov al, [VAR(sectors_per_cluster)]
-	dec al
+	dec ax
+	mov ah, 0
 	inc ax
 	push ax			; push into word [VAR(adj_sectors_per_cluster)]
 	dec ax				; ! ah = 0
