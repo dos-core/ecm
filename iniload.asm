@@ -863,6 +863,9 @@ msg:
 
 
 finish_continue:
+	mov bx, cs
+	add ax, bx	; = cs + rounded up length
+	sub ax, word [bp + ldLoadTop]	; = paras to move down
 	jbe short finish_load
 
 	mov cx, word [bp + lsvLoadSeg]
@@ -1601,9 +1604,6 @@ init_memory:
 	and ax, bx	; rounded up,
 		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 
-	mov bx, cs
-	add ax, bx	; = cs + rounded up length
-	sub ax, word [bp + ldLoadTop]	; = paras to move down
 	jmp finish_continue
 
 
