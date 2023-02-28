@@ -718,6 +718,7 @@ read_sector:
 	pop ax
 	pop cx
 	pop dx
+.increment_sector_number:
 ; increment LBA sector number
 	inc ax
 	jne @F
@@ -989,10 +990,9 @@ skip_next_sect:
 				; bx += paras per sector
 	cmp bx, [bp + lsvLoadSeg]
 	ja skipped_all
-	inc ax			; emulate read_sector:
-	jnz @F
-	inc dx			; dx:ax += 1
-@@:
+				; emulate read_sector:
+	call read_sector.increment_sector_number
+				; dx:ax += 1
 	mov [bp + ldLoadingSeg], bx
 
 	loop skip_next_sect
