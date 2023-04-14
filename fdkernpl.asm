@@ -132,25 +132,39 @@ realpayload:
 stackrelocate:
 
 	mov ax, 60h + payload_size_p
+	cli
+	mov ss, ax
+	lea sp, [bp + ldCommandLine]	; -> behind unused memory
+	sti
+		; Even if the ldLoadTop => right behind our image
+		;  and we started with cs = 60h, the relocated ss:sp
+		;  here will never point at a higher linear than our
+		;  ss:sp before this. So it cannot corrupt the LD or
+		;  LSV or BPB structures on that stack.
+		; (The new stack never underflows because the iniload
+		;  to payload protocol always passes a stack that is
+		;  set up sensibly with 256 <= sp and further sp <=
+		;  bp + ldCommandLine, thus bp >= 256 + 256 + 32.)
+		; Other buffers like the sector seg and FAT buffer
+		;  may be below the stack and thus may be corrupted
+		;  by this relocation but we do not use those nor
+		;  do we pass them to the next stage (our payload).
+		; So it is perfectly safe to temporarily relocate
+		;  the stack this way here. It solves the (remote)
+		;  possibility of the old stack corrupting the newly
+		;  relocated data structures as was possible prior.
+		;  Unlike the prior changeset there is no longer an
+		;  error condition that has us abort loading.
+
 	mov es, ax
 	xor di, di
 	xor si, si
 	lea cx, [ bp + 512 ]
-	mov bx, cx
-	add bx, 15			; -> past new stack/BPB
-	jc .error			; shouldn't happen
-	shr bx, 1
-	shr bx, 1
-	shr bx, 1
-	shr bx, 1
-	add bx, ax			; => past new stack
-	cmp bx, word [bp + ldLoadTop]	; below or equal usable memory ?
-	ja .error			; no, overlap of stacks possible -->
 	rep movsb
 	mov ds, ax
 	mov si, bp
 	xor di, di
-	cmp word [ds:bp + ldCommandLine], 0FF00h
+	cmp word [bp + ldCommandLine], 0FF00h
 	je @F
 	lea si, [bp + ldCommandLine + lsvclBufferLength - 2]
 	lea di, [bp + lsvCommandLine.start + lsvclBufferLength - 2]
@@ -164,9 +178,7 @@ stackrelocate:
 	lea si, [bp + lsvCommandLine.start]
 	mov di, lsvclSignature
 @@:
-	cli
-	mov ss, ax
-	mov sp, si
+	mov sp, si			; relocate just sp, ss already set
 	mov word [bp + lsvCommandLine.signature], di
 		; Note that this access uses the new ss.
 		; Also note: If no command line is passed,
@@ -177,29 +189,8 @@ stackrelocate:
 		; It hardens the next load stage against
 		;  accidentally expecting a command line if
 		;  it does not check the offsets properly.
-	sti
 
-	mov bl, dl
 	jmp 60h:0
-
-
-.error:
-	mov si, .errormessage
-	mov ah, 0Eh
-	mov bx, 7
-	db __TEST_IMM16
-@@:
-	int 10h
-	cs lodsb
-	test al, al
-	jnz @B
-	xor ax, ax
-	int 16h
-	int 19h
-
-.errormessage:
-	db "fdkernpl stage load error!",13,10
-	asciz "Press any key to retry boot.",13,10
 
 
 	align 16
@@ -260,6 +251,7 @@ relocate:
 			; ax = 0
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+	mov bl, dl
 
 	 push ss
 	 pop ds
