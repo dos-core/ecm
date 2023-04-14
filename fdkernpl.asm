@@ -136,6 +136,16 @@ stackrelocate:
 	xor di, di
 	xor si, si
 	lea cx, [ bp + 512 ]
+	mov bx, cx
+	add bx, 15			; -> past new stack/BPB
+	jc .error			; shouldn't happen
+	shr bx, 1
+	shr bx, 1
+	shr bx, 1
+	shr bx, 1
+	add bx, ax			; => past new stack
+	cmp bx, word [bp + ldLoadTop]	; below or equal usable memory ?
+	ja .error			; no, overlap of stacks possible -->
 	rep movsb
 	mov ds, ax
 	mov si, bp
@@ -169,7 +179,28 @@ stackrelocate:
 		;  it does not check the offsets properly.
 	sti
 
+	mov bl, dl
 	jmp 60h:0
+
+
+.error:
+	mov si, .errormessage
+	mov ah, 0Eh
+	mov bx, 7
+	db __TEST_IMM16
+@@:
+	int 10h
+	cs lodsb
+	test al, al
+	jnz @B
+	xor ax, ax
+	int 16h
+	int 19h
+
+.errormessage:
+	db "fdkernpl stage load error!",13,10
+	asciz "Press any key to retry boot.",13,10
+
 
 	align 16
 	endarea stackrelocate
@@ -229,7 +260,6 @@ relocate:
 			; ax = 0
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
-	mov bl, dl
 
 	 push ss
 	 pop ds
