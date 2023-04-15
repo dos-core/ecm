@@ -326,6 +326,21 @@ by the numeric define \cw{_EXEC_SEGMENT} (default 0),
 and the offset by the define \cw{_EXEC_OFFSET} (default 0).
 
 
+\S{protocol-iniload-payload-stack} Stack
+
+The stack must allocate at least 256 bytes of space below \cw{ss:sp}.
+This space must not underflow, ie \cw{sp} is at least 256 (100h).
+\cw{sp} should not be higher than 8192 (2000h).
+\cw{bp} is typically equal to \cw{sp + 120h}.
+\cw{bp} must be below or equal 7000h.
+The stack starting at \cw{ss:0} up to below \cw{ss:bp + 21Ch}
+should be in the area between the paragraphs indicated by
+the load top lower limit and memory top upper limit.
+(Refer to LOADDATA fields ldLoadTop and ldMemoryTop.)
+Subsequent stages like inicomp, fdkernpl, nullpl, and
+kernels like lDebug and testpl may depend on these characteristics.
+
+
 \S{protocol-iniload-payload-ebpb} Extended BIO Parameter Block (EBPB)
 
 Above the LSV, \cw{ss:bp} points to an EBPB and surrrounding boot sector.
