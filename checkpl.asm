@@ -1,7 +1,7 @@
 
 %if 0
 
-Loader adjustment to load next kernel (do nothing)
+Loader adjustment to checksum and load next kernel
  by C. Masloch, 2023
 
 Usage of the works is permitted provided that this
@@ -96,6 +96,8 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
   %error Device name must be set
  %endif
 %endif
+
+%include "inicheck.mac"
 
 
 	struc LOADSTACKVARS, -10h
@@ -336,8 +338,51 @@ relocate:
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
 
 	pop ax			; => image start
+
+	push ax
+	push bp
+	push bx
+
+	mov bp, ax
+
+	mov si, checksumheader
+	mov cx, CHECKSUMHEADER_size / 2
+	xor bx, bx
+@@:
+	cmp si, ..@checksumfield_relocate_cs
+	 cs lodsw
+	jne @F
+	 xor ax, ax
+@@:
+	add bx, ax
+	loop @BB
+
+	test bx, bx
+	jnz error_header_checksum_failed
+
+	testopt [cs:..@checksumtype_relocate_cs], 8000h
+	jnz @F
+
+	add bp, paras(entry_size + payload_third - payload_start)
+	lea di, [bp + \
+		(paras(payload_third_size + \
+		payload_second_size + \
+		checksumheader - relocate) & 0F000h)]
+	call checksum_crc16_6_paragraphs_start_bp_skip_di
+	int3
+
+	cmp ax, word [cs:..@checksumfield_relocate_cs]
+	jne error_data_checksum_failed
+..@data_checksum_ignore_failure_debugger:
+@@:
+
+	pop bx
+	pop bp
+	pop ax
+
 	mov es, ax
 	mov ds, ax
+
 	push ax
 %if ! (_DEVICE || _IMAGE_EXE) && _EXEC_OFFSET == 0 && _EXEC_SEGMENT == 0
 	push bx			; -> image start
@@ -399,7 +444,8 @@ relocate:
 .exe_error:
 	push cs
 	pop ds
-	mov si, msg.error
+	mov dx, bx
+	mov si, msg.stackerror
 	call disp_error
 
 	mov ax, 4C7Fh
@@ -452,24 +498,154 @@ relocate:
 %endif
 	retf
 
+%endif
 
-%if _IMAGE_EXE && ! _IMAGE_EXE_AUTO_STACK
+
+%if 1 || _IMAGE_EXE && ! _IMAGE_EXE_AUTO_STACK
 disp_error.loop:
 	push ax
+	push bx
+	push bp
+	mov ah, 0Eh
+	mov bx, 7
+%if _IMAGE_EXE || _DEVICE
 	push dx
+
+	test dl, 1 | 2
+	jz .display_kernel_mode
+
 	xchg dx, ax				; dl = input al
 	mov ah, 02h
 	int 21h
+	db __TEST_IMM16				; (skip int)
+
+.display_kernel_mode:
+%endif
+	int 10h
+%if _IMAGE_EXE
 	pop dx
+%endif
+	pop bp
+	pop bx
 	pop ax
 disp_error:
 	lodsb
 	test al, al
 	jnz .loop
 	retn
+%endif
 
+%if _IMAGE_EXE && ! _IMAGE_EXE_AUTO_STACK
 msg:
-.error:		db "Load error: Out of stack memory.",13,10,0
+.stackerror:
+		db "Load error: Out of stack memory.",13,10,0
 %endif
 
+error_header_checksum_failed:
+	call error
+	db "Header checksum failed.", 0
+
+error_data_checksum_failed:
+	stc
+	int3
+	jnc ..@data_checksum_ignore_failure_debugger
+	call error
+	db "Data checksum failed.", 0
+
+msg.error:	db "Load error: ", 0
+
+
+error:
+	push cs
+	pop ds
+	pop si			; -> specific error message
+	pop dx
+	push dx			; get mode in dx
+	push si			; stack -> error message
+	mov si, msg.error
+	call disp_error		; display prefix
+	pop si
+	call disp_error		; display ours
+
+	pop bx			; = mode
+	pop bp
+	pop ax
+
+%if _DEVICE
+	test bl, 2
+	jz .exit_app_or_kernel
+
+	pop si				; => device segment
+	pop ax				; original ax
+
+	pop es
+	pop bx
+	mov word [es:bx + 3], 8103h	; set error, done, invalid command
+	mov byte [es:bx + 13], 0	; set number of units = 0
+	mov word [es:bx + 14 + 2], si
+	and word [es:bx + 14], 0	; -> after end of memory to allocate
+	pop ax
+	pop cx
+	pop dx
+	pop di
+	pop si
+	pop ds
+	pop bp
+	add sp, 4		; discard far return to payload's strategy
+	retf			; return to DOS
+
+
+.exit_app_or_kernel:
 %endif
+
+%if _IMAGE_EXE
+	test bl, 1
+	jz .exit_kernel_mode
+
+	mov ax, 4C7Fh
+	int 21h
+
+.exit_kernel_mode:
+%endif
+	xor ax, ax
+	int 16h
+	int 19h
+
+
+CHECKSUM_SIZE_P equ paras(payload_third_size + payload_second_size + relocate_size)
+
+	overridedef BP_DI_INPUT, 1
+	overridedef STANDALONE, 0
+ %include "inicheck.asm"
+	resetdef
+	resetdef
+
+	align 16
+checksumheader:
+	istruc CHECKSUMHEADER
+at cshSignature,		dw "CS"
+at cshLengthBytesStructure,	dw CHECKSUMHEADER_size
+at cshOffsetStructure,		dw paras(checksumheader - $$ + 0 + \
+					payload_third_size + \
+					payload_second_size)
+at cshChecksumStructure,	dw \
+	10000h-(("CS" + CHECKSUMHEADER_size \
+		+  paras(checksumheader - $$ + 0 + \
+					payload_third_size + \
+					payload_second_size) \
+		 + 8106h + CHECKSUM_SIZE_P \
+		 + 0 + 0) & 0FFFFh)
+at cshTypeChecksum
+..@checksumtype_relocate_cs:	dw 8106h
+at cshAmountParagraphsData,	dw CHECKSUM_SIZE_P
+at cshChecksumData
+..@checksumfield equ ($ - relocate + \
+		payload_third_size + \
+		payload_second_size \
+		) & 0FFFFh
+..@checksumfield_relocate_cs:	dw 0
+at cshReserved,			dw 0
+	iend
+
+	align 16
+	endarea relocate
