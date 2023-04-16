@@ -18,6 +18,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 	defaulting
 
+	numdef BP_DI_INPUT, 0
 	numdef STANDALONE, 1
 
 
@@ -74,7 +75,15 @@ start:
 	testopt [..@checksumtype], 8000h
 	jnz @F
 
+%if _BP_DI_INPUT
+	push bp
+	mov bp, cs
+	mov di, cs
+	call checksum_crc16_6_paragraphs_start_bp_skip_di
+	pop bp
+%else
 	call checksum_crc16_6_paragraphs_start_cs
+%endif
 
 	push cs
 	pop ds
@@ -242,10 +251,21 @@ at cshReserved,			dw 0
 %endif
 
 
+%if _BP_DI_INPUT
+		; INP:	bp => image to checksum
+		;	CHECKSUM_SIZE_P = how many paragraphs to checksum
+		;	di => 64 KiB chunk with checksum header
+		; OUT:	ax = checksum
+		; CHG:	si, ax, bx, cx, dx, bp, ds
+		; REM:	word at di:..@checksumfield is replaced by zero
+checksum_crc16_6_paragraphs_start_bp_skip_di:
+.:
+%else
 checksum_crc16_6_paragraphs_start_cs:
 .:
 	push bp
 	mov bp, cs
+%endif
 	mov cx, CHECKSUM_SIZE_P
 	mov bx, 1D0Fh
 %if 0
@@ -275,8 +295,12 @@ checksum_crc16_6_paragraphs_start_cs:
 @@:
 
 .loop_word:
+%if _BP_DI_INPUT
+	cmp di, bp
+%else
 	mov ax, cs
 	cmp ax, bp			; cs (first segment) ?
+%endif
 	jne @F				; no --> (NZ)
 	cmp si, ..@checksumfield	; checksum field ?
 @@:		; if NZ: lodsw, if ZR: lodsw then xor ax, ax
@@ -302,7 +326,9 @@ checksum_crc16_6_paragraphs_start_cs:
 
 .end:
 	xchg ax, bx
+%ifn _BP_DI_INPUT
 	pop bp
+%endif
 	retn
 
 
