@@ -83,6 +83,7 @@ ldLoadUntilSeg:	resw 1
 	gendef DEVICE_NAME,		""
 	numdef DEVICE_ATTRIBUTE,	8000h
 	numdef DEVICE_ZERO_ENTRYPOINT,	0
+	numdef BOOTLDR,		1	; support boot loaded entrypoint
 
 	numdef BRIEFLZ,		0
 	numdef LZ4,		0
@@ -196,6 +197,7 @@ init0_kernel_entry:
 	hlt
 	jmp @B
 %endif
+%if _BOOTLDR
 %if ! _IMAGE_EXE
 j_zero_entrypoint:
 %endif
@@ -206,6 +208,7 @@ j_zero_entrypoint:
 	mov dx, word [ bp + ldLoadTop ]	; => after end of available space
 	mov si, 60h		; => destination
 	jmp init0_common
+%endif
 
  %if _IMAGE_EXE
 	align 64, nop
@@ -862,17 +865,21 @@ error:
 %endif
 
 %if _IMAGE_EXE
+%if _BOOTLDR
 	test byte [bp - 2], 1
 	jz .exit_kernel_mode
+%endif
 
 	mov ax, 4C7Fh
 	int 21h
 
 .exit_kernel_mode:
 %endif
+%if _BOOTLDR
 	xor ax, ax
 	int 16h
 	int 19h
+%endif
 
 
 %if _DEVICE
@@ -941,29 +948,39 @@ disp_al:
 %else
 	push ax
 %endif
+%if _BOOTLDR
 	push bx
 	push bp
 	mov ah, 0Eh
 	mov bx, 7
+%endif
 %if _IMAGE_EXE || _DEVICE
 	push dx
 
+%if _BOOTLDR
 	test byte [bp - 2], 1 | 2
 	jz .display_kernel_mode
+%endif
 
 	xchg dx, ax				; dl = input al
 	mov ah, 02h
 	int 21h
+%if _BOOTLDR
 	db __TEST_IMM16				; (skip int)
+%endif
 
 .display_kernel_mode:
 %endif
+%if _BOOTLDR
 	int 10h
+%endif
 %if _IMAGE_EXE
 	pop dx
 %endif
+%if _BOOTLDR
 	pop bp
 	pop bx
+%endif
 	pop ax
 disp_error.ret:
 	retn
