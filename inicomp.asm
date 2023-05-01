@@ -77,6 +77,8 @@ ldLoadUntilSeg:	resw 1
 		;  the same name. This one is only used as a flag; if non-zero,
 		;  keep the stack given to us by iniload; if zero, set up the
 		;  stack specified by _IMAGE_EXE_SS and _IMAGE_EXE_SP.
+	numdef IMAGE_EXE_GET_COM_STACK, 0
+					; set up stack for flat .COM style entry
 	numdef DEVICE,			0
 	gendef DEVICE_NAME,		""
 	numdef DEVICE_ATTRIBUTE,	8000h
@@ -212,6 +214,17 @@ init0_exe_entry:
 		; NOTE:	This part is called with ip = 256 + 64, cs = PSP.
 %if ($ - $$) != 64
  %error Wrong EXE mode entrypoint
+%endif
+%if _IMAGE_EXE_GET_COM_STACK
+	mov bx, ds		; => PSP
+	dec bx			; => MCB
+	mov ds, bx
+	add bx, word [3]	; add size of memory block
+	sub bx, -1 + paras(512)	; add one, then subtract enough paragraphs
+	cli
+	mov ss, bx
+	mov sp, 512		; -> new stack
+	sti
 %endif
 	mov bx, 1		; EXE mode
 	push ax
