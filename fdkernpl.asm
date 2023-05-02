@@ -202,26 +202,15 @@ payload_size equ realpayload_size + stackrelocate_size
 
 	addsection RELOCATE, follows=STACKRELOCATE vstart=0
 relocate:
-	mov bx, 1000h
+	mov bx, 1000h	; = 1000h (paragraphs per 64 KiB)
 	mov ax, 60h
-	mov es, ax
-	mov cx, payload_size_p
-	mov ax, cs
-	sub ax, cx
-	mov ds, ax
-	xor si, si
-	xor di, di
-
-	mov ax, cx
-	cmp ax, bx
-	jbe @F
-	mov cx, bx
-@@:
-	sub ax, cx
-	shl cx, 1
-	shl cx, 1
-	shl cx, 1
-	rep movsw
+	mov es, ax	; => destination start
+	mov ax, payload_size_p
+			; ax = how many paragraphs to move
+	mov cx, cs
+	sub cx, ax
+	mov ds, cx	; => source start (is >= destination)
+	jmp .first
 
 @@:
 	mov dx, es
@@ -232,6 +221,7 @@ relocate:
 	add dx, bx
 	mov ds, dx	; next segment
 
+.first:
 	sub ax, bx	; = how much to relocate after this round
 	mov cx, 1000h << 3	; in case another full 64 KiB to relocate
 	jae @F		; another full 64 KiB to relocate -->
