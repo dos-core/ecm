@@ -472,3 +472,107 @@ Currently lDebug can pass a command line to iniload when
 loading with its lDOS, RxDOS.2, RxDOS.3, or FreeDOS protocols.
 When iniload is loaded as a Multiboot1 or Multiboot2 specification kernel,
 it is also assumed that a command line can be passed.
+
+
+\H{protocol-exemode} Application mode protocol
+
+An iniload payload can be loadable as a DOS application.
+In this case the iniload MZ executable header will point to the payload.
+The _IMAGE_EXE define to iniload will indicate support for this
+if it is enabled.
+
+The entire payload will be loaded as a program image
+just behind the PSP.
+The entrypoint is determined by the _IMAGE_EXE_CS and _IMAGE_EXE_IP
+defines. These default to a -16:256 + 64 entrypoint.
+Minus 16 means the code segment will be equal to the PSP,
+just like for flat .COM style executables.
+The 256 in the instruction pointer calculation skips past the PSP.
+Thus, the default _IMAGE_EXE_IP will enter the payload
+at offset 64 counting within the payload.
+
+Likewise _IMAGE_EXE_SS and _IMAGE_EXE_SP specify the initial stack.
+They default to -16:0FFFEh, mimicking flat .COM style load somewhat.
+(However, iniload doesn't get a chance to push a zero word
+onto this stack before the first payload is run.
+Adding a nullpl, checkpl, or inicomp stage can be used to provide this.)
+
+_IMAGE_EXE_AUTO_STACK defaults to zero. If it is nonzero it
+indicates to use the automatic stack placement.
+Its value, which defaults to 2048 if defined as empty,
+determines how large the stack should be (at least).
+The explicit _IMAGE_EXE_SS and _IMAGE_EXE_SP are ignored
+if the automatic stack placement is enabled.
+The automatic stack is placed into its own segment,
+stretching from ss:0 to ss:sp.
+The stack pointer will match the value of _IMAGE_EXE_AUTO_STACK.
+
+_IMAGE_EXE_MIN indicates how much memory to allocate to the process
+at least. It defaults to 65536 (64 KiB).
+It is actually used in the _IMAGE_EXE_MIN_CALC define
+to calculate the minimum allocation value.
+_IMAGE_EXE_MIN_CALC is not a numdef, but can be overridden from
+the assembler command line. This is the default content of this define:
+
+\c %define _IMAGE_EXE_MIN_CALC \
+\c		(((_IMAGE_EXE_MIN \
+\c		- (payload.actual_end - payload) \
+\c		- 256 \
+\c		+ _IMAGE_EXE_AUTO_STACK) + 15) & ~15)
+
+_IMAGE_EXE_MAX is a define that defaults to 0FFFFh.
+If it is nonzero it is used directly as the maximum allocation value.
+0FFFFh indicates to allocate the largest memory block to the process,
+just like for flat .COM style load.
+If it is zero, then the maximum allocation field is set to equal
+the minimum allocation field.
+
+Most of the stages of iniload payloads can pass through
+the execution control flow from being loaded as a payload
+to hand off to their payload.
+This includes the nullpl, checkpl, and inicomp stages.
+Each stage must be configured appropriately,
+enabling the _IMAGE_EXE define and setting up
+the other defines appropriately.
+These three stages expect -16:256 + 64 or -16:256 entrypoints
+as input for application mode, but their output entrypoints
+can be configured using the defines listed above.
+
+The registers ds, es, and ax are passed through from iniload,
+nullpl, checkpl, or inicomp to each one's payload.
+The two segment registers will point to the PSP.
+The ax register contains information on the validity
+of the drives of the two default FCBs.
+
+The iniload MZ executable header's relocation table
+is currently always empty.
+The application has to implement relocations by itself.
+
+_SECOND_PAYLOAD_EXE allows to include a different payload
+that is to be used as the application mode program image.
+In this case the main iniload payload (_PAYLOAD_FILE) is
+used only for boot loaded mode.
+A different file can be specified with _SECOND_PAYLOAD_FILE.
+Each _IMAGE_EXE_* define has an equivalent define named
+according to the _SECOND_PAYLOAD_EXE_* scheme.
+
+
+\H{protocol-devicemode} Device mode protocol
+
+The device mode load of the payload
+shares its program image with the application mode.
+The very beginning of the image must contain a device header.
+(The first device header, if more than one exist.)
+
+The inicomp, nullpl, and checkpl stages expect certain offsets
+for the entrypoints: 18 for the strategy, and 22 for the interrupt.
+Each passthrough stage must be configured with the appropriate
+device name and device attributes contents, and with
+the _DEVICE define enabled.
+(These defines are not needed for iniload.
+However, _IMAGE_EXE is required.)
+
+The inicomp stage uses the request header's break address
+as passed by DOS to determine how much memory is available to
+the depacker.
+This requires MS-DOS version 5 compatibility.
