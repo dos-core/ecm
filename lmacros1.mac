@@ -610,7 +610,7 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
 
 	%imacro resetdef 0-1.nolist
 %ifnctx OVERRIDE
- %error Wrong context
+ %fatal Wrong context
 %endif
 %if %0
  %ifnidn %1, %$name
