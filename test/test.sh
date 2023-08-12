@@ -88,7 +88,7 @@ then
     # Discussed here: https://github.com/dosemu2/dosemu2/discussions/1456
     driveslist="$("$DOSEMU" -dumb -quiet -E lredir -te 2> /dev/null < /dev/null |
       sed -re '/^about to execute|^current drive redirections/Id' )"
-    dosemu_drives="$(echo -n "$driveslist" | wc -l)"
+    dosemu_drives="$(echo "$driveslist" | wc -l)"
     for checkdrivenumber in $(seq 0 "$((dosemu_drives - 1))")
     do
       driveletter="${driveletters[checkdrivenumber]}"
