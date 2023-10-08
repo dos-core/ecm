@@ -96,12 +96,16 @@ Intended for 86 Mode programs.
 %idefine xoropt _opt ,xor,
 
 
-	%imacro addsection 1-2.nolist
+	%imacro addsection 1-3.nolist
 %ifdef _SECTION_ADDED_%1
  %error Section %1 already added
 %endif
 	section %1 %2
 %define _SECTION_ADDED_%1 1
+%xdefine SECTION_TYPE_%1 %1
+%ifnempty %3
+ %xdefine SECTION_TYPE_%1 %3
+%endif
 	usesection %1
 	%endmacro
 
@@ -111,9 +115,11 @@ Intended for 86 Mode programs.
 %endif
 %if %2
 %define _CURRENT_SECTION
+%define _CURRENT_SECTION_TYPE
 	[section %1]
 %else
 %xdefine _CURRENT_SECTION %1
+%xdefine _CURRENT_SECTION_TYPE SECTION_TYPE_%1
 	section %1
 %endif
 	%endmacro
