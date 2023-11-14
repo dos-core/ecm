@@ -2,7 +2,7 @@
 %if 0
 
 Loader test payload
- by C. Masloch, 2017
+ by E. C. Masloch, 2017
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

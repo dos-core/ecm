@@ -2,7 +2,7 @@
 %if 0
 
 Multiboot header and loader
- 2008--2019 by C. Masloch
+ 2008--2019 by E. C. Masloch
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

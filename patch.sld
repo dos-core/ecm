@@ -1,7 +1,7 @@
 @goto :help
 
 Patch iniload script
- by C. Masloch, 2021
+ by E. C. Masloch, 2021
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

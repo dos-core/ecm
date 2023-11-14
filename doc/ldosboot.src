@@ -26,11 +26,11 @@
 \cfg{winhelp-filename}{ldosboot.hlp}
 
 \cfg{man-filename}{ldosboot.7}
-\cfg{man-identity}{ldosboot}{7}{2020}{}{C. Masloch}
+\cfg{man-identity}{ldosboot}{7}{2020}{}{E. C. Masloch}
 
 \title lDOS boot documentation
 
-\copyright 2020 by C. Masloch.
+\copyright 2020 by E. C. Masloch.
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
 that uses the works is notified of this instrument.

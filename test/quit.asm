@@ -2,7 +2,7 @@
 %if 0
 
 Shut down machine
- by C. Masloch, 2020
+ by E. C. Masloch, 2020
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

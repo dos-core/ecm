@@ -2,7 +2,7 @@
 %if 0
 
 Loader adjustment to load next kernel (do nothing)
- by C. Masloch, 2023
+ by E. C. Masloch, 2023
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

@@ -2,7 +2,7 @@
 %if 0
 
 FreeDOS kernel executable MZ header shim
- by C. Masloch, 2022
+ by E. C. Masloch, 2022
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
