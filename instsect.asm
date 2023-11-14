@@ -1,7 +1,7 @@
 
 %if 0
 
-instsect.asm - install boot sectors. 2018 by C. Masloch
+instsect.asm - install boot sectors. 2018 by E. C. Masloch
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
@@ -4519,7 +4519,7 @@ packet:	dd 0		; sector number
 
 
 msg:
-.help:	db "INSTSECT: Install boot sectors. 2018 by C. Masloch",13,10
+.help:	db "INSTSECT: Install boot sectors. 2018 by E. C. Masloch",13,10
 	db 13,10
 	db "Usage of the works is permitted provided that this",13,10
 	db "instrument is retained with the works, so that any entity",13,10
