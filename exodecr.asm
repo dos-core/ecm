@@ -2,7 +2,7 @@
 %if 0
 
 8086 Assembly lDOS iniload payload exomizer raw depacker
- by C. Masloch, 2020
+ by E. C. Masloch, 2020
 
 Copyright (c) 2005-2017 Magnus Lind.
 

@@ -2,7 +2,7 @@
 %if 0
 
 lDOS iniload packed payload
- by C. Masloch, 2018-2020
+ by E. C. Masloch, 2018-2020
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

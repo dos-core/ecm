@@ -1,6 +1,6 @@
 
 ; 8086 Assembly lDOS iniload payload aPLib depacker
-;  by C. Masloch, 2021
+;  by E. C. Masloch, 2021
 ;
 ;  based on:
 ;  aplib_8088_small.S - size-optimized aPLib decompressor for 8088 - 145 bytes

@@ -2,7 +2,7 @@
 %if 0
 
 8086 Assembly lDOS iniload payload bzpack depacker
- by C. Masloch, 2021
+ by E. C. Masloch, 2021
 
 BSD 2-Clause License
 
