@@ -14,6 +14,18 @@ Intended for 86 Mode programs.
  %error Unary operator ! returns values > 1. Adjust all sources.
 %endif
 
+
+	; These warnings were added in NASM 2.16.02. They are
+	;  useful, as here, to detect undesired relocations.
+	; Refer to the report that added these warnings [1]
+	;  and the report desiring an "int label" warning [2].
+	;
+	; [1]: https://bugzilla.nasm.us/show_bug.cgi?id=3392571
+	; [2]: https://bugzilla.nasm.us/show_bug.cgi?id=3392678
+[warning +reloc-abs-byte]
+[warning +error=reloc-abs-byte]
+
+
 %idefine by byte
 %idefine wo word
 %idefine dwo dword
