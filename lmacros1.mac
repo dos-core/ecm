@@ -81,16 +81,30 @@ Intended for 86 Mode programs.
 		; %1 = number to write
 		; %2 = minimal number of digits, 0..5. defaults to 1
 		;	(setting it to 0 with a number of 0 writes nothing)
-%macro _autodigits 1-2.nolist 1
+		; %3 = true (nonzero) to insert a separator for group width 3
+		;	(default false)
+%macro _autodigits 1-3.nolist 1, 0
 %if %2 > 5
  %error Minimal number of digits 6 or more: %2
 %endif
 %if (%1) >= 100000
  %error Number has to use 6 or more digits: %1
 %elif (%1) >= 10000 || %2 == 5
+ %if %3
+	db _2digits(%1 / 1000)
+	db '_'
+	db _3digits(%1 % 1000)
+ %else
 	db _5digits(%1)
+ %endif
 %elif (%1) >= 1000 || %2 == 4
+ %if %3
+	db _1digits(%1 / 1000)
+	db '_'
+	db _3digits(%1 % 1000)
+ %else
 	db _4digits(%1)
+ %endif
 %elif (%1) >= 100 || %2 == 3
 	db _3digits(%1)
 %elif (%1) >= 10 || %2 == 2
