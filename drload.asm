@@ -257,7 +257,8 @@ init_memory:
 	cmp cx, dx
 	jnb @F
 .error_outofmemory:
-	jmp error_outofmemory
+	call error
+	db "Out of memory.", 0
 @@:
 
 	mov dx, ss
@@ -457,10 +458,6 @@ query_geometry:
   %endif
  %endif
 
-
-error_outofmemory:
-	call error
-	db "Out of memory.", 0
 
 msg:
 .error:	db "Load error: ", 0
