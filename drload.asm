@@ -165,7 +165,57 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	cpu 8086
 	org 0
 start:
-	jmp freedos_entry
+freedos_entry:
+		; This is the FreeDOS compatible entry point.
+		;  Supports FAT32 too.
+		; cs:ip = 60h:0
+		; whole load file loaded
+		; first cluster of load file: not given!
+		; first data sector: not given!
+		; int 1Eh not modified, original address: not given!
+		; bl = load unit (not used by us)
+		; ss:bp -> boot sector with (E)BPB,
+		;	    load unit field set, hidden sectors set
+		;  (usually at 1FE0h:7C00h)
+		; NEW: word [ss:bp - 14h] = "CL" to indicate command line
+		;	then ss:bp - 114h -> 256 byte ASCIZ string
+
+	lea bx, [bp + lsvCommandLine.start]
+				; ss:bx -> command line buffer, if any
+	cmp bp, - lsvCommandLine.start
+				; enough data below bp to hold buffer ?
+	jb @F			; no -->
+	cmp sp, bx		; sp below-or-equal would-be buffer ?
+	jbe .canbevalid		; yes, can be valid --> (and word access valid)
+@@:
+	cmp bp, - lsvCommandLine.signature
+				; enough data below bp to hold our lsv ?
+	jae @F			; yes -->
+	test bp, 1		; valid to access even-aligned words ?
+	jnz .error		; maybe not -->
+@@:
+	and word [bp + lsvCommandLine.signature], 0
+				; invalidate signature
+.canbevalid:
+	cmp word [bp + lsvCommandLine.signature], "CL"
+				; valid signature ?
+	je @F			; yes, keep bx pointing at buffer
+
+	lea bx, [bp + lsvCommandLine.signature]
+				; no, ss:bx -> lsv with signature
+@@:
+	cmp sp, bx		; sp below-or-equal needed stack frame ?
+	jbe @F			; yes -->
+	and bl, ~1		; make even-aligned stack (rounding down)
+	mov sp, bx		; change sp
+@@:
+
+	jmp ms7_entry.continue2
+
+
+.error:
+	call error
+	asciz "Invalid base pointer in FreeDOS entrypoint."
 
 
 error:
@@ -430,59 +480,6 @@ loaded_all:
 		; LOADCMDLINE set (ASCIZ, up to 255 bytes + 1 byte terminator)
 		; word [ldCommandLine.start] = 0FF00h if had invalid signature
 	retf
-
-
-freedos_entry:
-		; This is the FreeDOS compatible entry point.
-		;  Supports FAT32 too.
-		; cs:ip = 60h:0
-		; whole load file loaded
-		; first cluster of load file: not given!
-		; first data sector: not given!
-		; int 1Eh not modified, original address: not given!
-		; bl = load unit (not used by us)
-		; ss:bp -> boot sector with (E)BPB,
-		;	    load unit field set, hidden sectors set
-		;  (usually at 1FE0h:7C00h)
-		; NEW: word [ss:bp - 14h] = "CL" to indicate command line
-		;	then ss:bp - 114h -> 256 byte ASCIZ string
-
-	lea bx, [bp + lsvCommandLine.start]
-				; ss:bx -> command line buffer, if any
-	cmp bp, - lsvCommandLine.start
-				; enough data below bp to hold buffer ?
-	jb @F			; no -->
-	cmp sp, bx		; sp below-or-equal would-be buffer ?
-	jbe .canbevalid		; yes, can be valid --> (and word access valid)
-@@:
-	cmp bp, - lsvCommandLine.signature
-				; enough data below bp to hold our lsv ?
-	jae @F			; yes -->
-	test bp, 1		; valid to access even-aligned words ?
-	jnz .error		; maybe not -->
-@@:
-	and word [bp + lsvCommandLine.signature], 0
-				; invalidate signature
-.canbevalid:
-	cmp word [bp + lsvCommandLine.signature], "CL"
-				; valid signature ?
-	je @F			; yes, keep bx pointing at buffer
-
-	lea bx, [bp + lsvCommandLine.signature]
-				; no, ss:bx -> lsv with signature
-@@:
-	cmp sp, bx		; sp below-or-equal needed stack frame ?
-	jbe @F			; yes -->
-	and bl, ~1		; make even-aligned stack (rounding down)
-	mov sp, bx		; change sp
-@@:
-
-	jmp ms7_entry.continue2
-
-
-.error:
-	call error
-	asciz "Invalid base pointer in FreeDOS entrypoint."
 
 
 	align 16, db 38
