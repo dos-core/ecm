@@ -416,7 +416,7 @@ init_memory:
 
 
  %if _QUERY_PATCH
-query_geometry:
+query_geometry:			; NOT A FUNCTION. only included as magic bytes
 		; magic bytes start
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 				; magic bytes
