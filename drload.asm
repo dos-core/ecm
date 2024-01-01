@@ -366,7 +366,7 @@ init_memory:
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
 	mov word [bp + bsBPB + ebpbFSFlags], cx
 
-	xor ax, ax
+	xchg ax, cx		; ax = 0
 	push ss
 	pop es
 	lea di, [bp + bsBPB + ebpbFSFlags]
