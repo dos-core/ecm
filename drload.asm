@@ -415,6 +415,24 @@ init_memory:
 	retf
 
 
+ %if _QUERY_PATCH
+query_geometry:
+		; magic bytes start
+	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+				; magic bytes
+	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
+..@query_patch_site equ $ - 2
+	test dl, dl		; hard disk unit ?
+	jns @F			; no -->
+	xchg al, ah		; get high byte into al
+		; magic bytes end
+@@:
+  %if ($ - $$) > 1536
+   %error Query patch site should be in first 1536 Bytes
+  %endif
+ %endif
+
+
 error:
 	push cs
 	pop ds
@@ -439,24 +457,6 @@ disp_error:
 	test al, al
 	jnz .loop
 	retn
-
-
- %if _QUERY_PATCH
-query_geometry:
-		; magic bytes start
-	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
-				; magic bytes
-	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
-..@query_patch_site equ $ - 2
-	test dl, dl		; hard disk unit ?
-	jns @F			; no -->
-	xchg al, ah		; get high byte into al
-		; magic bytes end
-@@:
-  %if ($ - $$) > 1536
-   %error Query patch site should be in first 1536 Bytes
-  %endif
- %endif
 
 
 msg:
