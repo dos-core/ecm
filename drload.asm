@@ -345,7 +345,7 @@ init_memory:
 
 	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
 	test bx, bx
-	jz .is_fat32
+	jz .fat32
 
 	; lea si, [bp + 510]			; -> last source word
 	mov si, _STACKSIZE - LOADCMDLINE + 510
@@ -365,15 +365,6 @@ init_memory:
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
 	mov word [bp + bsBPB + ebpbFSFlags], cx
-	; FSVersion, RootCluster, FSINFOSector, BackupSector, Reserved:
-	;  uninitialised here (initialised by loaded_all later)
-.is_fat32:
-
-
-loaded_all:
-	mov ax, word [bp + bsBPB + bpbSectorsPerFAT]
-	test ax, ax
-	jz .fat32
 
 	xor ax, ax
 	push ss
