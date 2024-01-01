@@ -214,67 +214,6 @@ freedos_entry:
 	mov sp, bx		; change sp
 @@:
 
-	jmp ms7_entry.continue2
-
-
-error:
-	push cs
-	pop ds
-	mov si, msg.error
-	call disp_error
-	pop si
-	call disp_error
-	xor ax, ax
-	int 16h
-	int 19h
-
-
-disp_error.loop:
-	mov ah, 0Eh
-	mov bx, 7
-	; push bp
-		; (call may change bp, but it is not used here any longer.)
-	int 10h
-	; pop bp
-disp_error:
-	lodsb
-	test al, al
-	jnz .loop
-	retn
-
-
- %if _QUERY_PATCH
-query_geometry:
-		; magic bytes start
-	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
-				; magic bytes
-	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
-..@query_patch_site equ $ - 2
-	test dl, dl		; hard disk unit ?
-	jns @F			; no -->
-	xchg al, ah		; get high byte into al
-		; magic bytes end
-@@:
-  %if ($ - $$) > 1536
-   %error Query patch site should be in first 1536 Bytes
-  %endif
- %endif
-
-
-error_outofmemory:
-	call error
-	db "Out of memory.", 0
-
-ms7_entry:
-.continue2:				; cx = 0, ax => behind loaded
-	jmp ldos_entry.ms7_common
-
-msg:
-.error:	db "Load error: ", 0
-
-
-ldos_entry:
-.ms7_common:
 
 init_memory:
 ; Get conventional memory size and store it
@@ -482,6 +421,58 @@ loaded_all:
 		; LOADCMDLINE set (ASCIZ, up to 255 bytes + 1 byte terminator)
 		; word [ldCommandLine.start] = 0FF00h if had invalid signature
 	retf
+
+
+error:
+	push cs
+	pop ds
+	mov si, msg.error
+	call disp_error
+	pop si
+	call disp_error
+	xor ax, ax
+	int 16h
+	int 19h
+
+
+disp_error.loop:
+	mov ah, 0Eh
+	mov bx, 7
+	; push bp
+		; (call may change bp, but it is not used here any longer.)
+	int 10h
+	; pop bp
+disp_error:
+	lodsb
+	test al, al
+	jnz .loop
+	retn
+
+
+ %if _QUERY_PATCH
+query_geometry:
+		; magic bytes start
+	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+				; magic bytes
+	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
+..@query_patch_site equ $ - 2
+	test dl, dl		; hard disk unit ?
+	jns @F			; no -->
+	xchg al, ah		; get high byte into al
+		; magic bytes end
+@@:
+  %if ($ - $$) > 1536
+   %error Query patch site should be in first 1536 Bytes
+  %endif
+ %endif
+
+
+error_outofmemory:
+	call error
+	db "Out of memory.", 0
+
+msg:
+.error:	db "Load error: ", 0
 
 
 	align 16, db 38
