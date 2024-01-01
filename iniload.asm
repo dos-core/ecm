@@ -423,6 +423,9 @@ query_geometry:
 	xchg al, ah		; get high byte into al
 		; magic bytes end
 @@:
+  %if ($ - $$) > 1536
+   %error Query patch site should be in first 1536 Bytes
+  %endif
  %endif
 %endif
 
