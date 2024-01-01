@@ -192,7 +192,11 @@ freedos_entry:
 				; enough data below bp to hold our lsv ?
 	jae @F			; yes -->
 	test bp, 1		; valid to access even-aligned words ?
-	jnz .error		; maybe not -->
+	jz @F			; yes -->
+				; maybe not
+.error:
+	call error
+	asciz "Invalid base pointer in FreeDOS entrypoint."
 @@:
 	and word [bp + lsvCommandLine.signature], 0
 				; invalidate signature
@@ -211,11 +215,6 @@ freedos_entry:
 @@:
 
 	jmp ms7_entry.continue2
-
-
-.error:
-	call error
-	asciz "Invalid base pointer in FreeDOS entrypoint."
 
 
 error:
