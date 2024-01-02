@@ -328,9 +328,6 @@ init_memory:
 	rep movsw
 	cld
 
-	mov word [bp + lsvFirstCluster + 2], cx
-	mov word [bp + lsvFATSector + 2], cx
-
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
 	mov word [bp + bsBPB + ebpbFSFlags], cx
