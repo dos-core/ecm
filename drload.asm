@@ -140,12 +140,12 @@ start:
 freedos_entry:
 		; This is the FreeDOS compatible entry point.
 		;  Supports FAT32 too.
-		; cs:ip = 60h:0
+		; cs:ip = 60h:0 (or 70h:0 for EDR-DOS entry)
 		; whole load file loaded
 		; first cluster of load file: not given!
 		; first data sector: not given!
 		; int 1Eh not modified, original address: not given!
-		; bl = load unit (not used by us)
+		; bl = load unit (or dl for EDR-DOS entry) (not used by us)
 		; ss:bp -> boot sector with (E)BPB,
 		;	    load unit field set, hidden sectors set
 		;  (usually at 1FE0h:7C00h)
