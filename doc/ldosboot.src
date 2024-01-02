@@ -593,3 +593,100 @@ The inicomp stage uses the request header's break address
 as passed by DOS to determine how much memory is available to
 the depacker.
 This requires MS-DOS version 5 compatibility.
+
+
+\C{protocols-drload} DRLoad boot protocols
+
+The drload stage is a replacement for lDOS's iniload initial loader.
+It does away with most of the entrypoints supported by iniload,
+including the native lDOS load protocol.
+This allows it to drop most of the file system and disk read related code
+that is included in iniload.
+
+The motivation for drload was to minimise the overhead
+for a compressed Enhanced DR-DOS single-file kernel,
+hence the name.
+This allows the single-file kernel to be smaller than the sum of
+the two files of the prior build of a double-file kernel.
+
+
+\H{protocol-sector-drload} Sector to drload protocol
+
+The sector to drload protocol is either the FreeDOS load protocol
+or the original Enhanced DR-DOS load protocol
+(minus the need for a second file).
+Both of these share the fact that the prior loader
+has to load the entire file of the drload stage,
+so that no temporary file system support is needed in the drload stage
+or later in the subsequent kernel stages.
+
+That does imply that the kernel file may not carry
+appended data of arbitrary size, as the entire file
+has to fit in the space within the Low Memory Area
+allocated by the prior loader.
+
+\S{protocol-sector-drload-overview} Overview
+
+The FreeDOS and Enhanced DR-DOS load protocols share:
+
+\b The entire file is loaded to a segment boundary
+
+\b The stack must not overlap the loaded file data
+
+\b FreeDOS:
+
+\lcont{
+
+\b File loaded at linear address 600h, entered at 60h:0
+
+\b SS:BP -> boot sector with BPB (FAT12/FAT16) or EBPB (FAT32)
+
+\b BL = load unit
+
+}
+
+\b Enhanced DR-DOS:
+
+\lcont{
+
+\b File loaded at linear address 700h, entered at 70h:0
+
+\b DS:BP -> boot sector with BPB (FAT12/FAT16) or EBPB (FAT32)
+
+\b DL = load unit
+
+}
+
+\b The load unit can also be found in a BPB New field of the passed boot sector
+
+\b The hidden sectors can be found in a BPB field of the passed boot sector
+
+
+\H{protocol-drload-payload} DRLoad to payload protocol
+
+The drload to payload protocol only sets up:
+
+\b The boot sector with FAT32 EBPB or expanded FAT32-style FAT12/FAT16 BPB
+
+\b The stack at the high end of the Low Memory Area
+
+\b The Load Command Line
+
+\b The following Load Data 1 fields:
+
+\lcont{
+
+\b ldMemoryTop
+
+\b ldLoadTop
+
+\b ldQueryPatchValue
+
+}
+
+\b The entire next stage's payload image at a paragraph boundary
+
+
+This happens to be enough to run a kernel-only inicomp stage,
+as well as the drkernpl stage that sets up the DRBIO and DRDOS modules
+and runs the former.
