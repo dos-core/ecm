@@ -360,6 +360,19 @@ except for the FAT32 \q{sectors per FAT} field.
 It is filled with the contents of the FAT16/FAT12
 \q{sectors per FAT} field.
 
+Note that a FAT32 file system is determined by
+whether the FAT12/FAT16 \q{sectors per FAT} BPB field is zero.
+If it is zero, then the EBPB is used unchanged from the boot sector.
+If it is nonzero, the FAT12/FAT16 BPB is expanded into an EBPB
+as described here.
+To do the expansion, typically the BPB New fields
+of the FAT12/FAT16 BPB as well as the trailing boot sector contents
+(up to below offset 512)
+are moved up the 1Ch bytes to open the gap
+for use by the FAT32-specific EBPB fields.
+That means the boot sector trailer reaches
+up to below offset 21Ch (540).
+
 
 \S{protocol-iniload-payload-lsv} Load Stack Variables (LSV)
 
