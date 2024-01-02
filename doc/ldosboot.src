@@ -633,6 +633,13 @@ The FreeDOS and Enhanced DR-DOS load protocols share:
 
 \b The stack must not overlap the loaded file data
 
+\b The load unit can also be found in a BPB New field of the passed boot sector
+
+\b The hidden sectors can be found in a BPB field of the passed boot sector
+
+
+They differ in the following details:
+
 \b FreeDOS:
 
 \lcont{
@@ -656,10 +663,6 @@ The FreeDOS and Enhanced DR-DOS load protocols share:
 \b DL = load unit
 
 }
-
-\b The load unit can also be found in a BPB New field of the passed boot sector
-
-\b The hidden sectors can be found in a BPB field of the passed boot sector
 
 
 \H{protocol-drload-payload} DRLoad to payload protocol
