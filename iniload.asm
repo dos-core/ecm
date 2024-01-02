@@ -341,8 +341,8 @@ d3	call d3_display_two_characters
 d3	test ax, "00"
 
 	mov cx, cs
-	cmp cx, 60h
-	jne @F
+	cmp cx, 70h
+	je @F
 .freedos_or_msdos1_com_entry:
 	jmp freedos_or_msdos1_com_entry
 @@:
