@@ -151,6 +151,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
+	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
 	numdef LSVEXTRA,	1	; use lsvExtra field
 		; (needed if to use partition scanner)
 
@@ -326,6 +327,10 @@ ms6_entry:
 		;	    load unit field set, hidden sectors set
 		; (actually boot unit in dl; because the "MZ" signature
 		;  destroys dl we assume it's in the BPB too)
+		; ss:sp is expected to -> below-or-equal 0:7C00h, this fact
+		;  is used to detect EDR-DOS load if cs = 70h as EDR-DOS load
+		;  will never overlap the stack with the loaded file data.
+		; Note that bp may be unset by MS-DOS 6 loaders!
 		; Either:
 		;	dword [ss:sp] = 0:78h = 1Eh * 4 (IVT entry of int 1Eh)
 		;	dword [ss:sp + 4] = old int 1Eh address
@@ -333,7 +338,6 @@ ms6_entry:
 		;	ds:si = old int 1Eh address
 		; 0:500h-> directory entry for BIO file
 	cli
-	cld
 	push dx
 	inc bp		; undo signature instructions
 
@@ -346,6 +350,16 @@ d3	test ax, "00"
 .freedos_or_msdos1_com_entry:
 	jmp freedos_or_msdos1_com_entry
 @@:
+
+%if _EDRDOS
+	mov di, sp			; -> sp
+	mov cl, 4
+	shr di, cl			; to paragraphs, rounding down
+	mov cx, ss			; => ss
+	add di, cx			; ss:sp converted to paragraphs
+	cmp di, 70h + paras(end_of_file - $$)
+	jae .freedos_or_msdos1_com_entry; doesn't overlap file data -->
+%endif
 
 ;	xor cx, cx
 ;;	test dx, dx
@@ -1196,6 +1210,7 @@ check_clust:
 
 
 ms6_continue1:
+	cld
 	mov es, cx			; cx = 0
 	mov bp, 7C00h			; 0:bp -> boot sector with BPB
 
@@ -1806,6 +1821,7 @@ error_data_checksum_failed:
 
 
 freedos_or_msdos1_com_entry:
+	cld
 	call @F
 @@:
 	pop cx
@@ -1815,12 +1831,12 @@ freedos_or_msdos1_com_entry:
 freedos_entry:
 		; This is the FreeDOS compatible entry point.
 		;  Supports FAT32 too.
-		; cs:ip = 60h:0
+		; cs:ip = 60h:0 (or 70h:0 for EDR-DOS entry)
 		; whole load file loaded
 		; first cluster of load file: not given!
 		; first data sector: not given!
 		; int 1Eh not modified, original address: not given!
-		; bl = load unit (not used by us)
+		; bl = load unit (or dl for EDR-DOS entry) (not used by us)
 		; ss:bp -> boot sector with (E)BPB,
 		;	    load unit field set, hidden sectors set
 		;  (usually at 1FE0h:7C00h)
@@ -2522,7 +2538,6 @@ payload:
 %endif
 .end:
 
-
 %if _SECOND_PAYLOAD_EXE
 	align 16, db 38
 second_payload:
@@ -2543,5 +2558,12 @@ second_payload:
   %warning No padding needed
  %else
 	times _PADDING - ($ - $$) db 0
+ %endif
+%endif
+
+%if _EDRDOS
+end_of_file:
+ %if (70h + paras(end_of_file - $$)) < 800h
+  %error Too small payload to detect EDR-DOS entrypoint
  %endif
 %endif
