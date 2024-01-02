@@ -152,6 +152,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
+	numdef EDRDOS_AUTO,	1	; support EDR-DOS entry if large enough
 	numdef LSVEXTRA,	1	; use lsvExtra field
 		; (needed if to use partition scanner)
 
@@ -222,6 +223,18 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 %endif
 
 
+	cpu 8086
+	org 0
+
+%if _EDRDOS_AUTO
+filesize equ end_of_file - $$
+ %if filesize >= (32 * 1024)
+  %assign _EDRDOS 1
+ %else
+  %assign _EDRDOS 0
+ %endif
+%endif
+
 %if _IMAGE_EXE && _SECOND_PAYLOAD_EXE
  %error Cannot use both of these.
 %endif
@@ -243,8 +256,6 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 %pop
 
 
-	cpu 8086
-	org 0
 start:
 	db "MZ"		; exeSignature
 		; dec bp, pop dx
@@ -2561,8 +2572,8 @@ second_payload:
  %endif
 %endif
 
-%if _EDRDOS
 end_of_file:
+%if _EDRDOS
  %if (70h + paras(end_of_file - $$)) < 800h
   %error Too small payload to detect EDR-DOS entrypoint
  %endif
