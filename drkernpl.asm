@@ -120,7 +120,12 @@ entry:
 	retf
 
 	align 256, db 0		; make sure we can always move forwards
-				; (payload is loaded to 700h or higher)
+		; This is so that the drkernpl PAYLOAD is always
+		;  loaded to 700h or higher, as our ENTRY must be
+		;  loaded by the prior stage to 600h or higher.
+		; If the PAYLOAD is at >= 700h it is valid to move
+		;  forwards (Direction Flag UP) unconditionally to
+		;  relocate it to the destination at 700h.
 
 	align 16
 	endarea entry
@@ -327,3 +332,6 @@ relocate:
 	jmp 70h + realpayload_size_p:0
 
 	align 256, db 0		; make sure new stack is lower than LD
+		; With the alignment directive in ENTRY this
+		;  is probably not needed. However, there is
+		;  little harm in keeping it.
