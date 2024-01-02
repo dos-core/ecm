@@ -91,7 +91,11 @@ Currently the following signatures are defined:
 
 \dt \cq{lDFD}
 
-\dd FreeDOS kernel wrapped in iniload (fdkernpl.asm)
+\dd FreeDOS kernel in fdkernpl stage
+
+\dt \cq{lDDR}
+
+\dd Enhanced DR-DOS single-file kernel in drkernpl stage
 
 \dt \cq{lDeb}
 
