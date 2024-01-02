@@ -96,34 +96,6 @@ ldCommandLine:
 .start:		resb lsvclBufferLength
 	endstruc
 
-	struc LBAPACKET
-lpSize:		resw 1
-lpCount:	resw 1
-lpBuffer:	resd 1
-lpSector:	resq 1
-	endstruc
-
-	struc PARTINFO
-piBoot:		resb 1
-piStartCHS:	resb 3
-piType:		resb 1
-piEndCHS:	resb 3
-piStart:	resd 1
-piLength:	resd 1
-	endstruc
-
-ptEmpty:		equ 0
-ptFAT12:		equ 1
-ptFAT16_16BIT_CHS:	equ 4
-ptExtendedCHS:		equ 5
-ptFAT16_CHS:		equ 6
-ptFAT32_CHS:		equ 0Bh
-ptFAT32:		equ 0Ch
-ptFAT16:		equ 0Eh
-ptExtended:		equ 0Fh
-ptLinux:		equ 83h
-ptExtendedLinux:	equ 85h
-
 
 query_no_geometry equ 4
 query_no_chs equ 2
@@ -276,8 +248,6 @@ init_memory:
 	cmp dx, cx
 	ja .error_outofmemory
 
-		; note that the next conditional doesn't jump for lsvFATSeg = 0
-
 	pop dx		; top of memory (=> start of RPL, EBDA, video memory)
 	push ss
 	pop ds
@@ -332,8 +302,6 @@ init_memory:
 			; -> BPB, above end of lsv
 	sti
 
-		; ax => sector buffer
-		; bx => FAT buffer
 		; cx => above end of memory available for load
 		; dx => above end of memory used by us
 	mov word [bp + ldMemoryTop], dx
