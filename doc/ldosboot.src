@@ -977,7 +977,10 @@ it does not overlap the load file's data
 
 The load protocols for Multiboot
 are described by the specifications.
-
+However,
+iniload will drop the machine back into Real 86 Mode
+to run its payload.
+This is likely not an expected use case.
 
 
 \C{iniload-modes} lDOS iniload modes
