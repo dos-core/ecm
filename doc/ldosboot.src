@@ -876,7 +876,7 @@ The stack assumptions are used by lDOS iniload
 to distinguish MS-DOS v6 load and Enhanced DR-DOS load,
 as both use the same entrypoint address.
 
-Note that BP may not be set for MS-DOS v6 load.
+Note that BP may be uninitialised for MS-DOS v6 load.
 
 MS-DOS v6 load is typically used only on FAT12 and FAT16 file systems,
 
