@@ -174,6 +174,8 @@ Allows iniload to determine how much of it is already loaded.
 \dd Dword gives sector-in-partition of first cluster's data.
 
 
+\S{protocol-sector-iniload-lsv-cmdline} LSV extension - Command line
+
 An LSV extension allows to pass a command line to the kernel.
 The base pointer must be at least \cq{114h} then.
 The stack pointer must be at most \cq{bp - 114h} then.
@@ -615,7 +617,10 @@ the two files of the prior build of a double-file kernel.
 The sector to drload protocol is either the FreeDOS load protocol
 or the original Enhanced DR-DOS load protocol
 (minus the need for a second file).
-Both of these share the fact that the prior loader
+Refer to \k{protocol-sector-freedos}
+and \k{protocol-sector-edrdos}.
+
+Both of these protocols share the fact that the prior loader
 has to load the entire file of the drload stage,
 so that no temporary file system support is needed in the drload stage
 or later in the subsequent kernel stages.
@@ -625,13 +630,111 @@ appended data of arbitrary size, as the entire file
 has to fit in the space within the Low Memory Area
 allocated by the prior loader.
 
-\S{protocol-sector-drload-overview} Overview
 
-The FreeDOS and Enhanced DR-DOS load protocols share:
+\H{protocol-drload-payload} DRLoad to payload protocol
+
+The drload to payload protocol only sets up:
+
+\b The boot sector with FAT32 EBPB or expanded FAT32-style FAT12/FAT16 BPB
+
+\b The stack at the high end of the Low Memory Area
+
+\b The Load Command Line
+
+\b The following Load Data 1 fields:
+
+\lcont{
+
+\b ldMemoryTop
+
+\b ldLoadTop
+
+\b ldQueryPatchValue
+
+}
+
+\b The entire next stage's payload image at a paragraph boundary
+
+
+This happens to be enough to run a kernel-only inicomp stage,
+as well as the drkernpl stage that sets up the DRBIO and DRDOS modules
+and runs the former.
+
+
+\C{protocols-other} Other documented boot load protocols
+
+This chapter documents other load protocols.
+
+
+\H{protocol-sector-freedos} Sector to FreeDOS load protocol
+
+The FreeDOS load protocol consists of:
+
+\b The entire file is loaded
+
+\b File loaded at linear address 600h, entered at 60h:0
+
+\b BL = load unit
+
+
+\S{protocol-sector-freedos-assumptions} FreeDOS load - Assumptions
+
+Some additional assumptions about FreeDOS load:
+
+\b SS:BP -> boot sector with BPB (FAT12/FAT16) or EBPB (FAT32)
+
+\b The load unit can also be found in a BPB New field of the passed boot sector.
+The unit is in \cw{byte [ss:bp + 24h]} for FAT12/FAT16
+and \cw{byte [ss:bp + 40h]} for FAT32.
+FAT32 is determined by \cw{word [ss:bp + 16h] == 0}.
+
+\b The hidden sectors can be found in a BPB field of the passed boot sector.
+The hidden sectors are in \cw{dword [ss:bp + 1Ch]}.
+
+\b The stack is allocated some space such that
+it does not overlap the load file's data
+(with an allocation of more than 16 bytes of unused stack space)
+
+\b The stack is not close to underflowing
+
+\b The stack is allocated behind the load file's data
+
+
+The original FreeDOS loaders typically allocate their boot sectors
+at 1FE0h:7C00h (linear 27A00h, at 158 KiB)
+and the stack in the same segment with an offset
+that's close below this address.
+
+
+\S{protocol-sector-freedos-cmdline} FreeDOS load extension - Command line
+
+As an extension to the FreeDOS load protocol,
+the lDOS load protocol's LSV extension for a command line
+can be used in the same way, refer to
+\k{protocol-sector-iniload-lsv-cmdline}.
+If this extension is used, all other lDOS Load Stack Variables
+are not used and may be uninitialised.
+They will be allocated space atop the stack however.
+
+
+
+\H{protocol-sector-edrdos} Sector to Enhanced DR-DOS load protocol
+
+The Enhanced DR-DOS load protocol is based on the FreeDOS
+load protocol. Refer to \k{protocol-sector-freedos}.
+
+The native EDR-DOS boot sector loaders
+are forks of the FreeDOS boot sector loaders,
+using a different default filename,
+default load/execute address,
+and register for the load unit.
+
+The FreeDOS and EDR-DOS load protocols share:
 
 \b The entire file is loaded to a segment boundary
 
-\b The stack must not overlap the loaded file data
+\b The stack must not overlap the loaded file data,
+and should be behind the data
 
 \b The load unit can also be found in a BPB New field of the passed boot sector
 
@@ -664,32 +767,28 @@ They differ in the following details:
 
 }
 
+If attainable, loaders should set both DL and BL to the load unit
+to eliminate a difference.
+The same is true of DS and SS for the BPB segment.
 
-\H{protocol-drload-payload} DRLoad to payload protocol
-
-The drload to payload protocol only sets up:
-
-\b The boot sector with FAT32 EBPB or expanded FAT32-style FAT12/FAT16 BPB
-
-\b The stack at the high end of the Low Memory Area
-
-\b The Load Command Line
-
-\b The following Load Data 1 fields:
-
-\lcont{
-
-\b ldMemoryTop
-
-\b ldLoadTop
-
-\b ldQueryPatchValue
-
-}
-
-\b The entire next stage's payload image at a paragraph boundary
+It can be assumed in the loadee
+that SS = DS, eliminating one more difference
+between the two protocols.
+Further, with another assumption documented for the FreeDOS load protocol,
+the loadee can read the load unit from the BPB New field
+and ignore the BL and DL registers.
 
 
-This happens to be enough to run a kernel-only inicomp stage,
-as well as the drkernpl stage that sets up the DRBIO and DRDOS modules
-and runs the former.
+\S{protocol-sector-edrdos-secondfile} Enhanced DR-DOS second file
+
+Prior to ecm's 2023 December revision of EDR-DOS,
+the EDR-DOS load protocol implied
+that the DRBIO module would be loaded as the first load file
+and that it would then use the hidden sectors and load unit
+to login a file system temporarily.
+The DRDOS file would be scanned for in the root directory
+of this FAT12, FAT16, or FAT32 file system
+using the name \q{DRDOS.SYS} (generally).
+When found it would be loaded as the DRDOS module.
+In the 2023 December update,
+no additional DOS file is read by the single-file kernel.
