@@ -964,3 +964,9 @@ it does not overlap the load file's data
 (with an allocation of more than 16 bytes of unused stack space)
 
 \b The stack is not close to underflowing
+
+
+\S{protocol-multiboot} Multiboot v1 and Multiboot v2 specification
+
+The load protocols for Multiboot
+are described by the specifications.
