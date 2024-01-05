@@ -877,3 +877,30 @@ to distinguish MS-DOS v6 load and Enhanced DR-DOS load,
 as both use the same entrypoint address.
 
 Note that BP may not be set for MS-DOS v6 load.
+
+MS-DOS v6 load is typically used only on FAT12 and FAT16 file systems,
+
+
+\H{protocol-sector-ibmdos} Sector to IBM-DOS load protocol
+
+This protocol is almost the exact same as the MS-DOS v6 protocol.
+However, it can be used to load from FAT32 file systems,
+as implemented by PC-DOS v7.10.
+The differences due to this are:
+
+\b Directory entry for first load file at linear 500h.
+First cluster low of the file in \cw{word [51Ah]}.
+First cluster high of the file in \cw{word [514h]}.
+
+\b Directory entry for second load file at linear 520h.
+First cluster low of the file in \cw{word [53Ah]}.
+First cluster high of the file in \cw{word [534h]}.
+
+\b The load unit can also be found in a BPB New field of the passed boot sector.
+The unit is in \cw{byte [ss:bp + 24h]} for FAT12/FAT16
+and \cw{byte [ss:bp + 40h]} for FAT32.
+FAT32 is determined by \cw{word [ss:bp + 16h] == 0}.
+
+
+The default first load file name is \q{IBMBIO.COM}
+and the default second load file name is \q{IBMDOS.COM}.
