@@ -904,3 +904,63 @@ FAT32 is determined by \cw{word [ss:bp + 16h] == 0}.
 
 The default first load file name is \q{IBMBIO.COM}
 and the default second load file name is \q{IBMDOS.COM}.
+
+
+\H{protocol-sector-msdos7} Sector to MS-DOS v7 load protocol
+
+This load protocol consists of:
+
+\b 4 sectors of the load file are loaded
+
+\b File start is loaded at linear address 700h, entered at 70h:200h
+
+\b DL = load unit
+
+\b \cw{dword [ss:bp - 4]} = first data sector of first cluster,
+including hidden sectors
+
+\b SS:BP -> boot sector with (E)BPB,
+typically at linear 7C00h
+
+\b DI = first cluster of load file if FAT12/FAT16
+
+\b SI:DI = first cluster of load file if FAT32
+
+\b Diskette Parameter Table (DPT) may be relocated, possibly modified.
+The DPT is pointed to by the interrupt 1Eh vector.
+
+\b \cw{dword [ss:sp] = 0000_0078h} (far pointer to IVT 1Eh entry),
+then \cw{dword [ss:sp + 4]} -> original DPT
+
+\b First two bytes of load file may be expected to hold "MZ" signature
+
+\b Two bytes at offset 512 in load file may be expected to hold "BJ" signature
+
+
+The default load file name is \q{IO.SYS},
+although the names \q{JO.SYS} and \q{WINBOOT.SYS}
+may have been used in some circumstances.
+
+
+\S{protocol-sector-msdos7-assumptions} MS-DOS v7 load - Assumptions
+
+Some additional assumptions about MS-DOS v7 load:
+
+\b Sector size of at least 512 Bytes
+
+\b First 2048 Bytes of load file may be expected
+to be contiguous in the file system data area
+
+\b The load unit can also be found in a BPB New field of the passed boot sector.
+The unit is in \cw{byte [ss:bp + 24h]} for FAT12/FAT16
+and \cw{byte [ss:bp + 40h]} for FAT32.
+FAT32 is determined by \cw{word [ss:bp + 16h] == 0}.
+
+\b The hidden sectors can be found in a BPB field of the passed boot sector.
+The hidden sectors are in \cw{dword [ss:bp + 1Ch]}.
+
+\b The stack is allocated some space such that
+it does not overlap the load file's data
+(with an allocation of more than 16 bytes of unused stack space)
+
+\b The stack is not close to underflowing
