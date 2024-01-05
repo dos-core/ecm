@@ -1002,6 +1002,14 @@ for any of the sector load protocols described in this manual:
 
 \b Multiboot v2
 
+After entry and loading the remainder of its payload,
+iniload will pass control to its payload
+using the iniload to payload protocol, refer to
+\k{protocol-iniload-payload}.
 
-The lDOS drload stage can be loaded only
+
+The lDOS drload stage can only be loaded
 using the FreeDOS or EDR-DOS load protocols.
+As described in \k{protocol-drload-payload}
+its control flow will hand over to the next stage
+with a subset of the iniload to payload protocol.
