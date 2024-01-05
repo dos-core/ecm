@@ -677,6 +677,9 @@ The FreeDOS load protocol consists of:
 \b BL = load unit
 
 
+The default load file name is \q{KERNEL.SYS}.
+
+
 \S{protocol-sector-freedos-assumptions} FreeDOS load - Assumptions
 
 Some additional assumptions about FreeDOS load:
@@ -728,6 +731,8 @@ are forks of the FreeDOS boot sector loaders,
 using a different default filename,
 default load/execute address,
 and register for the load unit.
+
+The default load file name is \q{DRBIO.SYS}.
 
 The FreeDOS and EDR-DOS load protocols share:
 
@@ -829,6 +834,10 @@ First cluster of the file in \cw{word [51Ah]}.
 
 \b Directory entry for second load file at linear 520h.
 First cluster of the file in \cw{word [53Ah]}.
+
+
+The default first load file name is \q{IO.SYS}
+and the default second load file name is \q{MSDOS.SYS}.
 
 
 \S{protocol-sector-msdos6-assumptions} MS-DOS v6 load - Assumptions
