@@ -803,7 +803,7 @@ no additional DOS file is read by the single-file kernel.
 
 This load protocol consists of:
 
-\b 3 sectors of the load file are loaded
+\b First 3 sectors of the load file are loaded
 
 \b File start is loaded at linear address 700h, entered at 70h:0
 
@@ -910,7 +910,7 @@ and the default second load file name is \q{IBMDOS.COM}.
 
 This load protocol consists of:
 
-\b 4 sectors of the load file are loaded
+\b First 4 sectors of the load file are loaded
 
 \b File start is loaded at linear address 700h, entered at 70h:200h
 
