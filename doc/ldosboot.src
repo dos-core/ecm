@@ -970,3 +970,28 @@ it does not overlap the load file's data
 
 The load protocols for Multiboot
 are described by the specifications.
+
+
+
+\C{iniload-modes} lDOS iniload modes
+
+The lDOS iniload stage can be loaded as the (first) load file
+for any of the sector load protocols described in this manual:
+
+\b lDOS / RxDOS.3
+
+\b FreeDOS
+
+\b Enhanced DR-DOS (requires file to be >= 32 KiB)
+
+\b MS-DOS v6 / IBM-DOS
+
+\b MS-DOS v7
+
+\b Multiboot v1
+
+\b Multiboot v2
+
+
+The lDOS drload stage can be loaded only
+using the FreeDOS or EDR-DOS load protocols.
