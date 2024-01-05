@@ -1275,11 +1275,14 @@ init1_end:
 init0_msg:
 .error_stderr:	db "Error: Not enough memory allocated.",13,10
 .error_stderr.length: equ $ - .error_stderr
-.error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
+.error_stdout:	db "0"
+%if 0
+		_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
 				+ (payload_end - payload) \
 				+ (init1_end - init1_start) \
 				+ ADDITIONAL_MEMORY \
 				)
+%endif
 		db 13,10
 .error_stdout.length: equ $ - .error_stdout
 
@@ -1895,11 +1898,14 @@ init2_msg:
 %endif
 .cmdline_error:	db "Error: Invalid command line input.",13,10
 .cmdline_error.length: equ $ - .cmdline_error
-.error_stdout:	_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
+.error_stdout:	db "0"
+%if 0
+		_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
 				+ (payload_end - payload) \
 				+ (init1_end - init1_start) \
 				+ ADDITIONAL_MEMORY \
 				)
+%endif
 		db 13,10
 .error_stdout.length: equ $ - .error_stdout
 
