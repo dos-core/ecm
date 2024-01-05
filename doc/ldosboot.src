@@ -936,6 +936,13 @@ then \cw{dword [ss:sp + 4]} -> original DPT
 
 \b Two bytes at offset 512 in load file may be expected to hold "BJ" signature
 
+\b \cw{word [ss:bp + 1EEh]} points to a message table.
+The format of this table is described
+\W{https://hg.pushbx.org/ecm/ldebug/file/66e2ad622d18/source/msg.asm#l1407}{in lDebug's source files msg.asm}
+and
+\W{https://hg.pushbx.org/ecm/ldebug/file/66e2ad622d18/source/boot.asm#l2577}{boot.asm},
+around uses of the msdos7_message_table variable.
+
 
 The default load file name is \q{IO.SYS},
 although the names \q{JO.SYS} and \q{WINBOOT.SYS}
