@@ -792,3 +792,79 @@ using the name \q{DRDOS.SYS} (generally).
 When found it would be loaded as the DRDOS module.
 In the 2023 December update,
 no additional DOS file is read by the single-file kernel.
+
+
+\H{protocol-sector-msdos6} Sector to MS-DOS v6 load protocol
+
+This load protocol consists of:
+
+\b 3 sectors of the load file are loaded
+
+\b File start is loaded at linear address 700h, entered at 70h:0
+
+\b DL = load unit
+
+\b AX:BX = first data sector of first cluster,
+including hidden sectors
+
+\b Linear 7C00h holds boot sector with BPB
+
+\b Diskette Parameter Table (DPT) may be relocated, possibly modified.
+The DPT is pointed to by the interrupt 1Eh vector.
+Possible addresses include linear 522h and linear 7C3Eh.
+
+\b Either of the two ways of passing the original DPT address:
+
+\lcont{
+
+\b \cw{dword [ss:sp] = 0000_0078h} (far pointer to IVT 1Eh entry),
+then \cw{dword [ss:sp + 4]} -> original DPT
+
+\b DS:SI -> original DPT
+
+}
+
+\b Directory entry for first load file at linear 500h.
+First cluster of the file in \cw{word [51Ah]}.
+
+\b Directory entry for second load file at linear 520h.
+First cluster of the file in \cw{word [53Ah]}.
+
+
+\S{protocol-sector-msdos6-assumptions} MS-DOS v6 load - Assumptions
+
+Some additional assumptions about MS-DOS v6 load:
+
+\b First sector of root directory may be read to linear 500h
+
+\b First load file may be expected in first root directory entry
+
+\b Second load file may be expected in second root directory entry
+
+\b Sector size of at least 512 Bytes
+
+\b First 1536 Bytes of first load file may be expected
+to be contiguous in the file system data area
+
+\b The load unit can also be found in a BPB New field of the passed boot sector.
+The unit is in \cw{byte [ss:bp + 24h]} for FAT12/FAT16.
+
+\b The hidden sectors can be found in a BPB field of the passed boot sector.
+The hidden sectors are in \cw{dword [ss:bp + 1Ch]}.
+
+\b The stack is allocated some space such that
+it does not overlap the load file's data
+(with an allocation of more than 16 bytes of unused stack space)
+
+\b The stack is not close to underflowing
+
+\b The stack is allocated behind the load file's data
+
+\b The stack is allocated somewhere below linear 7C00h
+(between load file data and BPB)
+
+The stack assumptions are used by lDOS iniload
+to distinguish MS-DOS v6 load and Enhanced DR-DOS load,
+as both use the same entrypoint address.
+
+Note that BP may not be set for MS-DOS v6 load.
