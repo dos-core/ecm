@@ -100,6 +100,9 @@ keywords are:
 			 of using default _FILEDATE _FILETIME.
 			 (Only affects subdir dotdot entries.)
 
+::directorypad	Followed by a number. Pads directory with as
+		 many deleted entries as specified.
+
 File and directory names are checked for duplicates. If a
 string like ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
 the subdirectory will be detected as a duplicate. That is,
@@ -1441,6 +1444,7 @@ at deSize,		dd %3
 %assign isfragment 0
 %assign isfragmentsame 0
 %assign isnextfragments 0
+%assign isdirectorypad 0
 %assign isrename 0
 %assign isfill 0
 %assign isattrib 0
@@ -1522,6 +1526,14 @@ at deSize,		dd %3
    %endif
   %endrep
   %assign isnextfragments 0
+ %elif isdirectorypad == 1
+  %rep %1
+	usesection %$parent
+	istruc DIRENTRY
+at deName,		db 0E5h
+	iend
+  %endrep
+  %assign isdirectorypad 0
  %elif isrename == 1
   %xdefine renamesource %1
   %assign isrename 2
@@ -1578,6 +1590,8 @@ at deSize,		dd %3
    %assign chainindex chainindex + 1
  %elifidni %1, ::nextfragments
   %assign isnextfragments 1
+ %elifidni %1, ::directorypad
+  %assign isdirectorypad 1
  %elifidni %1, ::rename
   %assign isrename 1
  %elifidni %1, ::fill
@@ -1616,6 +1630,9 @@ at deSize,		dd %3
 %endif
 %if isfragmentsame
  %error No fragment size specified
+%endif
+%if isdirectorypad
+ %error No directory pad number specified
 %endif
 %if isnextfragments
  %error No amount of fragments specified
