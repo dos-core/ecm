@@ -2,7 +2,7 @@
 %if 0
 
 Create a boot image file (default: 1440 KiB diskette) in NASM
- 2019, by C. Masloch
+ 2019, by E. C. Masloch
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity

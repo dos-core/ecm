@@ -2,7 +2,7 @@
 %if 0
 
 Create test data in NASM
- 2022, by C. Masloch
+ 2022, by E. C. Masloch
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
