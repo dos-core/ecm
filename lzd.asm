@@ -1017,7 +1017,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	test byte [bp + ?counter], _COUNTER - 1
 	jnz @F
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 @@:
 %endif
 	mov bx, word [bp + ?localvariables]

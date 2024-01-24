@@ -304,7 +304,7 @@ lzsa2_decompress:
 	test byte [bp + ?counter], _COUNTER - 1
 	jnz @F
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 @@:
 %endif
 	mov ax, word [bp + ?length_of_source]

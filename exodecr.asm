@@ -230,7 +230,7 @@ d0	mov byte [bp + ?errordata], 46h
 	test byte [bp + ?counter], _COUNTER - 1
 	jnz @F
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 @@:
 %endif
 	call read_bits_1		; cx = 0 if NC

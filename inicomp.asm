@@ -272,16 +272,24 @@ cmdline:
 	je .b
 	cmp al, 'b'
 	je .b
+	cmp al, 'C'
+	je .c
+	cmp al, 'c'
+	je .c
 .invalid:
 	mov dx, -1		; invalid
 	jmp .end
 
 .a:
-	and bh, ~ 80h
+	and bh, ~ 80h		; A mode. determine min alloc size
 	jmp .
 
 .b:
-	or bh, 80h
+	or bh, 80h		; B mode. repeat depack, counter in command line
+	jmp .
+
+.c:
+	or bh, 40h		; C mode. how often would the counter be called
 	jmp .
 
 .end:
@@ -362,7 +370,7 @@ init0_common:
 
 %if _TEST_PROGRAM
 .error:
-	mov di, bx
+	mov di, bx		; whichtest
 
 	push cs
 	pop ds
@@ -372,10 +380,17 @@ init0_common:
 	mov ah, 40h
 	int 21h
 
-	test di, 8000h
-	jnz @F
+	test di, 4000h		; whichtest
+	jz @F
+	mov dx, init0_msg.error_c_stdout + 256
+	mov cx, init0_msg.error_c_stdout.length
+	jmp @FF
+@@:
+	test di, di		; whichtest
+	js @FF
 	mov dx, init0_msg.error_stdout + 256
 	mov cx, init0_msg.error_stdout.length
+@@:
 	mov bx, 1
 	mov ah, 40h
 	int 21h
@@ -810,20 +825,38 @@ init1_start:
 	jmp 60h + _EXEC_SEGMENT:_EXEC_OFFSET
 
 
+%if _TEST_PROGRAM
+disp_al_counter:
+	inc word [cs:init1_c_mode_counter]	; 5 bytes
+	retn					; 1 byte
+
+init1_c_mode_counter:		dw 0		; 2 bytes, total 8
+%else
+disp_al_counter equ disp_al
+%endif
+
+
 error:
+ %ifn _TEST_PROGRAM		; 2 bytes
 	push cs
 	pop ds
+ %endif
 %if _DEBUG0
 	mov si, msg.error_begin
 	call disp_error
 	xchg ax, bx			; ax = error code
 	call disp_ax_hex
+ %ifn _TEST_PROGRAM		; 3 bytes
 	mov si, msg.error_end
+ %endif
 %else
+ %ifn _TEST_PROGRAM		; 3 bytes
 	mov si, msg.error
+ %endif
 %endif
+ %ifn _TEST_PROGRAM		; 3 bytes, total 2 + 3 + 3 = 8
 	call disp_error
-
+ %endif
 %if _DEVICE
 	test byte [bp - 2], 2
 	jz .exit_app_or_kernel
@@ -1275,6 +1308,7 @@ init1_end:
 init0_msg:
 .error_stderr:	db "Error: Not enough memory allocated.",13,10
 .error_stderr.length: equ $ - .error_stderr
+.error_c_stdout:
 .error_stdout:	db "0"
 %if 0
 		_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
@@ -1284,6 +1318,7 @@ init0_msg:
 				)
 %endif
 		db 13,10
+.error_c_stdout.length: equ $ - .error_c_stdout
 .error_stdout.length: equ $ - .error_stdout
 
 	align 1024
@@ -1337,7 +1372,9 @@ init2_start:
 		;  simplicity, init0 subtraction may be skipped.
 
 		; ss:sp -> word amount repetitions, word ax
-		; bx = 1 if A test, 8001h if B test
+		; bx = 1 if A mode test,
+		;	8001h if B mode test,
+		;	4001h if C mode test
 	push bx
 
 	lframe 0
@@ -1359,14 +1396,16 @@ init2_start:
 
 
 @@:
+	testopt [bp + ?whichtest], 4000h
+	jnz .a_or_c
 	testopt [bp + ?whichtest], 8000h
-	jz .a
+	jz .a_or_c
 .b:
 	test dx, dx
 	jz .cmdline_error
 	jmp @F
 
-.a:
+.a_or_c:
 	test dx, dx
 	jnz .cmdline_error
 @@:
@@ -1428,6 +1467,22 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 @@:
 %endif
 
+	testopt [bp + ?whichtest], 4000h
+	jz @F
+	mov ax, cs
+	sub ax, (init1_end - init1_start) >> 4
+				; ax => INIT1
+	mov es, ax
+	mov ax, word [es:init1_c_mode_counter]
+	call init2_disp_ax_dec
+	mov al, 13
+	call init2_disp_al
+	mov al, 10
+	call init2_disp_al
+	mov ax, 4C00h
+	int 21h
+
+@@:
 	lvar word,	upperbound
 	 push dx
 	lvar word,	lowerbound
@@ -1734,11 +1789,17 @@ init2_error:
 	int 21h
 %endif
 
+	testopt [bp + ?whichtest], 4000h
+	jz @F
+	mov dx, init2_msg.error_c_stdout
+	mov cx, init2_msg.error_c_stdout.length
+	jmp @FF
+@@:
 	testopt [bp + ?whichtest], 8000h
-	jnz @F
-
+	jnz @FF
 	mov dx, init2_msg.error_stdout
 	mov cx, init2_msg.error_stdout.length
+@@:
 	mov bx, 1
 	mov ah, 40h
 	int 21h
@@ -1898,6 +1959,8 @@ init2_msg:
 %endif
 .cmdline_error:	db "Error: Invalid command line input.",13,10
 .cmdline_error.length: equ $ - .cmdline_error
+
+.error_c_stdout:
 .error_stdout:	db "0"
 %if 0
 		_autodigits paras(_TEST_PROGRAM_DECOMPRESSED_SIZE \
@@ -1907,6 +1970,7 @@ init2_msg:
 				)
 %endif
 		db 13,10
+.error_c_stdout.length: equ $ - .error_c_stdout
 .error_stdout.length: equ $ - .error_stdout
 
 

@@ -332,7 +332,7 @@ d0	inc byte [bp + ?errordata + 1]
 	test word [bp + ?counter], (_COUNTER * 32) - 1
 	jnz @F
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 @@:
 %endif
 	mov ax, word [bp + ?opt_k]

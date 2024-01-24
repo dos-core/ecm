@@ -320,7 +320,7 @@ d0	mov byte [bp + ?errordata], 10h
 	test byte [bp + ?chunk_type_and_counter + 1], _COUNTER - 1
 	jnz @F
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 @@:
 %endif
 

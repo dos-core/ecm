@@ -192,7 +192,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jnz @F
 	push ax
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 	pop ax
 @@:
 %endif

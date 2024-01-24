@@ -164,7 +164,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	test byte [bp + ?counter], _COUNTER - 1
 	jnz @F
 	mov al, '.'
-	call disp_al
+	call disp_al_counter
 @@:
 %endif
 d0	inc byte [bp + ?errordata + 1]
