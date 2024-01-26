@@ -1781,7 +1781,8 @@ data %+ ii %+ _end:
 USEDCLUSTERS equ data_used / (_BPS * _SPC)
 	usesection empty
 %if data_used > (DATASECTORS * _BPS)
- %error Too much data used
+ %assign TOOMUCH data_used - (DATASECTORS * _BPS)
+ %error Too much data used: TOOMUCH Bytes too much
 %endif
 	zerobytes_if_full DATASECTORS * _BPS - data_used
 
