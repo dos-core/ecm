@@ -2751,6 +2751,69 @@ set_geometry:
 	call disp_msg_asciz
 
 	mov si, g_table
+.loop_check:
+	rol byte [si + giAuto], 1
+	jc .auto
+	add si, GINFO_size
+	cmp si, g_table_end
+	jb .loop_check
+	jmp .no_auto
+
+.auto:
+	cmp word [cmd_line_image_file.name], 0
+	je @F
+	mov dx, msg.g_no_auto_image
+	call disp_msg_asciz
+	jmp exit_error
+
+@@:
+	mov ax, 440Dh
+	mov bl, byte [drivenumber]
+	inc bx
+	mov cx, 0860h
+	cmp byte [bp + ldFATType], 16
+	jbe @F
+	mov ch, 48h
+@@:
+	sub sp, 5Ch - 2
+	mov dx, 4			; init "special functions"
+	push dx
+	mov dx, sp
+	stc
+	int 21h
+	jnc @F
+	mov dx, msg.g_auto_failed
+	call disp_msg_asciz
+	jmp exit_error
+
+@@:
+	mov di, sp
+	add di, 7
+
+.loop_auto:
+	rol byte [si + giAuto], 1
+	jnc .skip_auto
+
+	xor bx, bx
+	mov bl, byte [si + giOffset]
+	xor dx, dx
+	mov ax, word [di + bx]
+	cmp byte [si + giLength], 2
+	jbe @F
+	mov dx, word [di + bx + 2]
+@@:
+	mov word [si + giValue + 2], dx
+	mov word [si + giValue], ax
+	mov byte [si + giSingle], 0FFh
+
+.skip_auto:
+	add si, GINFO_size
+	cmp si, g_table_end
+	jb .loop_auto
+	add sp, 5Ch
+
+.no_auto:
+	mov si, g_table
 	mov dx, msg.g_updated
 .loop_update:
 	rol byte [si + giSingle], 1
@@ -4882,6 +4945,8 @@ msg:
 .boot_badclusters:	asciz "Bad amount of clusters.",13,10
 .boot_badchain:		asciz "Bad cluster chain.",13,10
 
+.g_auto_failed:		asciz "Error: Auto geometry DOS call failed.",13,10
+.g_no_auto_image:	asciz "Error: Auto geometry on image file not supported.",13,10
 .image_fail.write:	asciz "Error writing image file, "
 .image_fail_enough.write:
 			asciz "Error: Did not write enough to image file.",13,10
