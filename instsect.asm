@@ -2727,6 +2727,54 @@ set_lba:
 .done:
 
 
+set_geometry:
+	mov si, g_table
+	mov dx, msg.g_previous
+.loop_display:
+	call disp_msg_asciz
+	xor bx, bx
+	mov bl, byte [si + giOffset]
+	xor dx, dx
+	mov ax, word [first_sector_buffer + bsBPB + bx]
+	cmp byte [si + giLength], 2
+	jbe @F
+	mov dx, word [first_sector_buffer + bsBPB + bx + 2]
+@@:
+	call decdword
+	mov dx, word [si + giName]
+	call disp_msg_asciz
+	mov dx, msg.comma
+	add si, GINFO_size
+	cmp si, g_table_end
+	jb .loop_display
+	mov dx, msg.linebreak
+	call disp_msg_asciz
+
+	mov si, g_table
+	mov dx, msg.g_updated
+.loop_update:
+	rol byte [si + giSingle], 1
+	jnc .no_update
+	call disp_msg_asciz
+	xor bx, bx
+	mov bl, byte [si + giOffset]
+	mov dx, word [si + giValue + 2]
+	mov ax, word [si + giValue]
+	call decdword
+	mov dx, word [si + giName]
+	call disp_msg_asciz
+	mov dx, msg.comma
+.no_update:
+	add si, GINFO_size
+	cmp si, g_table_end
+	jb .loop_update
+	cmp dx, msg.comma
+	jne @F
+	mov dx, msg.linebreak
+	call disp_msg_asciz
+@@:
+
+
 validate_fsinfo:
 	test byte [bp + ldHasLBA], 2
 	jz .no_fsinfo
@@ -4170,63 +4218,113 @@ disp_al_hex:
 		retn
 
 
-	; Following call: Display number in ax decimal
-	; all registers preserved except dx
-disp_ax_dec:			; ax (no leading zeros)
-	; In: number in ax
-	; Out: displayed
-		push bx
-		xor bx, bx
-.pushax:
-		push ax
-.pushend:
-		or bl, bl
-		jz .nobl
-		sub bl, 5
-		neg bl
-.nobl:
-		push cx
-		mov cx, 10000
-		call .divide_out
-		mov cx, 1000
-		call .divide_out
-		mov cx, 100
-		call .divide_out
-		mov cl, 10
-		call .divide_out
-							; (Divisor 1 is useless)
-		add al, '0'
-		xchg dl, al
-		mov ah, 02h
-		int 21h
-		pop cx
-		pop ax
-		pop bx					; Caller's register
-		retn
+disp_ax_dec:
+decword:
+	push dx
+	xor dx, dx
+	call decdword
+	pop dx
+	retn
 
-.divide_out:
-	; In: ax = number
-	;     cx = divisor
-	; Out: ax = remainder of operation
-	;      result displayed
-		push dx
-		xor dx, dx
-		div cx				; 0:ax / cx
-		push dx				; remainder
-		dec bl
-		jnz .nobl2
-		or bh, 1
-.nobl2:
-		or bh, al
-		jz .leadingzero
-		add al, '0'
-		xchg dl, al
-		mov ah, 02h
-		int 21h				; display result
- .leadingzero:
-		pop ax				; remainder
-		pop dx
-		retn
+
+decdword:
+	push cx
+	xor cx, cx
+	call dec_dword_minwidth
+	pop cx
+	retn
+
+
+		; Dump dword as decimal number string
+		;
+		; INP:	dx:ax = dword
+		;	cx = minimum width (<= 1 for none, must be < 10)
+		;	es:di -> where to store
+		; OUT:	es:di -> behind variable-length string
+		; CHG:	-
+		; STT:	UP
+dec_dword_minwidth:
+	lframe near
+	lequ 12,	bufferlen
+	lvar ?bufferlen,buffer
+	lenter
+	lvar dword,	dividend
+	 push dx
+	 push ax
+	dec cx
+	lvar word,	minwidth
+	 push cx
+	inc cx
+
+	push ax
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+	push es
+
+	 push ss
+	 pop es
+
+	lea di, [bp + ?buffer + ?bufferlen - 1]
+	mov bx, di
+	std			; _AMD_ERRATUM_109_WORKAROUND does not apply
+	mov al, '$'
+	stosb			; 21.09 dollar terminator
+
+		; dword [bp + ?dividend] = number to display
+	mov cx, 10		; divisor
+.loop_write:
+
+	xor dx, dx
+	push di
+	mov di, 4
+.loop_divide:
+	mov ax, [bp + ?dividend - 2 + di]
+	div cx
+	mov word [bp + ?dividend - 2 + di], ax
+	dec di
+	dec di
+	jnz .loop_divide
+				; dx = last remainder
+	pop di
+	xchg ax, dx		; ax = remainder (next digit)
+				; dword [bp + ?dividend] = result of div
+	add al, '0'
+	stosb
+	dec word [bp + ?minwidth]
+	jns .loop_write
+
+	cmp word [bp + ?dividend + 2], 0
+	jnz .loop_write
+	cmp word [bp + ?dividend], 0
+				; any more ?
+	jnz .loop_write		; loop -->
+
+	cld
+
+	sub bx, di
+	mov cx, bx
+	mov dx, di
+	inc dx
+	push ds
+	 push ss
+	 pop ds
+	mov ah, 09h
+	int 21h			; display to stdout
+	pop ds
+
+	pop es
+	pop di
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+
+	lleave
+	retn
 
 
 		; INP:	dx:ax = sector to write
@@ -4648,25 +4746,33 @@ giSingle:		resb 1
 giValue:		resd 1
 giLength:		resb 1
 giOffset:		resb 1
+giName:			resw 1
 	endstruc
+
+g_table:
 
 g_heads:
 .auto_low_single_high:	dw 0
 .value:			dd 0
 .length:		db 2
 .offset:		db bpbCHSHeads
+.name:			dw msg.g_heads
 
 g_sectors:
 .auto_low_single_high:	dw 0
 .value:			dd 0
 .length:		db 2
 .offset:		db bpbCHSSectors
+.name:			dw msg.g_sectors
 
 g_hidden:
 .auto_low_single_high:	dw 0
 .value:			dd 0
 .length:		db 4
 .offset:		db bpbHiddenSectors
+.name:			dw msg.g_hidden
+
+g_table_end:
 
 
 msg:
@@ -4883,6 +4989,13 @@ load_kernel_name: equ $
 .heads:			asciz "HEADS"
 .sectors:		asciz "SECTORS"
 .hidden:		asciz "HIDDEN"
+.g_heads:		asciz " CHS Heads"
+.g_sectors:		asciz " CHS Sectors"
+.g_hidden:		asciz " Hidden"
+.linebreak:		asciz 13,10
+.comma:			asciz ", "
+.g_previous:		asciz "Previous geometry: "
+.g_updated:		asciz "Updated geometry: "
 .error_invalid_number:	asciz "Invalid number.",13,10
 .using_fix_unit:	asciz " Using fixed unit of "
 .using_fix_unit_after:	asciz "h.",13,10
