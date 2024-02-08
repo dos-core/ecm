@@ -554,6 +554,10 @@ disp_error: equ $
 	je @B
 	cmp al, 9
 	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
 
 	mov dx, msg.keep
 	dec si
@@ -584,6 +588,10 @@ disp_error: equ $
 	je @B
 	cmp al, 9
 	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
 
 	mov dx, msg.keep
 	dec si
@@ -611,6 +619,10 @@ disp_error: equ $
 	je @B
 	cmp al, 9
 	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
 
 	mov dx, msg.keep
 	dec si
@@ -637,6 +649,10 @@ disp_error: equ $
 	cmp al, 32
 	je @B
 	cmp al, 9
+	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
 	je @B
 
 	mov dx, msg.keep
