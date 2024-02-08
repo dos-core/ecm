@@ -1011,6 +1011,7 @@ disp_error: equ $
 	jmp @F
 
 .switch_ms.hex:
+	lodsb
 	call get_hexadecimal_literal
 @@:
 	test bx, bx
@@ -1072,6 +1073,7 @@ disp_error: equ $
 	jmp @F
 
 .switch_mo.hex:
+	lodsb
 	call get_hexadecimal_literal
 @@:
 	pop di
