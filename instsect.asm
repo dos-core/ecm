@@ -330,6 +330,8 @@ start:
 	je .switch_s
 	cmp al, 'M'
 	je .switch_m
+	cmp al, 'G'
+	je .switch_g
 
 	cmp al, 'H'
 	je .switch_h
@@ -1099,6 +1101,110 @@ disp_error: equ $
 	xchg ax, bx
 	call multiply_dxax_dword_di_to_qword_si
 	pop si
+	jmp .loop
+
+
+.switch_g:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
+
+	mov dx, msg.auto
+	dec si
+	call isstring?
+	je .switch_g_all_auto
+	mov dx, msg.keep
+	call isstring?
+	je .switch_g_all_keep
+	mov dx, msg.heads
+	mov bx, g_heads
+	call isstring?
+	je .switch_g_single
+	mov dx, msg.sectors
+	mov bx, g_sectors
+	call isstring?
+	je .switch_g_single
+	mov dx, msg.hidden
+	mov bx, g_hidden
+	call isstring?
+	je .switch_g_single
+	jmp .error
+
+.switch_g_all_auto:
+	mov ax, 00FFh
+	mov word [g_heads.auto_low_single_high], ax
+	mov word [g_sectors.auto_low_single_high], ax
+	mov word [g_hidden.auto_low_single_high], ax
+	jmp .loop
+
+.switch_g_all_keep:
+	xor ax, ax
+	mov word [g_heads.auto_low_single_high], ax
+	mov word [g_sectors.auto_low_single_high], ax
+	mov word [g_hidden.auto_low_single_high], ax
+	jmp .loop
+
+.switch_g_single:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
+	dec si
+	mov dx, msg.auto
+	call isstring?
+	jne @F
+	mov word [bx + giAutoLowSingleHigh], 00FFh
+	jmp .loop
+
+@@:
+	mov dx, msg.keep
+	call isstring?
+	jne @F
+	and word [bx + giAutoLowSingleHigh], 0
+	jmp .loop
+
+@@:
+	lodsb
+	push bx
+	cmp al, '0'
+	jne @F
+	lodsb
+	call uppercase
+	cmp al, 'X'
+	je .switch_g_single.hex
+	dec si
+	dec si
+	lodsb
+@@:
+	call get_decimal_literal
+	jmp @F
+
+.switch_g_single.hex:
+	lodsb
+	call get_hexadecimal_literal
+@@:
+	pop di
+	cmp byte [di + giLength], 2
+	ja @F
+	test bx, bx
+	jnz .error
+@@:
+	mov word [di + giAutoLowSingleHigh], 0FF00h
+	mov word [di + giValue], dx
+	mov word [di + giValue + 2], bx
 	jmp .loop
 
 
@@ -4535,6 +4641,33 @@ packet:	dd 0		; sector number
 	dw 0		; number of sectors to read
 	dd 0		; transfer address Segm:OOOO
 
+	struc GINFO
+giAutoLowSingleHigh:
+giAuto:			resb 1
+giSingle:		resb 1
+giValue:		resd 1
+giLength:		resb 1
+giOffset:		resb 1
+	endstruc
+
+g_heads:
+.auto_low_single_high:	dw 0
+.value:			dd 0
+.length:		db 2
+.offset:		db bpbCHSHeads
+
+g_sectors:
+.auto_low_single_high:	dw 0
+.value:			dd 0
+.length:		db 2
+.offset:		db bpbCHSSectors
+
+g_hidden:
+.auto_low_single_high:	dw 0
+.value:			dd 0
+.length:		db 4
+.offset:		db bpbHiddenSectors
+
 
 msg:
 .help:	db "INSTSECT: Install boot sectors. 2018 by E. C. Masloch",13,10
@@ -4747,6 +4880,9 @@ load_kernel_name: equ $
 .auto:			asciz "AUTO"
 .autohdd:		asciz "AUTOHDD"
 .none:			asciz "NONE"
+.heads:			asciz "HEADS"
+.sectors:		asciz "SECTORS"
+.hidden:		asciz "HIDDEN"
 .error_invalid_number:	asciz "Invalid number.",13,10
 .using_fix_unit:	asciz " Using fixed unit of "
 .using_fix_unit_after:	asciz "h.",13,10
