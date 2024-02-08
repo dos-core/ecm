@@ -1016,7 +1016,7 @@ disp_error: equ $
 	test bx, bx
 	jnz .error
 	cmp dx, 8192
-	jne .error
+	ja .error
 	mov bx, 32
 	cmp dx, bx
 	jb .error
