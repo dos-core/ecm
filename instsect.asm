@@ -2760,6 +2760,11 @@ set_geometry:
 	mov bl, byte [si + giOffset]
 	mov dx, word [si + giValue + 2]
 	mov ax, word [si + giValue]
+	mov word [first_sector_buffer + bsBPB + bx], ax
+	cmp byte [si + giLength], 2
+	jbe @F
+	mov word [first_sector_buffer + bsBPB + bx + 2], dx
+@@:
 	call decdword
 	mov dx, word [si + giName]
 	call disp_msg_asciz
