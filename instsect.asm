@@ -4883,6 +4883,12 @@ msg:
 	db 9,"/L AUTOHDD",9,"patch boot loader to use auto LBA (HDD-only) handling",13,10
 	db 9,"/L NONE",9,9,"patch boot loader to use only CHS",13,10
 	db 13,10
+	db 9,"/G KEEP",9,9,"keep all current geometry (default)",13,10
+	db 9,"/G AUTO",9,9,"read all auto geometry from DOS",13,10
+	db 9,"/G HEADS=x",9,"set geometry CHS heads (x = KEEP, AUTO, numeric)",13,10
+	db 9,"/G SECTORS=x",9,"set geometry CHS sectors (x = KEEP, AUTO, numeric)",13,10
+	db 9,"/G HIDDEN=x",9,"set geometry hidden (x = KEEP, AUTO, numeric)",13,10
+	db 13,10
 	db 9,"/SR",9,9,"do not read boot sector from source file (default)",13,10
 	db 9,"/S=filename",9,"read boot sector loader from source file",13,10
 	db 9,"/S12=filename",9,"as /S=filename but only for FAT12 (also /S16, /S32)",13,10
