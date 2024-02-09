@@ -1648,6 +1648,14 @@ prepare_sector:
 	testopt [cmd_line_flags], clfLeaveSector
 	jz @F
 
+	test byte [bp + ldHasLBA], 2
+	jz .no_leave_fsinfo
+	add si, 512
+	mov cx, 512 >> 1
+	mov di, first_sector_buffer + 512
+	rep movsw
+.no_leave_fsinfo:
+
 	mov dx, msg.leave_sector
 	call disp_msg_asciz
 		; Copy over original 512-byte sector buffer content.
