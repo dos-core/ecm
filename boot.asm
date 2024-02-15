@@ -1204,6 +1204,10 @@ skip_bpb:
 	sti
 
 
+		; Note:	The int 13h function 08h call may change or
+		;	 set ax, bx, cx, dx, es, di. es is left as
+		;	 indeterminate until the first call to
+		;	 read_sector to read the root directory.
 %if _QUERY_GEOMETRY	; +27 bytes
 
 		; start of magic byte sequence for instsect

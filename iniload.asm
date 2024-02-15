@@ -435,6 +435,11 @@ disp_error:
 	retn
 
 
+		; INP:	EBPB new unit field
+		;	query patch site
+		; OUT:	BPB CHS heads and sectors rewritten (if query success)
+		;	ldHasLBA set to 1 or 0 to use LBA or CHS accesses
+		; CHG:	ax, bx, cx, dx, es, di
 query_geometry:
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 		; magic bytes start
@@ -467,6 +472,9 @@ query_geometry:
 	jnz @F			; yes -->
   %endif
 
+		; Note:	The int 13h function 08h call may change or
+		;	 set ax, bx, cx, dx, es, di. es is left as
+		;	 indeterminate afterwards.
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function

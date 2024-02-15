@@ -420,7 +420,15 @@ filbuf:
 	_fill 8192, 38, .
 
 
+		; INP:	EBPB new unit field
+		; OUT:	BPB CHS heads and sectors rewritten (if query success)
+		;	ldHasLBA set to 1 or 0 to use LBA or CHS accesses
+		; CHG:	ax, bx, cx, dx, es, di
 query_geometry:
+		; Note:	The int 13h function 08h call may change or
+		;	 set ax, bx, cx, dx, es, di. es is left as
+		;	 indeterminate until the first call to
+		;	 read_sector to read the directory.
 %if _QUERY_GEOMETRY	; +30 bytes
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
  %if !_LBA_SKIP_CHECK
