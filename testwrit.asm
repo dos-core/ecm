@@ -75,7 +75,9 @@ ldFATType:	resb 1
 ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
-ldLoadingSeg:	resw 1
+ldLoadingSeg:		; word
+ldQueryPatchValue:	; word
+		resw 1
 ldLoadUntilSeg:	resw 1
 	endstruc
 
@@ -127,6 +129,7 @@ ATTR_ARCHIVE	equ 20h
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
+	numdef QUERY_PATCH,	1
 
 	numdef PADDING, 0
 	strdef FILE_NAME,	"RESULT"
@@ -429,11 +432,33 @@ query_geometry:
 		;	 set ax, bx, cx, dx, es, di. es is left as
 		;	 indeterminate until the first call to
 		;	 read_sector to read the directory.
-%if _QUERY_GEOMETRY	; +30 bytes
+%if _QUERY_GEOMETRY || _QUERY_PATCH
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+%endif
+ %if _QUERY_PATCH
+	mov ax, word [bp + ldQueryPatchValue]
+	test dl, dl		; hard disk unit ?
+	jns @F			; no -->
+	xchg al, ah		; get high byte into al
+@@:
+	test al, al
+	js @F
+	mov al, 0
+@@:
+ %endif
+%if _QUERY_GEOMETRY	; +30 bytes
  %if !_LBA_SKIP_CHECK
 	push dx
+  %if _QUERY_PATCH
+	push ax
+  %endif
  %endif
+
+  %if _QUERY_PATCH
+	test al, 4		; don't query geometry ?
+	jnz @F			; yes -->
+  %endif
+
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -454,15 +479,25 @@ query_geometry:
 %endif
 
 %if !_LBA_SKIP_CHECK
-	mov ah, 41h
  %if _QUERY_GEOMETRY
+  %if _QUERY_PATCH
+	pop ax			; restore query patch flags in al
+  %endif
 	pop dx
- %else
+ %elifn _QUERY_PATCH
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
  %endif
+ %if _QUERY_PATCH
+	shr al, 1		; CY if force CHS
+	jc @F			; if so -->
+	and al, 1		; force LBA ?
+	jnz .done_lba		; yes -->
+ %endif
+	mov ah, 41h
 	mov bx, 55AAh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
+@@:
 	mov al, 0	; zero in case of no LBA support
 	jc .no_lba
 	cmp bx, 0AA55h
@@ -471,6 +506,7 @@ query_geometry:
 	jz .no_lba
 	inc ax		; al = 1 to indicate LBA support
 .no_lba:
+.done_lba:
 	mov byte [bp + ldHasLBA], al
 %endif
 
