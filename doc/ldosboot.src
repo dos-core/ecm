@@ -305,11 +305,37 @@ The following flag values are used:
 
 \b 04h Force use of BPB's CHS geometry, do not detect with 13.08
 
-\b 80h Used by lDebug. If this value is set for the load unit,
-then lDebug will make use of the other flags set up for that unit.
-The corresponding flags will be saved in lDebug's load_unit_flags.
+\b 40h Used by test result writer (testwrit).
+If this value is set for the load unit,
+then the test application will skip all query geometry
+and LBA detection.
+Instead of running the detection, the information as passed by iniload
+is used verbatim.
+This differs from either flag 1 or flag 2 being set
+in that LBA support is carried over from iniload,
+and is not forced off or on.
+As for the CHS geometry, this is equivalent to setting
+the flags 84h (force use of passed geometry).
+The flag 40h takes effect even if flag 80h is not set.
+
+\b 80h Used by lDebug and test result writer (testwrit).
+If this value is set for the load unit,
+then lDebug or testwrit will make use of
+the other flags set up for that unit.
+
+\lcont{
+
+For lDebug,
+the corresponding flags will be saved in lDebug's load_unit_flags.
 This affects only the load unit (LD in lDebug terminology),
 which suffices to pass commands in the startup Script for lDebug.
+
+For testwrit,
+the geometry query and LBA detection will honour the
+flags 01h, 02h, and 04h just like iniload interprets them.
+These only take effect if flag 40h is clear.
+
+}
 
 The flag 01h takes precedence over 02h if both are set.
 

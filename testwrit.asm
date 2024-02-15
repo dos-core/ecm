@@ -441,6 +441,8 @@ query_geometry:
 	jns @F			; no -->
 	xchg al, ah		; get high byte into al
 @@:
+	test al, 40h
+	jnz .skipall
 	test al, al
 	js @F
 	mov al, 0
@@ -510,6 +512,7 @@ query_geometry:
 	mov byte [bp + ldHasLBA], al
 %endif
 
+.skipall:
 %if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 disp_error.ret:
 	retn
