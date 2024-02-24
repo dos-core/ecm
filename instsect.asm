@@ -4741,12 +4741,15 @@ read_ae_512_bytes:
 	retn
 
 
+		; INP:	byte [ss:drivenumber] = 0-based drive number
+		; OUT:	CF
+		; CHG:	-
 lockdrive:
 	push ax
 	push bx
 	push cx
 	push dx
-	mov bl, al
+	mov bl, byte [ss:drivenumber]
 	inc bl
 	mov bh, 0
 	mov cx, 084Ah
@@ -4759,12 +4762,16 @@ lockdrive:
 	pop ax
 	retn
 
+
+		; INP:	byte [ss:drivenumber] = 0-based drive number
+		; OUT:	CF
+		; CHG:	-
 unlockdrive:
 	push ax
 	push bx
 	push cx
 	push dx
-	mov bl, al
+	mov bl, byte [ss:drivenumber]
 	inc bl
 	mov bh, 0
 	mov cx, 086Ah
