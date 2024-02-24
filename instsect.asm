@@ -4484,6 +4484,8 @@ symhint_store_and_label write_sector
 	mov word [bx+8], ds	; transfer address seg
 	mov cx, -1
 
+	call lockdrive
+
 	testopt [ss:internalflags], newpacket| ntpacket
 	jz .oldint
 	mov dl, al		; A: = 0, ...
@@ -4493,13 +4495,9 @@ symhint_store_and_label write_sector
 	jnz .vdd
 %endif
 	inc dl			; A: = 1, ...
-	call lockdrive
 	mov ax, 7305h		; ds:(e)bx-> packet
 	stc
 	int 21h
-	pushf
-	call unlockdrive
-	popf
 	jmp short .done
 %if _VDD
 .vdd:
@@ -4511,6 +4509,9 @@ symhint_store_and_label write_sector
 .error_sector_not_found:
 	mov al, 8		; "sector not found"
 .done:
+	pushf
+	call unlockdrive
+	popf
 	mov dx, writing
 .ww1:
 	jnc .ww3		; if no error
@@ -4627,6 +4628,8 @@ read_sector:
 	mov word [bx+8], ds	; transfer address seg
 	mov cx, -1
 
+	call lockdrive
+
 	testopt [ss:internalflags], newpacket| ntpacket
 	jz .oldint
 	mov dl, al		; A: = 0, ...
@@ -4636,13 +4639,9 @@ read_sector:
 	jnz .vdd
 %endif
 	inc dl			; A: = 1, ...
-	call lockdrive
 	mov ax, 7305h		; ds:(e)bx-> packet
 	stc
 	int 21h
-	pushf
-	call unlockdrive
-	popf
 	jmp short .done
 %if _VDD
 .vdd:
@@ -4654,6 +4653,9 @@ read_sector:
 .error_sector_not_found:
 	mov al, 8		; "sector not found"
 .done:
+	pushf
+	call unlockdrive
+	popf
 	mov dx, reading
 	jmp write_sector.ww1
 
@@ -4743,6 +4745,7 @@ read_ae_512_bytes:
 
 		; INP:	byte [ss:drivenumber] = 0-based drive number
 		; OUT:	CF
+		;	byte [ss:internalflags] & locked
 		; CHG:	-
 lockdrive:
 	push ax
@@ -4756,6 +4759,10 @@ lockdrive:
 	mov dx, 0001h
 	mov ax, 440Dh
 	int 21h
+	jc @F
+	setopt [ss:internalflags], locked
+				; NC
+@@:
 	pop dx
 	pop cx
 	pop bx
@@ -4764,6 +4771,7 @@ lockdrive:
 
 
 		; INP:	byte [ss:drivenumber] = 0-based drive number
+		;	byte [ss:internalflags] & locked
 		; OUT:	CF
 		; CHG:	-
 unlockdrive:
@@ -4771,6 +4779,8 @@ unlockdrive:
 	push bx
 	push cx
 	push dx
+	testopt [ss:internalflags], locked
+	jz @F			; --> (NC)
 	mov bl, byte [ss:drivenumber]
 	inc bl
 	mov bh, 0
@@ -4778,6 +4788,10 @@ unlockdrive:
 	mov dx, 0001h
 	mov ax, 440Dh
 	int 21h
+	jc @F
+	clropt [ss:internalflags], locked
+				; NC
+@@:
 	pop dx
 	pop cx
 	pop bx
@@ -4790,6 +4804,7 @@ internalflags:	dd 0
 oldpacket	equ	  1	; Int25/Int26 packet method available (L, W)
 newpacket	equ	  2	; Int21.7305 packet method available (L, W)
 ntpacket	equ	  4	; VDD registered and usable (L, W)
+locked		equ	  8	; locked drive
 runningnt	equ   20000h	; running in NTVDM
 detectedcopysector	equ 10h
 detectedcopyinfo	equ 20h
