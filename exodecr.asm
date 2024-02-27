@@ -311,7 +311,31 @@ d0	mov byte [bp + ?errordata], 48h
 
 .not_literal_data_block:
 	cmp dl, 16
-	je .end_check
+	jne .sequence
+
+.end_check:
+d0	mov byte [bp + ?errordata], 40h
+	cmp word [bp + ?src_remaining + 2], 0
+	jne .error
+	cmp word [bp + ?src_remaining], 15
+	ja .error
+.end:
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al
+	mov al, 10
+	call disp_al
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
 
 .sequence:
 	mov di, dx
@@ -324,7 +348,7 @@ d0	mov byte [bp + ?errordata], 48h
 	call read_bits		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 39h
 .error_CY_4:
-	jc .error_CY_3
+	jc .error
 	add bx, ax		; bx = length
 
 %if _P & 32
@@ -334,7 +358,7 @@ d0	mov byte [bp + ?errordata], 39h
 	jne @F
 	call read_bits_1	; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 4Ch
-	jc .error_CY_3
+	jc .error_CY_4
 	dec ax			; = -1 if was 0, = 0 if was 0
 	jnz @F			; jump if now -1, ie was 0
 	mov cx, bx
@@ -413,7 +437,7 @@ d0	mov byte [bp + ?errordata], 3Ah
 .switch_common:
 	call read_bits
 .error_CY_3:
-	jc .error_CY_2
+	jc .error_CY_4
 				; ax = next index, dx -> next table
 	mov di, ax
 	add ax, ax
@@ -424,7 +448,7 @@ d0	mov byte [bp + ?errordata], 3Ah
 	call read_bits		; leaves cx = 0 if NC
 d0	mov byte [bp + ?errordata], 3Dh
 .error_CY_2:
-	jc .error_CY_1
+	jc .error_CY_3
 	xchg cx, bx		; cx = length that we remembered in bx
 				; bx = 0
 	xchg dx, ax		; bx:dx = read bits
@@ -469,18 +493,18 @@ d0	mov byte [bp + ?errordata], 16h
 	cmp word [bp + ?original_dst], si
 d0	mov byte [bp + ?errordata], 17h
 .error_A_1:
-	ja .error		; no, ?original_dst is above it -->
+	ja .error_NC_1		; no, ?original_dst is above it -->
 @@:
 	mov ds, bx		; -> match source data
 	call copy_data
 d0	mov byte [bp + ?errordata], 3Fh
 .error_CY_1:
-	jc .error
+	jc .error_CY_2
 				; NC
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 d0	mov byte [bp + ?errordata], 1Ch
-	jc .error
+	jc .error_CY_1
 				; NC
 %endif
 %if _P & 32
@@ -489,29 +513,6 @@ d0	mov byte [bp + ?errordata], 1Ch
 %else
 	jmp .STATE_NEXT_BYTE
 %endif
-
-.end_check:
-d0	mov byte [bp + ?errordata], 40h
-	cmp word [bp + ?src_remaining + 2], 0
-	jne .error
-	cmp word [bp + ?src_remaining], 15
-	ja .error
-.end:
-	db __TEST_IMM8			; (NC)
-.error:
-	stc
-
-%if _COUNTER
-	lahf
-	mov al, 13
-	call disp_al
-	mov al, 10
-	call disp_al
-	sahf
-%endif
-d0	mov bx, word [bp + ?errordata]
-	lleave code
-	lret
 
 
 		; INP:	?src
