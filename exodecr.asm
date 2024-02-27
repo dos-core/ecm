@@ -343,12 +343,12 @@ d0	mov byte [bp + ?errordata], 4Ch
 	je .switch_case2
 	ja .switch_default
 %else
-	cmp bx, 2
-	je .switch_case2
-	jb .switch_case1
 	cmp bx, 4
-	jb .switch_case3
-	jmp .switch_default
+	jae .switch_default
+	cmp bl, 2
+	je .switch_case2
+	; jb .switch_case1
+	ja .switch_case3
 %endif
 .switch_case1:
 	mov cl, 2		; cx = 2
