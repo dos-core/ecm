@@ -338,11 +338,13 @@ d0	mov byte [bp + ?errordata], 4Ch
 
 	test bx, bx
 	jz .switch_default
+%ifn _P & 16
 	cmp bx, 2
 	je .switch_case2
-%ifn _P & 16
 	ja .switch_default
 %else
+	cmp bx, 2
+	je .switch_case2
 	jb .switch_case1
 	cmp bx, 4
 	jb .switch_case3
