@@ -27,6 +27,9 @@ freely, subject to the following restrictions:
 %endif
 
 	numdef P, 7, 7
+%if _P > 63
+ %error Too large P value, not supported
+%endif
 
 
 	struc exo_table_entry
