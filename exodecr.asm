@@ -84,8 +84,7 @@ depack:
 	 push bx
 	lvar word, reuse_offset_state_and_RCL_carry_in
 	lequ ?reuse_offset_state_and_RCL_carry_in, reuse_offset_state
-	lequ ?reuse_offset_state_and_RCL_carry_in + 1, RCL_carry_in
-	mov bx, 1 | (0FFh << 8)
+	inc bx			; = 1
 	 push bx
 %endif
 
@@ -230,10 +229,9 @@ d0	mov byte [bp + ?errordata], 46h
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 %if _P & 32
+	stc
 .STATE_NEXT_BYTE_rcl:
-	rol byte [bp + ?RCL_carry_in], 1
 	rcl byte [bp + ?reuse_offset_state], 1
-	mov byte [bp + ?RCL_carry_in], 0FFh
 %endif
 
 	; jmp .STATE_NEXT_BYTE
@@ -440,17 +438,15 @@ d0	mov byte [bp + ?errordata], 17h
 	call copy_data
 d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
-%if _P & 32
-	mov byte [bp + ?RCL_carry_in], al
-				; = 0
-%endif
-
+				; NC
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 d0	mov byte [bp + ?errordata], 1Ch
 	jc .error
+				; NC
 %endif
 %if _P & 32
+	; clc			; (already NC)
 	jmp .STATE_NEXT_BYTE_rcl
 %else
 	jmp .STATE_NEXT_BYTE
