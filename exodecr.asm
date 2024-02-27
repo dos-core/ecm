@@ -341,6 +341,7 @@ d0	mov byte [bp + ?errordata], 4Ch
 @@:
 %endif
 
+d0	mov byte [bp + ?errordata], 3Bh
 	test bx, bx
 	jz .switch_default
 %ifn _P & 16
@@ -363,22 +364,18 @@ d0	mov byte [bp + ?errordata], 3Ah
 
 .switch_case2:
 	mov dx, ?offsets2
-d0	mov byte [bp + ?errordata], 3Bh
 	jmp .switch_common_cl_4
 
 %ifn _P & 16
 .switch_default:
 	mov dx, ?offsets3
-d0	mov byte [bp + ?errordata], 3Ch
 %else
 .switch_case3:
 	mov dx, ?offsets3
-d0	mov byte [bp + ?errordata], 4Ah
 	jmp .switch_common_cl_4
 
 .switch_default:
 	mov dx, ?offsets4
-d0	mov byte [bp + ?errordata], 4Bh
 %endif
 	; jmp .switch_common_cl_4
 
