@@ -24,10 +24,6 @@ freely, subject to the following restrictions:
 
   3. This notice may not be removed or altered from any distribution.
 
-  4. The names of this software and/or it's copyright holders may not be
-  used to endorse or promote products derived from this software without
-  specific prior written permission.
-
 %endif
 
 	numdef P, 7, 7
