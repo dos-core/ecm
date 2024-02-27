@@ -115,7 +115,7 @@ depack:
 		; If the normalised destination pointer's segment grows
 		;  to this segment then enough has been decompressed.
 d0	mov byte [bp + ?errordata], 40h
-	jc .error		; should not carry
+	jc .error_CY_8		; should not carry
 @@:
 	lvar word,	dst_max_segment
 	 push ax
@@ -163,7 +163,7 @@ d0	mov byte [bp + ?errordata], 40h
 		;	 copied match) allows us to drop the check done
 		;	 after moving literal bytes.
 d0	mov byte [bp + ?errordata], 1Bh
-	jc .error
+	jc .error_CY_8
 %endif
 
 	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
@@ -180,32 +180,33 @@ d0	mov byte [bp + ?errordata], 1Bh
 %ifn _P & 8
 	call read_byte_to_bit_buffer
 d0	mov byte [bp + ?errordata], 30h
-	jc .error
+	jc .error_CY_8
 %endif
 
 	mov di, ?lengths
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 41h
-	jc .error
+.error_CY_8:
+	jc .error_CY_7
 %if _P & 16
 	mov di, ?offsets4
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 49h
-	jc .error
+	jc .error_CY_7
 %endif
 	mov di, ?offsets3
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 42h
-	jc .error
+	jc .error_CY_7
 	mov di, ?offsets2
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 43h
-	jc .error
+	jc .error_CY_7
 	mov di, ?offsets1
 	mov cl, 4
 	call generate_table_cx		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 44h
-	jc .error
+	jc .error_CY_7
 
 %ifn _P & 4
 	jmp .STATE_NEXT_BYTE
@@ -222,10 +223,11 @@ d0	mov byte [bp + ?errordata], 44h
 	sub word [bp + ?src_remaining], cx
 	sbb word [bp + ?src_remaining + 2], 0
 d0	mov byte [bp + ?errordata], 45h
-	jc .error
+.error_CY_7:
+	jc .error_CY_6
 	call copy_data
 d0	mov byte [bp + ?errordata], 46h
-	jc .error
+	jc .error_CY_6
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 %if _P & 32
@@ -247,7 +249,8 @@ d0	mov byte [bp + ?errordata], 46h
 %endif
 	call read_bits_1		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 32h
-	jc .error
+.error_CY_6:
+	jc .error_CY_5
 	test ax, ax
 	jnz .literal			; (cx = 0 still)
 
@@ -272,30 +275,31 @@ d0	mov byte [bp + ?errordata], 32h
 	adc bx, cx		; ++gamma (except initially)
 	call read_bits_1	; read_bits(1)
 d0	mov byte [bp + ?errordata], 33h
-	jc .error
+.error_CY_5:
+	jc .error_CY_4
 	xor al, 1		; returned == 0 ?
 	jnz .ggc_loop		; yes, loop --> (ax = 1 if looping)
 				; no, end of loop
 
-	test bx, bx
+	test bx, bx		; (NC)
 d0	mov byte [bp + ?errordata], 34h
-	jnz .error
+	jnz .error_NC_1		; (! NC)
 	cmp dx, 17
 	jne .not_literal_data_block
 .literal_data_block:
 %if _P & 2
 	call read_byte
 d0	mov byte [bp + ?errordata], 35h
-	jc .error
+	jc .error_CY_4
 	mov ah, al
 	call read_byte
 d0	mov byte [bp + ?errordata], 36h
-	jc .error
+	jc .error_CY_4
 %else
 	mov cx, 16
 	call read_bits
 d0	mov byte [bp + ?errordata], 48h
-	jc .error
+	jc .error_CY_4
 %endif
 	xchg ax, cx
 	jmp .STATE_NEXT_LITERAL_BYTE_increment_counter
@@ -304,7 +308,7 @@ d0	mov byte [bp + ?errordata], 48h
 	cmp dx, 16
 	je .end_check
 d0	mov byte [bp + ?errordata], 38h
-	ja .error
+	ja .error_A_1
 
 .sequence:
 	mov di, dx
@@ -316,7 +320,8 @@ d0	mov byte [bp + ?errordata], 38h
 	mov cl, byte [bp + ?lengths + di + eteBits]
 	call read_bits		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 39h
-	jc .error
+.error_CY_4:
+	jc .error_CY_3
 	add bx, ax		; bx = length
 
 %if _P & 32
@@ -326,7 +331,7 @@ d0	mov byte [bp + ?errordata], 39h
 	jne @F
 	call read_bits_1
 d0	mov byte [bp + ?errordata], 4Ch
-	jc .error
+	jc .error_CY_3
 	dec ax			; = -1 if was 0, = 0 if was 0
 	jnz @F			; jump if now -1, ie was 0
 	mov cx, bx
@@ -382,7 +387,8 @@ d0	mov byte [bp + ?errordata], 4Bh
 
 .switch_common:
 	call read_bits
-	jc .error
+.error_CY_3:
+	jc .error_CY_2
 				; ax = next index, dx -> next table
 	mov di, ax
 	add ax, ax
@@ -392,7 +398,8 @@ d0	mov byte [bp + ?errordata], 4Bh
 	mov cl, byte [bp + di + eteBits]
 	call read_bits		; leaves cx = 0 if NC
 d0	mov byte [bp + ?errordata], 3Dh
-	jc .error
+.error_CY_2:
+	jc .error_CY_1
 	xchg cx, bx		; cx = length that we remembered in bx
 				; bx = 0
 	xchg dx, ax		; bx:dx = read bits
@@ -404,6 +411,7 @@ d0	mov byte [bp + ?errordata], 3Dh
 	jnz @F			; no -->
 	test dx, dx		; offset 0 ?
 d0	mov byte [bp + ?errordata], 3Eh
+.error_ZR_1:
 	jz .error		; yes, invalid -->
 @@:
 
@@ -425,20 +433,23 @@ d0	mov byte [bp + ?errordata], 3Eh
 	 pop bx			; bx:si = pointer into decompressed data
 	pop cx			; restore match length
 d0	mov byte [bp + ?errordata], 47h
+.error_NC_1:
 	jnc .error
 
 	cmp word [bp + ?original_dst + 2], bx
 				; is source of matching within ?dst ?
 d0	mov byte [bp + ?errordata], 16h
-	ja .error
+	ja .error_A_1
 	jb @F
 	cmp word [bp + ?original_dst], si
 d0	mov byte [bp + ?errordata], 17h
+.error_A_1:
 	ja .error		; no, ?original_dst is above it -->
 @@:
 	mov ds, bx		; -> match source data
 	call copy_data
 d0	mov byte [bp + ?errordata], 3Fh
+.error_CY_1:
 	jc .error
 				; NC
 %if _ALLOW_OVERLAPPING
