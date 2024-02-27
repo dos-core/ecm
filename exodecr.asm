@@ -75,6 +75,16 @@ depack:
 	lequ ?bit_buffer_and_counter + 1, counter
 	 push bx		; initialise counter (high byte) to zero
 				; if _P & 8: initialise bit_buffer to zero
+%if _P & 32
+	lvar dword, offset
+	 push bx
+	 push bx
+	lvar word, reuse_offset_state_and_RCL_carry_in
+	lequ ?reuse_offset_state_and_RCL_carry_in, reuse_offset_state
+	lequ ?reuse_offset_state_and_RCL_carry_in + 1, RCL_carry_in
+	mov bx, 1 | (0FFh << 8)
+	 push bx
+%endif
 
 	call normalise_both_pointers
 
@@ -216,8 +226,13 @@ d0	mov byte [bp + ?errordata], 46h
 	jc .error
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
+%if _P & 32
+.STATE_NEXT_BYTE_rcl:
+	rol byte [bp + ?RCL_carry_in], 1
+	rcl byte [bp + ?reuse_offset_state], 1
+	mov byte [bp + ?RCL_carry_in], 0FFh
+%endif
 
-		; cx = 0
 	; jmp .STATE_NEXT_BYTE
 
 .STATE_NEXT_BYTE:
@@ -302,6 +317,24 @@ d0	mov byte [bp + ?errordata], 38h
 d0	mov byte [bp + ?errordata], 39h
 	jc .error
 	add bx, ax		; bx = length
+
+%if _P & 32
+	mov al, byte [bp + ?reuse_offset_state]
+	and al, 3
+	cmp al, 1
+	jne @F
+	call read_bits_1
+d0	mov byte [bp + ?errordata], 4Ch
+	jc .error
+	test al, 1
+	jz @F
+	mov cx, bx
+	mov dx, word [bp + ?offset]
+	mov bx, word [bp + ?offset + 2]
+	jmp .use_prior_offset
+@@:
+%endif
+
 	test bx, bx
 	jz .switch_default
 	cmp bx, 2
@@ -370,6 +403,13 @@ d0	mov byte [bp + ?errordata], 3Dh
 d0	mov byte [bp + ?errordata], 3Eh
 	jz .error		; yes, invalid -->
 @@:
+
+%if _P & 32
+	mov word [bp + ?offset], dx
+	mov word [bp + ?offset + 2], bx
+
+.use_prior_offset:
+%endif
 	push cx
 	mov cx, dx
         neg bx
@@ -397,13 +437,21 @@ d0	mov byte [bp + ?errordata], 17h
 	call copy_data
 d0	mov byte [bp + ?errordata], 3Fh
 	jc .error
+%if _P & 32
+	mov byte [bp + ?RCL_carry_in], al
+				; = 0
+%endif
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 d0	mov byte [bp + ?errordata], 1Ch
 	jc .error
 %endif
+%if _P & 32
+	jmp .STATE_NEXT_BYTE_rcl
+%else
 	jmp .STATE_NEXT_BYTE
+%endif
 
 .end_check:
 d0	mov byte [bp + ?errordata], 40h
