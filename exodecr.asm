@@ -398,7 +398,7 @@ d0	mov byte [bp + ?errordata], 3Dh
 	xchg dx, ax		; bx:dx = read bits
 
 	add dx, word [bp + di + eteBase]
-	adc bx, 0		; bx:dx = offset
+	adc bx, bx		; bx:dx = offset
 
 	; test bx, bx		; offset 0 ?
 	jnz @F			; no -->
