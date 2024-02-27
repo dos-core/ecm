@@ -327,8 +327,8 @@ d0	mov byte [bp + ?errordata], 39h
 	call read_bits_1
 d0	mov byte [bp + ?errordata], 4Ch
 	jc .error
-	test al, 1
-	jz @F
+	dec ax			; = -1 if was 0, = 0 if was 0
+	jnz @F			; jump if now -1, ie was 0
 	mov cx, bx
 	mov dx, word [bp + ?offset]
 	mov bx, word [bp + ?offset + 2]
