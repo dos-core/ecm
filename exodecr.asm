@@ -329,7 +329,7 @@ d0	mov byte [bp + ?errordata], 39h
 	and al, 3
 	cmp al, 1
 	jne @F
-	call read_bits_1
+	call read_bits_1	; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 4Ch
 	jc .error_CY_3
 	dec ax			; = -1 if was 0, = 0 if was 0
