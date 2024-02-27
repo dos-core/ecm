@@ -342,6 +342,7 @@ d0	mov byte [bp + ?errordata], 4Ch
 %endif
 
 d0	mov byte [bp + ?errordata], 3Bh
+	mov dh, (?offsets1 >> 8) & 0FFh
 	test bx, bx
 	jz .switch_default
 %ifn _P & 16
@@ -358,24 +359,48 @@ d0	mov byte [bp + ?errordata], 3Bh
 %endif
 .switch_case1:
 	mov cl, 2		; cx = 2
-	mov dx, ?offsets1
+	mov dl, ?offsets1 & 0FFh
 d0	mov byte [bp + ?errordata], 3Ah
 	jmp .switch_common
 
 .switch_case2:
+ %if (?offsets1 >> 8) == (?offsets2 >> 8)
+	mov dl, ?offsets2 & 0FFh
+ %else
 	mov dx, ?offsets2
+ %endif
+ %if (?offsets1 >> 8) == (?offsets3 >> 8)
+	db __TEST_IMM16		; skip mov dl
+ %else
 	jmp .switch_common_cl_4
+ %endif
 
 %ifn _P & 16
 .switch_default:
+ %if (?offsets1 >> 8) == (?offsets3 >> 8)
+	mov dl, ?offsets3 & 0FFh
+ %else
 	mov dx, ?offsets3
+ %endif
 %else
 .switch_case3:
+ %if (?offsets1 >> 8) == (?offsets3 >> 8)
+	mov dl, ?offsets3 & 0FFh
+ %else
 	mov dx, ?offsets3
+ %endif
+ %if (?offsets1 >> 8) == (?offsets4 >> 8)
+	db __TEST_IMM16		; skip mov dl
+ %else
 	jmp .switch_common_cl_4
+ %endif
 
 .switch_default:
+ %if (?offsets1 >> 8) == (?offsets4 >> 8)
+	mov dl, ?offsets4 & 0FFh
+ %else
 	mov dx, ?offsets4
+ %endif
 %endif
 	; jmp .switch_common_cl_4
 
