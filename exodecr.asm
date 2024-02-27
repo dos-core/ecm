@@ -281,13 +281,16 @@ d0	mov byte [bp + ?errordata], 33h
 	jnz .ggc_loop		; yes, loop --> (ax = 1 if looping)
 				; no, end of loop
 
-	test bx, bx		; (NC)
+	test bx, bx
 d0	mov byte [bp + ?errordata], 34h
-	jnz .error_NC_1		; (! NC)
+	jnz .error_1
 	cmp dx, 17
 d0	mov byte [bp + ?errordata], 38h
-	ja .error_A_1
-	jne .not_literal_data_block
+	je .literal_data_block
+	jb .not_literal_data_block
+.error_1:
+	jmp .error
+
 .literal_data_block:
 %if _P & 2
 	call read_byte
