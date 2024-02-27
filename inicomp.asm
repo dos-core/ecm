@@ -492,11 +492,6 @@ image_size: equ  ( (init0_end - init0_start) \
 	add sp, 4		; discard far return to payload's strategy
 	retf			; return to DOS
 
-.msg_no_memory:		ascic "Load error: Not enough memory."
-.msg_dos_below_5:	ascic " Note: DOS must be at least version 5."
-.msg_linebreak:		ascic 13,10
-
-
 .have_some_memory:
 	mov dx, ax		; => after end of memory
 	mov bx, 2		; device mode
@@ -505,6 +500,11 @@ image_size: equ  ( (init0_end - init0_start) \
 	add ax, (init0_end - init0_start) >> 4
 	mov si, cs		; => destination
 	jmp init0_common
+
+
+.msg_no_memory:		ascic "Load error: Not enough memory."
+.msg_dos_below_5:	ascic " Note: DOS must be at least version 5."
+.msg_linebreak:		ascic 13,10
 %endif
 
 
