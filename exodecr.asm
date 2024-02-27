@@ -285,6 +285,8 @@ d0	mov byte [bp + ?errordata], 33h
 d0	mov byte [bp + ?errordata], 34h
 	jnz .error_NC_1		; (! NC)
 	cmp dx, 17
+d0	mov byte [bp + ?errordata], 38h
+	ja .error_A_1
 	jne .not_literal_data_block
 .literal_data_block:
 %if _P & 2
@@ -305,10 +307,8 @@ d0	mov byte [bp + ?errordata], 48h
 	jmp .STATE_NEXT_LITERAL_BYTE_increment_counter
 
 .not_literal_data_block:
-	cmp dx, 16
+	cmp dl, 16
 	je .end_check
-d0	mov byte [bp + ?errordata], 38h
-	ja .error_A_1
 
 .sequence:
 	mov di, dx
