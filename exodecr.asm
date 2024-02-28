@@ -623,8 +623,7 @@ generate_table_cx:
 	call read_bits
 	jc .ret_pop
 	mov byte [bp + di + eteBits], al
-	mov cl, 1
-	call read_bits
+	call read_bits_1
 	jc .ret_pop
 	shl al, 1
 	shl al, 1
