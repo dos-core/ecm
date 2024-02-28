@@ -283,13 +283,11 @@ d0	mov byte [bp + ?errordata], 33h
 
 	test bx, bx
 d0	mov byte [bp + ?errordata], 34h
-	jnz .error_1
+	jnz .error
 	cmp dx, 17
 d0	mov byte [bp + ?errordata], 38h
-	je .literal_data_block
 	jb .not_literal_data_block
-.error_1:
-	jmp .error
+	ja .error
 
 .literal_data_block:
 %if _P & 2
