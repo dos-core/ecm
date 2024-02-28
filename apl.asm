@@ -24,7 +24,7 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 
-	numdef COUNTER,		0, 128
+	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
 %endif

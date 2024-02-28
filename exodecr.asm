@@ -30,6 +30,10 @@ freely, subject to the following restrictions:
 %if _P > 63
  %error Too large P value, not supported
 %endif
+	numdef COUNTER,		0, 256
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
+%endif
 
 
 	struc exo_table_entry

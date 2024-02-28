@@ -22,7 +22,7 @@
 %endif
 
 
-	numdef COUNTER,		0, 128
+	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
 %endif
