@@ -663,7 +663,11 @@ generate_table_cx:
 	shl ax, cl
 	add bx, ax
 	pop cx
-	add di, exo_table_entry_size
+%if exo_table_entry_size != 3
+ %error Unexpected size
+%endif
+	scasw			; (di must never equal 0FFFFh here)
+	inc di			; like add di, 3
 	loop .loop
 	db __TEST_IMM8		; (skip pop, NC)
 .ret_pop:
