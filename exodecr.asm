@@ -358,7 +358,7 @@ d0	mov byte [bp + ?errordata], 39h
 	call read_bits_1	; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 4Ch
 	jc .error_CY_4
-	dec ax			; = -1 if was 0, = 0 if was 0
+	dec ax			; = -1 if was 0, = 0 if was 1
 	jnz @F			; jump if now -1, ie was 0
 	mov cx, bx
 	mov dx, word [bp + ?offset]
