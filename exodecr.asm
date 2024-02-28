@@ -178,7 +178,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 	lreserve
 
 %ifn _P & 8
-	call read_byte_to_bit_buffer
+	call read_byte
+	mov byte [bp + ?bit_buffer], al
 d0	mov byte [bp + ?errordata], 30h
 	jc .error_CY_8
 %endif
@@ -534,17 +535,6 @@ read_byte:
 	retn
 
 
-		; as for read_byte
-		; OUT:	CY if error
-		;	NC if success,
-		;	 ?bit_buffer
-		; CHG:	al, ds, si
-read_byte_to_bit_buffer:
-	call read_byte
-	mov byte [bp + ?bit_buffer], al
-	retn
-
-
 read_bits_1:
 	mov cx, 1
 
@@ -582,7 +572,8 @@ read_bits:
 %endif				; shl/shr both set ZF
 	jnz .notzero
 	push ax
-	call read_byte_to_bit_buffer
+	call read_byte
+	mov byte [bp + ?bit_buffer], al
 	pop ax
 	jc .ret			; if error --> (CY)
 	stc
