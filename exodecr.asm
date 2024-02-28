@@ -189,20 +189,21 @@ d0	mov byte [bp + ?errordata], 41h
 .error_CY_8:
 	jc .error_CY_7
 %if _P & 16
-	mov di, ?offsets4
+	; mov di, ?offsets4		; already pointed to from ?lengths + 48
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 49h
 	jc .error_CY_7
 %endif
-	mov di, ?offsets3
+	; mov di, ?offsets3		; already pointed to from ?lengths + 48
+					;  or ?offsets4 + 48
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 42h
 	jc .error_CY_7
-	mov di, ?offsets2
+	; mov di, ?offsets2		; already pointed to from ?offsets3 + 48
 	call generate_table_16
 d0	mov byte [bp + ?errordata], 43h
 	jc .error_CY_7
-	mov di, ?offsets1
+	; mov di, ?offsets1		; already pointed to from ?offsets2 + 48
 	mov cl, 4
 	call generate_table_cx		; cx = 0 if NC
 d0	mov byte [bp + ?errordata], 44h
@@ -628,7 +629,8 @@ generate_table_16:
 		; OUT:	CY if error
 		;	NC if success,
 		;	 cx = 0
-		; CHG:	ax, bx, di, ds, si
+		;	 di = INP:di + INP:cx * exo_table_entry_size
+		; CHG:	ax, bx, ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 generate_table_cx:
