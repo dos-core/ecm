@@ -460,8 +460,8 @@ d0	mov byte [bp + ?errordata], 3Dh
 	jnz @F			; no -->
 	test dx, dx		; offset 0 ?
 d0	mov byte [bp + ?errordata], 3Eh
-.error_ZR_1:
-	jz .error		; yes, invalid -->
+	stc			; CY
+	jz .error_CY_2		; yes, invalid -->
 @@:
 
 %if _P & 32
