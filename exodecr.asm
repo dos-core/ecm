@@ -482,18 +482,17 @@ d0	mov byte [bp + ?errordata], 3Eh
 	 pop bx			; bx:si = pointer into decompressed data
 	pop cx			; restore match length
 d0	mov byte [bp + ?errordata], 47h
-.error_NC_1:
-	jnc .error
+	cmc
+	jc .error_CY_2
 
-	cmp word [bp + ?original_dst + 2], bx
-				; is source of matching within ?dst ?
+	cmp bx, word [bp + ?original_dst + 2]
+				; is ?dst below source of matching ?
 d0	mov byte [bp + ?errordata], 16h
-	ja .error_A_1
-	jb @F
-	cmp word [bp + ?original_dst], si
+	jb .error_CY_2
+	ja @F
+	cmp si, word [bp + ?original_dst]
 d0	mov byte [bp + ?errordata], 17h
-.error_A_1:
-	ja .error_NC_1		; no, ?original_dst is above it -->
+	jb .error_CY_2		; yes, ?dst is below ?original_dst -->
 @@:
 	mov ds, bx		; -> match source data
 	call copy_data
