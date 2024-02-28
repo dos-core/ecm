@@ -575,33 +575,24 @@ read_bits:
 %endif
 	jcxz .end
 .loop:
-	clc
-	; call bitbuffer_rotate
-; bitbuffer_rotate:
 %if _P & 1
-	rcl byte [bp + ?bit_buffer], 1
+	shl byte [bp + ?bit_buffer], 1
 %else
-	rcr byte [bp + ?bit_buffer], 1
+	shr byte [bp + ?bit_buffer], 1
 %endif
 	dec byte [bp + ?bit_buffer]
 	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
-	; retn
 	jnz .notzero
 	push ax
 	call read_byte_to_bit_buffer
 	pop ax
 	jc .ret			; if error --> (CY)
 	stc
-	; call bitbuffer_rotate
-; bitbuffer_rotate:
 %if _P & 1
 	rcl byte [bp + ?bit_buffer], 1
 %else
 	rcr byte [bp + ?bit_buffer], 1
 %endif
-	dec byte [bp + ?bit_buffer]
-	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
-	; retn
 .notzero:
 %if _P & 2
 	rcl al, 1		; bits <<= 1; bits |= carry;
