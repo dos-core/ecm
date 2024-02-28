@@ -430,10 +430,10 @@ device_entrypoint:
 	push bx
 	push es
 
-	mov ax, word [es:bx + 14]
+	mov dx, word [es:bx + 14]
 	mov cl, 4
-	shr ax, cl		; = how many full paragraphs (rounded down)
-	add ax, word [es:bx + 14 + 2]
+	shr dx, cl		; = how many full paragraphs (rounded down)
+	add dx, word [es:bx + 14 + 2]
 				; ax => behind end
 
 	mov di, cs
@@ -443,11 +443,11 @@ image_size: equ  ( (init0_end - init0_start) \
 		)
 	add di, image_size >> 4		; di => end of image
 
-	cmp ax, di			; enough memory to hold all of us ?
+	cmp dx, di			; enough memory to hold all of us ?
 	jb @F				; no -->
 				; yes
 .have_some_memory:
-	mov dx, ax		; => after end of memory
+				; dx => after end of memory
 	mov bx, 2		; device mode
 	push ax
 	mov ax, cs
