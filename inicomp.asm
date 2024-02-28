@@ -132,6 +132,8 @@ ldLoadUntilSeg:	resw 1
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
 %endif
+	numdef PROGRESS,	0, 1
+	numdef PROGRESSAMOUNT,	0, 0
 
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
@@ -703,6 +705,16 @@ init1_start:
 %endif
 	mov ax, -1
 @@:
+
+%if _PROGRESS
+	clc
+ %if _TEST_PROGRAM
+	times 3 nop
+ %else
+	call step_progress.CF
+ %endif
+%endif
+
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
@@ -824,7 +836,11 @@ disp_al_counter:
 
 init1_c_mode_counter:		dw 0		; 2 bytes, total 8
 %else
+ %if _PROGRESS
+disp_al_counter equ step_progress
+ %else
 disp_al_counter equ disp_al
+ %endif
 %endif
 
 
@@ -904,6 +920,71 @@ error:
 	xor ax, ax
 	int 16h
 	int 19h
+%endif
+
+
+%if _PROGRESS
+step_progress:
+	stc
+.CF:
+	push ax
+	push bx
+	push cx
+	push dx
+	push ds
+	push si
+
+	push cs
+	pop ds
+
+	adc word [.counter], 0
+	mov ax, word [.counter]
+	mov dx, 1000
+	mul dx			; dx:ax = counter times 1000
+%if _PROGRESSAMOUNT
+	mov cx, _PROGRESSAMOUNT
+%else
+ %warning Progress amount is zero
+	mov cx, 1
+%endif
+	div cx			; ax = 0..1000
+
+	mov si, .message_number_end - 1
+	mov bx, 2		; skip dot
+
+	mov cx, 10		; base
+@@:
+	xor dx, dx		; dx:ax = current number
+	div cx			; dl = remainder, ax = next number
+	add dl, '0'		; make decit
+	mov byte [si], dl	; store
+	sub si, bx		; -> next digit slot
+	cmp bl, 2		; did we just store fractional ?
+	mov bl, 1		; ! next iteration do not skip dot
+	je @B			; yes, loop always -->
+	test ax, ax		; nonzero left ?
+	jnz @B			; yes, loop if so -->
+
+	mov si, .message
+	call disp_error
+
+	pop si
+	pop ds
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	retn
+
+
+	align 2, db 0
+.counter:	dw 0
+.display:	dw -1
+.message:	db 13,"[ "
+.message_number:db "  1.0"	; enough digit slots for 100.0%,
+				;  blanks are pre-init until written
+.message_number_end:
+		db "% ]",0
 %endif
 
 
