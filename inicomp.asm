@@ -454,8 +454,19 @@ image_size: equ  ( (init0_end - init0_start) \
 	add di, image_size >> 4		; di => end of image
 
 	cmp ax, di			; enough memory to hold all of us ?
-	jae .have_some_memory		; yes -->
+	jb @F				; no -->
+				; yes
+.have_some_memory:
+	mov dx, ax		; => after end of memory
+	mov bx, 2		; device mode
+	push ax
+	mov ax, cs
+	add ax, (init0_end - init0_start) >> 4
+	mov si, cs		; => destination
+	jmp init0_common
 
+
+@@:
 	push cs
 	pop ds
 	mov dx, .msg_no_memory
@@ -491,15 +502,6 @@ image_size: equ  ( (init0_end - init0_start) \
 	pop bp
 	add sp, 4		; discard far return to payload's strategy
 	retf			; return to DOS
-
-.have_some_memory:
-	mov dx, ax		; => after end of memory
-	mov bx, 2		; device mode
-	push ax
-	mov ax, cs
-	add ax, (init0_end - init0_start) >> 4
-	mov si, cs		; => destination
-	jmp init0_common
 
 
 .msg_no_memory:		ascic "Load error: Not enough memory."
