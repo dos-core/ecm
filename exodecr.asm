@@ -604,7 +604,7 @@ read_bits:
 
 generate_table_16:
 	mov cx, 16
-		; INP:	cx = amount of table entries
+		; INP:	cx = amount of table entries, < 256 (ch = 0)
 		;	bp + di -> start of table
 		; OUT:	CY if error
 		;	NC if success,
@@ -619,7 +619,7 @@ generate_table_cx:
 	mov word [bp + di + eteBase], bx
 	push cx
 %if _P & 2
-	mov cx, 3
+	mov cl, 3
 	call read_bits
 	jc .ret_pop
 	mov byte [bp + di + eteBits], al
@@ -632,7 +632,7 @@ generate_table_cx:
 	mov ax, 1
 	mov cl, byte [bp + di + eteBits]
 %else
-	mov cx, 4
+	mov cl, 4
 	call read_bits
 	jc .ret_pop
 	mov byte [bp + di + eteBits], al
