@@ -221,7 +221,7 @@ d0	mov byte [bp + ?errordata], 83h
 		; ds:si -> data
 		; bx:ax = length of data
 .final:
-%if _COUNTER
+%if _COUNTER && !_PROGRESS
 	push ax
 	mov al, '%'
 	call disp_al
@@ -275,7 +275,7 @@ d0	mov bx, word [bp + ?errordata]
 		; layers = how often to iterate
 		; final_dst = final destination (in front of dst)
 
-%if _COUNTER
+%if _COUNTER && !_PROGRESS
 	mov al, '#'
 	call disp_al
 %endif

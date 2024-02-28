@@ -886,7 +886,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	repe cmpsb
 .error_NZ_a:
 	jne .error
-%if _COUNTER
+%if _COUNTER && !_PROGRESS
 	mov al, '#'
 	call disp_al
 %endif
@@ -1578,7 +1578,7 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 .end:
 
 .final:
-%if _COUNTER
+%if _COUNTER && !_PROGRESS
 	mov al, '%'
 	call disp_al
 %endif

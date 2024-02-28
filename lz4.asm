@@ -255,7 +255,7 @@ d0	mov byte [bp + ?errordata], 0Ah
 	jc .error_CY_1
 
 .loop_block:
-%if _COUNTER
+%if _COUNTER && !_PROGRESS
 	mov al, '#'
 	call disp_al
 %endif

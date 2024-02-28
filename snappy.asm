@@ -153,7 +153,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 .loop_frame:
-%if _COUNTER
+%if _COUNTER && !_PROGRESS
 	mov al, '#'
 	call disp_al
 %endif
