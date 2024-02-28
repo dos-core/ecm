@@ -545,24 +545,6 @@ read_byte_to_bit_buffer:
 	retn
 
 
-		; INP:	CF = carry in
-		;	?bit_buffer
-		; OUT:	CF = carry out
-		;	ZF = whether ?bit_buffer is now zero
-		;	?bit_buffer
-		; CHG:	-
-		; STT:	bp -> depack stack frame
-bitbuffer_rotate:
-%if _P & 1
-	rcl byte [bp + ?bit_buffer], 1
-%else
-	rcr byte [bp + ?bit_buffer], 1
-%endif
-	dec byte [bp + ?bit_buffer]
-	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
-	retn
-
-
 read_bits_1:
 	mov cx, 1
 
@@ -594,14 +576,32 @@ read_bits:
 	jcxz .end
 .loop:
 	clc
-	call bitbuffer_rotate
+	; call bitbuffer_rotate
+; bitbuffer_rotate:
+%if _P & 1
+	rcl byte [bp + ?bit_buffer], 1
+%else
+	rcr byte [bp + ?bit_buffer], 1
+%endif
+	dec byte [bp + ?bit_buffer]
+	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
+	; retn
 	jnz .notzero
 	push ax
 	call read_byte_to_bit_buffer
 	pop ax
 	jc .ret			; if error --> (CY)
 	stc
-	call bitbuffer_rotate
+	; call bitbuffer_rotate
+; bitbuffer_rotate:
+%if _P & 1
+	rcl byte [bp + ?bit_buffer], 1
+%else
+	rcr byte [bp + ?bit_buffer], 1
+%endif
+	dec byte [bp + ?bit_buffer]
+	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
+	; retn
 .notzero:
 %if _P & 2
 	rcl al, 1		; bits <<= 1; bits |= carry;
