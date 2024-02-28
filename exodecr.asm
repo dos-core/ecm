@@ -579,9 +579,7 @@ read_bits:
 	shl byte [bp + ?bit_buffer], 1
 %else
 	shr byte [bp + ?bit_buffer], 1
-%endif
-	dec byte [bp + ?bit_buffer]
-	inc byte [bp + ?bit_buffer]	; this is to set ZF and preserve CF
+%endif				; shl/shr both set ZF
 	jnz .notzero
 	push ax
 	call read_byte_to_bit_buffer
