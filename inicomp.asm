@@ -430,21 +430,11 @@ device_entrypoint:
 	push bx
 	push es
 
-	mov ax, word [es:bx + 14 + 2]
-	xor dx, dx
-	mov cx, 4
-@@:
-	shl ax, 1
-	rcl dx, 1
-	loop @B
-	add ax, word [es:bx + 14]
-	adc dx, 0		; dx:ax = linear address behind end
-
+	mov ax, word [es:bx + 14]
 	mov cl, 4
-@@:
-	shr dx, 1
-	rcr ax, 1
-	loop @B			; ax => behind end
+	shr ax, cl		; = how many full paragraphs (rounded down)
+	add ax, word [es:bx + 14 + 2]
+				; ax => behind end
 
 	mov di, cs
 image_size: equ  ( (init0_end - init0_start) \
