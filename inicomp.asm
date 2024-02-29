@@ -1066,6 +1066,7 @@ step_progress:
 	push dx
 	push ds
 	push si
+	push di
 
 	push cs
 	pop ds
@@ -1113,6 +1114,7 @@ step_progress:
 	call disp_error
 
 .ret:
+	pop di
 	pop si
 	pop ds
 	pop dx
@@ -1221,7 +1223,14 @@ step_progress:
 	mov al, 32
 	call disp_al
 
+	xor di, di
 	mov dx, (80 - 1 - 4 - .message_4_length) / 2
+	cmp byte [.message_4_number], 32
+	je @F
+	inc di
+@@:
+	sub dx, di
+
 	mov al, '#'
 	jcxz @FF
 @@:
@@ -1234,8 +1243,11 @@ step_progress:
 	jnz .notyetm4
 
 	mov si, .message_4
+	sub si, di
 	call disp_error
 
+	sub cx, di
+	jbe @FF
 	sub cx, .message_4_length
 	jbe @FF
 	mov dx, cx
@@ -1269,9 +1281,11 @@ step_progress:
 @@:
 
 	mov si, .message_4
+	sub si, di
 	call disp_error
 
 	mov al, 32
+	sub cx, di
 	sub cx, .message_4_length
 	; jbe @FF
 @@:
@@ -1310,7 +1324,8 @@ step_progress:
 .message_number_end:
 		db "% ]",0
  %if _PROGRESSMULTI
-.message_4:	db " "
+		db " "
+.message_4:
 .message_4_number:db "  1.0"	; enough digit slots for 100.0%,
 				;  blanks are pre-init until written
 .message_4_number_end:
