@@ -791,8 +791,11 @@ init1_start:
 	xor di, di			; disable
 @@:
 	shl di, 1			; = word index
+	shl di, 1			; = dword index
 	mov ax, word [cs:step_progress.table + di]
 	mov word [cs:step_progress.handler], ax
+	mov ax, word [cs:step_progress.table + di + 2]
+	mov word [cs:step_progress.handler + 2], ax
 
 	cmp di, 2 * 2
 	jb @F
@@ -1045,12 +1048,14 @@ step_progress:
  %if _PROGRESSMULTI
 	jmp near word [cs:.handler]
 
-.0:
-	retn
+.0: equ .retn
+.0_step: equ .ret		; pops stack frame, not usually used
 
 .1:	equ disp_al
+.1_step: equ .ret		; pops stack frame, not usually used
 
 .2:
+.3:
  %endif
 	stc
 .CF:
@@ -1066,6 +1071,12 @@ step_progress:
 
 	adc word [.counter], 0
 	mov ax, word [.counter]
+
+ %if _PROGRESSMULTI
+	jmp near word [.handler + 2]
+ %endif
+
+.2_step:
 	mov dx, 1000
 	mul dx			; dx:ax = counter times 1000
 %if _PROGRESSAMOUNT
@@ -1107,7 +1118,58 @@ step_progress:
 	pop cx
 	pop bx
 	pop ax
+.retn:
 	retn
+
+
+ %if _PROGRESSMULTI
+.3_step:
+	mov bx, 80 - 1 - 4
+	mul bx			; dx:ax = counter times 75
+%if _PROGRESSAMOUNT
+	mov cx, _PROGRESSAMOUNT
+%else
+ %warning Progress amount is zero
+	mov cx, 1
+%endif
+	div cx			; ax = 0..75
+
+	cmp word [.display], ax
+	je .ret
+	mov word [.display], ax
+
+	push ax
+	xchg cx, ax
+	mov al, 13
+	call disp_al
+	mov al, '['
+	call disp_al
+	mov al, 32
+	call disp_al
+
+	mov al, '#'
+	jcxz @FF
+@@:
+	call disp_al
+	loop @B
+@@:
+
+	mov al, 32
+	pop cx
+	sub bx, cx
+	jbe @FF
+	mov cx, bx
+@@:
+	call disp_al
+	loop @B
+@@:
+
+	call disp_al
+	mov al, ']'
+	call disp_al
+
+	jmp .ret
+ %endif
 
 
 	align 2, db 0
@@ -1118,13 +1180,19 @@ step_progress:
    %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
   %endif
 .handler:	dw . %+ defaultprogresshandler
+		dw . %+ defaultprogresshandler %+ _step
 .table:		dw .0
+		dw .0_step
 		dw .1
+		dw .0_step
 		dw .2
-.table.amount equ ($ - .table) / 2
+		dw .2_step
+		dw .3
+		dw .3_step
+.table.amount equ ($ - .table) / 4
+.display:	dw -1
  %endif
 .counter:	dw 0
-; .display:	dw -1
 .message:	db 13,"[ "
 .message_number:db "  1.0"	; enough digit slots for 100.0%,
 				;  blanks are pre-init until written
