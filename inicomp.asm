@@ -1076,6 +1076,11 @@ step_progress:
 %endif
 	div cx			; ax = 0..1000
 
+%if 0
+	cmp word [.display], ax
+	je .ret
+	mov word [.display], ax
+%endif
 	mov si, .message_number_end - 1
 	mov bx, 2		; skip dot
 
@@ -1095,6 +1100,7 @@ step_progress:
 	mov si, .message
 	call disp_error
 
+.ret:
 	pop si
 	pop ds
 	pop dx
@@ -1118,7 +1124,7 @@ step_progress:
 .table.amount equ ($ - .table) / 2
  %endif
 .counter:	dw 0
-.display:	dw -1
+; .display:	dw -1
 .message:	db 13,"[ "
 .message_number:db "  1.0"	; enough digit slots for 100.0%,
 				;  blanks are pre-init until written
