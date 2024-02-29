@@ -1081,11 +1081,11 @@ step_progress:
 	mul dx			; dx:ax = counter times 1000
 %if _PROGRESSAMOUNT
 	mov cx, _PROGRESSAMOUNT
+	div cx			; ax = 0..1000
 %else
  %warning Progress amount is zero
-	mov cx, 1
+	mov ax, 1
 %endif
-	div cx			; ax = 0..1000
 
 %if 0
 	cmp word [.display], ax
@@ -1128,11 +1128,11 @@ step_progress:
 	mul bx			; dx:ax = counter times 75
 %if _PROGRESSAMOUNT
 	mov cx, _PROGRESSAMOUNT
+	div cx			; ax = 0..75
 %else
  %warning Progress amount is zero
-	mov cx, 1
+	mov ax, 1
 %endif
-	div cx			; ax = 0..75
 
 	cmp word [.display], ax
 	je .ret
