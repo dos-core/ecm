@@ -1056,6 +1056,7 @@ step_progress:
 
 .2:
 .3:
+.4:
  %endif
 	stc
 .CF:
@@ -1169,8 +1170,124 @@ step_progress:
 	call disp_al
 
 	jmp .ret
- %endif
 
+
+.4_step:
+	push ax
+
+	mov dx, 1000
+	mul dx			; dx:ax = counter times 1000
+%if _PROGRESSAMOUNT
+	mov cx, _PROGRESSAMOUNT
+	div cx			; ax = 0..1000
+%else
+ %warning Progress amount is zero
+	mov ax, 1
+%endif
+
+	mov si, .message_4_number_end - 1
+	mov bx, 2		; skip dot
+
+	mov cx, 10		; base
+@@:
+	xor dx, dx		; dx:ax = current number
+	div cx			; dl = remainder, ax = next number
+	add dl, '0'		; make decit
+	mov byte [si], dl	; store
+	sub si, bx		; -> next digit slot
+	cmp bl, 2		; did we just store fractional ?
+	mov bl, 1		; ! next iteration do not skip dot
+	je @B			; yes, loop always -->
+	test ax, ax		; nonzero left ?
+	jnz @B			; yes, loop if so -->
+
+	pop ax
+	mov bx, 80 - 1 - 4
+	mul bx			; dx:ax = counter times 75
+%if _PROGRESSAMOUNT
+	mov cx, _PROGRESSAMOUNT
+	div cx			; ax = 0..75
+%else
+ %warning Progress amount is zero
+	mov ax, 1
+%endif
+
+	push ax
+	xchg cx, ax
+	mov al, 13
+	call disp_al
+	mov al, '['
+	call disp_al
+	mov al, 32
+	call disp_al
+
+	mov dx, (80 - 1 - 4 - .message_4_length) / 2
+	mov al, '#'
+	jcxz @FF
+@@:
+	call disp_al
+	dec dx
+	loopnz @B
+@@:
+
+	test dx, dx
+	jnz .notyetm4
+
+	mov si, .message_4
+	call disp_error
+
+	sub cx, .message_4_length
+	jbe @FF
+	mov dx, cx
+	mov al, '#'
+@@:
+	call disp_al
+	loop @B
+@@:
+	pop cx
+	sub bx, (80 - 1 - 4 - .message_4_length) / 2 + .message_4_length
+	sub bx, dx
+	jbe @FF
+	mov cx, bx
+	mov al, 32
+@@:
+	call disp_al
+	loop @B
+@@:
+	jmp .m4done
+
+.notyetm4:
+	mov al, 32
+	pop cx
+	sub bx, cx
+	jbe @FF
+	mov cx, bx
+@@:
+	call disp_al
+	dec dx
+	loopnz @B
+@@:
+
+	mov si, .message_4
+	call disp_error
+
+	sub cx, .message_4_length
+	; jbe @FF
+	mov al, 32
+@@:
+	call disp_al
+	loop @B
+@@:
+	; jmp .m4done
+
+.m4done:
+	mov al, 32
+	call disp_al
+	mov al, ']'
+	call disp_al
+
+	jmp .ret
+%endif
 
 	align 2, db 0
  %if _PROGRESSMULTI
@@ -1189,6 +1306,8 @@ step_progress:
 		dw .2_step
 		dw .3
 		dw .3_step
+		dw .4
+		dw .4_step
 .table.amount equ ($ - .table) / 4
 .display:	dw -1
  %endif
@@ -1198,6 +1317,14 @@ step_progress:
 				;  blanks are pre-init until written
 .message_number_end:
 		db "% ]",0
+ %if _PROGRESSMULTI
+.message_4:	db " "
+.message_4_number:db "  1.0"	; enough digit slots for 100.0%,
+				;  blanks are pre-init until written
+.message_4_number_end:
+		db "% ",0
+.message_4_length: equ $ - 1 - .message_4
+ %endif
 
  %if _PROGRESSMULTI && _PROGRESSVAR && (_IMAGE_EXE || _DEVICE)
   %ifnidni _PROGRESSVARNAME, ""
