@@ -134,6 +134,11 @@ ldLoadUntilSeg:	resw 1
 %endif
 	numdef PROGRESS,	0, 1
 	numdef PROGRESSAMOUNT,	0, 0
+	numdef PROGRESSMULTI,	1
+	numdef PROGRESSVAR,	1
+	numdef PROGRESSVARNAME, ""
+	numdef PROGRESSDEFAULT,	0
+	numdef PROGRESSDEFAULTBOOT,1
 
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
@@ -681,6 +686,127 @@ init1_start:
 	xor bx, bx		; always tell them it is kernel mode
 %endif
 
+%if _PROGRESS
+ %if _PROGRESSMULTI && (_IMAGE_EXE || _DEVICE)
+	push bx
+	push si
+	mov di, _PROGRESSDEFAULTBOOT
+	test bx, bx
+	jz .default
+  %if _PROGRESSVAR
+	mov ah, 51h
+	int 21h
+@@:
+	mov ds, bx
+	mov ax, word [2Ch]
+	test ax, ax
+	jnz .gotenv
+	mov ax, word [16h]
+	inc ax
+	jz .default_nonboot
+	dec ax
+	jz .default_nonboot
+	cmp bx, ax
+	je .default_nonboot
+	xchg bx, ax
+	jmp @B
+
+.gotenv:
+	push cs
+	pop ds				; => cs
+	mov es, ax			; => environment
+ %ifnidni _PROGRESSVARNAME, ""
+	mov bx, progressvarname1
+	call .findenv
+	jnc .foundenv			; match -->
+	mov bx, progressvarname2
+ %endif
+	call .findenv
+	jnc .foundenv			; match -->
+	jmp .default_nonboot
+
+.findenv:
+	xor di, di
+@@:
+ %ifnidni _PROGRESSVARNAME, ""
+	mov si, bx			; -> variable name
+ %else
+	mov si, progressvarname2	; -> variable name
+ %endif
+	xor ax, ax
+	lodsb				; get length
+	xchg cx, ax			; cx = length
+	push di
+	repe cmpsb			; match ?
+	je .findret_pop			; (NC) yes -->
+	pop di
+	mov cx, 8000h			; maximum env size
+	sub cx, di			; any left ?
+	jbe .findret_CY			; no -->
+	mov al, 0
+	repne scasb			; find next NUL
+	jne .findret_CY
+	cmp byte [es:di], al		; double NUL ?
+	jne @B				; no, loop -->
+.findret_CY:
+	stc				; not found
+	retn
+
+.findret_pop:
+	pop cx
+	retn
+
+.foundenv:
+	mov si, di			; es:si -> var content
+	xor di, di			; = 0
+	xor ax, ax			; ah = 0
+@@:
+	es lodsb			; next candidate digit
+	sub al, '0'			; digit ?
+	jb @F				; no -->
+	cmp al, 9
+	ja @F				; no -->
+	add di, di			; times 2
+	mov bx, di
+	add di, di			; times 4
+	add di, di			; times 8
+	add di, bx			; times 8 + times 2 = times 10
+	add di, ax			; add in next digit
+	jmp @B				; and loop
+
+@@:
+	and di, 15			; mask to low 4 bits
+	jmp @F
+  %endif	; _PROGRESSVAR
+
+.default_nonboot:
+	mov di, _PROGRESSDEFAULT
+.default:
+@@:
+	pop si
+	pop bx
+	cmp di, step_progress.table.amount
+					; valid ?
+	jb @F				; yes -->
+	xor di, di			; disable
+@@:
+	shl di, 1			; = word index
+	mov ax, word [cs:step_progress.table + di]
+	mov word [cs:step_progress.handler], ax
+
+	cmp di, 2 * 2
+	jb @F
+ %endif		; _PROGRESSMULTI && (_IMAGE_EXE || _DEVICE)
+
+	clc
+ %if _TEST_PROGRAM
+	times 3 nop
+ %else
+	call step_progress.CF
+ %endif
+@@:
+%endif
+
 %if _IMAGE_EXE
 	mov es, si		; es => destination
 %else
@@ -705,15 +831,6 @@ init1_start:
 %endif
 	mov ax, -1
 @@:
-
-%if _PROGRESS
-	clc
- %if _TEST_PROGRAM
-	times 3 nop
- %else
-	call step_progress.CF
- %endif
-%endif
 
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
@@ -925,6 +1042,16 @@ error:
 
 %if _PROGRESS
 step_progress:
+ %if _PROGRESSMULTI
+	jmp near word [cs:.handler]
+
+.0:
+	retn
+
+.1:	equ disp_al
+
+.2:
+ %endif
 	stc
 .CF:
 	push ax
@@ -978,6 +1105,18 @@ step_progress:
 
 
 	align 2, db 0
+ %if _PROGRESSMULTI
+  %if _IMAGE_EXE || _DEVICE
+   %assign defaultprogresshandler _PROGRESSDEFAULT
+  %else
+   %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
+  %endif
+.handler:	dw . %+ defaultprogresshandler
+.table:		dw .0
+		dw .1
+		dw .2
+.table.amount equ ($ - .table) / 2
+ %endif
 .counter:	dw 0
 .display:	dw -1
 .message:	db 13,"[ "
@@ -985,6 +1124,13 @@ step_progress:
 				;  blanks are pre-init until written
 .message_number_end:
 		db "% ]",0
+
+ %if _PROGRESSMULTI && _PROGRESSVAR && (_IMAGE_EXE || _DEVICE)
+  %ifnidni _PROGRESSVARNAME, ""
+progressvarname1:	counted _PROGRESSVARNAME, '='
+  %endif
+progressvarname2:	counted "LDOSPROGRESS="
+ %endif
 %endif
 
 
