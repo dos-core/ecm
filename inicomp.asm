@@ -1165,10 +1165,10 @@ step_progress:
 	loop @B
 @@:
 
+.m4done:
 	call disp_al
 	mov al, ']'
 	call disp_al
-
 	jmp .ret
 
 
@@ -1245,11 +1245,11 @@ step_progress:
 	loop @B
 @@:
 	pop cx
+	mov al, 32
 	sub bx, (80 - 1 - 4 - .message_4_length) / 2 + .message_4_length
 	sub bx, dx
 	jbe @FF
 	mov cx, bx
-	mov al, 32
 @@:
 	call disp_al
 	loop @B
@@ -1271,22 +1271,14 @@ step_progress:
 	mov si, .message_4
 	call disp_error
 
+	mov al, 32
 	sub cx, .message_4_length
 	; jbe @FF
-	mov al, 32
 @@:
 	call disp_al
 	loop @B
 @@:
-	; jmp .m4done
-
-.m4done:
-	mov al, 32
-	call disp_al
-	mov al, ']'
-	call disp_al
-
-	jmp .ret
+	jmp .m4done
 %endif
 
 	align 2, db 0
