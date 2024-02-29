@@ -1755,9 +1755,20 @@ loaded_all:
 
 .fat32:
 
+%if _QUERY_PATCH
+	mov ax, word [cs:..@query_patch_site]
+%else
+	mov ax, _QUERY_DEFAULT
+%endif
+	mov word [bp + ldQueryPatchValue], ax
+
 %if _CHECKSUM
         push cs
         pop ds
+
+ %if _QUERY_PATCH
+	mov word [..@query_patch_site], _QUERY_DEFAULT
+ %endif
 
         mov si, checksumheader
         mov cx, CHECKSUMHEADER_size / 2
@@ -1800,13 +1811,6 @@ loaded_all:
 	pop ax			; al = 0FFh if no command line given
 				; al = 0 else
 	rep stosb		; clear remainder of buffer
-
-%if _QUERY_PATCH
-	mov ax, word [cs:..@query_patch_site]
-%else
-	mov ax, _QUERY_DEFAULT
-%endif
-	mov word [bp + ldQueryPatchValue], ax
 
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
