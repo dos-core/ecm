@@ -1095,6 +1095,24 @@ step_progress:
 	mov word [.display], ax
 %endif
 	mov si, .message_number_end - 1
+	call .format_percentage
+
+	mov si, .message
+	call disp_error
+
+.ret:
+	pop di
+	pop si
+	pop ds
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+.retn:
+	retn
+
+
+.format_percentage:
 	mov bx, 2		; skip dot
 
 	mov cx, 10		; base
@@ -1109,19 +1127,6 @@ step_progress:
 	je @B			; yes, loop always -->
 	test ax, ax		; nonzero left ?
 	jnz @B			; yes, loop if so -->
-
-	mov si, .message
-	call disp_error
-
-.ret:
-	pop di
-	pop si
-	pop ds
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-.retn:
 	retn
 
 
@@ -1188,20 +1193,7 @@ step_progress:
 %endif
 
 	mov si, .message_4_number_end - 1
-	mov bx, 2		; skip dot
-
-	mov cx, 10		; base
-@@:
-	xor dx, dx		; dx:ax = current number
-	div cx			; dl = remainder, ax = next number
-	add dl, '0'		; make decit
-	mov byte [si], dl	; store
-	sub si, bx		; -> next digit slot
-	cmp bl, 2		; did we just store fractional ?
-	mov bl, 1		; ! next iteration do not skip dot
-	je @B			; yes, loop always -->
-	test ax, ax		; nonzero left ?
-	jnz @B			; yes, loop if so -->
+	call .format_percentage
 
 	pop ax
 	mov bx, 80 - 1 - 4
