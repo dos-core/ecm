@@ -1618,9 +1618,9 @@ d0	mov byte [bp + ?errordata], 84h
 %if _COUNTER
 	lahf
 	mov al, 13
-	call disp_al
+	call disp_al_for_progress
 	mov al, 10
-	call disp_al
+	call disp_al_for_progress
 	sahf
 %endif
 d0	mov bx, word [bp + ?errordata]

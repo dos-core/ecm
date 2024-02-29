@@ -1194,6 +1194,12 @@ disp_al_lownibble_hex:
 		retn
 %endif
 
+
+disp_al_for_progress:
+%if _PROGRESS && _PROGRESSMULTI
+	cmp word [cs:step_progress.handler], step_progress.0
+	je disp_al.retn
+%endif
 disp_al:
 %if _TEST_PROGRAM
 	retn
@@ -1234,6 +1240,7 @@ disp_al:
 	pop bx
 %endif
 	pop ax
+.retn:
 disp_error.ret:
 	retn
 
