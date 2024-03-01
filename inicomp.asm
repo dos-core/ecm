@@ -775,14 +775,30 @@ init1_start:
 	jmp @B				; and loop
 
 @@:
-	and di, 15			; mask to low 4 bits
+	and di, 31			; mask to low 5 bits
 	jmp @F
   %endif	; _PROGRESSVAR
 
 .default_nonboot:
 	mov di, _PROGRESSDEFAULT
-.default:
 @@:
+	test di, 16
+	jz @F
+	and di, ~16
+	jmp .outputdevice	; if 16 set skip device check
+@@:
+	push dx
+	mov ax, 4400h		; IOCTL get device information
+	mov bx, 1		; StdOut
+	mov dl, 83h		; default if 21.4400 fails
+	int 21h
+	test dl, 80h
+	pop dx
+	jnz .outputdevice
+	xor di, di		; stdout is a file: force no progress marker
+.outputdevice:
+
+.default:
 	pop si
 	pop bx
 	cmp di, step_progress.table.amount
