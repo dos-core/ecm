@@ -77,5 +77,14 @@ int main(int argc, char **argv) {
       pp = "Unknown choice";
     }
     printf("%s progress choice is %u (%s)\n", modenames[mode], progress, pp);
+  } else {
+    buffer[at + offset] = want;
+    fseek(ff, 0, SEEK_SET);
+    if (size != fwrite(buffer, 1, size, ff)) {
+      fprintf(stderr,"Error: Failed to write file\n");
+      return 9;
+    }
+    printf("Progress choice updated\n");
   }
+  return 0;
 }
