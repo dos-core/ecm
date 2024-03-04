@@ -39,9 +39,12 @@ int main(int argc, char **argv) {
     want = atoi(argv[3]);
     query = 0;
   }
-  if (argc == 4 && 0 == want && argv[3][0] != '0') {
-    fprintf(stderr,"Error: Invalid progress choice: %s\n", argv[3]);
-    return 4;
+  if (argc == 4) {
+    if ((0 == want && argv[3][0] != '0')
+      || want < 0 || want > 255) {
+      fprintf(stderr,"Error: Invalid progress choice: %s\n", argv[3]);
+      return 4;
+    }
   }
   size = fread(buffer, 1, buffersize, ff);
   if (size < 32) {
