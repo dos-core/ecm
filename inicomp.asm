@@ -443,7 +443,7 @@ lcfgoption 18, .progress_boot:, db _PROGRESSDEFAULTBOOT
   %endif
  %endif
 
-	_fill_at_least 32, 0, lcfg
+lcfgoption 32,,
 .end:
 .inuse equ LCFGINUSE
 %endif
