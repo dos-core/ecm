@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
 	choices, query = 1, found = 0, at;
   uint8_t buffer[buffersize];
   if (argc < 3) {
-    fprintf(stderr,"Usage: patchpro ldebug.com [APP|DEVICE|BOOT] number\n");
+    fprintf(stderr,"Usage: patchpro ldebug.com [APP|DEVICE|BOOT] [number]\n");
     return 255;
   }
   ff = fopen(argv[1], "r+b");
@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
     const char *flag16 = "";
     int value;
     value = progress = buffer[at + offset];
-    if (mode != 2 && progress & 16) {
+    if (mode != 2 && (progress & 16) ) {
       progress &= ~16;
       flag16 = ", force to file too";
     }
