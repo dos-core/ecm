@@ -411,10 +411,11 @@ init0_common:
 
 
 %if _LCFG
-	%imacro lcfgoption 2+.nolist
+	%imacro lcfgoption 3+.nolist
 	_fill %1, 0, lcfg
 %%start:
 	%2
+	%3
 %%end:
 %assign %%index %%start - lcfg
 %rep %%end - %%start
@@ -427,18 +428,18 @@ init0_common:
 	align 16
 lcfg:
 		jmp strict short .end
-lcfgoption 2,	db "lCFG"
-lcfgoption 6,	db "00"
-lcfgoption 8,	dq .inuse
+lcfgoption 2,,	db "lCFG"
+lcfgoption 6,,	db "00"
+lcfgoption 8,,	dq .inuse
  %if _PROGRESS && _PROGRESSMULTI
   %if _IMAGE_EXE
-lcfgoption 16,	db _PROGRESSDEFAULTAPP
+lcfgoption 16, .progress_app:, db _PROGRESSDEFAULTAPP
   %endif
   %if _DEVICE
-lcfgoption 17,	db _PROGRESSDEFAULTDEVICE
+lcfgoption 17, .progress_dev:, db _PROGRESSDEFAULTDEVICE
   %endif
   %if _BOOTLDR
-lcfgoption 18,	db _PROGRESSDEFAULTBOOT
+lcfgoption 18, .progress_boot:, db _PROGRESSDEFAULTBOOT
   %endif
  %endif
 
