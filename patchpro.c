@@ -68,7 +68,16 @@ int main(int argc, char **argv) {
     fprintf(stderr,"Error: lCFG block found doesn't contain this progress mode\n");
     return 8;
   }
-  if (query) {
+  if (! query) {
+    buffer[at + offset] = want;
+    fseek(ff, 0, SEEK_SET);
+    if (size != fwrite(buffer, 1, size, ff)) {
+      fprintf(stderr,"Error: Failed to write file\n");
+      return 9;
+    }
+    printf("Progress choice updated\n");
+  }
+  {
     const char *pp;
     const char *flag16 = "";
     int value;
@@ -84,14 +93,6 @@ int main(int argc, char **argv) {
     }
     printf("%s progress choice is %u (%s%s)\n",
 	modenames[mode], value, pp, flag16);
-  } else {
-    buffer[at + offset] = want;
-    fseek(ff, 0, SEEK_SET);
-    if (size != fwrite(buffer, 1, size, ff)) {
-      fprintf(stderr,"Error: Failed to write file\n");
-      return 9;
-    }
-    printf("Progress choice updated\n");
   }
   return 0;
 }
