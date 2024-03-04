@@ -138,7 +138,10 @@ ldLoadUntilSeg:	resw 1
 	numdef PROGRESSVAR,	1
 	numdef PROGRESSVARNAME, ""
 	numdef PROGRESSDEFAULT,	0
+	numdef PROGRESSDEFAULTAPP,	_PROGRESSDEFAULT
+	numdef PROGRESSDEFAULTDEVICE,	_PROGRESSDEFAULT
 	numdef PROGRESSDEFAULTBOOT,1
+	numdef LCFG, _PROGRESS && _PROGRESSMULTI
 
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
@@ -404,6 +407,44 @@ init0_common:
 @@:
 	mov ax, 4CFFh
 	int 21h
+%endif
+
+
+%if _LCFG
+	%imacro lcfgoption 2+.nolist
+	_fill %1, 0, lcfg
+%%start:
+	%2
+%%end:
+%assign %%index %%start - lcfg
+%rep %%end - %%start
+%assign LCFGINUSE LCFGINUSE | (1 << %%index)
+ %assign %%index %%index + 1
+%endrep
+	%endmacro
+%assign LCFGINUSE 0
+
+	align 16
+lcfg:
+		jmp strict short .end
+lcfgoption 2,	db "lCFG"
+lcfgoption 6,	db "00"
+lcfgoption 8,	dq .inuse
+ %if _PROGRESS && _PROGRESSMULTI
+  %if _IMAGE_EXE
+lcfgoption 16,	db _PROGRESSDEFAULTAPP
+  %endif
+  %if _DEVICE
+lcfgoption 17,	db _PROGRESSDEFAULTDEVICE
+  %endif
+  %if _BOOTLDR
+lcfgoption 18,	db _PROGRESSDEFAULTBOOT
+  %endif
+ %endif
+
+	_fill_at_least 32, 0, lcfg
+.end:
+.inuse equ LCFGINUSE
 %endif
 
 
