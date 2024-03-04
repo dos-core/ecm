@@ -70,13 +70,20 @@ int main(int argc, char **argv) {
   }
   if (query) {
     const char *pp;
-    progress = buffer[at + offset];
+    const char *flag16 = "";
+    int value;
+    value = progress = buffer[at + offset];
+    if (mode != 2 && progress & 16) {
+      progress &= ~16;
+      flag16 = ", force to file too";
+    }
     if (progress < (sizeof(progressnames) / sizeof(progressnames[0]))) {
       pp = progressnames[progress];
     } else {
       pp = "Unknown choice";
     }
-    printf("%s progress choice is %u (%s)\n", modenames[mode], progress, pp);
+    printf("%s progress choice is %u (%s%s)\n",
+	modenames[mode], value, pp, flag16);
   } else {
     buffer[at + offset] = want;
     fseek(ff, 0, SEEK_SET);
