@@ -24,9 +24,17 @@ int main(int argc, char **argv) {
     fprintf(stderr,"Error: Failed to open file: %s\n", argv[1]);
     return 2;
   }
-  if (! strcmp(argv[2], "APP") || ! strcmp(argv[2], "app") ) {
+  if (! strcmp(argv[2], "APP")
+    || ! strcmp(argv[2], "app")
+    || ! strcmp(argv[2], "APPLICATION")
+    || ! strcmp(argv[2], "application")
+    ) {
     offset = 16; mode = 0;
-  } else if (! strcmp(argv[2], "DEVICE") || ! strcmp(argv[2], "device") ) {
+  } else if (! strcmp(argv[2], "DEVICE")
+    || ! strcmp(argv[2], "device")
+    || ! strcmp(argv[2], "DEV")
+    || ! strcmp(argv[2], "dev")
+    ) {
     offset = 17; mode = 1;
   } else if (! strcmp(argv[2], "BOOT") || ! strcmp(argv[2], "boot") ) {
     offset = 18; mode = 2;
