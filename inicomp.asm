@@ -360,6 +360,15 @@ init0_common:
 	call init0_movp
 %endif
 
+%if _LCFG && ! _TEST_PROGRAM
+	push cs
+	call @F			; position-independent far pointer
+@@:
+	pop ax
+	add ax, lcfg - @B	; -> lCFG block
+	push ax
+%endif
+
 	mov ax, dx		; => payload
 %if _TEST_PROGRAM
 	add ax, ( \
@@ -698,7 +707,8 @@ init1_start:
 		;	 ss:sp -> valid stack above [bp + ldLoadTop]
 		;	 60h => destination
 		;	any mode:
-		;	 word [ss:sp] = value for ax
+		;	 ss:sp -> (dword pointer to lCFG block),
+		;		word value for ax
 		;	 bx = 2 if device mode, 1 if EXE mode, 0 if kernel mode
 		;	 si => destination (60h for kernel mode,
 		;		after PSP for EXE mode,
@@ -715,6 +725,11 @@ init1_start:
 		;	  bp = unset
 		; STT:	UP
 		; CHG:	ax, bx, cx, dx, es, ds, si, di
+%if _LCFG
+	pop di
+	pop es
+%endif
+
 %if _IMAGE_EXE || _DEVICE
 	lframe
 	lenter
@@ -730,11 +745,21 @@ init1_start:
 
 %if _PROGRESS
  %if _PROGRESSMULTI && (_IMAGE_EXE || _DEVICE)
-	push bx
 	push si
+	push bx
+%if _LCFG
+	xor ax, ax
+	mov al, byte [es:di + lcfg.progress_boot - lcfg]
+	xchg di, ax		; di = boot default progress
+%else
 	mov di, _PROGRESSDEFAULTBOOT
+%endif
 	test bx, bx
 	jz .default
+%if _LCFG
+	push es
+	push ax			; -> lCFG block
+%endif
   %if _PROGRESSVAR
 	mov ah, 51h
 	int 21h
@@ -799,6 +824,10 @@ init1_start:
 	retn
 
 .foundenv:
+%if _LCFG
+	pop si
+	pop si				; discard far pointer to lCFG
+%endif
 	mov si, di			; es:si -> var content
 	xor di, di			; = 0
 	xor ax, ax			; ah = 0
@@ -822,7 +851,25 @@ init1_start:
   %endif	; _PROGRESSVAR
 
 .default_nonboot:
+%if _LCFG
+	pop di
+	pop es			; -> lCFG block
+	pop bx			; = 1 if app, = 2 if device
+	push bx
+	mov ax, word [es:di + lcfg.progress_app - lcfg]
+%if lcfg.progress_app + 1 != lcfg.progress_dev
+ %error Unexpected layout
+%endif
+				; al = app, ah = device
+	dec bx
+	jz .default_app
+	xchg al, ah		; al = device
+.default_app:
+	mov ah, 0		; ax = default
+	xchg di, ax		; di = default
+%else
 	mov di, _PROGRESSDEFAULT
+%endif
 @@:
 	test di, 16
 	jz @F
@@ -841,8 +888,8 @@ init1_start:
 .outputdevice:
 
 .default:
-	pop si
 	pop bx
+	pop si
 	cmp di, step_progress.table.amount
 					; valid ?
 	jb @F				; yes -->
@@ -2119,10 +2166,14 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 
 .transfer:
 	xor di, di
-	push di			; dummy ax value on stack
+	push di			; placeholder ax value on stack
+%if _LCFG
+	push di
+	push di			; placeholder for lCFG block address
+%endif
 	push ax			; INIT1 segment
 	push di			; zero = init1_start
-	retf
+	retf			; transfer to INIT1:init1_start
 
 
 
