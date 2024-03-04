@@ -197,6 +197,17 @@ j_zero_entrypoint:
 	mov si, cs
 	jmp init0_common
 
+
+%if _DEVICE
+device_entrypoint:
+	cmp byte [es:bx + 2], 0		; command code 0 (init) ?
+	je device_entry_init
+
+	mov word [es:bx + 3], 8103h	; error, done, code: unknown command
+	retf
+%endif
+
+
  %if _IMAGE_EXE
 	align 64, nop
 j_zero_entrypoint:
@@ -231,14 +242,7 @@ init0_common:
 
 
 %if _DEVICE
-device_entrypoint:
-	cmp byte [es:bx + 2], 0		; command code 0 (init) ?
-	je @F
-
-	mov word [es:bx + 3], 8103h	; error, done, code: unknown command
-	retf
-
-@@:
+device_entry_init:
 	or word [cs:device_header.next], -1
 	push cs
 	push word [cs:device_header.strategy]
