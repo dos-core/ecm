@@ -23,8 +23,14 @@ int main(int argc, char **argv) {
 	0x00,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00,0x00 };
   const unsigned int patchoffset = 4;
   if (argc < 2) {
-    fprintf(stderr,"Usage: patchqry ldebug.com [DISKETTE|HARDDISK] [number]\n");
-    return 255;
+    printf("Usage: patchqry ldebug.com [DISKETTE|HARDDISK] [number]\n\n");
+    printf("Supported query patch flags:\n");
+    for (ii = 0; ii < 8; ++ ii) {
+      if (flagnames[ii]) {
+        printf(" %02Xh: %s\n", 1 << ii, flagnames[ii]);
+      }
+    }
+    return 0;
   }
   ff = fopen(argv[1], "r+b");
   if (! ff) {

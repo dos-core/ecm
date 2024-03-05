@@ -16,6 +16,14 @@ int main(int argc, char **argv) {
 	choices, query = 1, found = 0, at, current;
   unsigned long int want = 0, wantreplace = 0, wantminus = 0, wantplus = 0;
   uint8_t buffer[buffersize];
+  if (argc < 2) {
+    printf("Usage: patchpro ldebug.com [APP|DEVICE|BOOT] [number]\n\n");
+    printf("Supported progress types:\n");
+    for (ii = 0; ii < (sizeof(progressnames) / sizeof(progressnames[0])); ++ ii) {
+      printf(" %2u: %s\n", ii, progressnames[ii]);
+    }
+    return 0;
+  }
   if (argc < 3) {
     fprintf(stderr,"Usage: patchpro ldebug.com [APP|DEVICE|BOOT] [number]\n");
     return 255;
