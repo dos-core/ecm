@@ -173,7 +173,7 @@ int main(int argc, char **argv) {
       } else {
         pp = "Unknown";
       }
-      printf("%s%s%s", initial, separator, pp);
+      printf("%s%s%02Xh: %s", initial, separator, 1 << ii, pp);
       initial = "";
       separator = "\n\t";
       final = "";
