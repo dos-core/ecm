@@ -53,6 +53,8 @@ int main(int argc, char **argv) {
   }
   for (current = 3; current < argc; ++ current) {
     char *pp = argv[current];
+    char *expectedend;
+    char *parsedend;
     char replace_plus_minus = 0;
     unsigned int base = 10;
     unsigned long int vv = 0;
@@ -66,8 +68,10 @@ int main(int argc, char **argv) {
       wantreplace = 1;
     }
     ii = strlen(pp);
+    expectedend = &pp[ii];
     if (ii && (pp[ii - 1] == 'H' || pp[ii - 1] == 'h') ) {
       base = 16;
+      -- expectedend;
     } else if (ii >= 2 && pp[0] == '0' && (pp[1] == 'B' || pp[1] == 'b') ) {
       pp += 2;
       base = 2;
@@ -76,11 +80,13 @@ int main(int argc, char **argv) {
       base = 16;
     } else if (ii && (pp[ii - 1] == 'B' || pp[ii - 1] == 'b') ) {
       base = 2;
+      -- expectedend;
     }
-    vv = strtoul(pp, NULL, base);
+    vv = strtoul(pp, &parsedend, base);
     query = 0;
     if ((0 == vv && pp[0] != '0')
-      || vv < 0 || vv > 255) {
+      || vv < 0 || vv > 255
+      || expectedend != parsedend) {
       fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[current]);
       return 4;
     }
