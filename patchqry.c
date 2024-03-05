@@ -13,8 +13,9 @@ int main(int argc, char **argv) {
   const char* flagnames[] = { "Force CHS", "Force LBA",
 	"No query geometry", NULL, NULL, NULL,
 	"Do not re-check (TestWrit)", "Apply to LDP (lDebug)" };
-  unsigned int ii, offset = 0, mode = 0, want = 0, size,
+  unsigned int ii, offset = 0, mode = 0, size,
 	choices, query = 1, found = 0, at, limit = 1;
+  unsigned long int want = 0;
   uint8_t buffer[buffersize];
   uint8_t match[] = {
 	0x8A,0x56,0x40,0xB8,0x00,0x00,0x84,0xD2,0x79,0x02,0x86,0xC4 };
@@ -51,11 +52,23 @@ int main(int argc, char **argv) {
     return 3;
   }
   if (argc == 4) {
-    want = atoi(argv[3]);
+    char *pp = argv[3];
+    unsigned int base = 10;
+    ii = strlen(pp);
+    if (ii && (pp[ii - 1] == 'H' || pp[ii - 1] == 'h') ) {
+      base = 16;
+    } else if (ii >= 2 && pp[0] == '0' && (pp[1] == 'B' || pp[1] == 'b') ) {
+      pp += 2;
+      base = 2;
+    } else if (ii >= 2 && pp[0] == '0' && (pp[1] == 'X' || pp[1] == 'x') ) {
+      pp += 2;
+      base = 16;
+    } else if (ii && (pp[ii - 1] == 'B' || pp[ii - 1] == 'b') ) {
+      base = 2;
+    }
+    want = strtoul(pp, NULL, base);
     query = 0;
-  }
-  if (argc == 4) {
-    if ((0 == want && argv[3][0] != '0')
+    if ((0 == want && pp[0] != '0')
       || want < 0 || want > 255) {
       fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[3]);
       return 4;

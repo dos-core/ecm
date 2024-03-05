@@ -12,8 +12,9 @@ int main(int argc, char **argv) {
   const char* modenames[] = { "Application", "Device driver", "Bootloaded" };
   const char* progressnames[] = { "None", "Dots", "Percentage",
 	"Bar", "Bar with percentage" };
-  unsigned int ii, offset = 0, mode = 0, progress, want = 0, size,
+  unsigned int ii, offset = 0, mode = 0, progress, size,
 	choices, query = 1, found = 0, at;
+  unsigned long int want = 0;
   uint8_t buffer[buffersize];
   if (argc < 3) {
     fprintf(stderr,"Usage: patchpro ldebug.com [APP|DEVICE|BOOT] [number]\n");
@@ -44,11 +45,23 @@ int main(int argc, char **argv) {
     return 3;
   }
   if (argc == 4) {
-    want = atoi(argv[3]);
+    char *pp = argv[3];
+    unsigned int base = 10;
+    ii = strlen(pp);
+    if (ii && (pp[ii - 1] == 'H' || pp[ii - 1] == 'h') ) {
+      base = 16;
+    } else if (ii >= 2 && pp[0] == '0' && (pp[1] == 'B' || pp[1] == 'b') ) {
+      pp += 2;
+      base = 2;
+    } else if (ii >= 2 && pp[0] == '0' && (pp[1] == 'X' || pp[1] == 'x') ) {
+      pp += 2;
+      base = 16;
+    } else if (ii && (pp[ii - 1] == 'B' || pp[ii - 1] == 'b') ) {
+      base = 2;
+    }
+    want = strtoul(pp, NULL, base);
     query = 0;
-  }
-  if (argc == 4) {
-    if ((0 == want && argv[3][0] != '0')
+    if ((0 == want && pp[0] != '0')
       || want < 0 || want > 255) {
       fprintf(stderr,"Error: Invalid progress choice: %s\n", argv[3]);
       return 4;
