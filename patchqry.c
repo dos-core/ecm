@@ -1,0 +1,125 @@
+
+/* Public Domain */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
+int main(int argc, char **argv) {
+  FILE* ff;
+  const unsigned int buffersize = 8192;
+  const char* unitnames[] = { "Diskette", "Hard disk" };
+  const char* flagnames[] = { "Force CHS", "Force LBA",
+	"No query geometry", NULL, NULL, NULL,
+	"Do not re-check (TestWrit)", "Apply to LDP (lDebug)" };
+  unsigned int ii, offset = 0, mode = 0, want = 0, size,
+	choices, query = 1, found = 0, at, limit = 1;
+  uint8_t buffer[buffersize];
+  uint8_t match[] = {
+	0x8A,0x56,0x40,0xB8,0x00,0x00,0x84,0xD2,0x79,0x02,0x86,0xC4 };
+  uint8_t wildcard[] = {
+	0x00,0x00,0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00,0x00,0x00 };
+  const unsigned int patchoffset = 4;
+  if (argc < 2) {
+    fprintf(stderr,"Usage: patchqry ldebug.com [DISKETTE|HARDDISK] [number]\n");
+    return 255;
+  }
+  ff = fopen(argv[1], "r+b");
+  if (! ff) {
+    fprintf(stderr,"Error: Failed to open file: %s\n", argv[1]);
+    return 2;
+  }
+  if (argc < 3) {
+    mode = 255;
+  } else if (! strcmp(argv[2], "DISKETTE")
+    || ! strcmp(argv[2], "diskette")
+    || ! strcmp(argv[2], "FLOPPY")
+    || ! strcmp(argv[2], "floppy")
+    ) {
+    offset = 0; mode = 0;
+  } else if (! strcmp(argv[2], "HARDDISK")
+    || ! strcmp(argv[2], "harddisk")
+    || ! strcmp(argv[2], "HDD")
+    || ! strcmp(argv[2], "hdd")
+    || ! strcmp(argv[2], "FIXEDDISK")
+    || ! strcmp(argv[2], "fixeddisk")
+    ) {
+    offset = 1; mode = 1;
+  } else {
+    fprintf(stderr,"Error: Invalid unit name: %s\n", argv[2]);
+    return 3;
+  }
+  if (argc == 4) {
+    want = atoi(argv[3]);
+    query = 0;
+  }
+  if (argc == 4) {
+    if ((0 == want && argv[3][0] != '0')
+      || want < 0 || want > 255) {
+      fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[3]);
+      return 4;
+    }
+  }
+  size = fread(buffer, 1, buffersize, ff);
+  if (size < sizeof(match)) {
+    fprintf(stderr,"Error: Query patch site not found\n");
+    return 5;
+  }
+  choices = size - sizeof(match) + 1;
+  for (ii = 0; ii <= choices; ++ ii) {
+    unsigned int jj;
+    at = ii;
+    for (jj = 0; jj < sizeof(wildcard); ++ jj) {
+      if (wildcard[jj]) {
+        match[jj] = buffer[at + jj];
+      }
+    }
+    if (! memcmp(&buffer[at], match, sizeof(match))) {
+      found = 1;
+      break;
+    }
+  }
+  if (! found) {
+    fprintf(stderr,"Error: Query patch site not found\n");
+    return 6;
+  }
+  if (! query) {
+    buffer[at + patchoffset + offset] = want;
+    fseek(ff, 0, SEEK_SET);
+    if (size != fwrite(buffer, 1, size, ff)) {
+      fprintf(stderr,"Error: Failed to write file\n");
+      return 9;
+    }
+    printf("Query patch updated\n");
+  }
+  if (mode == 255) {
+    limit = 2;
+    offset = 0;
+  }
+  for (; limit; -- limit, ++ offset) {
+    const char *pp;
+    const char *initial = "\n\t";
+    const char *separator = "";
+    const char *final = "";
+    int value;
+    value = buffer[at + patchoffset + offset];
+    printf("%s query patch = %02Xh", unitnames[offset], value);
+    for (ii = 0; ii < 8; ++ ii) {
+      if ( 0 == (value & (1 << ii)) ) {
+        continue;
+      }
+      if (flagnames[ii]) {
+        pp = flagnames[ii];
+      } else {
+        pp = "Unknown";
+      }
+      printf("%s%s%s", initial, separator, pp);
+      initial = "";
+      separator = "\n\t";
+      final = "";
+    }
+    printf("%s\n", final);
+  }
+  return 0;
+}
