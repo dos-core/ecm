@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
 	"No query geometry", NULL, NULL, NULL,
 	"Do not re-check (TestWrit)", "Apply to LDP (lDebug)" };
   unsigned int ii, offset = 0, mode = 0, size,
-	choices, query = 1, found = 0, at, limit = 1;
+	choices, query = 1, found = 0, at, limit = 1, current;
   unsigned long int want = 0, wantreplace = 0, wantminus = 0, wantplus = 0;
   uint8_t buffer[buffersize];
   uint8_t match[] = {
@@ -51,8 +51,8 @@ int main(int argc, char **argv) {
     fprintf(stderr,"Error: Invalid unit name: %s\n", argv[2]);
     return 3;
   }
-  if (argc == 4) {
-    char *pp = argv[3];
+  for (current = 3; current < argc; ++ current) {
+    char *pp = argv[current];
     char replace_plus_minus = 0;
     unsigned int base = 10;
     unsigned long int vv = 0;
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
     query = 0;
     if ((0 == vv && pp[0] != '0')
       || vv < 0 || vv > 255) {
-      fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[3]);
+      fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[current]);
       return 4;
     }
     switch (replace_plus_minus) {

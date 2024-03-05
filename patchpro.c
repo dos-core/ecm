@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   const char* progressnames[] = { "None", "Dots", "Percentage",
 	"Bar", "Bar with percentage" };
   unsigned int ii, offset = 0, mode = 0, progress, size,
-	choices, query = 1, found = 0, at;
+	choices, query = 1, found = 0, at, current;
   unsigned long int want = 0, wantreplace = 0, wantminus = 0, wantplus = 0;
   uint8_t buffer[buffersize];
   if (argc < 3) {
@@ -44,8 +44,8 @@ int main(int argc, char **argv) {
     fprintf(stderr,"Error: Invalid progress mode: %s\n", argv[2]);
     return 3;
   }
-  if (argc == 4) {
-    char *pp = argv[3];
+  for (current = 3; current < argc; ++ current) {
+    char *pp = argv[current];
     char replace_plus_minus = 0;
     unsigned int base = 10;
     unsigned long int vv = 0;
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     query = 0;
     if ((0 == vv && pp[0] != '0')
       || vv < 0 || vv > 255) {
-      fprintf(stderr,"Error: Invalid progress choice: %s\n", argv[3]);
+      fprintf(stderr,"Error: Invalid progress choice: %s\n", argv[current]);
       return 4;
     }
     switch (replace_plus_minus) {
