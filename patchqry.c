@@ -92,6 +92,10 @@ int main(int argc, char **argv) {
     }
     switch (replace_plus_minus) {
     case 0:
+      if (current != 3) {
+        fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[current]);
+        return 4;
+      }
       want = vv;
       wantplus = 0;
       wantminus = 0;
