@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
 	"Do not re-check (TestWrit)", "Apply to LDP (lDebug)" };
   unsigned int ii, offset = 0, mode = 0, size,
 	choices, query = 1, found = 0, at, limit = 1;
-  unsigned long int want = 0;
+  unsigned long int want = 0, wantreplace = 0, wantminus = 0, wantplus = 0;
   uint8_t buffer[buffersize];
   uint8_t match[] = {
 	0x8A,0x56,0x40,0xB8,0x00,0x00,0x84,0xD2,0x79,0x02,0x86,0xC4 };
@@ -53,7 +53,18 @@ int main(int argc, char **argv) {
   }
   if (argc == 4) {
     char *pp = argv[3];
+    char replace_plus_minus = 0;
     unsigned int base = 10;
+    unsigned long int vv = 0;
+    if (pp[0] == '+') {
+      ++ pp;
+      replace_plus_minus = 1;
+    } else if (pp[0] == '-') {
+      ++ pp;
+      replace_plus_minus = 2;
+    } else {
+      wantreplace = 1;
+    }
     ii = strlen(pp);
     if (ii && (pp[ii - 1] == 'H' || pp[ii - 1] == 'h') ) {
       base = 16;
@@ -66,12 +77,27 @@ int main(int argc, char **argv) {
     } else if (ii && (pp[ii - 1] == 'B' || pp[ii - 1] == 'b') ) {
       base = 2;
     }
-    want = strtoul(pp, NULL, base);
+    vv = strtoul(pp, NULL, base);
     query = 0;
-    if ((0 == want && pp[0] != '0')
-      || want < 0 || want > 255) {
+    if ((0 == vv && pp[0] != '0')
+      || vv < 0 || vv > 255) {
       fprintf(stderr,"Error: Invalid query patch choice: %s\n", argv[3]);
       return 4;
+    }
+    switch (replace_plus_minus) {
+    case 0:
+      want = vv;
+      wantplus = 0;
+      wantminus = 0;
+      break;
+    case 1:
+      wantplus |= vv;
+      wantminus &= ~vv;
+      break;
+    case 2:
+      wantminus |= vv;
+      wantplus &= ~vv;
+      break;
     }
   }
   size = fread(buffer, 1, buffersize, ff);
@@ -98,7 +124,11 @@ int main(int argc, char **argv) {
     return 6;
   }
   if (! query) {
-    buffer[at + patchoffset + offset] = want;
+    if (wantreplace) {
+      buffer[at + patchoffset + offset] = want;
+    }
+    buffer[at + patchoffset + offset] |= wantplus;
+    buffer[at + patchoffset + offset] &= ~wantminus;
     fseek(ff, 0, SEEK_SET);
     if (size != fwrite(buffer, 1, size, ff)) {
       fprintf(stderr,"Error: Failed to write file\n");
