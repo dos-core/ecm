@@ -857,14 +857,16 @@ init1_start:
 	pop bx			; = 1 if app, = 2 if device
 	push bx
 	mov ax, word [es:di + lcfg.progress_app - lcfg]
-%if lcfg.progress_app + 1 != lcfg.progress_dev
- %error Unexpected layout
-%endif
+%if _DEVICE
+ %if lcfg.progress_app + 1 != lcfg.progress_dev
+  %error Unexpected layout
+ %endif
 				; al = app, ah = device
 	dec bx
 	jz .default_app
 	xchg al, ah		; al = device
 .default_app:
+%endif
 	mov ah, 0		; ax = default
 	xchg di, ax		; di = default
 %else
