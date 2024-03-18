@@ -741,6 +741,8 @@ findname:
 .check_loop_differs:
 	call .check_character
 	jc .check_fail
+	cmp al, 32
+	je .check_loop_is_blank
 .check_pass:
 	loop .check_loop
 
@@ -753,6 +755,27 @@ findname:
 	sub cx, 11		; lessen the counter
 	clc
 	retn
+
+.check_loop_is_blank:
+	mov ah, cl		; = how many remaining in ext (1 to 3)
+				;  or name+ext (1 to 10, cannot be 11)
+	cmp ah, 3		; in ext ?
+	jbe @F			; yes -->
+	sub ah, 3		; 1 to 7 name field remaining
+	db __TEST_IMM8		; (skip lodsb)
+.check_loop_blank:
+	lodsb
+@@:
+	call .check_character	; general check
+	jc .check_fail
+	dec ah			; at end of field ?
+	jz .check_pass		; yes -->
+				; no, still in field after blank.
+				;  check that trail is all blanks.
+	cmp al, 32		; non-blank ?
+	jne .check_fail		; yes, fails -->
+	loop .check_loop_blank
+	jmp .check_fail		; (never reached)
 
 .none:
 	 add si, cx
