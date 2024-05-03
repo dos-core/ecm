@@ -131,6 +131,10 @@ sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
 sptinternal
 sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], dl	; = 0
 sptinternal
+%if _SPT_ELD
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
+sptinternal
+%endif
 .loop_primary_parts:
 sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 sptinternal
@@ -205,6 +209,23 @@ sptinternal			; was last?
 .push:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.push",13,10
+
+%if _SPT_ELD
+sptrel	rol byte [ %[_SCANPTAB_PREFIX]extended], 1
+sptinternal
+	jnc @F
+sptrel	not byte [ %[_SCANPTAB_PREFIX]load_is_extended]
+sptinternal
+	call cx
+sptrel	not byte [ %[_SCANPTAB_PREFIX]load_is_extended]
+sptinternal
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_extended]
+sptinternal
+%ifidn _BASE, bp
+	xor bx, bx
+%endif
+@@:
+%endif
 
 	push si
 .push_check_empty_next:
