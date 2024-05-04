@@ -397,15 +397,6 @@ d3	test ax, "00"
 		;	 the original int 1Eh address. Else, ds:si is used.
 	mov di, 1Eh * 4	; -> IVT entry of int 1Eh
 	cmp dx, di	; int 1Eh address on stack ?
-	jne .dssi	; no -->
-	mov bp, sp
-	cmp word [bp + 2], cx	; segment 0 in next word ?
-	jne .dssi	; no -->
-	pop si
-	pop ds		; discard
-	pop si
-	pop ds		; get old int 1Eh address from stack
-.dssi:
 	jmp ms6_continue1
 
 
@@ -1229,6 +1220,18 @@ check_clust:
 
 
 ms6_continue1:
+	; Comparison happens before branching here.
+	; cmp dx, di	; int 1Eh address on stack ?
+	jne .dssi	; no -->
+	mov bp, sp
+	cmp word [bp + 2], cx	; segment 0 in next word ?
+	jne .dssi	; no -->
+	pop si
+	pop ds		; discard
+	pop si
+	pop ds		; get old int 1Eh address from stack
+.dssi:
+
 	cld
 	mov es, cx			; cx = 0
 	mov bp, 7C00h			; 0:bp -> boot sector with BPB
