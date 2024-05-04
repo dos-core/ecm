@@ -498,10 +498,17 @@ query_geometry:
 	and al, 1		; force LBA ?
 	jnz .done_lba		; yes -->
  %endif
+	push ds
+	mov bx, 40h	; bx = 40h
+	mov ds, bx	; ds = 40h
+; Setting ds = 40h is a Book8088 bugfix, refer to
+;  http://www.bttr-software.de/forum/forum_entry.php?id=21061
+
 	mov ah, 41h
 	mov bx, 55AAh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
+	pop ds
 @@:
 	mov al, 0	; zero in case of no LBA support
 	jc .no_lba
