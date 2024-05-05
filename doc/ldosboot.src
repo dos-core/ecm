@@ -97,6 +97,10 @@ Currently the following signatures are defined:
 
 \dd Enhanced DR-DOS single-file kernel in drkernpl stage
 
+\dt \cq{lDMS}
+
+\dd MS-DOS (v4.01) single-file kernel in drkernpl stage
+
 \dt \cq{lDeb}
 
 \dd lDebug
@@ -636,6 +640,7 @@ for a compressed Enhanced DR-DOS single-file kernel,
 hence the name.
 This allows the single-file kernel to be smaller than the sum of
 the two files of the prior build of a double-file kernel.
+The lDOS fork of MS-DOS v4.01 can use drload as well.
 
 
 \H{protocol-sector-drload} Sector to drload protocol
@@ -683,7 +688,8 @@ The drload to payload protocol only sets up:
 
 
 This happens to be enough to run a kernel-only inicomp stage,
-as well as the drkernpl stage that sets up the DRBIO and DRDOS modules
+as well as the drkernpl stage that sets up
+the DRBIO/MSBIO and DRDOS/MSDOS modules
 and runs the former.
 
 
