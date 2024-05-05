@@ -216,7 +216,25 @@ sptinternal
 	jnc @F
 sptrel	not byte [ %[_SCANPTAB_PREFIX]load_is_extended]
 sptinternal
+
+	push si
+	sub di, 10			; address temporary root and base
+	push word [_BASE+di+10-2]
+	push word [_BASE+di+10-4]	; copy root as root
+	push word [_BASE+di+10-2]
+	push word [_BASE+di+10-4]	; copy root as base
+		; Extended partitions always have LBA start values
+		;  relative to the outermost extended partition.
+		;  Therefore the "root" must be used as base for
+		;  this call to always get the expected address
+		;  from dword [bp - di - 8] + dword [es:si + 8].
+
 	call cx
+
+	add sp, 8			; discard temporary root and base
+	add di, 10			; point back to prior root and base
+	pop si				; undo last part of the stack frame
+
 sptrel	not byte [ %[_SCANPTAB_PREFIX]load_is_extended]
 sptinternal
 sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_extended]
