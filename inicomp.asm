@@ -143,6 +143,8 @@ ldLoadUntilSeg:	resw 1
 	numdef PROGRESSDEFAULTBOOT,1
 	numdef LCFG, _PROGRESS && _PROGRESSMULTI
 
+
+%define MODULE inicomp
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
  %include _INILOAD_CFG
