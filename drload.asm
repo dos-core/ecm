@@ -132,6 +132,14 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	strdef PAYLOAD_FILE,	"edrdos.bin"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
+	numdef TEST_PROGRAM,	0
+
+
+%define MODULE drload
+	strdef INILOAD_CFG, ""
+%ifnidn _INILOAD_CFG, ""
+ %include _INILOAD_CFG
+%endif
 
 
 	cpu 8086

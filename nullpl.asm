@@ -85,7 +85,10 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	gendef DEVICE_NAME,		""
 	numdef DEVICE_ATTRIBUTE,	8000h
 	numdef DEVICE_ZERO_ENTRYPOINT,	0
+	numdef TEST_PROGRAM,	0
 
+
+%define MODULE nullpl
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
  %include _INILOAD_CFG

@@ -62,7 +62,17 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	[map all _MAP]
 %endif
 
+	defaulting
+
 	strdef PAYLOAD_FILE,	"KERNEL.SYS"
+	numdef TEST_PROGRAM,	0
+
+
+%define MODULE fdkernpl
+	strdef INILOAD_CFG, ""
+%ifnidn _INILOAD_CFG, ""
+ %include _INILOAD_CFG
+%endif
 
 
 	struc LOADSTACKVARS, -10h

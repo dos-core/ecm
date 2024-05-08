@@ -181,6 +181,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	strdef INILOAD_SIGNATURE,	"XX"
+	numdef TEST_PROGRAM,	0
 
 	numdef IMAGE_EXE,	0
 	numdef IMAGE_EXE_CS,	-16	; relative-segment for CS
@@ -217,6 +218,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
 
 
+%define MODULE iniload
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
  %include _INILOAD_CFG

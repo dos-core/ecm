@@ -64,8 +64,18 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	[map all _MAP]
 %endif
 
+	defaulting
+
 	strdef PAYLOAD_BIO_FILE,"drbio.bin"
 	strdef PAYLOAD_DOS_FILE,"drdos.sys"
+	numdef TEST_PROGRAM,	0
+
+
+%define MODULE drkernpl
+	strdef INILOAD_CFG, ""
+%ifnidn _INILOAD_CFG, ""
+ %include _INILOAD_CFG
+%endif
 
 
 	struc LOADSTACKVARS, -10h
