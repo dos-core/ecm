@@ -1545,25 +1545,26 @@ found_load_file:
 		mov bx, [es:bx + deSize]
 					; ax:bx = file size (non-FAT+)
 
-		add bx, 15
-		adc ax, 0		; round-up to paragraphs
-					; large ?
-		jc .large_file		; yes, clamp to maximum paras -->
-
+		mov dx, bx		; dx & 15 = nonzero if to round up
 		mov cx, 4
 @@:
 		shr ax, 1
 		rcr bx, 1
-		loop @B
+		loop @B			; convert to paragraphs, rounding down
 			; ax:bx = size in paragraphs
 			; bx = size in paragraphs if < 1_0000h
 		test ax, ax		; > 0FFFFh paras ?
 		jz @F			; no, take actual size -->
 .large_file:
 		mov bx, 0FFFFh		; bx = clamp size to 0FFFFh paras
+		xor dx, dx		; do not round up
 @@:
 		call check_enough.in_bx	; (CHG ax)
 
+		test dl, 15		; NZ if to round up
+		jz @F			; ZR, do not round up -->
+		inc bx			; round up for last partial paragraph
+@@:
 		pop ax
 		pop dx			; dx:ax = first cluster
 
