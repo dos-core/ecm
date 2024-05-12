@@ -1545,15 +1545,11 @@ found_load_file:
 		mov bx, [es:bx + deSize]
 					; ax:bx = file size (non-FAT+)
 
-		mov cx, [VAR(bytes_per_sector)]
-		dec cx			; BpS - 1
-		add bx, cx
-		adc ax, 0		; large ?
+		add bx, 15
+		adc ax, 0		; round-up to paragraphs
+					; large ?
 		jc .large_file		; yes, clamp to maximum paras -->
 
-		not cx			; ~ (BpS - 1)
-		and bx, cx		; mask to limit to rounded-up sector
-				; (this also rounds up paragraphs)
 		mov cx, 4
 @@:
 		shr ax, 1
