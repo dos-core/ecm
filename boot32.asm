@@ -1564,7 +1564,7 @@ found_load_file:
 		test ax, ax		; > 0FFFFh paras ?
 		jz @F			; no, take actual size -->
 .large_file:
-		mov bx, 0FFFFh		; cx = clamp size to 0FFFFh paras
+		mov bx, 0FFFFh		; bx = clamp size to 0FFFFh paras
 @@:
 		call check_enough.in_bx	; (CHG ax)
 
