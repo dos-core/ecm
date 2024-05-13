@@ -501,8 +501,10 @@ query_geometry:
 ; Setting ds = 40h is a Book8088 bugfix, refer to
 ;  http://www.bttr-software.de/forum/forum_entry.php?id=21061
 
-	mov ah, 41h
+	mov ax, 4100h
 	mov bx, 55AAh
+	xor cx, cx
+	xor dh, dh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
 	pop ds		; restore ds
