@@ -36,6 +36,7 @@ Public domain by E. C. Masloch, 2012
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
 	numdef CHECKVALUE,	"lD"
+	numdef LOAD_STACK,	512	; default stack size (use 256 for DR-DOS)
 	numdef LOAD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
 	numdef ADD_SEARCH,	0	; whether to search second file
 	strdef ADD_NAME,	""
@@ -368,8 +369,8 @@ Notes about partial load compatibilities
 %endif
 
 
-; 512-byte stack (minus the variables).
-ADR_STACK_LOW	equ	7C00h - 200h		; 07A00h
+; Stack (default 512 Bytes minus the variables).
+ADR_STACK_LOW	equ	7C00h - _LOAD_STACK	; 07A00h (if _LOAD_STACK = 200h)
 
 %if _DIRBUF_500
 	gendef _ADR_DIRBUF,	500h
