@@ -3881,12 +3881,12 @@ findname:
 @@:
 	call .check_character	; general check
 	jc .check_fail
+	cmp al, 32		; non-blank ?
+	jne .check_fail		; yes, fails -->
 	dec ah			; at end of field ?
 	jz .check_pass		; yes -->
 				; no, still in field after blank.
-				;  check that trail is all blanks.
-	cmp al, 32		; non-blank ?
-	jne .check_fail		; yes, fails -->
+				;  check that next trail is all blanks too.
 	loop .check_loop_blank
 	jmp .check_fail		; (never reached)
 
