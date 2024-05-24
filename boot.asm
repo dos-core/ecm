@@ -138,13 +138,14 @@ Public domain by E. C. Masloch, 2012
 
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
+	numdef COMPAT_DR,	0	; partial DR-DOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
 	numdef COMPAT_MS6,	0	; partial MS-DOS 6 load compatibility
 	numdef COMPAT_LDOS,	0	; lDOS load compatibility
 	numdef COMPAT_KERNEL7E, 0	; kernel at 0:7E00h load compatibility
 
-%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + \
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_DR + \
 	!!_COMPAT_MS7 + !!_COMPAT_MS6 + \
 	!!_COMPAT_LDOS + !!_COMPAT_KERNEL7E) > 1
  %error At most one set must be selected.
@@ -197,6 +198,38 @@ Public domain by E. C. Masloch, 2012
 	numdef DATASTART_HIDDEN,1
 	numdef SET_DSSI_DPT,	1
 	numdef PUSH_DPT,	1
+%endif
+
+%if _COMPAT_DR
+	strdef LOAD_NAME,	"IBMBIO"
+	strdef LOAD_EXT,	"COM"
+	numdef LOAD_ADR,	00700h
+	numdef LOAD_STACK,	256
+	; Shrinking the stack allows to boot a file of up to 29 KiB
+	;  given a sector size of <= 1 KiB.
+	numdef LOAD_MIN_PARA,	paras(4096 - 700h)
+	; Using a min para size that allows to compare the segment's
+	;  high byte only saves a byte.
+	numdef EXEC_SEG_ADJ,	0
+	numdef EXEC_OFS,	0
+
+	numdef CHECKVALUE,	0
+	numdef SET_LOAD_SEG,	0
+	numdef SET_FAT_SEG,	0
+	numdef SET_CLUSTER,	0
+
+	numdef SET_DL_UNIT,	1
+	numdef MEMORY_CONTINUE,	1
+	; Memory continue must certainly be set to boot off file
+	;  systems with >= 32 KiB per cluster and may be needed
+	;  even for smaller cluster sizes that are still > 1 KiB.
+	numdef SET_AXBX_DATA,	0
+	numdef DATASTART_HIDDEN,0
+	numdef SET_DSSI_DPT,	0
+	numdef PUSH_DPT,	0
+	; None of these options seem needed for DR-DOS. Note that
+	;  disabling them will fail if we actually load our lDOS
+	;  iniload as it expects these options enabled.
 %endif
 
 %if _COMPAT_MS7
@@ -304,6 +337,14 @@ Notes about partial load compatibilities
  * Relocates to an address other than 27A00h (1FE0h:7C00h)
  * A lot of options between _USE_PART_INFO, _QUERY_GEOMETRY, _CHS, _LBA,
    and/or _RPL need to be disabled to make the loader fit
+* DR-DOS:
+ * Must enable _MEMORY_CONTINUE to load off file systems with cluster
+   sizes > 1 KiB (depending on file size) or >= 32 KiB (certainly)
+ * Will not load whole file if _MEMORY_CONTINUE is enabled and file
+   data exceeds 29 KiB, without erroring out
+ * Disables DPT, data start, and directory entry to 00500h options by
+   default so loading a faithful IBMDOS v4+ kernel will fail as msload
+   or lDOS iniload need these options to operate
 * IBMDOS:
 * MS-DOS 6:
  * Does not actually relocate DPT, just provide its address
