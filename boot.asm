@@ -31,6 +31,8 @@ Public domain by E. C. Masloch, 2012
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
 	numdef LOAD_MIN_PARA,	paras(4096)
+	numdef LOAD_CHECK_MAX_SIZE, 0
+	numdef LOAD_CHECK_MAX_SIZE_FATPLUS, 0
 	numdef LOAD_NON_FAT,	0, 2048	; use FAT-less loading (value is amount bytes)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
@@ -835,7 +837,7 @@ error_start:
 
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
-%if ! _MEMORY_CONTINUE || _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
+%if ! _MEMORY_CONTINUE || _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM || _LOAD_CHECK_MAX_SIZE
 	db __TEST_IMM16	; (skip mov)
 error_filetoobig:
 error_memory:
@@ -1679,13 +1681,67 @@ relocated:
 %endif
 %if ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 	; user of last_available_sector will hardcode the value!
+ %if _LOAD_CHECK_MAX_SIZE
+  %error Combination not implemented yet
+ %endif
 %else
  %if _FIX_SECTOR_SIZE
 		sub ax, _FIX_SECTOR_SIZE >> 4
  %else
+  %if _LOAD_CHECK_MAX_SIZE
+   %if _RELOCATE
+    %error Combination not implemented yet
+   %else
+		mov si, [VAR(para_per_sector)]
+		sub ax, si
+   %endif
+  %else
 		sub ax, [VAR(para_per_sector)]
+  %endif
  %endif
 		push ax		; push into word [VAR(last_available_sector)]
+  %if _LOAD_CHECK_MAX_SIZE
+   %if !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
+		mov ax, (ADR_FREE_UNTIL >> 4) - (_LOAD_ADR >> 4)
+   %else
+		add ax, si
+		sub ax, _LOAD_ADR >> 4
+   %endif
+				; ax = how many paragraphs available
+		dec si		; para per sector minus 1
+		not si		; mask to round down to sector
+		and ax, si	; how many paragraphs can be read
+		mov dx, word [es:di + deSize + DIRADJUST]
+   %if _LOAD_CHECK_MAX_SIZE_FATPLUS
+					; check FAT+ size bits
+		test byte [es:di + dePlusSize + DIRADJUST], 0E7h
+					; test whether bits 7-5 and 2-0 NZ
+		jnz error_memory
+   %endif
+   %if !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
+		cmp word [es:di + deSize + 2 + DIRADJUST], 0
+		jne error_memory
+		add dx, 15
+		jc error_memory_CY
+		mov cl, 4
+		shr dx, cl
+   %else
+		mov si, word [es:di + deSize + 2 + DIRADJUST]
+		add dx, 15
+		adc si, 0
+		jc error_memory_CY
+		mov cx, 4
+@@:
+		shr si, 1
+		rcr dx, 1
+		loop @B
+		test si, si
+		jnz error_memory
+   %endif
+		cmp ax, dx
+error_memory_CY:
+		jb error_memory
+  %endif
 %endif
 
 read_fat_start:
