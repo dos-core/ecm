@@ -348,7 +348,10 @@ Notes about partial load compatibilities
  * Must enable _MEMORY_CONTINUE to load off file systems with cluster
    sizes > 1 KiB (depending on file size) or >= 32 KiB (certainly)
  * Will not load whole file if _MEMORY_CONTINUE is enabled and file
-   data exceeds 29 KiB, without erroring out
+   data exceeds 29 KiB, without erroring out. The new option called
+   _LOAD_CHECK_MAX_SIZE has been added to address this. However, it
+   won't fit without disabling some other options such as _LBA, _CHS,
+   _USE_PART_INFO, or _QUERY_GEOMETRY.
  * Disables DPT, data start, and directory entry to 00500h options by
    default so loading a faithful IBMDOS v4+ kernel will fail as msload
    or lDOS iniload need these options to operate
