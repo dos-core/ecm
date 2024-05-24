@@ -566,7 +566,8 @@ itself would disqualify our boot sector already.
 deName:		resb 8
 deExt:		resb 3
 deAttrib:	resb 1
-		resb 8
+dePlusSize:	resb 1
+		resb 7
 deClusterHigh:	resw 1
 deTime:		resw 1
 deDate:		resw 1
