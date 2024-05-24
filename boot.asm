@@ -1681,9 +1681,6 @@ relocated:
 %endif
 %if ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 	; user of last_available_sector will hardcode the value!
- %if _LOAD_CHECK_MAX_SIZE
-  %error Combination not implemented yet
- %endif
 %else
  %if _FIX_SECTOR_SIZE
 		sub ax, _FIX_SECTOR_SIZE >> 4
@@ -1700,7 +1697,22 @@ relocated:
   %endif
  %endif
 		push ax		; push into word [VAR(last_available_sector)]
-  %if _LOAD_CHECK_MAX_SIZE
+%endif
+%if _LOAD_CHECK_MAX_SIZE
+ %if !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+   %if _LOAD_CHECK_MAX_SIZE_FATPLUS
+					; check FAT+ size bits
+		test byte [es:di + dePlusSize + DIRADJUST], 0E7h
+					; test whether bits 7-5 and 2-0 NZ
+		jnz error_memory
+   %endif
+		cmp word [es:di + deSize + 2 + DIRADJUST], 0
+		jne error_memory
+		cmp word [es:di + deSize + DIRADJUST], \
+ 		 (((ADR_FREE_UNTIL >> 4) - (_LOAD_ADR >> 4)) \
+		  & ~ ((_FIX_SECTOR_SIZE >> 4) - 1)) << 4
+		ja error_memory
+ %else
    %if !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
 		mov ax, (ADR_FREE_UNTIL >> 4) - (_LOAD_ADR >> 4)
    %else
@@ -1741,7 +1753,7 @@ relocated:
 		cmp ax, dx
 error_memory_CY:
 		jb error_memory
-  %endif
+ %endif
 %endif
 
 read_fat_start:
@@ -1755,6 +1767,9 @@ DIRADJUST equ - deAttrib
 DIRADJUST equ - DIRENTRY_size - (DIRENTRY_size * !!_DIR_ENTRY_520)
  %endif
 		mov si,[es:di + deClusterLow + DIRADJUST]
+%elif _LOAD_CHECK_MAX_SIZE
+DIRADJUST equ 0				; placeholder to avoid confusing error
+ %error Combination not implemented yet
 %endif
 %if _SET_CLUSTER
 		mov word [VAR(first_cluster)], si
