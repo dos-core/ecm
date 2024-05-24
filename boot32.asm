@@ -109,11 +109,13 @@ Public domain by E. C. Masloch, 2012
 	numdef NUMRESERVED, 0		; number of reserved sectors
 
 	numdef COMPAT_FREEDOS,	0	; partial FreeDOS load compatibility
+	numdef COMPAT_DR,	0	; partial DR-DOS load compatibility
 	numdef COMPAT_IBM,	0	; partial IBMDOS load compatibility
 	numdef COMPAT_MS7,	0	; partial MS-DOS 7 load compatibility
 	numdef COMPAT_LDOS,	0	; lDOS load compatibility
 
-%if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + !!_COMPAT_MS7 + !!_COMPAT_LDOS) > 1
+%if (!!_COMPAT_FREEDOS + !!_COMPAT_DR + \
+	!!_COMPAT_IBM + !!_COMPAT_MS7 + !!_COMPAT_LDOS) > 1
  %error At most one set must be selected.
 %endif
 
@@ -156,6 +158,32 @@ Public domain by E. C. Masloch, 2012
 	numdef DATASTART_HIDDEN,1
 	numdef SET_DSSI_DPT,	1
 	numdef PUSH_DPT,	1
+%endif
+
+%if _COMPAT_DR
+	strdef LOAD_NAME,	"IBMBIO"
+	strdef LOAD_EXT,	"COM"
+	numdef LOAD_ADR,	00700h
+	numdef LOAD_STACK,	256
+	; Shrinking the stack allows to boot a file of up to 29 KiB
+	;  given a sector size of <= 1 KiB.
+	numdef LOAD_MIN_PARA,	paras(512)
+	numdef EXEC_SEG_ADJ,	0
+	numdef EXEC_OFS,	0
+	numdef CHECKVALUE,	0
+
+	numdef SET_DL_UNIT,	1
+	numdef MEMORY_CONTINUE,	1
+	; Memory continue must certainly be set to boot off file
+	;  systems with >= 32 KiB per cluster and may be needed
+	;  even for smaller cluster sizes that are still > 1 KiB.
+	numdef SET_AXBX_DATA,	0
+	numdef DATASTART_HIDDEN,0
+	numdef SET_DSSI_DPT,	0
+	numdef PUSH_DPT,	0
+	; None of these options seem needed for DR-DOS. Note that
+	;  disabling them will fail if we actually load our lDOS
+	;  iniload as it expects these options enabled.
 %endif
 
 %if _COMPAT_MS7
