@@ -1692,13 +1692,13 @@ read_fat_start:
 ; get starting cluster of file
 %if ! _RELOCATE
  %if _ADD_SEARCH || _LOAD_DIR_SEG
-		mov si,[es:di + deClusterLow]
+DIRADJUST equ 0
  %elif _ATTRIB_SAVE && ! _DIR_ENTRY_500
-		mov si,[es:di - deAttrib + deClusterLow]
+DIRADJUST equ - deAttrib
  %else
-		mov si,[es:di + deClusterLow - DIRENTRY_size \
-			- (DIRENTRY_size * !!_DIR_ENTRY_520)]
+DIRADJUST equ - DIRENTRY_size - (DIRENTRY_size * !!_DIR_ENTRY_520)
  %endif
+		mov si,[es:di + deClusterLow + DIRADJUST]
 %endif
 %if _SET_CLUSTER
 		mov word [VAR(first_cluster)], si
