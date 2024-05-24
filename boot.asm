@@ -32,7 +32,7 @@ Public domain by E. C. Masloch, 2012
 	numdef LOAD_ADR,	02000h	; where to load
 	numdef LOAD_MIN_PARA,	paras(4096)
 	numdef LOAD_CHECK_MAX_SIZE, 0
-	numdef LOAD_CHECK_MAX_SIZE_FATPLUS, 0
+	numdef LOAD_CHECK_MAX_SIZE_FATPLUS, 1
 	numdef LOAD_NON_FAT,	0, 2048	; use FAT-less loading (value is amount bytes)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
@@ -225,6 +225,11 @@ Public domain by E. C. Masloch, 2012
 	; Memory continue must certainly be set to boot off file
 	;  systems with >= 32 KiB per cluster and may be needed
 	;  even for smaller cluster sizes that are still > 1 KiB.
+	numdef LOAD_CHECK_MAX_SIZE, 1
+	; In conjunction with _MEMORY_CONTINUE this enables erroring
+	;  out if the actual file data is too large to load it, but
+	;  avoids the need to load the entire last cluster.
+
 	numdef SET_AXBX_DATA,	0
 	numdef DATASTART_HIDDEN,0
 	numdef SET_DSSI_DPT,	0
