@@ -33,6 +33,8 @@ Public domain by E. C. Masloch, 2012
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
 	numdef LOAD_MIN_PARA,	paras(1536)
+	numdef LOAD_CHECK_MAX_SIZE, 0
+	numdef LOAD_CHECK_MAX_SIZE_FATPLUS, 0
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
 	numdef CHECKOFFSET,	1020
@@ -942,11 +944,45 @@ finish_start:
 		; OUT:	directory entry copied if so desired
 		;	(is a no-op if not to copy dir entry)
 writedirentry:
-%if _LOAD_DIR_SEG
+%if _LOAD_DIR_SEG || _LOAD_CHECK_MAX_SIZE
 .loaddir:
-	mov ax, _LOAD_DIR_SEG
 %else
 .loaddir: equ read_sector.retn
+%endif
+%if _LOAD_CHECK_MAX_SIZE
+	mov dx, word [VAR(para_per_sector)]
+			; dx = para per sector
+	mov ax,	word [VAR(last_available_sector)]
+	add ax, dx	; ax => behind memory
+	sub ax, word [VAR(fsiboot_table.loadseg)]
+			; ax = how many paragraphs
+	dec dx		; para per sector - 1
+	not dx		; mask to round down to full sector
+	and ax, dx	; = how many paragraphs loadable
+	xor dx, dx	; dx:ax = how many paragraphs loadable
+	mov cx, 4
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B		; dx:ax = how many bytes loadable
+   %if _LOAD_CHECK_MAX_SIZE_FATPLUS
+			; check FAT+ size bits
+	test byte [es:bx + dePlusSize], 0E7h
+			; test whether bits 7-5 and 2-0 NZ
+	jnz @F		; --> (NZ, NC)
+   %endif
+	cmp word [es:bx + deSize + 2], dx
+	jne @F
+	cmp word [es:bx + deSize], ax
+@@:
+	mov al, 'M'	; error condition letter if too large
+	ja error	; jump if ! (ZR || CY)
+			;  ie jump if NZ && NC
+%endif
+%if _LOAD_DIR_SEG
+	mov ax, _LOAD_DIR_SEG
+%elif _LOAD_CHECK_MAX_SIZE
+	retn
 %endif
 %if _LOAD_DIR_SEG || (_ADD_DIR_SEG && _ADD_SEARCH)
 		; INP:	ax => where to store directory entry
