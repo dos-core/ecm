@@ -3502,6 +3502,14 @@ query_search_strings:
 	mov dl, [bp + 127]
 search_wildcard %%start, -1
  %else
+  %if _LBA_WORKAROUND
+	push ds
+	mov bx, 40h
+	mov ds, bx
+; Setting ds = 40h for the function 41h detection is a workaround
+;  for a bug in the Book8088's Xi8088 BIOS. Refer to
+;  https://www.bttr-software.de/forum/forum_entry.php?id=21275
+  %endif
 	mov ah, 41h
 	mov dl, [bp + 127]
 search_wildcard %%start, -1
@@ -3513,6 +3521,9 @@ search_wildcard %%start, -1
 %else
 	int 13h		; 13.41.bx=55AA extensions installation check
 %endif
+  %if _LBA_WORKAROUND
+	pop ds
+  %endif
 	jc .no_lba
 search_wildcard %%start, -1
 	cmp bx, 0AA55h
