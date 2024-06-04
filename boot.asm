@@ -94,6 +94,7 @@ Public domain by E. C. Masloch, 2012
 	numdef WARN_PART_SIZE,	0
 
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
+	numdef LBA_WORKAROUND,	0	; when checking for LBA set ds = 40h
 	numdef LBA_SKIP_CY,	1	; skip check: set up CY before 13.42
 	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
 	incdef _LBA_SKIP_ANY, LBA_SKIP_CY
@@ -972,11 +973,22 @@ read_sector:
  %if _LBA_SKIP_CHECK		; -14 bytes
 	mov dl, [VAR(boot_unit)]
  %else
+  %if _LBA_WORKAROUND
+	push ds
+	mov bx, 40h
+	mov ds, bx
+; Setting ds = 40h for the function 41h detection is a workaround
+;  for a bug in the Book8088's Xi8088 BIOS. Refer to
+;  https://www.bttr-software.de/forum/forum_entry.php?id=21275
+  %endif
 	mov ah, 41h
 	mov dl, [VAR(boot_unit)]
 	mov bx, 55AAh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
+  %if _LBA_WORKAROUND
+	pop ds
+  %endif
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
