@@ -54,11 +54,16 @@ start:
 	call disp_msg_si
 	mov si, word [bp + ?meta]
 	mov ax, [si + 2]
+	mov cx, ax
 	call disp_ax_hex
 	mov si, msg.double.2
 	call disp_msg_si
 	mov si, dx
 	mov ax, [si + 2]
+	call disp_ax_hex
+	mov si, msg.double.4
+	call disp_msg_si
+	xor ax, cx
 	call disp_ax_hex
 	mov si, msg.double.3
 	call disp_msg_si
@@ -279,7 +284,8 @@ dumpsearches METASTRINGS
 
 msg:
 .double.1:	asciz "Double detected: "
-.double.2:	asciz " and "
+.double.2:	asciz ", "
+.double.4:	asciz " XOR="
 .double.3:	asciz 13,10
 .done.1:	asciz "Processed "
 .done.2:	asciz " strings.",13,10
