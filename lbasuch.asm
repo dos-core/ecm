@@ -14,6 +14,9 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 %define SEARCHES dw ""
+%define METASEARCHES dw ""
+%define METASTRINGS dw ""
+
 	%macro search_wildcard 1-2 0
 %assign %%wc $ + %2 - %1
 %if %%wc == 0
@@ -163,6 +166,9 @@ search_wildcard %%start, -1
 %endif
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
 	 dw %%message, dw %%other, WILDCARDS, dw 0
+%xdefine METASEARCHES METASEARCHES, dw %%metaname
+%defstr %%name %%identifier
+%xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
 %if _FORCE_CHS
  %if %[%%identifier %+ _length] != %[%%other %+ _length]
@@ -250,6 +256,9 @@ search_wildcard %%start, -1
 %endif
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
 	 dw %%message, dw %%other, WILDCARDS, dw 0
+%xdefine METASEARCHES METASEARCHES, dw %%metaname
+%defstr %%name %%identifier
+%xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
 %if _FORCE_CHS
  %if %[%%identifier %+ _length] != %[%%other %+ _length]
