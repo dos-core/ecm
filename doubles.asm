@@ -65,7 +65,33 @@ start:
 	call disp_msg_si
 	xor ax, cx
 	call disp_ax_hex
-	mov si, msg.double.3
+	mov si, msg.double.5
+	call disp_msg_si
+
+	mov si, ldos_searchflags
+	test cx, cx
+	jns @F
+	mov si, freedos_searchflags
+@@:
+	mov cx, msg.empty
+@@:
+	test word [si], ax
+	jz @F
+	push si
+	push word [si + 2]
+	mov si, cx
+	call disp_msg_si
+	mov cx, msg.searchflag.2
+	pop si
+	call disp_msg_si
+	mov si, msg.searchflag.1
+	call disp_msg_si
+	pop si
+@@:
+	add si, 4
+	cmp word [si], 0
+	jne @BB
+	mov si, msg.searchflag.eol
 	call disp_msg_si
 %else
 	mov si, msg.double.1
@@ -280,12 +306,21 @@ dec_dword_minwidth:
 meta:
 dumpsearches METASEARCHES
 
+	align 2, db 0
+dumpsearches SEARCHFLAGS
+	dw 0
+
 dumpsearches METASTRINGS
 
 msg:
-.double.1:	asciz "Double detected: "
+.double.1:	asciz "Double "
 .double.2:	asciz ", "
 .double.4:	asciz " XOR="
+.double.5:	asciz " is "
 .double.3:	asciz 13,10
 .done.1:	asciz "Processed "
 .done.2:	asciz " strings.",13,10
+.empty:		asciz
+.searchflag.1:	asciz
+.searchflag.2:	asciz ", "
+.searchflag.eol:asciz 13,10

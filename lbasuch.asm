@@ -16,6 +16,26 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %define SEARCHES dw ""
 %define METASEARCHES dw ""
 %define METASTRINGS dw ""
+%define SEARCHFLAGS dw ""
+%assign any_SET 0
+%assign ldos_SET 0
+%assign freedos_SET 0
+
+	%imacro searchflag 3
+%ifn %1_SET
+ %assign %1_SET 1
+ %if any_SET
+  %xdefine SEARCHFLAGS SEARCHFLAGS, dw 0
+ %else
+  %assign any_SET 1
+ %endif
+ %xdefine SEARCHFLAGS SEARCHFLAGS, %1_searchflags:
+%endif
+
+%xdefine SEARCHFLAGS SEARCHFLAGS, dw %3, dw %%name
+%xdefine METASTRINGS METASTRINGS, %%name:, {asciz %2}
+	%endmacro
+
 
 	%macro search_wildcard 1-2 0
 %assign %%wc $ + %2 - %1
@@ -268,6 +288,10 @@ search_wildcard %%start, -1
 %endif
 	%endmacro
 
+searchflag freedos, "_FORCE_CHS", 1
+searchflag freedos, "_OEM_BOOT", 2
+searchflag freedos, "_FORCE_CHS_DISKETTE", 4
+
 
 lba_search_msg:
 .auto:		asciz "Auto LBA detection"
@@ -299,6 +323,17 @@ lba_search_strings_chs:
 	 variant & 128
  %assign variant variant + 1
 %endrep
+
+searchflag ldos, "_FORCE_CHS", 256
+searchflag ldos, "_LBA_SKIP_CHECK", 1
+searchflag ldos, "_LBA_SKIP_CY", 2
+searchflag ldos, "_LBA_SKIP_LBA_RETRY", 4
+searchflag ldos, "_LBA_SKIP_ANY", 8
+searchflag ldos, "_RETRY_RESET", 16
+searchflag ldos, "_LBA_RETRY", 32
+searchflag ldos, "_LBA_WORKAROUND", 64
+searchflag ldos, "_LDOSBOOT32", 128
+
 
 lba_search_strings_hdd:
 	freedos_lba_search_string freedos_hdd, 0, 0, 1
