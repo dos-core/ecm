@@ -3464,6 +3464,7 @@ query_search_strings:
 %endif
 
 
+%assign ALL 0
 %define PREFIX
 %include "lbasuch.asm"
 
