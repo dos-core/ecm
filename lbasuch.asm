@@ -166,7 +166,7 @@ search_wildcard %%start, -1
 %endif
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
 	 dw %%message, dw %%other, WILDCARDS, dw 0
-%xdefine METASEARCHES METASEARCHES, dw %%metaname
+%xdefine METASEARCHES METASEARCHES, dw %%metaname, dw variant
 %defstr %%name %%identifier
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
@@ -257,6 +257,7 @@ search_wildcard %%start, -1
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
 	 dw %%message, dw %%other, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname
+%xdefine METASEARCHES METASEARCHES, dw 32*1024 + !!%2 * 1 + !!%3 * 2 + !!%4 * 4
 %defstr %%name %%identifier
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start

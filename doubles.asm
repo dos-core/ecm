@@ -49,6 +49,20 @@ start:
 	pop di
 	jne @B
 
+%if 1
+	mov si, msg.double.1
+	call disp_msg_si
+	mov si, word [bp + ?meta]
+	mov ax, [si + 2]
+	call disp_ax_hex
+	mov si, msg.double.2
+	call disp_msg_si
+	mov si, dx
+	mov ax, [si + 2]
+	call disp_ax_hex
+	mov si, msg.double.3
+	call disp_msg_si
+%else
 	mov si, msg.double.1
 	call disp_msg_si
 	mov si, word [bp + ?meta]
@@ -61,6 +75,7 @@ start:
 	call disp_msg_si
 	mov si, msg.double.3
 	call disp_msg_si
+%endif
 
 .nextpattern:
 	mov bx, word [bp + ?data]
@@ -86,8 +101,7 @@ next:
 	cmp word [bx], 0
 	lea bx, [bx + 2]
 	jne @B
-	inc dx
-	inc dx
+	add dx, 4
 	cmp word [bx], 0
 	retn
 
@@ -116,6 +130,34 @@ disp_msg_si:
 	pop ax
 	pop di
 	retn
+
+
+disp_ax_hex:
+		xchg al, ah
+		call disp_al_hex
+		xchg al, ah
+disp_al_hex:
+		push cx
+		mov cl, 4
+		ror al, cl
+		call .nibble
+		ror al, cl
+		pop cx
+.nibble:
+		push ax
+		and al, 0Fh
+		add al, '0'
+		cmp al, '9'
+		jbe .isdigit
+		add al, 'A'-('9'+1)
+.isdigit:
+		push dx
+		xchg dl, al
+		mov ah, 02h
+		int 21h
+		pop dx
+		pop ax
+		retn
 
 
 disp_ax_dec:
