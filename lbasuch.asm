@@ -13,6 +13,13 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+%unmacro searchflag 3
+%unmacro search_wildcard 1-2 0
+%unmacro ldosboot_lba_search_string 10
+%unmacro freedos_lba_search_string 4
+%unmacro dumpsearches 1-*
+
+
 %define SEARCHES dw ""
 %define METASEARCHES dw ""
 %define METASTRINGS dw ""
@@ -21,7 +28,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %assign ldos_SET 0
 %assign freedos_SET 0
 
-	%imacro searchflag 3
+	%macro searchflag 3
 %ifn %1_SET
  %assign %1_SET 1
  %if any_SET
@@ -60,11 +67,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 %if _FORCE_CHS
- %define %%identifier label_%1_chs
- %define %%other label_%1_lba
+ %define %%identifier %[PREFIX]label_%1_chs
+ %define %%other %[PREFIX]label_%1_lba
 %else
- %define %%identifier label_%1_lba
- %define %%other label_%1_chs
+ %define %%identifier %[PREFIX]label_%1_lba
+ %define %%other %[PREFIX]label_%1_chs
 %endif
 
 %%start:
@@ -205,14 +212,14 @@ search_wildcard %%start, -1
 
 
 %if _FORCE_CHS_DISKETTE
- %define %%identifier label_%1_chs_diskette
- %define %%other label_%1_special
+ %define %%identifier %[PREFIX]label_%1_chs_diskette
+ %define %%other %[PREFIX]label_%1_special
 %elif _FORCE_CHS
- %define %%identifier label_%1_chs
- %define %%other label_%1_lba
+ %define %%identifier %[PREFIX]label_%1_chs
+ %define %%other %[PREFIX]label_%1_lba
 %else
- %define %%identifier label_%1_lba
- %define %%other label_%1_chs
+ %define %%identifier %[PREFIX]label_%1_lba
+ %define %%other %[PREFIX]label_%1_chs
 %endif
 
 %%start:
@@ -293,19 +300,19 @@ searchflag freedos, "_OEM_BOOT", 2
 searchflag freedos, "_FORCE_CHS_DISKETTE", 4
 
 
-lba_search_msg:
+%[PREFIX]lba_search_msg:
 .auto:		asciz "Auto LBA detection"
 .autohdd:	asciz "Auto LBA detection (HDD only)"
 .autoskip:	asciz "Auto LBA detection (skip check)"
 .forcechs:	asciz "Forced CHS access"
 
-lba_search_strings_lba:
+%[PREFIX]lba_search_strings_lba:
 	freedos_lba_search_string freedos, 0, 0, 0
 	freedos_lba_search_string freedos_oem, 0, 1, 0
 %assign variant 0
 %rep 512
  %if variant == 256
-lba_search_strings_chs:
+%[PREFIX]lba_search_strings_chs:
 	freedos_lba_search_string freedos, 1, 0, 0
 	freedos_lba_search_string freedos_oem, 1, 1, 0
  %endif
@@ -335,37 +342,37 @@ searchflag ldos, "_LBA_WORKAROUND", 64
 searchflag ldos, "_LDOSBOOT32", 128
 
 
-lba_search_strings_hdd:
+%[PREFIX]lba_search_strings_hdd:
 	freedos_lba_search_string freedos_hdd, 0, 0, 1
 	freedos_lba_search_string freedos_hdd_oem, 0, 1, 1
-lba_search_strings_end:
+%[PREFIX]lba_search_strings_end:
 
-%ifn label_freedos_chs_length == label_freedos_hdd_chs_diskette_length
+%ifn %[PREFIX]label_freedos_chs_length == %[PREFIX]label_freedos_hdd_chs_diskette_length
   %error Expected same length of replacement
 %endif
-%ifn label_freedos_lba_length == label_freedos_hdd_chs_diskette_length
+%ifn %[PREFIX]label_freedos_lba_length == %[PREFIX]label_freedos_hdd_chs_diskette_length
   %error Expected same length of replacement
 %endif
-%ifn label_freedos_oem_chs_length == label_freedos_hdd_oem_chs_diskette_length
+%ifn %[PREFIX]label_freedos_oem_chs_length == %[PREFIX]label_freedos_hdd_oem_chs_diskette_length
   %error Expected same length of replacement
 %endif
-%ifn label_freedos_oem_lba_length == label_freedos_hdd_oem_chs_diskette_length
+%ifn %[PREFIX]label_freedos_oem_lba_length == %[PREFIX]label_freedos_hdd_oem_chs_diskette_length
   %error Expected same length of replacement
 %endif
 
 
 	align 2, db 0
-label_hdd_special:
+%[PREFIX]label_hdd_special:
 
-label_freedos_hdd_special:
-	dw label_freedos_hdd_chs_diskette
-	dw label_freedos_chs
-	dw label_freedos_lba
+%[PREFIX]label_freedos_hdd_special:
+	dw %[PREFIX]label_freedos_hdd_chs_diskette
+	dw %[PREFIX]label_freedos_chs
+	dw %[PREFIX]label_freedos_lba
 
-label_freedos_hdd_oem_special:
-	dw label_freedos_hdd_oem_chs_diskette
-	dw label_freedos_oem_chs
-	dw label_freedos_oem_lba
+%[PREFIX]label_freedos_hdd_oem_special:
+	dw %[PREFIX]label_freedos_hdd_oem_chs_diskette
+	dw %[PREFIX]label_freedos_oem_chs
+	dw %[PREFIX]label_freedos_oem_lba
 
 	dw 0,0,0
 
@@ -378,6 +385,6 @@ label_freedos_hdd_oem_special:
 	%endmacro
 
 	align 2, db 0
-lba_search_metadata:
+%[PREFIX]lba_search_metadata:
 dumpsearches SEARCHES
 	dw 0,0

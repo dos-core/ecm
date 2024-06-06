@@ -299,7 +299,7 @@ dec_dword_minwidth:
 	lleave
 	retn
 
-
+%define PREFIX
 %include "lbasuch.asm"
 
 	align 2, db 0
@@ -311,6 +311,9 @@ dumpsearches SEARCHFLAGS
 	dw 0
 
 dumpsearches METASTRINGS
+
+%define PREFIX all
+%include "lbasuch.asm"
 
 msg:
 .double.1:	asciz "Double "
