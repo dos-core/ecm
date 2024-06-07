@@ -249,8 +249,6 @@ match:
 @@:
 	mov cx, msg.empty
 @@:
-	test word [si], ax
-	jz @F
 	push si
 	push word [si + 2]
 	mov si, cx
@@ -258,10 +256,14 @@ match:
 	mov cx, msg.searchflag.2
 	pop si
 	call disp_msg_si
-	mov si, msg.searchflag.1
-	call disp_msg_si
 	pop si
+	push si
+	test word [si], ax
+	jnz @F
+	mov si, msg.searchflag.0
+	call disp_msg_si
 @@:
+	pop si
 	add si, 4
 	cmp word [si], 0
 	jne @BB
@@ -504,6 +506,7 @@ msg:
 .empty:		asciz
 .searchflag.1:	asciz
 .searchflag.2:	asciz ", "
+.searchflag.0:	asciz "=0"
 .searchflag.eol:asciz 13,10
 
 	align 16, db 0
