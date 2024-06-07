@@ -68,9 +68,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %if _FORCE_CHS
  %define %%identifier %[PREFIX]label_%1_chs
+ %define %%identifierminusall label_%1_chs
  %define %%other %[PREFIX]label_%1_lba
 %else
  %define %%identifier %[PREFIX]label_%1_lba
+ %define %%identifierminusall label_%1_lba
  %define %%other %[PREFIX]label_%1_chs
 %endif
 
@@ -194,7 +196,7 @@ search_wildcard %%start, -1
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
 	 dw %%message, dw %%other, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname, dw variant
-%defstr %%name %%identifier
+%defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
 %if _FORCE_CHS
@@ -213,12 +215,15 @@ search_wildcard %%start, -1
 
 %if _FORCE_CHS_DISKETTE
  %define %%identifier %[PREFIX]label_%1_chs_diskette
+ %define %%identifierminusall label_%1_chs_diskette
  %define %%other %[PREFIX]label_%1_special
 %elif _FORCE_CHS
  %define %%identifier %[PREFIX]label_%1_chs
+ %define %%identifierminusall label_%1_chs
  %define %%other %[PREFIX]label_%1_lba
 %else
  %define %%identifier %[PREFIX]label_%1_lba
+ %define %%identifierminusall label_%1_lba
  %define %%other %[PREFIX]label_%1_chs
 %endif
 
@@ -285,7 +290,7 @@ search_wildcard %%start, -1
 	 dw %%message, dw %%other, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname
 %xdefine METASEARCHES METASEARCHES, dw 32*1024 + !!%2 * 1 + !!%3 * 2 + !!%4 * 4
-%defstr %%name %%identifier
+%defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
 %if _FORCE_CHS
