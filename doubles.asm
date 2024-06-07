@@ -250,16 +250,38 @@ match:
 	mov cx, msg.empty
 @@:
 	push si
+	test word [si], ax
+	jz @F
 	push word [si + 2]
 	mov si, cx
 	call disp_msg_si
 	mov cx, msg.searchflag.2
 	pop si
 	call disp_msg_si
+@@:
 	pop si
+	add si, 4
+	cmp word [si], 0
+	jne @BB
+	mov si, msg.searchflag.eol
+	call disp_msg_si
+
+	mov si, ldos_searchflags
+	test cx, cx
+	jns @F
+	mov si, freedos_searchflags
+@@:
+	mov cx, msg.empty
+@@:
 	push si
 	test word [si], ax
 	jnz @F
+	push word [si + 2]
+	mov si, cx
+	call disp_msg_si
+	mov cx, msg.searchflag.2
+	pop si
+	call disp_msg_si
 	mov si, msg.searchflag.0
 	call disp_msg_si
 @@:
