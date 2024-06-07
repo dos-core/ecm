@@ -236,8 +236,36 @@ match:
 	 pop ds
 	mov si, [bx]
 	call disp_msg_si
+	mov ax, [bx + 2]
+	mov cx, ax
 	pop ds
 	mov si, msg.notfound.2
+	call disp_msg_si
+
+	mov si, ldos_searchflags
+	test cx, cx
+	jns @F
+	mov si, freedos_searchflags
+@@:
+	mov cx, msg.empty
+@@:
+	test word [si], ax
+	jz @F
+	push si
+	push word [si + 2]
+	mov si, cx
+	call disp_msg_si
+	mov cx, msg.searchflag.2
+	pop si
+	call disp_msg_si
+	mov si, msg.searchflag.1
+	call disp_msg_si
+	pop si
+@@:
+	add si, 4
+	cmp word [si], 0
+	jne @BB
+	mov si, msg.searchflag.eol
 	call disp_msg_si
 
 	jmp .next
@@ -470,7 +498,7 @@ msg:
 .double.5:	asciz " is "
 .double.3:	asciz 13,10
 .notfound.1:	asciz "Not found: "
-.notfound.2:	asciz 13,10
+.notfound.2:	asciz " is "
 .done.1:	asciz "Processed "
 .done.2:	asciz " strings.",13,10
 .empty:		asciz
