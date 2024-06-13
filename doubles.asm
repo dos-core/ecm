@@ -33,6 +33,13 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	numdef IMAGE_EXE_MAX, 0
 
 
+%ifndef _MAP
+%elifempty _MAP
+%else	; defined non-empty, str or non-str
+	[map all _MAP]
+%endif
+
+
 	org 0
 	addsection EXEHEADER, vstart=0 start=0
 exeheader:
