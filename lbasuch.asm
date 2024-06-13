@@ -66,6 +66,27 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %assign _LDOSBOOT32 %10
 
 
+%if !ALL && \
+ ! _LBA_SKIP_CHECK && \
+ (_LBA_SKIP_CY || _LBA_SKIP_LBA_RETRY || _LBA_SKIP_ANY || _LDOSBOOT32)
+%elif !ALL && \
+ _LBA_SKIP_CHECK && \
+ (_LBA_WORKAROUND)
+%elif !ALL && \
+ _LBA_SKIP_CHECK && \
+ _LBA_SKIP_ANY && \
+ (_LDOSBOOT32)
+%elif !ALL && \
+ _LBA_SKIP_CHECK && \
+ ! _LDOSBOOT32 && \
+ (_LBA_SKIP_ANY)
+%elif !ALL && \
+ ! _LBA_RETRY && \
+ (_RETRY_RESET)
+%elif !ALL && \
+ (_LBA_SKIP_LBA_RETRY)
+%else
+
 %if _FORCE_CHS
  %define %%identifier %[PREFIX]label_%1_chs
  %define %%identifierminusall label_%1_chs
@@ -203,6 +224,8 @@ search_wildcard %%start, -1
  %if %[%%identifier %+ _length] != %[%%other %+ _length]
   %error Expected same length of replacement
  %endif
+%endif
+
 %endif
 	%endmacro
 
