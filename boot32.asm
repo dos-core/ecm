@@ -27,7 +27,7 @@ Public domain by E. C. Masloch, 2012
 	numdef VOLUMEID,	0
 	strdef FSIBOOTNAME,	"FSIBOOT4"
 	; used to set experimental name
-	; strdef FSIBOOTNAME,	"FSIBEX02"
+	strdef FSIBOOTNAME,	"FSIBEX03"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -833,30 +833,11 @@ load_fsiboot:
 		; Note that now es:di -> fsiboot.start
 
 %if _LOAD_ADR >= ADR_FREE || _RELOCATE
-; Get conventional memory size and store it
-		int 12h
-		mov cl, 6
-		shl ax, cl
- %if _RPL		; +33 bytes
-	xchg dx, ax
-	lds si, [4 * 2Fh]
-	add si, 3
-	lodsb
-	cmp al, 'R'
-	jne .no_rpl
-	lodsb
-	cmp al, 'P'
-	jne .no_rpl
-	lodsb
-	cmp al, 'L'
-	jne .no_rpl
-	mov ax, 4A06h
-	int 2Fh
-.no_rpl:
-	push ss
-	pop ds
-	xchg ax, dx
- %endif
+	jmp 0:.next		; make sure cs is 0
+
+.next:
+	call near word [memorysize_entrypoint]
+
  %if _RELOCATE
   %if _ADD_SEARCH
 	sub ax, (20 * 1024 + 8192 + 8192 + (8192-16) + 1024 + 7C00h) >> 4
@@ -878,13 +859,14 @@ load_fsiboot:
 		; The FAT buffer segment is masked so that the actual buffer
 		;  is stored on an 8 KiB boundary. This is to ensure that
 		;  the buffer doesn't possibly cross a 64 KiB DMA boundary.
-	jc error_fsiboot
+	jc @F
 	cmp ax, (end_after_fsiboot -start+7C00h - ADR_STACK_LOW + 15) >> 4
 		; This check is to ensure that the start of the destination
 		;  for the relocation (stack, sector, FSIBOOT) is
 		;  above-or-equal the end of the source for the relocation.
 		;  That is, to avoid overwriting any of the source with the
 		;  string move instruction (which for simplicity is always UP).
+@@:
 	jb error_fsiboot
 
 			; With _RELOCATE enabled, the FAT buffer segment
@@ -1884,12 +1866,51 @@ check_clust:
 	retn
 
 
+		; INP:	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
+		; OUT:	ax => TOM
+		; CHG:	ax, cx, dx, si
+		; STT:	ds => 0, ds == ss
+fsiboot_memorysize:
+; Get conventional memory size and store it
+		int 12h
+		mov cl, 6
+		shl ax, cl
+ %if 1 || _RPL		; +33 bytes
+	xchg dx, ax
+	lds si, [4 * 2Fh]
+	add si, 3
+	lodsb
+	cmp al, 'R'
+	jne .no_rpl
+	lodsb
+	cmp al, 'P'
+	jne .no_rpl
+	lodsb
+	cmp al, 'L'
+	jne .no_rpl
+	mov ax, 4A06h
+	int 2Fh
+.no_rpl:
+	push ss
+	pop ds
+	xchg ax, dx
+ %endif
+	retn
+
+
 fsinfo_available:
-	_fill 480 + 4 - 2,38,fsiboot
+	_fill 480 + 4 - 2 - 2,38,fsiboot
 
 %assign num $-fsinfo_available
 %warning FSINFO: num bytes still available.
 
+
+		; INP:	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
+		; OUT:	ax => TOM
+		; CHG:	ax, cx, dx, si
+		; STT:	ds => 0, ds == ss
+memorysize_entrypoint:
+	dw fsiboot_memorysize
 
 		; INP:	si:di = loaded sector-in-FAT
 		;	word [fsiboot_table.filename] -> 8.3 filename
