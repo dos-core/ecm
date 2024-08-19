@@ -836,6 +836,7 @@ load_fsiboot:
 	jmp 0:.next		; make sure cs is 0
 
 .next:
+	xor ax, ax		; = 0, harden against unsupported function
 	call near word [memorysize_entrypoint]
 
  %if _RELOCATE
@@ -1866,9 +1867,13 @@ check_clust:
 	retn
 
 
-		; INP:	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
-		; OUT:	ax => TOM
-		; CHG:	ax, cx, dx, si
+		; INP:	ax = 0
+		;	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
+		; OUT:	if supported,
+		;	 ax => TOM
+		;	else,
+		;	 ax = 0
+		; CHG:	cx, dx, si
 		; STT:	ds => 0, ds == ss
 fsiboot_memorysize:
 ; Get conventional memory size and store it
@@ -1913,9 +1918,13 @@ fsinfo_available:
 reserved_entrypoint:
 	dw fsiboot_reserved
 
-		; INP:	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
-		; OUT:	ax => TOM
-		; CHG:	ax, cx, dx, si
+		; INP:	ax = 0
+		;	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
+		; OUT:	if supported,
+		;	 ax => TOM
+		;	else,
+		;	 ax = 0
+		; CHG:	cx, dx, si
 		; STT:	ds => 0, ds == ss
 memorysize_entrypoint:
 	dw fsiboot_memorysize
