@@ -27,7 +27,7 @@ Public domain by E. C. Masloch, 2012
 	numdef VOLUMEID,	0
 	strdef FSIBOOTNAME,	"FSIBOOT4"
 	; used to set experimental name
-	strdef FSIBOOTNAME,	"FSIBEX03"
+	strdef FSIBOOTNAME,	"FSIBEX04"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -1895,15 +1895,23 @@ fsiboot_memorysize:
 	pop ds
 	xchg ax, dx
  %endif
+fsiboot_reserved:
 	retn
 
 
 fsinfo_available:
-	_fill 480 + 4 - 2 - 2,38,fsiboot
+	_fill 480 + 4 - 2 - 2 - 2,38,fsiboot
 
 %assign num $-fsinfo_available
 %warning FSINFO: num bytes still available.
 
+
+		; INP:	-
+		; OUT:	-
+		; CHG:	any
+		; REM:	Reserved for future expansion.
+reserved_entrypoint:
+	dw fsiboot_reserved
 
 		; INP:	cs = 0, cs:7C00h -> loaded first stage and FSIBOOT
 		; OUT:	ax => TOM
