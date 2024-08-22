@@ -82,8 +82,8 @@ Public domain by E. C. Masloch, 2012
 					;  also will not write 0AA55h signature!
 	numdef WARN_PART_SIZE,	0
 
-	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
-	numdef LBA_WORKAROUND,	0	; when checking for LBA set ds = 40h
+	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
+	numdef LBA_WORKAROUND,	1	; when checking for LBA set ds = 40h
 	numdef LBA_SKIP_CY,	1	; skip check: set up CY before 13.42
 	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
 	incdef _LBA_SKIP_ANY, LBA_SKIP_CY
