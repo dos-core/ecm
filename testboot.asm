@@ -187,8 +187,8 @@ loop_table:
 	call disp_al
 	xchg al, ah
 	call disp_al
-	cmp bl, -1
-	je @F
+	test bl, bl
+	js @F
 	mov al, '='
 	call disp_al
 	mov ax, [si + bx]
@@ -200,12 +200,27 @@ loop_table:
 
 	push cs
 	pop ds
+	xor si, si
+	mov cx, paras(32 * 4)
+	call dump
+
 	mov si, 7C00h - 32
 	mov cx, paras(512 + 32)
+	call dump
+
+	int3
+
+	xor ax, ax
+	int 16h
+	int 19h
+
+
+dump:
+	mov bx, cx
 loop_dump:
 	mov ax, cx
 	neg ax
-	add ax, paras(512 + 32)
+	add ax, bx
 	test al, 15
 	jnz @F
 	mov dx, msg.prompt
@@ -253,12 +268,7 @@ loop_dump:
 	call disp_al
 	pop cx
 	loop loop_dump
-
-	int3
-
-	xor ax, ax
-	int 16h
-	int 19h
+	retn
 
 
 disp_ax_hex:			; ax
@@ -286,7 +296,6 @@ disp_al_lownibble_hex:
 		retn
 
 
-	align 4
 table:
 	db  +0, "SS"
 	db  +6, "BP"
