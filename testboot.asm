@@ -105,53 +105,38 @@ skip_bpb:
 	jmp 0:common_entrypoint
 
 
+		; INP:	ds:dx -> message
+		; CHG:	ax
 disp_msg_asciz:
-	push ds
 	push si
-	push ax
-	 push cs
-	 pop ds
 	mov si, dx
 	call disp_msg
-	pop ax
 	pop si
-	pop ds
 	retn
 
+disp_msg.loop:
+	call disp_al
 disp_msg:
-@@:
 	lodsb
 	test al, al
-	jz @F
-	call disp_al
-	jmp short @B
+	jnz .loop
+	retn
 
+disp_al_blank:
+	mov al, 32
+		; CHG:	bp
 disp_al:
 	push ax
 	push bx
 	push dx
-	push bp
 .bios:
 	mov ah, 0Eh
 	mov bx, 7
 	int 10h
 .common:
-	pop bp
 	pop dx
 	pop bx
 	pop ax
-@@:
-	retn
-
-disp_msg_length:
-	push cx
-	jcxz .ret
-.loop:
-	lodsb
-	call disp_al
-	loop .loop
-.ret:
-	pop cx
 	retn
 
 
@@ -172,18 +157,13 @@ common_entrypoint:
 	push ss	; +0
 
 	mov si, sp
-	 push ss
-	 pop ds
 	mov di, table
-	 push cs
-	 pop es
 loop_table:
 	xor bx, bx
-	mov bl, [es:di]
+	mov bl, [cs:di]
 	inc di
-	mov al, 32
-	call disp_al
-	mov ax, [es:di]
+	call disp_al_blank
+	mov ax, [cs:di]
 	call disp_al
 	xchg al, ah
 	call disp_al
@@ -191,7 +171,7 @@ loop_table:
 	js @F
 	mov al, '='
 	call disp_al
-	mov ax, [si + bx]
+	mov ax, [ss:si + bx]
 	call disp_ax_hex
 @@:
 	scasw
@@ -204,8 +184,9 @@ loop_table:
 	mov cx, paras(32 * 4)
 	call dump
 
+	xor di, di
 	mov si, 7C00h - 32
-	mov cx, paras(512 + 32)
+	mov cl, paras(512 + 32)
 	call dump
 
 	int3
@@ -232,17 +213,32 @@ loop_dump:
 @@:
 	mov ax, si
 	call disp_ax_hex
-	mov al, 32
-	call disp_al
+	call disp_al_blank
 	call disp_al
 	push cx
 	push si
 	mov cx, 16
 .loop_byte_number:
+	test di, di
+	jz @F
+	lodsw
+	push ax
+	lodsw
+	call disp_ax_hex
+	mov al, ':'
+	call disp_al
+	pop ax
+	call disp_ax_hex
+	dec cx
+	dec cx
+	dec cx
+	jmp .dash
+@@:
 	lodsb
 	call disp_al_hex
-	mov al, 32
+.dash:
 	cmp cl, 9
+	mov al, 32
 	jne @F
 	mov al, '-'
 @@:
@@ -253,13 +249,12 @@ loop_dump:
 	call disp_al
 .loop_byte_text:
 	lodsb
+	inc ax
 	cmp al, 32
-	jb .replace
-	cmp al, 7Fh
-	jb @F
-.replace:
-	mov al, '.'
+	jg @F
+	mov al, '.' + 1
 @@:
+	dec ax
 	call disp_al
 	loop .loop_byte_text
 	mov al, 13
