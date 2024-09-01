@@ -38,7 +38,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		; STT:	UP
 		;
 		; Note:	The destination reaches up to below the source.
-		; Note:	The input pointers need not be normalised yet.
+		; Note:	The input pointers have to be normalised already.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
@@ -243,7 +243,15 @@ d0	inc byte [bp + ?errordata + 1]
 .loop:
 	call bx				; move one block
 
+%if _OPTIMISE_INPUT_SMALL
+	push es
+	push di
+	call normalise_pointer
+	pop di
+	pop es
+%else
 	call normalise_both_pointers
+%endif
 
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
@@ -287,9 +295,13 @@ read_word:
 	lodsw
 
 normalise_dssi_store_src: equ $
+%if _OPTIMISE_INPUT_SMALL
+	mov word [bp + ?src], si
+%else
 	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
+%endif
 	clc
 .ret:
 	retn

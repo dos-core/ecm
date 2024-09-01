@@ -53,6 +53,8 @@ ldLoadUntilSeg:	resw 1
 	numdef DEBUG2		; dump_stack_frame before blz_depack_safe call
 	numdef DEBUG3		; dump_stack_frame at start of blz_depack_safe
 
+	numdef OPTIMISE_INPUT_SMALL,	0
+	numdef OPTIMISE_OUYPUT_SMALL,	0
 	numdef ALLOW_OVERLAPPING,	1	; allow overlapping src and dst
 	numdef TEST_PROGRAM,		0
 	numdef TEST_PROGRAM_DECOMPRESSED_SIZE,		0,0
@@ -701,6 +703,16 @@ payload:
 .end:
 	align 16, db 38
 payload_end:
+
+%if _OPTIMISE_INPUT_SMALL
+ %ifn (payload_end - payload) <= 65_520
+  %error Input declared small is not small
+ %endif
+%else
+ %if (payload_end - payload) <= 65_520
+  %warning Input could be declared small
+ %endif
+%endif
 
 
 	section INIT1 align=16 follows=PAYLOAD vstart=0
