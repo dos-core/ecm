@@ -1006,7 +1006,7 @@ init1_start:
 
 %if _PROGRESS
 	; clc
-..@empty_step_progress:		; byte patched to __TEST_IMM16 if none or dots
+..@empty_step_progress:		; SMC, byte patched to __TEST_IMM16 if none or dots
  %if _TEST_PROGRAM
 	times 3 nop
  %else
@@ -1273,7 +1273,7 @@ step_progress:
    %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
   %endif
 	jmp strict near . %+ defaultprogresshandler %+ _step
-.handler: equ $ - 2
+.handler: equ $ - 2		; SMC, patched to dispatch to handler
 .base:
  %endif
 
