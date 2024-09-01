@@ -163,7 +163,7 @@ ldLoadUntilSeg:	resw 1
 
 
 	cpu 8086
-	section INIT0 start=0 vstart=0
+	addsection INIT0, start=0 vstart=0
 init0_start:
 %if _DEVICE
 		; The device header is of a fixed format.
@@ -697,7 +697,7 @@ Contact your AMD representative for information on a BIOS update.
 	retn
 
 
-	section PAYLOAD align=16 follows=INIT0
+	addsection PAYLOAD, align=16 follows=INIT0
 payload:
 	incbin _PAYLOAD_FILE
 .end:
@@ -715,7 +715,7 @@ payload_end:
 %endif
 
 
-	section INIT1 align=16 follows=PAYLOAD vstart=0
+	addsection INIT1, align=16 follows=PAYLOAD vstart=0
 init1_start:
 		; INP:	ax = cs = INIT1
 		;	dx = cs - (payload_end - payload) >> 4 => source data
@@ -1846,7 +1846,7 @@ pointer_to_linear:
 init1_end:
 
 
-	section INIT0
+	usesection INIT0
 %if _TEST_PROGRAM
 init0_msg:
 .error_stderr:	db "Error: Not enough memory allocated.",13,10
@@ -1904,7 +1904,7 @@ init0_end:
 
 
 %if _TEST_PROGRAM
-	section INIT2 align=16 follows=INIT1 vstart=0
+	addsection INIT2, align=16 follows=INIT1 vstart=0
 init2_start:
 		; si => after PSP
 		; cs => INIT2
