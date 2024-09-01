@@ -906,7 +906,7 @@ init0b_start:
 	pop ds				; ds => INIT1
 
 	mov ax, word [cs:step_progress_table + di]
-					; INIT1:ax -> step progress handler
+					; ax = rel16 for step progress handler
 	push ds
 	push cx				; -> init1_start
 	mov word [step_progress.handler], ax
@@ -925,11 +925,11 @@ init0b_start:
 		align 2, db 0
 step_progress_table:
 .:
-		dw step_progress.0_step
-		dw step_progress.1_step
-		dw step_progress.2_step
-		dw step_progress.3_step
-		dw step_progress.4_step
+		dw step_progress.0_step - step_progress.base
+		dw step_progress.1_step - step_progress.base
+		dw step_progress.2_step - step_progress.base
+		dw step_progress.3_step - step_progress.base
+		dw step_progress.4_step - step_progress.base
 .amount equ ($ - .) / 2
 
  %if _PROGRESSVAR && (_IMAGE_EXE || _DEVICE)
@@ -1267,7 +1267,14 @@ step_progress:
 	mov ax, word [.counter]
 
  %if _PROGRESSMULTI
-	jmp near word [.handler]
+  %if _IMAGE_EXE || _DEVICE
+   %assign defaultprogresshandler _PROGRESSDEFAULT
+  %else
+   %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
+  %endif
+	jmp strict near . %+ defaultprogresshandler %+ _step
+.handler: equ $ - 2
+.base:
  %endif
 
 .2_step:
@@ -1489,12 +1496,6 @@ step_progress:
 
 	align 2, db 0
  %if _PROGRESSMULTI
-  %if _IMAGE_EXE || _DEVICE
-   %assign defaultprogresshandler _PROGRESSDEFAULT
-  %else
-   %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
-  %endif
-.handler:	dw . %+ defaultprogresshandler %+ _step
 .display:	dw -1
  %endif
 .counter:	dw 0
@@ -1578,7 +1579,7 @@ disp_al_lownibble_hex:
 
 disp_al_for_progress:
 %if _PROGRESS && _PROGRESSMULTI
-	cmp word [cs:step_progress.handler], step_progress.0_step
+	cmp word [cs:step_progress.handler], step_progress.0_step - step_progress.base
 	je disp_al.retn
 %endif
 disp_al:
