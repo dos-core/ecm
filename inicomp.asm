@@ -336,7 +336,9 @@ init0_common:
 %if _TEST_PROGRAM
 	sub dx, ( (payload_end - payload) ) >> 4
 	jc .error
-	mov cx, ( (payload_end - payload) \
+	mov cx, ( \
+		+ (init0b_end - init0b_start) \
+		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		+ (init2_end - init2_start) \
 		) >> 4
@@ -382,7 +384,7 @@ init0_common:
 
 	mov ax, dx		; => INIT0B
 				;  (same as => payload if INIT0B is empty)
-%if _LCFG && ! _TEST_PROGRAM
+%if (_LCFG || _PROGRESS) && ! _TEST_PROGRAM
 	add dx, ( \
 		+ (init0b_end - init0b_start) \
 		) >> 4		; => payload
@@ -718,7 +720,7 @@ Contact your AMD representative for information on a BIOS update.
 		; INP:	ax:cx = cs:ip = cs:0
 		;	dx => payload
 init0b_start:
-%if _LCFG && ! _TEST_PROGRAM
+%if _LCFG || _PROGRESS
 	add ax, ( \
 		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
