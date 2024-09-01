@@ -345,11 +345,13 @@ init0_common:
 	cmp dx, ax
 	jb .error
 %else
-	mov cx, ( (payload_end - payload) \
+	mov cx, ( \
+		+ (init0b_end - init0b_start) \
+		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		) >> 4
-				; cx = amount paragraphs in payload + INIT1
-	sub dx, cx		; => destination for payload + INIT1
+				; cx = amount paragraphs in INIT0B + payload + INIT1
+	sub dx, cx		; => destination for INIT0B + payload + INIT1
 				;  (highest possible spot in available memory)
 %endif
 	push si			; preserve destination
@@ -359,7 +361,9 @@ init0_common:
 	cld
 	mov ax, cs
 	add ax, (init0_end - init0_start) >> 4
-	mov cx, ( (payload_end - payload) \
+	mov cx, ( \
+		+ (init0b_end - init0b_start) \
+		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		) >> 4
 	mov dx, word [ bp + ldLoadTop ]
@@ -376,21 +380,32 @@ init0_common:
 	push ax
 %endif
 
-	mov ax, dx		; => payload
-%if _TEST_PROGRAM
+	mov ax, dx		; => INIT0B
+				;  (same as => payload if INIT0B is empty)
+%if _LCFG && ! _TEST_PROGRAM
+	add dx, ( \
+		+ (init0b_end - init0b_start) \
+		) >> 4		; => payload
+%else
+ %if _TEST_PROGRAM
 	add ax, ( \
+		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		) >> 4		; => INIT2
-%else
+ %else
 	add ax, ( \
+		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
 		) >> 4		; => INIT1
+ %endif
 %endif
 	xor cx, cx
 	push ax
 	push cx
-	retf			; jump to relocated INIT1:init1_start
+	retf			; jump to relocated
+				;  INIT0B:init0b_start
+				;  or INIT1:init1_start
 				;  or INIT2:init2_start
 
 
@@ -502,7 +517,9 @@ device_entrypoint:
 				; ax => behind end
 
 	mov di, cs
-image_size: equ  ( (init0_end - init0_start) \
+image_size: equ  ( \
+		+ (init0_end - init0_start) \
+		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
 		+ (init1_end - init1_start) \
 		)
@@ -698,7 +715,21 @@ Contact your AMD representative for information on a BIOS update.
 
 
 	addsection INIT0B, align=16 vstart=0 follows=INIT0
+		; INP:	ax:cx = cs:ip = cs:0
+		;	dx => payload
 init0b_start:
+%if _LCFG && ! _TEST_PROGRAM
+	add ax, ( \
+		+ (init0b_end - init0b_start) \
+		+ (payload_end - payload) \
+		) >> 4		; => INIT1
+	push ax
+	push cx
+	retf
+%endif
+
+	align 16
+init0b_end:
 
 
 	addsection PAYLOAD, align=16 follows=INIT0B
