@@ -915,21 +915,18 @@ init1_start:
 	xor di, di			; disable
 @@:
 	shl di, 1			; = word index
-	shl di, 1			; = dword index
 	mov ax, word [cs:step_progress.table + di]
 	mov word [cs:step_progress.handler], ax
-	mov ax, word [cs:step_progress.table + di + 2]
-	mov word [cs:step_progress.handler + 2], ax
 
-	cmp di, 2 * 2
-	jb @F
+	cmp di, 2 * 2			; none or dots ?
+	jb @F				; yes, skip -->
  %endif		; _PROGRESSMULTI && (_IMAGE_EXE || _DEVICE)
 
 	clc
  %if _TEST_PROGRAM
 	times 3 nop
  %else
-	call step_progress.CF
+	call step_progress.CF		; display empty / 0.0%
  %endif
 @@:
 %endif
@@ -1169,28 +1166,15 @@ error:
 
 %if _PROGRESS
 step_progress:
- %if _PROGRESSMULTI
-	jmp near word [cs:.handler]
-
-.0: equ .retn
-.0_step: equ .ret		; pops stack frame, not usually used
-
-.1:	equ disp_al
-.1_step: equ .ret		; pops stack frame, not usually used
-
-.2:
-.3:
-.4:
- %endif
 	stc
 .CF:
-	push ax
 	push bx
 	push cx
 	push dx
 	push ds
 	push si
 	push di
+	push ax
 
 	push cs
 	pop ds
@@ -1199,7 +1183,7 @@ step_progress:
 	mov ax, word [.counter]
 
  %if _PROGRESSMULTI
-	jmp near word [.handler + 2]
+	jmp near word [.handler]
  %endif
 
 .2_step:
@@ -1225,13 +1209,14 @@ step_progress:
 	call disp_error
 
 .ret:
+	pop ax
+.ret_ax:
 	pop di
 	pop si
 	pop ds
 	pop dx
 	pop cx
 	pop bx
-	pop ax
 .retn:
 	retn
 
@@ -1255,6 +1240,13 @@ step_progress:
 
 
  %if _PROGRESSMULTI
+.0_step: equ .ret
+
+.1_step:
+	pop ax
+	call disp_al
+	jmp .ret_ax
+
 .3_step:
 	mov bx, 80 - 1 - 4
 	mul bx			; dx:ax = counter times 75
@@ -1418,19 +1410,15 @@ step_progress:
   %else
    %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
   %endif
-.handler:	dw . %+ defaultprogresshandler
+.handler:
 		dw . %+ defaultprogresshandler %+ _step
-.table:		dw .0
+.table:
 		dw .0_step
-		dw .1
-		dw .0_step
-		dw .2
+		dw .1_step
 		dw .2_step
-		dw .3
 		dw .3_step
-		dw .4
 		dw .4_step
-.table.amount equ ($ - .table) / 4
+.table.amount equ ($ - .table) / 2
 .display:	dw -1
  %endif
 .counter:	dw 0
@@ -1521,7 +1509,7 @@ disp_al_lownibble_hex:
 
 disp_al_for_progress:
 %if _PROGRESS && _PROGRESSMULTI
-	cmp word [cs:step_progress.handler], step_progress.0
+	cmp word [cs:step_progress.handler], step_progress.0_step
 	je disp_al.retn
 %endif
 disp_al:
