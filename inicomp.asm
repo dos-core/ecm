@@ -718,102 +718,51 @@ Contact your AMD representative for information on a BIOS update.
 
 	addsection INIT0B, align=16 vstart=0 follows=INIT0
 		; INP:	ax:cx = cs:ip = cs:0
-		;	dx => payload
+		;	ax => INIT0B
+		;	dx => payload source
+		;	ss:sp -> (dword pointer to lCFG block)
+		;	si => depack destination
+		;	bx = mode
 init0b_start:
 %if _LCFG || _PROGRESS
+
+%if _LCFG
+	pop di
+	pop es
+%endif
 	add ax, ( \
 		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
 		) >> 4		; => INIT1
 	push ax
-	push cx
-	retf
-%endif
+	push cx			; -> far return address to init1_start
 
-	align 16
-init0b_end:
-
-
-	addsection PAYLOAD, align=16 follows=INIT0B
-payload:
-	incbin _PAYLOAD_FILE
-.end:
-	align 16, db 38
-payload_end:
-
-%if _OPTIMISE_INPUT_SMALL
- %ifn (payload_end - payload) <= 65_520
-  %error Input declared small is not small
- %endif
-%else
- %if (payload_end - payload) <= 65_520
-  %warning Input could be declared small
- %endif
-%endif
-
-
-	addsection INIT1, align=16 follows=PAYLOAD vstart=0
-init1_start:
-		; INP:	ax = cs = INIT1
-		;	dx = cs - (payload_end - payload) >> 4 => source data
-		;	if kernel mode:
-		;	 ss:bp -> LOADDATA and LOADSTACKVARS
-		;	 ss:sp -> valid stack above [bp + ldLoadTop]
-		;	 60h => destination
-		;	any mode:
-		;	 ss:sp -> (dword pointer to lCFG block),
-		;		word value for ax
-		;	 bx = 2 if device mode, 1 if EXE mode, 0 if kernel mode
-		;	 si => destination (60h for kernel mode,
-		;		after PSP for EXE mode,
-		;		at device header for device mode)
-		;		(not set if only kernel mode supported)
-		;	 if EXE mode:
-		;	  ss:sp -> valid stack above INIT1
-		;	  bp = unset
-		;	 if device mode:
-		;	  ss:sp -> device entrypoint stack
-		;	  holds: es, bx, ax, cx, dx, di, si, ds, bp,
-		;		  far address of payload strategy entrypoint,
-		;		  far return address to DOS
-		;	  bp = unset
-		; STT:	UP
-		; CHG:	ax, bx, cx, dx, es, ds, si, di
-%if _LCFG
-	pop di
-	pop es
-%endif
-
-%if _IMAGE_EXE || _DEVICE
-	lframe
-	lenter
-	lvar word,	exemode		; must be bp - 2!
-	 push bx
- %if ?exemode != -2
-  %error exemode variable must be directly below bp
- %endif
-	push si
-%else
-	xor bx, bx		; always tell them it is kernel mode
-%endif
-
-%if _PROGRESS
- %if _PROGRESSMULTI && (_IMAGE_EXE || _DEVICE)
+%if _PROGRESS && _PROGRESSMULTI
 	push si
 	push bx
-%if _LCFG
+ %if _BOOTLDR
+  %if _LCFG
 	xor ax, ax
 	mov al, byte [es:di + lcfg.progress_boot - lcfg]
 	xchg di, ax		; di = boot default progress
-%else
+				; es:ax -> lCFG block
+  %else			; _LCFG
 	mov di, _PROGRESSDEFAULTBOOT
-%endif
+  %endif		; _LCFG
+ %endif			; _BOOTLDR
+ %if (_IMAGE_EXE || _DEVICE)
+  %if _BOOTLDR
 	test bx, bx
 	jz .default
-%if _LCFG
+  %endif		; _BOOTLDR
+  %if _LCFG
 	push es
+   %if _BOOTLDR
 	push ax			; -> lCFG block
-%endif
+   %else		; _BOOTLDR
+	push di
+   %endif		; _BOOTLDR
+  %endif		; _LCFG
   %if _PROGRESSVAR
 	mov ah, 51h
 	int 21h
@@ -911,21 +860,21 @@ init1_start:
 	pop bx			; = 1 if app, = 2 if device
 	push bx
 	mov ax, word [es:di + lcfg.progress_app - lcfg]
-%if _DEVICE
- %if lcfg.progress_app + 1 != lcfg.progress_dev
-  %error Unexpected layout
- %endif
+ %if _DEVICE
+  %if lcfg.progress_app + 1 != lcfg.progress_dev
+   %error Unexpected layout
+  %endif
 				; al = app, ah = device
 	dec bx
 	jz .default_app
 	xchg al, ah		; al = device
 .default_app:
-%endif
+ %endif			; _DEVICE
 	mov ah, 0		; ax = default
 	xchg di, ax		; di = default
-%else
+%else			; _LCFG
 	mov di, _PROGRESSDEFAULT
-%endif
+%endif			; _LCFG
 @@:
 	test di, 16
 	jz @F
@@ -942,28 +891,126 @@ init1_start:
 	jnz .outputdevice
 	xor di, di		; stdout is a file: force no progress marker
 .outputdevice:
+ %endif			; (_IMAGE_EXE || _DEVICE)
 
 .default:
 	pop bx
 	pop si
-	cmp di, step_progress.table.amount
+	cmp di, step_progress_table.amount
 					; valid ?
 	jb @F				; yes -->
 	xor di, di			; disable
 @@:
 	shl di, 1			; = word index
-	mov ax, word [cs:step_progress.table + di]
-	mov word [cs:step_progress.handler], ax
+	pop cx				; = 0
+	pop ds				; ds => INIT1
+
+	mov ax, word [cs:step_progress_table + di]
+					; INIT1:ax -> step progress handler
+	push ds
+	push cx				; -> init1_start
+	mov word [step_progress.handler], ax
+					; patch it
 
 	cmp di, 2 * 2			; none or dots ?
-	jb @F				; yes, skip -->
- %endif		; _PROGRESSMULTI && (_IMAGE_EXE || _DEVICE)
+	jae @F				; no, skip -->
+	mov byte [..@empty_step_progress], __TEST_IMM16
+					; for none and dots do not call here
+@@:
+%endif			;  _PROGRESS && _PROGRESSMULTI
+	retf
+%endif
 
-	clc
+%if _PROGRESS && _PROGRESSMULTI
+		align 2, db 0
+step_progress_table:
+.:
+		dw step_progress.0_step
+		dw step_progress.1_step
+		dw step_progress.2_step
+		dw step_progress.3_step
+		dw step_progress.4_step
+.amount equ ($ - .) / 2
+
+ %if _PROGRESSVAR && (_IMAGE_EXE || _DEVICE)
+  %ifnidni _PROGRESSVARNAME, ""
+progressvarname1:	counted _PROGRESSVARNAME, '='
+  %endif
+progressvarname2:	counted "LDOSPROGRESS="
+ %endif
+%endif
+
+	align 16
+init0b_end:
+
+
+	addsection PAYLOAD, align=16 follows=INIT0B
+payload:
+	incbin _PAYLOAD_FILE
+.end:
+	align 16, db 38
+payload_end:
+
+%if _OPTIMISE_INPUT_SMALL
+ %ifn (payload_end - payload) <= 65_520
+  %error Input declared small is not small
+ %endif
+%else
+ %if (payload_end - payload) <= 65_520
+  %warning Input could be declared small
+ %endif
+%endif
+
+
+	addsection INIT1, align=16 follows=PAYLOAD vstart=0
+init1_start:
+		; INP:	ax = cs = INIT1
+		;	dx = cs - (payload_end - payload) >> 4 => source data
+		;	if kernel mode:
+		;	 ss:bp -> LOADDATA and LOADSTACKVARS
+		;	 ss:sp -> valid stack above [bp + ldLoadTop]
+		;	 60h => destination
+		;	any mode:
+		;	 ss:sp -> word value for ax
+		;	 bx = 2 if device mode, 1 if EXE mode, 0 if kernel mode
+		;	 si => destination (60h for kernel mode,
+		;		after PSP for EXE mode,
+		;		at device header for device mode)
+		;		(not set if only kernel mode supported)
+		;	 if EXE mode:
+		;	  ss:sp -> valid stack above INIT1
+		;	  bp = unset
+		;	 if device mode:
+		;	  ss:sp -> device entrypoint stack
+		;	  holds: es, bx, ax, cx, dx, di, si, ds, bp,
+		;		  far address of payload strategy entrypoint,
+		;		  far return address to DOS
+		;	  bp = unset
+		; STT:	UP
+		; CHG:	ax, bx, cx, dx, es, ds, si, di
+%if _IMAGE_EXE || _DEVICE
+	lframe
+	lenter
+	lvar word,	exemode		; must be bp - 2!
+	 push bx
+ %if ?exemode != -2
+  %error exemode variable must be directly below bp
+ %endif
+	push si
+ %if _PROGRESS
+	clc			; NC
+ %endif
+%else
+	xor bx, bx		; always tell them it is kernel mode (NC)
+%endif
+
+%if _PROGRESS
+	; clc
+..@empty_step_progress:		; byte patched to __TEST_IMM16 if none or dots
  %if _TEST_PROGRAM
 	times 3 nop
  %else
-	call step_progress.CF		; display empty / 0.0%
+	call step_progress.CF	; display empty / 0.0%
  %endif
 @@:
 %endif
@@ -1447,15 +1494,7 @@ step_progress:
   %else
    %assign defaultprogresshandler _PROGRESSDEFAULTBOOT
   %endif
-.handler:
-		dw . %+ defaultprogresshandler %+ _step
-.table:
-		dw .0_step
-		dw .1_step
-		dw .2_step
-		dw .3_step
-		dw .4_step
-.table.amount equ ($ - .table) / 2
+.handler:	dw . %+ defaultprogresshandler %+ _step
 .display:	dw -1
  %endif
 .counter:	dw 0
@@ -1472,13 +1511,6 @@ step_progress:
 .message_4_number_end:
 		db "% ",0
 .message_4_length: equ $ - 1 - .message_4
- %endif
-
- %if _PROGRESSMULTI && _PROGRESSVAR && (_IMAGE_EXE || _DEVICE)
-  %ifnidni _PROGRESSVARNAME, ""
-progressvarname1:	counted _PROGRESSVARNAME, '='
-  %endif
-progressvarname2:	counted "LDOSPROGRESS="
  %endif
 %endif
 
@@ -2218,10 +2250,6 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 .transfer:
 	xor di, di
 	push di			; placeholder ax value on stack
-%if _LCFG
-	push di
-	push di			; placeholder for lCFG block address
-%endif
 	push ax			; INIT1 segment
 	push di			; zero = init1_start
 	retf			; transfer to INIT1:init1_start
