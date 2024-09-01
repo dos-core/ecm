@@ -697,7 +697,11 @@ Contact your AMD representative for information on a BIOS update.
 	retn
 
 
-	addsection PAYLOAD, align=16 follows=INIT0
+	addsection INIT0B, align=16 vstart=0 follows=INIT0
+init0b_start:
+
+
+	addsection PAYLOAD, align=16 follows=INIT0B
 payload:
 	incbin _PAYLOAD_FILE
 .end:
