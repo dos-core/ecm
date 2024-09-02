@@ -1054,7 +1054,7 @@ init1_start:
 		; Note:	The destination reaches up to below the source.
 	call depack
 %ifn _TEST_PROGRAM
-	jc strict short error
+	jc strict short error	; -2 (replaced by retf \ nop)
 %endif
 %if _IMAGE_EXE
 	pop si			; si
@@ -1068,8 +1068,8 @@ init1_start:
 	lleave ctx
 %endif
 %if _TEST_PROGRAM
-	retf
-	nop
+	retf			; +1 (replace jc error)
+	nop			; +1
 %endif
 
 %if _DEVICE
