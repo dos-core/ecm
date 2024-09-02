@@ -130,8 +130,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.ZER"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
-%if _PAYLOAD_KERNEL_MAX_PARAS && ! _IMAGE_EXE
- %error Kernel mode max paras requires building dual-mode executable
+%if _PAYLOAD_KERNEL_MAX_PARAS && ! (_IMAGE_EXE || _DEVICE)
+ %error Kernel mode max paras requires building dual-mode or triple-mode executable
 %endif
 	numdef COUNTER,		0, 32
 %if (_COUNTER - 1) & _COUNTER
@@ -1019,7 +1019,7 @@ init1_start:
 @@:
 %endif
 
-%if _IMAGE_EXE
+%if _IMAGE_EXE || _DEVICE
 	mov es, si		; es => destination
 %else
 	mov ax, 60h
@@ -1060,7 +1060,7 @@ init1_start:
 %ifn _TEST_PROGRAM
 	jc strict short error	; -2 (replaced by retf \ nop)
 %endif
-%if _IMAGE_EXE
+%if _IMAGE_EXE || _DEVICE
 	pop si			; si
  %if _TEST_PROGRAM
 	pop ax			; (discard ?exemode, leave bx as returned)
