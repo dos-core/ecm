@@ -69,6 +69,9 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	strdef PAYLOAD_BIO_FILE,"drbio.bin"
 	strdef PAYLOAD_DOS_FILE,"drdos.sys"
 	numdef TEST_PROGRAM,	0
+	numdef PASSLCFG, 0
+	numdef COPY_INICOMP_LCFG, _PASSLCFG
+	numdef LCFG, _PASSLCFG
 
 
 %define MODULE drkernpl
@@ -76,6 +79,7 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 %ifnidn _INILOAD_CFG, ""
  %include _INILOAD_CFG
 %endif
+	strdef LCFG_CFG, ""
 
 
 	struc LOADSTACKVARS, -10h
@@ -121,6 +125,22 @@ ldCommandLine:
 	org 0
 	addsection ENTRY, start=0 vstart=0
 entry:
+%if _LCFG && _COPY_INICOMP_LCFG
+.uncompressed_entry:
+	db __TEST_IMM8			; (skip stc, set NC)
+.inicomp_entry:
+	stc
+	jnc @F
+
+	mov ds, cx
+	mov si, di			; ds:si -> source
+	push cs
+	pop es
+	mov di, lcfg			; es:di -> destination
+	mov cx, words(lcfg.size)	; cx = counter
+	rep movsw			; overwrite our lCFG block with inicomp's
+@@:
+%endif
 
 	mov ax, cs
 	add ax, entry_size_p + payload_size_p
@@ -129,6 +149,40 @@ entry:
 	push bx
 	retf
 
+
+%if _LCFG
+	%imacro lcfgoption 3+.nolist
+	_fill %1, 0, lcfg
+%%start:
+	%2
+	%3
+%%end:
+%assign %%index %%start - lcfg
+%rep %%end - %%start
+%assign LCFGINUSE LCFGINUSE | (1 << %%index)
+ %assign %%index %%index + 1
+%endrep
+	%endmacro
+%assign LCFGINUSE 0
+
+	align 16
+lcfg:
+.:		jmp strict short .end
+lcfgoption 2,,	db "lCFG"
+lcfgoption 6,,	db "00"
+lcfgoption 8,,	dq .inuse
+
+%ifnidn _LCFG_CFG, ""
+ %include _LCFG_CFG
+%endif
+
+lcfgoption 32,,
+.end:
+.size: equ .end - .
+.inuse equ LCFGINUSE
+%endif
+
+
 	align 256, db 0		; make sure we can always move forwards
 		; This is so that the drkernpl PAYLOAD is always
 		;  loaded to 700h or higher, as our ENTRY must be
@@ -136,6 +190,11 @@ entry:
 		; If the PAYLOAD is at >= 700h it is valid to move
 		;  forwards (Direction Flag UP) unconditionally to
 		;  relocate it to the destination at 700h.
+		; _PASSLCFG: To pass the lCFG block, the ENTRY section
+		;  is actually copied down to 00600h to keep the block.
+%if _LCFG && _PASSLCFG && ($ - $$) != 256
+ %error Expected entry section to be exactly 256 Bytes
+%endif
 
 	align 16
 	endarea entry
@@ -242,6 +301,10 @@ stackrelocate:
 	pop ds
 
 	mov si, payloaddos_size
+%if _LCFG && _PASSLCFG
+	mov di, lcfg
+	mov cx, 60h
+%endif
 	jmp 70h:0
 
 %if 1
@@ -273,6 +336,10 @@ msg.error:		asciz "drkernpl Load Error!",13,10
 
 %else
 	mov si, payloaddos_size
+%if _LCFG && _PASSLCFG
+	mov di, lcfg
+	mov cx, 60h
+%endif
 	jmp 70h:0
 %endif
 
@@ -287,10 +354,17 @@ payload_size equ realpayload_size + stackrelocate_size
 	addsection RELOCATE, follows=STACKRELOCATE vstart=0
 relocate:
 	mov bx, 1000h	; = 1000h (paragraphs per 64 KiB)
+%if _LCFG && _PASSLCFG
+	mov ax, 60h
+	mov es, ax	; => destination start
+	mov ax, payload_size_p + 10h
+			; ax = how many paragraphs to move
+%else		; preserve memory at 600h if not passing lCFG
 	mov ax, 70h
 	mov es, ax	; => destination start
 	mov ax, payload_size_p
 			; ax = how many paragraphs to move
+%endif
 	mov cx, cs
 	sub cx, ax
 	mov ds, cx	; => source start (is >= destination)
