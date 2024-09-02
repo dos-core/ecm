@@ -146,7 +146,8 @@ ldLoadUntilSeg:	resw 1
 	numdef PROGRESSDEFAULTAPP,	_PROGRESSDEFAULT
 	numdef PROGRESSDEFAULTDEVICE,	_PROGRESSDEFAULT
 	numdef PROGRESSDEFAULTBOOT,1
-	numdef LCFG, _PROGRESS && _PROGRESSMULTI
+	numdef PASSLCFG, 0
+	numdef LCFG, (_PROGRESS && _PROGRESSMULTI) || _PASSLCFG
 
 
 %define MODULE inicomp
@@ -154,6 +155,7 @@ ldLoadUntilSeg:	resw 1
 %ifnidn _INILOAD_CFG, ""
  %include _INILOAD_CFG
 %endif
+	strdef LCFG_CFG, ""
 
 %if _DEVICE
  %ifidn _DEVICE_NAME, ""
@@ -174,6 +176,8 @@ init0_start:
 		;  offsets before calling either, so in the inicomp
 		;  stage we need to recreate in the entrypoints part
 		;  exactly what the application has here.)
+		; _PASSLCFG: The lCFG block is passed in the dword
+		;  behind the interrupt entry.
 device_header:
 .next:
  %if _DEVICE_ZERO_ENTRYPOINT
@@ -196,6 +200,7 @@ device_header:
 	fill 4, 90h, jmp device_entrypoint
 .interrupt_entry:
 	fill 4, 90h, retf
+.pass_lcfg:
 %endif
 
 
@@ -460,7 +465,7 @@ init0_common:
 
 	align 16
 lcfg:
-		jmp strict short .end
+.:		jmp strict short .end
 lcfgoption 2,,	db "lCFG"
 lcfgoption 6,,	db "00"
 lcfgoption 8,,	dq .inuse
@@ -476,8 +481,13 @@ lcfgoption 18, .progress_boot:, db _PROGRESSDEFAULTBOOT
   %endif
  %endif
 
+%ifnidn _LCFG_CFG, ""
+ %include _LCFG_CFG
+%endif
+
 lcfgoption 32,,
 .end:
+.size: equ .end - .
 .inuse equ LCFGINUSE
 %endif
 
@@ -721,19 +731,41 @@ Contact your AMD representative for information on a BIOS update.
 		;	ax => INIT0B
 		;	dx => payload source
 		;	ss:sp -> (dword pointer to lCFG block)
-		;	si => depack destination
-		;	bx = mode
+		;	if app/device mode supported:
+		;	 si => depack destination
+		;	 bx = mode
 init0b_start:
 %if _LCFG || _PROGRESS
 
-%if _LCFG
-	pop di
-	pop es
-%endif
 	add ax, ( \
 		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
 		) >> 4		; => INIT1
+
+%if _LCFG && _PASSLCFG
+ %if (_IMAGE_EXE || _DEVICE)
+	mov cx, si		; preserve si
+ %endif
+	pop si
+	pop ds			; -> lCFG block
+	mov es, ax
+	mov di, transfer_lcfg_block
+				; -> destination
+ %if (_IMAGE_EXE || _DEVICE)
+	push cx
+ %endif
+	push di
+	mov cx, words(lcfg.size)
+	rep movsw		; cx = 0
+	pop di			; es:di -> relocated lCFG block, same difference
+ %if (_IMAGE_EXE || _DEVICE)
+	pop si			; preserve si
+ %endif
+%elif _LCFG
+	pop di
+	pop es			; es:di -> (original) lCFG block
+%endif
+
 	push ax
 	push cx			; -> far return address to init1_start
 
@@ -1083,6 +1115,10 @@ init1_start:
 .jmp_device_mode:
 	mov ds, si
 	or word [device_header.next], -1
+%if _LCFG && _PASSLCFG
+	mov word [device_header.pass_lcfg], transfer_lcfg_block
+	mov word [device_header.pass_lcfg + 2], cs
+%endif
 	pop es
 	pop bx
 	pop ax
@@ -1153,10 +1189,18 @@ init1_start:
 %endif
 	push si
 	push cx
+%if _LCFG && _PASSLCFG
+	mov di, transfer_lcfg_block
+	mov cx, cs
+%endif
 	retf			; jump to EXE mode of image
 
 %endif
 .jmp_kernel_mode:
+%if _LCFG && _PASSLCFG
+	mov di, transfer_lcfg_block
+	mov cx, cs
+%endif
 	jmp 60h + _EXEC_SEGMENT:_EXEC_OFFSET
 
 
@@ -1536,6 +1580,7 @@ device_header_copy:
 	dw .interrupt_entry - .		; -> interrupt entry
 .name:
 	fill 8, 32, db _DEVICE_NAME
+
 .strategy_entry:
 	fill 4, 90h, jmp .set_error	; rel8 or rel16 jump, not minus .
 .interrupt_entry:
@@ -1918,6 +1963,11 @@ pointer_to_linear:
 	lret
 
 
+%if _PASSLCFG
+	align 16
+transfer_lcfg_block:
+	times lcfg.size nop
+%endif
 	align 16
 init1_end:
 
