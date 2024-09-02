@@ -1147,7 +1147,9 @@ init1_start:
 	lea dx, [si - 10h]	; => PSP
 	mov ds, dx
 	mov es, dx		; ds = es => PSP
+ %if _IMAGE_EXE_CS
 	add si, _IMAGE_EXE_CS	; = relocated cs value
+ %endif
 %endif
 	push si
 	push cx
