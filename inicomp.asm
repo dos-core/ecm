@@ -738,8 +738,10 @@ init0b_start:
 	push cx			; -> far return address to init1_start
 
 %if _PROGRESS && _PROGRESSMULTI
+ %if (_IMAGE_EXE || _DEVICE)
 	push si
 	push bx
+ %endif
  %if _BOOTLDR
   %if _LCFG
 	xor ax, ax
@@ -894,8 +896,10 @@ init0b_start:
  %endif			; (_IMAGE_EXE || _DEVICE)
 
 .default:
+ %if (_IMAGE_EXE || _DEVICE)
 	pop bx
 	pop si
+ %endif
 	cmp di, step_progress_table.amount
 					; valid ?
 	jb @F				; yes -->
