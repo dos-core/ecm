@@ -2014,6 +2014,87 @@ prepare_sector_final:
 		;  512 B of FSINFO)
 
 
+detect_type:
+	mov bx, type_search_metadata
+
+.looppattern:
+	mov si, first_sector_buffer
+	mov dx, 512
+	mov di, [bx]
+	test di, di
+	jz .notfound
+	mov cx, [bx + 2]
+	add bx, 8
+
+
+@@:
+	mov al, byte [di]	; get first byte
+	xchg si, di		; es:di -> to search
+	xchg dx, cx		; cx = count remaining, at least 1
+	repne scasb		; scan for byte
+	xchg dx, cx
+	xchg si, di		; restore register setup
+	jne .nextpattern
+
+	dec si			; scasb left a pointer behind match
+	inc dx			; also fix counter
+	push bx
+	push si
+	push di
+	push cx
+	cmp cx, dx
+	ja .mismatchpattern	; (NZ) if doesn't fit in 512 bytes
+	call .patchwildcards	; patch potential match candidate's wildcards
+	repe cmpsb
+.mismatchpattern:
+	pop cx
+	pop di
+	pop si
+	pop bx
+	je .foundpattern
+	inc si
+	dec dx
+	jnz @B
+
+.nextpattern:
+%if 1
+@@:
+	cmp word [bx], 0
+	lea bx, [bx + 2]
+	jne @B
+%else
+		; With the repne scasb optimisation we may get
+		;  al = first byte, and .patchwildcards may have
+		;  never run for this pattern. So don't use this.
+	xchg bx, ax		; get .patchwildcards return
+%endif
+	jmp .looppattern
+
+
+		; INP:	bx -> wildcard displacement list, zero-terminated
+		;	si -> candidate match or match in our loader
+		;	di -> pattern to patch with wildcard contents
+		; OUT:	ax -> behind zero terminator of list
+		; CHG:	none
+.patchwildcards: equ set_lba.patchwildcards
+
+.notfound:
+	mov dx, msg.type_not_found
+	jmp .done_msg
+
+
+.foundpattern:
+	mov dx, msg.type_found.1
+	call disp_msg_asciz
+	mov dx, word [bx - 8 + 4]
+	call disp_msg_asciz	; display what we found
+	mov dx, msg.type_found.2
+
+.done_msg:
+	call disp_msg_asciz
+.done:
+
+
 %if _NUM_DETECT_NAMES
 listnames:
 	mov bx, msg.names
@@ -3469,6 +3550,11 @@ query_search_strings:
 %include "lbasuch.asm"
 
 
+%assign ALL 0
+%define PREFIX
+%include "typesuch.asm"
+
+
 %if _NUM_DETECT_NAMES
 		; INP:	ds:si -> first byte to check for name
 		;	cx = number of bytes left
@@ -4854,6 +4940,10 @@ load_kernel_name: equ $
 .lba_found_suffix:	asciz " found in sector."
 .lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detection to auto detection for HDD only.",13,10
 .using_autohdd_lba:	asciz " Using auto LBA detection (HDD only).",13,10
+
+.type_not_found:	asciz "Type heuristic: (None found.)",13,10
+.type_found.1:		asciz "Type heuristic: ",22h
+.type_found.2:		asciz 22h,13,10
 
 .switch_requires_filename:
 			asciz "Switch requires a filename.",13,10
