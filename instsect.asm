@@ -5251,6 +5251,7 @@ msg:
 %if _FAT32
 	db 9,"/SI",9,9,"validate FAT32 FSIBOOT compatibility (default)",13,10
 	db 9,"/SJ",9,9,"do not validate FAT32 FSIBOOT compatiblity",13,10
+	db 9,"/SG=sign",9,"check for FAT32 FSIBOOT exact signature match",13,10
 %endif
 	db 13,10
 	db 9,"/BS",9,9,"write boot sector to drive's boot sector (default)",13,10
