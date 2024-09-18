@@ -2226,6 +2226,34 @@ detect_fsi:
 	jmp .done_msg
 
 .unknown:
+	mov si, msg.signature.fsiboot
+	mov cx, 7
+	repe cmpsb
+	jne .checkexp
+	mov al, [di]
+	mov byte [msg.future_fsiboot.revision], al
+	call is_alphanumeric
+	jne .unknown2
+	mov dx, msg.future_fsiboot
+	jmp .done_msg
+
+.checkexp:
+	mov di, fsi_needed
+	mov si, msg.signature.fsibex
+	mov cl, 6
+	repe cmpsb
+	jne .unknown2
+	mov ax, [di]
+	mov word [msg.future_fsibex.revision], ax
+	call is_alphanumeric
+	jne .unknown2
+	xchg al, ah
+	call is_alphanumeric
+	jne .unknown2
+	mov dx, msg.future_fsibex
+	jmp .done_msg
+
+.unknown2:
 	mov dx, msg.fsi_unknown
 .done_msg:
 	call disp_msg_asciz
@@ -4281,6 +4309,25 @@ disp_msg_asciz:
 	retn
 
 
+is_alphanumeric:
+	cmp al, '0'
+	jb .ret
+	cmp al, '9'
+	jbe .ZR
+	cmp al, 'A'
+	jb .ret
+	cmp al, 'Z'
+	jbe .ZR
+	cmp al, 'a'
+	jb .ret
+	cmp al, 'z'
+	ja .ret
+.ZR:
+	cmp al, al
+.ret:
+	retn
+
+
 disp_ax_hex:
 		xchg al, ah
 		call disp_al_hex
@@ -5159,6 +5206,12 @@ load_kernel_name: equ $
 .fsi_unknown:		asciz " Unknown FSIBOOT revision.",13,10
 .fsi_known.1:		asciz " "
 .fsi_known.2:		asciz 13,10
+.signature.fsiboot:	db "FSIBOOT"
+.signature.fsibex:	db "FSIBEX"
+.future_fsiboot:	db " lDOS future FSIBOOT revision "
+.future_fsiboot.revision:asciz "X",13,10
+.future_fsibex:		db " lDOS future FSIBOOT experimental revision "
+.future_fsibex.revision:asciz "XX",13,10
 .type_not_found:	asciz "Type heuristic: (None found.)",13,10
 .type_found.1:		asciz "Type heuristic: ",22h
 .fsi_found.2:
