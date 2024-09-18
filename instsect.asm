@@ -2179,18 +2179,26 @@ detect_fsi:
 @@:
 	lodsb
 	cmp al, 32
-	jb .notfound
+	jae .notzero
+		; Hack for first FSIBOOT: Last byte may be NUL
+	cmp cx, 1
+	jne .notfound
+	test al, al
+	jnz .notfound
+
+.notzero:
 	cmp al, 127
 	jae .notfound
 	loop @B
-	push dx
+	mov si, dx
+	mov di, fsi_needed
+	push di
+	mov cx, 4
+	rep movsw
 	mov dx, msg.fsi_found.1
 	call disp_msg_asciz
 	pop dx
-	mov bx, 1
-	mov cx, 8
-	mov ah, 40h
-	int 21h
+	call disp_msg_asciz
 	mov dx, msg.fsi_found.2
 
 .done_msg:
@@ -5635,6 +5643,9 @@ cmd_line_image_file:
 .handle:	dw -1
 cmd_line_file_name_ofs:		equ 0
 cmd_line_file_handle_ofs:	equ 2
+
+	align 2, db 0
+fsi_needed:	times 9 db 0
 
 
 	dw 0		; insure there's an unused word in front of this (1)
