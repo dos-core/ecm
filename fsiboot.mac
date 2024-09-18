@@ -13,20 +13,20 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
-fsi_revision {"FSIBOOT",0}, "Initial revisions of lDOS FSIBOOT (2017-09-13)"
+fsi_revision {"FSIBOOT",0}, "Initial revs of lDOS FSIBOOT (2017-09-13)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/f8698897b208
 
-fsi_revision "FSIBOOT0", "lDOS FSIBOOT revision 0 (2018-09-20)"
+fsi_revision "FSIBOOT0", "lDOS FSIBOOT rev 0 (2018-09-20)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/07a99b9f6f7d
 
-fsi_revision "FSIBOOT1", "lDOS FSIBOOT revision 1 (2018-09-21)"
+fsi_revision "FSIBOOT1", "lDOS FSIBOOT rev 1 (2018-09-21)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/af54529e9f46
 
-fsi_revision "FSIBOOT2", "lDOS FSIBOOT revision 2 (2018-09-23)"
+fsi_revision "FSIBOOT2", "lDOS FSIBOOT rev 2 (2018-09-23)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/dae7de41a043
 ; Used for RxDOS v7.24, 2020-02-03
 
-fsi_revision "FSIBOOT3", "lDOS FSIBOOT revision 3 (2020-09-30)"
+fsi_revision "FSIBOOT3", "lDOS FSIBOOT rev 3 (2020-09-30)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/76c52f61072c
 
 ;       strdef FSIBOOTNAME,     "FSIBOOT3"
@@ -34,16 +34,16 @@ fsi_revision "FSIBOOT3", "lDOS FSIBOOT revision 3 (2020-09-30)"
 ; 2020-10-12
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/aa15fd7bc58e
 
-fsi_revision "FSIBEX00", "lDOS FSIBOOT experimental revision 00 (2020-10-12)"
+fsi_revision "FSIBEX00", "lDOS FSIBOOT experimental rev 00 (2020-10-12)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/143c764757a7
 
-fsi_revision "FSIBEX01", "lDOS FSIBOOT experimental revision 01 (2020-10-25)"
+fsi_revision "FSIBEX01", "lDOS FSIBOOT experimental rev 01 (2020-10-25)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/72d74cdd7a3c
 
-fsi_revision "FSIBEX02", "lDOS FSIBOOT experimental revision 02 (2020-11-17)"
+fsi_revision "FSIBEX02", "lDOS FSIBOOT experimental rev 02 (2020-11-17)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/5a5ccfb311ef
 
-fsi_revision "FSIBOOT4", "lDOS FSIBOOT revision 4 (2021-01-12)"
+fsi_revision "FSIBOOT4", "lDOS FSIBOOT rev 4 (2021-01-12)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/b235cf86c77c
 ; Used for lDebug releases 1 to 8:
 ; lDebug release 1, 2021-02-15
@@ -55,13 +55,13 @@ fsi_revision "FSIBOOT4", "lDOS FSIBOOT revision 4 (2021-01-12)"
 ; lDebug release 7, 2024-02-16
 ; lDebug release 8, 2024-03-08
 
-fsi_revision "FSIBEX03", "lDOS FSIBOOT experimental revision 03 (2024-08-18)"
+fsi_revision "FSIBEX03", "lDOS FSIBOOT experimental rev 03 (2024-08-18)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/fb5f0cb6ced4
 
-fsi_revision "FSIBEX04", "lDOS FSIBOOT experimental revision 04 (2024-08-19)"
+fsi_revision "FSIBEX04", "lDOS FSIBOOT experimental rev 04 (2024-08-19)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/88c097107c86
 
-fsi_revision "FSIBOOT5", "lDOS FSIBOOT revision 5 (future)"
+fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5 (future)"
 ; not released yet
 
 %if 0
