@@ -1883,23 +1883,38 @@ write_sector_bpb:
 
 
 prepare_fsinfo:
-	test byte [bp + ldHasLBA], 2
-	jz .no_fsinfo
+	cmp byte [bp + ldFATType], 16
+	jbe .no_fsinfo
+
+	cmp word [bp + ldBytesPerSector], 1024
+	jae .no_fsinfo
 
 	mov ax, word [bp + bsBPB + ebpbFSINFOSector]
 
 	mov dx, msg.no_fsinfo
 	test ax, ax
-	jz disp_error
+	jz .fsinfo_doesnt_exist
 	cmp ax, word [bp + bsBPB + bpbReservedSectors]
-	jae disp_error
+	jb .fsinfo_exists
+.fsinfo_doesnt_exist:
+	testopt [cmd_line_flags], \
+		clfDontWriteInfo | clfWriteInfoToSectorFile | clfWriteInfoToFile
+	jnz @F
+	test byte [bp + ldHasLBA], 2
+	jnz disp_error
+@@:
+	call disp_msg_asciz
+	jmp .no_fsinfo
 
+.fsinfo_exists:
 	xor dx, dx
 	mov bx, second_sector_buffer + 512
 	mov cl, [drivenumber]
 	call read_ae_512_bytes		; load FSINFO sector
 	jc exit_error
 		; 2nd buffer 2nd 512 B has original FSINFO
+
+	setopt [internalflags], detectedinfo
 
 	testopt [cmd_line_flags], clfInfoFromCopy
 	jz @F
@@ -1950,6 +1965,11 @@ prepare_fsinfo:
 	rep movsw				; copy final signature
 	jmp .no_fsinfo
 
+@@:
+
+	test byte [bp + ldHasLBA], 2
+	jnz @F
+	setopt [cmd_line_flags], clfLeaveInfo
 @@:
 
 	testopt [cmd_line_flags], clfLeaveInfo
@@ -2191,16 +2211,67 @@ detect_fsi:
 	jae .notfound
 	loop @B
 
+	setopt [internalflags], detectedfsineeded
+
 	mov si, dx
 	mov di, fsi_needed
 	push di
 	mov cx, 4
 	rep movsw
-	mov dx, msg.fsi_found.1
-	call disp_msg_asciz
 	pop di
-	mov dx, di
+	mov dx, msg.fsi_found.1
+	call disp_fsi
+	jmp .done
+
+disp_fsi: equ $
 	call disp_msg_asciz
+	mov si, di
+	mov cx, 4
+	xor bx, bx
+@@:
+	lodsw
+	or bx, ax
+	loop @B
+	jnz @F
+	mov dx, msg.none_found
+	jmp .display_done_msg
+
+@@:
+	mov al, '"'
+	call disp_al
+	mov si, di
+	mov cl, 8
+.displayloop:
+	lodsb
+	cmp al, 32
+	jb .nonprintable
+	cmp al, 127
+	jb .printable
+.nonprintable:
+	push ax
+	mov al, '\'
+	call disp_al
+	mov al, 'x'
+	call disp_al
+	pop ax
+	call disp_al_hex
+	jmp .displaynext
+
+.printable:
+	cmp al, '\'
+	je .escape
+	cmp al, '"'
+	jne .plain
+.escape:
+	push ax
+	mov al, '\'
+	call disp_al
+	pop ax
+.plain:
+	call disp_al
+.displaynext:
+	loop .displayloop
+
 	mov dx, msg.fsi_found.2
 	call disp_msg_asciz
 
@@ -2223,9 +2294,10 @@ detect_fsi:
 	xchg dx, ax
 	call disp_msg_asciz
 	mov dx, msg.fsi_known.2
-	jmp .done_msg
+	jmp .display_done_msg
 
 .unknown:
+	mov bx, di
 	mov si, msg.signature.fsiboot
 	mov cx, 7
 	repe cmpsb
@@ -2235,10 +2307,10 @@ detect_fsi:
 	call is_alphanumeric
 	jne .unknown2
 	mov dx, msg.future_fsiboot
-	jmp .done_msg
+	jmp .display_done_msg
 
 .checkexp:
-	mov di, fsi_needed
+	mov di, bx
 	mov si, msg.signature.fsibex
 	mov cl, 6
 	repe cmpsb
@@ -2251,12 +2323,52 @@ detect_fsi:
 	call is_alphanumeric
 	jne .unknown2
 	mov dx, msg.future_fsibex
-	jmp .done_msg
+	jmp .display_done_msg
 
 .unknown2:
 	mov dx, msg.fsi_unknown
+.display_done_msg:
+	jmp disp_msg_asciz
+
 .done_msg:
 	call disp_msg_asciz
+.done:
+
+
+check_fsi_provided:
+	cmp byte [bp + ldFATType], 16
+	jbe .done
+
+	mov di, fsi_provided
+	mov si, first_sector_buffer + 512 + FSINFO.fsiboot
+
+	cmp word [bp + ldBytesPerSector], 1024
+	jae .first
+
+	testopt [internalflags], detectedinfo
+	jz .none
+
+	testopt [cmd_line_flags], \
+		clfDontWriteInfo | clfWriteInfoToSectorFile | clfWriteInfoToFile
+	jz .first
+
+	mov si, second_sector_buffer + 512 + FSINFO.fsiboot
+
+.second:
+
+.first:
+	mov cx, 4
+	push di
+	rep movsw
+	pop di
+.none:
+
+	mov dx, msg.fsi_provided.1
+	call disp_fsi
+
+;	setopt [internalflags], detectedfsineeded
+;	testopt [cmd_line_flags], clfDontWriteSector
+
 .done:
 
 
@@ -3790,6 +3902,7 @@ dumpsearches SEARCHES
 
 	align 2, db 0
 fsi_known_revisions:
+;	fsi_revision {0,0,0,0,0,0,0,0}, "None"
 %include "fsiboot.mac"
 	dw 0
 
@@ -4347,8 +4460,12 @@ disp_al_hex:
 		jbe .isdigit
 		add al, 'A'-('9'+1)
 .isdigit:
+		db __TEST_IMM8		; (skip push)
+
+disp_al:
+		push ax
 		push dx
-		xchg dl, al
+		xchg dx, ax
 		mov ah, 02h
 		int 21h
 		pop dx
@@ -4870,6 +4987,8 @@ locked		equ	  8	; locked drive
 runningnt	equ   20000h	; running in NTVDM
 detectedcopysector	equ 10h
 detectedcopyinfo	equ 20h
+detectedinfo		equ 40h
+detectedfsineeded	equ 80h
 
 	align 2, db 0
 oemname:	times 8 db 0
@@ -5201,8 +5320,10 @@ load_kernel_name: equ $
 .lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detection to auto detection for HDD only.",13,10
 .using_autohdd_lba:	asciz " Using auto LBA detection (HDD only).",13,10
 
-.fsi_not_found:		asciz "FSIBOOT revision: (None found.)",13,10
-.fsi_found.1:		asciz "FSIBOOT revision: ",22h
+.fsi_not_found:		db "Need FSIBOOT: "
+.none_found:		asciz "(None found.)",13,10
+.fsi_found.1:		asciz "Need FSIBOOT: "
+.fsi_provided.1:	asciz "Have FSIBOOT: "
 .fsi_unknown:		asciz " Unknown FSIBOOT revision.",13,10
 .fsi_known.1:		asciz " "
 .fsi_known.2:		asciz 13,10
@@ -5744,7 +5865,8 @@ cmd_line_file_handle_ofs:	equ 2
 
 	align 2, db 0
 fsi_needed:	times 9 db 0
-
+	align 2, db 0
+fsi_provided:	times 9 db 0
 
 	dw 0		; insure there's an unused word in front of this (1)
 	align 16, db 0
