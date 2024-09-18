@@ -5483,9 +5483,9 @@ load_kernel_name: equ $
 .fsi_known.2:		asciz 13,10
 .signature.fsiboot:	db "FSIBOOT"
 .signature.fsibex:	db "FSIBEX"
-.future_fsiboot:	db " lDOS future FSIBOOT revision "
+.future_fsiboot:	db " lDOS future FSIBOOT rev "
 .future_fsiboot.revision:asciz "X",13,10
-.future_fsibex:		db " lDOS future FSIBOOT experimental revision "
+.future_fsibex:		db " lDOS future FSIBOOT experimental rev "
 .future_fsibex.revision:asciz "XX",13,10
 .type_not_found:	asciz "Type heuristic: (None found.)",13,10
 .type_found.1:		asciz "Type heuristic: ",22h
