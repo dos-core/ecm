@@ -61,9 +61,6 @@ fsi_revision "FSIBEX03", "lDOS FSIBOOT experimental rev 03 (2024-08-18)"
 fsi_revision "FSIBEX04", "lDOS FSIBOOT experimental rev 04 (2024-08-19)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/88c097107c86
 
-fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5 (future)"
-; not released yet
-
 %if 0
 
 hg grep FSIBOOTNAME --all |
