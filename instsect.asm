@@ -2095,6 +2095,109 @@ detect_type:
 .done:
 
 
+detect_fsi:
+	cmp byte [bp + ldFATType], 16
+	jbe .done
+
+	mov bx, fsi_search_metadata
+
+.looppattern:
+	mov si, first_sector_buffer
+	mov dx, 512
+	mov di, [bx]
+	test di, di
+	jz .notfound
+	mov cx, [bx + 2]
+	add bx, 8
+
+
+@@:
+	mov al, byte [di]	; get first byte
+	xchg si, di		; es:di -> to search
+	xchg dx, cx		; cx = count remaining, at least 1
+	repne scasb		; scan for byte
+	xchg dx, cx
+	xchg si, di		; restore register setup
+	jne .nextpattern
+
+	dec si			; scasb left a pointer behind match
+	inc dx			; also fix counter
+	push bx
+	push si
+	push di
+	push cx
+	cmp cx, dx
+	ja .mismatchpattern	; (NZ) if doesn't fit in 512 bytes
+	call .patchwildcards	; patch potential match candidate's wildcards
+	repe cmpsb
+.mismatchpattern:
+	pop cx
+	pop di
+	pop si
+	pop bx
+	je .foundpattern
+	inc si
+	dec dx
+	jnz @B
+
+.nextpattern:
+%if 1
+@@:
+	cmp word [bx], 0
+	lea bx, [bx + 2]
+	jne @B
+%else
+		; With the repne scasb optimisation we may get
+		;  al = first byte, and .patchwildcards may have
+		;  never run for this pattern. So don't use this.
+	xchg bx, ax		; get .patchwildcards return
+%endif
+	jmp .looppattern
+
+
+		; INP:	bx -> wildcard displacement list, zero-terminated
+		;	si -> candidate match or match in our loader
+		;	di -> pattern to patch with wildcard contents
+		; OUT:	ax -> behind zero terminator of list
+		; CHG:	none
+.patchwildcards: equ set_lba.patchwildcards
+
+.notfound:
+	mov dx, msg.fsi_not_found
+	jmp .done_msg
+
+
+.foundpattern:
+	mov si, word [..@fsi_search_signature_offset]
+	sub si, 7C00h
+	jb .notfound
+	cmp si, 512 - 10
+	ja .notfound
+	add si, first_sector_buffer
+	mov dx, si
+	mov cx, 8
+@@:
+	lodsb
+	cmp al, 32
+	jb .notfound
+	cmp al, 127
+	jae .notfound
+	loop @B
+	push dx
+	mov dx, msg.fsi_found.1
+	call disp_msg_asciz
+	pop dx
+	mov bx, 1
+	mov cx, 8
+	mov ah, 40h
+	int 21h
+	mov dx, msg.fsi_found.2
+
+.done_msg:
+	call disp_msg_asciz
+.done:
+
+
 %if _NUM_DETECT_NAMES
 listnames:
 	mov bx, msg.names
@@ -3555,6 +3658,66 @@ query_search_strings:
 %include "typesuch.asm"
 
 
+%unmacro search_wildcard 1-2 0
+%unmacro fsi_search_string 2
+%unmacro dumpsearches 1-*
+
+
+%define SEARCHES dw ""
+
+
+	%macro search_wildcard 1-2 0
+%assign %%wc $ + %2 - %1
+%if %%wc == 0
+ %error Wildcard at beginning of search string is not allowed
+%endif
+%xdefine WILDCARDS WILDCARDS, dw %%wc
+	%endmacro
+
+	%macro fsi_search_string 2
+%define WILDCARDS dw ""
+
+ %define %%identifier label_%1_fsi
+
+%define %%extra 0
+
+%%start:
+%[%%identifier %+ _search_string]:
+
+	mov di, 7C00h + 512 + 4
+	mov si, 0
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+..@fsi_search_signature_offset: equ $ - 2
+	mov cx, 4
+	repe cmpsw
+%%end:
+
+%xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
+	 dw 0, dw %%extra, WILDCARDS, dw 0
+%[%%identifier %+ _length]: equ %%end - %%start
+
+	%endmacro
+
+
+%assign variant 0
+ %assign identifier variant
+	fsi_search_string identifier, variant
+
+
+	%macro dumpsearches 1-*
+%rep %0
+ %1
+ %rotate 1
+%endrep
+	%endmacro
+
+	align 2, db 0
+%[PREFIX]fsi_search_metadata:
+dumpsearches SEARCHES
+	dw 0,0
+
+
 %if _NUM_DETECT_NAMES
 		; INP:	ds:si -> first byte to check for name
 		;	cx = number of bytes left
@@ -4941,8 +5104,11 @@ load_kernel_name: equ $
 .lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detection to auto detection for HDD only.",13,10
 .using_autohdd_lba:	asciz " Using auto LBA detection (HDD only).",13,10
 
+.fsi_not_found:		asciz "FSIBOOT revision: (None found.)",13,10
+.fsi_found.1:		asciz "FSIBOOT revision: ",22h
 .type_not_found:	asciz "Type heuristic: (None found.)",13,10
 .type_found.1:		asciz "Type heuristic: ",22h
+.fsi_found.2:
 .type_found.2:		asciz 22h,13,10
 
 .switch_requires_filename:
