@@ -2190,6 +2190,7 @@ detect_fsi:
 	cmp al, 127
 	jae .notfound
 	loop @B
+
 	mov si, dx
 	mov di, fsi_needed
 	push di
@@ -2197,10 +2198,35 @@ detect_fsi:
 	rep movsw
 	mov dx, msg.fsi_found.1
 	call disp_msg_asciz
-	pop dx
+	pop di
+	mov dx, di
 	call disp_msg_asciz
 	mov dx, msg.fsi_found.2
+	call disp_msg_asciz
 
+	mov si, fsi_known_revisions
+.loop:
+	lodsw
+	test ax, ax
+	jz .unknown
+	push di
+	push si
+	mov cx, 4
+	repe cmpsw
+	pop si
+	pop di
+	lea si, [si + 8]
+	jne .loop
+.known:
+	mov dx, msg.fsi_known.1
+	call disp_msg_asciz
+	xchg dx, ax
+	call disp_msg_asciz
+	mov dx, msg.fsi_known.2
+	jmp .done_msg
+
+.unknown:
+	mov dx, msg.fsi_unknown
 .done_msg:
 	call disp_msg_asciz
 .done:
@@ -3726,6 +3752,22 @@ dumpsearches SEARCHES
 	dw 0,0
 
 
+%define STRINGS db ""
+
+	%macro fsi_revision 2.nolist
+%xdefine STRINGS STRINGS, %%message:, {asciz %2}
+	dw %%message
+	db %1
+	%endmacro
+
+	align 2, db 0
+fsi_known_revisions:
+%include "fsiboot.mac"
+	dw 0
+
+dumpsearches STRINGS
+
+
 %if _NUM_DETECT_NAMES
 		; INP:	ds:si -> first byte to check for name
 		;	cx = number of bytes left
@@ -5114,6 +5156,9 @@ load_kernel_name: equ $
 
 .fsi_not_found:		asciz "FSIBOOT revision: (None found.)",13,10
 .fsi_found.1:		asciz "FSIBOOT revision: ",22h
+.fsi_unknown:		asciz " Unknown FSIBOOT revision.",13,10
+.fsi_known.1:		asciz " "
+.fsi_known.2:		asciz 13,10
 .type_not_found:	asciz "Type heuristic: (None found.)",13,10
 .type_found.1:		asciz "Type heuristic: ",22h
 .fsi_found.2:
