@@ -888,6 +888,18 @@ disp_error: equ $
 	lodsb
 	call uppercase
 
+	cmp al, 'I'
+	jne @F
+	clropt [cmd_line_flags], clfAllowInvalidFSI
+	jmp .loop_2
+
+@@:
+	cmp al, 'J'
+	jne @F
+	setopt [cmd_line_flags], clfAllowInvalidFSI
+	jmp .loop_2
+
+@@:
 	cmp al, 'V'
 	jne @F
 	clropt [cmd_line_flags], clfAllowInvalidSector
@@ -2366,8 +2378,37 @@ check_fsi_provided:
 	mov dx, msg.fsi_provided.1
 	call disp_fsi
 
-;	setopt [internalflags], detectedfsineeded
-;	testopt [cmd_line_flags], clfDontWriteSector
+	testopt [internalflags], detectedfsineeded
+	jz .done
+	testopt [cmd_line_flags], clfDontWriteSector
+	jnz .done
+
+	mov di, fsi_provided
+	mov si, fsi_needed
+	mov cx, 4
+	repe cmpsw
+	je .done
+
+	mov dx, msg.fsi_mismatch.1
+	mov ax, msg.fsi_mismatch.2.big
+	cmp word [bp + ldBytesPerSector], 1024
+	jae @F
+	mov ax, msg.fsi_mismatch.2.none
+	testopt [internalflags], detectedinfo
+	jz @F
+	mov ax, msg.fsi_mismatch.2.found
+	testopt [cmd_line_flags], \
+		clfDontWriteInfo | clfWriteInfoToSectorFile | clfWriteInfoToFile
+	jnz @F
+	mov ax, msg.fsi_mismatch.2.install
+@@:
+
+	call disp_msg_asciz
+	xchg dx, ax
+	call disp_msg_asciz
+
+	testopt [cmd_line_flags], clfAllowInvalidFSI
+	jz exit_error
 
 .done:
 
@@ -5105,6 +5146,10 @@ msg:
 	db 9,"/S12=filename",9,"as /S=filename but only for FAT12 (also /S16, /S32)",13,10
 	db 9,"/SV",9,9,"validate boot sector jump and FS ID (default)",13,10
 	db 9,"/SN",9,9,"do not validate boot sector jump and FS ID",13,10
+%if _FAT32
+	db 9,"/SI",9,9,"validate FAT32 FSIBOOT compatibility (default)",13,10
+	db 9,"/SJ",9,9,"do not validate FAT32 FSIBOOT compatiblity",13,10
+%endif
 	db 13,10
 	db 9,"/BS",9,9,"write boot sector to drive's boot sector (default)",13,10
 	db 9,"/B=filename",9,"write boot sector to file, not to drive",13,10
@@ -5324,6 +5369,11 @@ load_kernel_name: equ $
 .none_found:		asciz "(None found.)",13,10
 .fsi_found.1:		asciz "Need FSIBOOT: "
 .fsi_provided.1:	asciz "Have FSIBOOT: "
+.fsi_mismatch.1:	asciz "Needed FSIBOOT doesn't match "
+.fsi_mismatch.2.big:	asciz "what is found in the big sector.",13,10
+.fsi_mismatch.2.none:	asciz "as there is no FSINFO sector.",13,10
+.fsi_mismatch.2.found:	asciz "what is found in FSINFO sector.",13,10
+.fsi_mismatch.2.install:asciz "what is about to be installed.",13,10
 .fsi_unknown:		asciz " Unknown FSIBOOT revision.",13,10
 .fsi_known.1:		asciz " "
 .fsi_known.2:		asciz 13,10
@@ -5840,6 +5890,7 @@ clfInfoFromCopy:		equ 20_0000h
 clfZeroInfo:			equ 40_0000h
 clfSetOEMName:			equ 100_0000h
 clfPreserveOEMName:		equ 200_0000h
+clfAllowInvalidFSI:		equ 400_0000h
 
 	align 4, db 0
 cmd_line_readsector12_file:
