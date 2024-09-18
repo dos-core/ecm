@@ -5489,7 +5489,7 @@ load_kernel_name: equ $
 .future_fsibex.revision:asciz "XX",13,10
 .type_not_found:	asciz "Type heuristic: (None found.)",13,10
 .type_found.1:		asciz "Type heuristic: ",22h
-.fsi_found.2:
+.fsi_found.2:		asciz 22h
 .type_found.2:		asciz 22h,13,10
 
 .switch_requires_filename:
