@@ -888,6 +888,71 @@ disp_error: equ $
 	lodsb
 	call uppercase
 
+	cmp al, 'G'
+	jne @FF
+
+	setopt [cmd_line_flags], clfCheckFSI
+
+	mov ax, 2020h
+	mov di, fsi_check
+	mov cx, 4
+	push di
+	rep stosw
+	pop di
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
+
+	xor bx, bx
+.sg_loop:
+	cmp al, 32
+	jbe .sg_done_dec
+	cmp bl, 8
+	jae .switch_not_supported
+	cmp al, '\'
+	jne .sg_next
+	lodsb
+	cmp al, 13
+	je .switch_not_supported
+	cmp al, 'x'
+	je .sg_escape_x
+	cmp al, 'X'
+	jne .sg_next
+.sg_escape_x:
+	lodsb
+	xor cx, cx
+	call get_hexit
+	jc .switch_not_supported
+	mov cl, al
+	lodsb
+	call get_hexit
+	jc .sg_store_cl
+	add cx, cx
+	add cx, cx
+	add cx, cx
+	add cx, cx
+	add cl, al
+	db __TEST_IMM8			; skip dec si
+.sg_store_cl:
+	dec si
+	xchg ax, cx
+.sg_next:
+	stosb
+	inc bx
+	lodsb
+	jmp .sg_loop
+
+.sg_done_dec:
+	jmp .loop_got_byte
+
+@@:
 	cmp al, 'I'
 	jne @F
 	clropt [cmd_line_flags], clfAllowInvalidFSI
@@ -2379,17 +2444,21 @@ check_fsi_provided:
 	call disp_fsi
 
 	testopt [internalflags], detectedfsineeded
-	jz .done
+	jz .done_check_sg
 	testopt [cmd_line_flags], clfDontWriteSector
-	jnz .done
+	jnz .done_check_sg
 
 	mov di, fsi_provided
 	mov si, fsi_needed
 	mov cx, 4
 	repe cmpsw
-	je .done
+	je .done_check_sg
 
 	mov dx, msg.fsi_mismatch.1
+	call .disp_error
+	jmp .handle_needed
+
+.disp_error:
 	mov ax, msg.fsi_mismatch.2.big
 	cmp word [bp + ldBytesPerSector], 1024
 	jae @F
@@ -2405,10 +2474,26 @@ check_fsi_provided:
 
 	call disp_msg_asciz
 	xchg dx, ax
-	call disp_msg_asciz
+	jmp disp_msg_asciz
 
+.handle_needed:
 	testopt [cmd_line_flags], clfAllowInvalidFSI
-	jz exit_error
+	jz .exit_error
+
+.done_check_sg:
+	testopt [cmd_line_flags], clfCheckFSI
+	jz .done
+
+	mov di, fsi_provided
+	mov si, fsi_check
+	mov cx, 4
+	repe cmpsw
+	je .done
+
+	mov dx, msg.fsi_mismatch.3
+	call .disp_error
+.exit_error:
+	jmp exit_error
 
 .done:
 
@@ -4268,6 +4353,23 @@ uppercase:
 	retn
 
 
+get_hexit:
+	push cx
+	mov cx, '9' | (('A'-10-1 + 16) << 8)
+	call getexpression.lit_isdigit?	; first character must be a digit
+	pop cx
+	jc .ret
+	call uppercase
+	sub al, '0'
+	cmp al, 9		; was decimal digit ?
+	jbe .lit_decimaldigit	; yes -->
+	sub al, 'A'-('9'+1)	; else adjust for hexadecimal digit
+.lit_decimaldigit:
+	clc
+.ret:
+	retn
+
+
 		; INP:	al = first character
 		;	si -> next
 		; OUT:	doesn't return if error
@@ -5370,6 +5472,7 @@ load_kernel_name: equ $
 .fsi_found.1:		asciz "Need FSIBOOT: "
 .fsi_provided.1:	asciz "Have FSIBOOT: "
 .fsi_mismatch.1:	asciz "Needed FSIBOOT doesn't match "
+.fsi_mismatch.3:	asciz "Check FSIBOOT doesn't match "
 .fsi_mismatch.2.big:	asciz "what is found in the big sector.",13,10
 .fsi_mismatch.2.none:	asciz "as there is no FSINFO sector.",13,10
 .fsi_mismatch.2.found:	asciz "what is found in FSINFO sector.",13,10
@@ -5891,6 +5994,7 @@ clfZeroInfo:			equ 40_0000h
 clfSetOEMName:			equ 100_0000h
 clfPreserveOEMName:		equ 200_0000h
 clfAllowInvalidFSI:		equ 400_0000h
+clfCheckFSI:			equ 800_0000h
 
 	align 4, db 0
 cmd_line_readsector12_file:
@@ -5918,6 +6022,8 @@ cmd_line_file_handle_ofs:	equ 2
 fsi_needed:	times 9 db 0
 	align 2, db 0
 fsi_provided:	times 9 db 0
+	align 2, db 0
+fsi_check:	times 9 db 0
 
 	dw 0		; insure there's an unused word in front of this (1)
 	align 16, db 0
