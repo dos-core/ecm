@@ -899,6 +899,7 @@ disp_error: equ $
 	push di
 	rep stosw
 	pop di
+	mov ah, 0
 @@:
 	lodsb
 	cmp al, 32
@@ -909,18 +910,35 @@ disp_error: equ $
 	je @B
 	cmp al, ':'
 	je @B
+	cmp al, '"'
+	jne .sg_no_quote
+	mov ah, al
+	lodsb
+.sg_no_quote:
 
 	xor bx, bx
 .sg_loop:
 	cmp al, 32
-	jbe .sg_done_dec
+	jae .sg_not_eol
+	test ah, ah
+	jz .sg_done_dec
+.switch_not_supported_j1:
+	jmp .switch_not_supported
+
+.sg_not_eol:
+	jne .sg_not_quoted_blank
+	test ah, ah
+	jz .sg_done_dec
+.sg_not_quoted_blank:
+	cmp al, ah
+	je .sg_done
 	cmp bl, 8
-	jae .switch_not_supported
+	jae .switch_not_supported_j1
 	cmp al, '\'
 	jne .sg_next
 	lodsb
 	cmp al, 13
-	je .switch_not_supported
+	je .switch_not_supported_j1
 	cmp al, 'x'
 	je .sg_escape_x
 	cmp al, 'X'
@@ -929,7 +947,7 @@ disp_error: equ $
 	lodsb
 	xor cx, cx
 	call get_hexit
-	jc .switch_not_supported
+	jc .switch_not_supported_j1
 	mov cl, al
 	lodsb
 	call get_hexit
@@ -942,12 +960,15 @@ disp_error: equ $
 	db __TEST_IMM8			; skip dec si
 .sg_store_cl:
 	dec si
-	xchg ax, cx
+	mov al, cl
 .sg_next:
 	stosb
 	inc bx
 	lodsb
 	jmp .sg_loop
+
+.sg_done:
+	jmp .loop
 
 .sg_done_dec:
 	jmp .loop_got_byte
