@@ -478,9 +478,15 @@ ADR_FREE	equ	_AFTER			; 08000h
 
 	struc FSIBOOTG	; FSIBOOT general layout
 .signature:	resq 1		; 8 bytes that identify the FSIBOOT type
-.fsicode:	resb 470	; 470 bytes FSIBOOT type specific data or code
+.fsicode:	resb 466	; 466 bytes FSIBOOT type specific data or code
+.reserved:	resw 1		; 1 word -> reserved entrypoint (retn)
+.memorysize:	resw 1		; 1 word -> memory size entrypoint (or retn)
 .dirsearch:	resw 1		; 1 word -> directory search entrypoint
 	endstruc
+
+%if FSIBOOTG_size != 480
+ %error Unexpected layout
+%endif
 
 	struc DIRENTRY
 deName:		resb 8
