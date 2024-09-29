@@ -1606,19 +1606,22 @@ fsiboot:
 found_load_file:
 	call near word [VAR(fsiboot_table.writedirentry)]
 
+	push es
+	pop ds				; ds:bx -> directory entry
 ; get starting cluster of file
-		push word [es:bx + deClusterHigh]
-		push word [es:bx + deClusterLow]
+		push word [bx + deClusterHigh]
+		push word [bx + deClusterLow]
 
 					; check FAT+ size bits
-		test byte [es:bx + dePlusSize], 0E7h
+		test byte [bx + dePlusSize], 0E7h
 					; test whether bits 7-5 and 2-0 NZ
 ; https://web.archive.org/web/20150219123449/http://www.fdos.org/kernel/fatplus.txt
-		jnz .large_file		; yes, clamp to maximum paras -->
 
-		mov dx, [es:bx + deSize + 2]
-		mov bx, [es:bx + deSize]
-					; dx:bx = file size (non-FAT+)
+		mov dx, [bx + deSize + 2]
+		mov bx, [bx + deSize]	; dx:bx = file size (non-FAT+)
+	push ss
+	pop ds				; (reset ds)
+		jnz .large_file		; FAT+ NZ, clamp to maximum paras -->
 
 		push bx			; stack & 15 = nonzero if to round up
 		mov cx, 4
