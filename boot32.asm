@@ -1610,32 +1610,39 @@ found_load_file:
 		push word [es:bx + deClusterHigh]
 		push word [es:bx + deClusterLow]
 
+		mov dx, [es:bx + deSize + 2]
+		mov ax, [es:bx + deSize]
+					; dx:ax = file size (non-FAT+)
+
+		push ax			; stack & 15 = nonzero if to round up
+		mov cx, 4
+@@:
+		shr dx, 1
+		rcr ax, 1
+		loop @B			; convert to paragraphs, rounding down
+			; dx:ax = size in paragraphs, rounded down, if not FAT+
+			; ax = size in paragraphs, rounded down, if < 1_0000h
+			; cx = 0
+
 					; check FAT+ size bits
 		test byte [es:bx + dePlusSize], 0E7h
 					; test whether bits 7-5 and 2-0 NZ
 ; https://web.archive.org/web/20150219123449/http://www.fdos.org/kernel/fatplus.txt
 		jnz .large_file		; yes, clamp to maximum paras -->
-		mov ax, [es:bx + deSize + 2]
-		mov bx, [es:bx + deSize]
-					; ax:bx = file size (non-FAT+)
 
-		mov dx, bx		; dx & 15 = nonzero if to round up
-		mov cx, 4
-@@:
-		shr ax, 1
-		rcr bx, 1
-		loop @B			; convert to paragraphs, rounding down
-			; ax:bx = size in paragraphs
-			; bx = size in paragraphs if < 1_0000h
-		test ax, ax		; > 0FFFFh paras ?
+		test dx, dx		; > 0FFFFh paras ?
 		jz @F			; no, take actual size -->
 .large_file:
-		mov bx, 0FFFFh		; bx = clamp size to 0FFFFh paras
-		xor dx, dx		; do not round up
+		pop bx			; discard low word of size on stack
+		push cx			; stack = 0, do not round up
+		xchg ax, cx		; ax = 0
+		dec ax			; ax = clamp size to 0FFFFh paras
 @@:
+		xchg bx, ax		; bx = size in paragraphs, rounded down
 		call check_enough.in_bx	; (CHG ax)
 
-		test dl, 15		; NZ if to round up
+		pop ax			; ax & 15 = nonzero if to round up
+		test al, 15		; NZ if to round up
 		jz @F			; ZR, do not round up -->
 		inc bx			; round up for last partial paragraph
 @@:
