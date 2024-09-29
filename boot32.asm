@@ -1704,7 +1704,7 @@ next_load_cluster:
 		test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 				;  clear in 0, 1, and 0FFF_FFF7h
 		jz fsiboot_error_badchain
-		db __TEST_IMM16
+		db __TEST_IMM16	; skip pop bx and pop cx
 @@:
 		pop bx
 		pop cx
@@ -1763,7 +1763,7 @@ next_ent:
 	jnc next_root_clust
 file_not_found:
 	mov al, 'F'
-	db __TEST_IMM16
+	db __TEST_IMM16		; skip mov al
 fsiboot_error_badchain:
 	mov al, 'B'
 
