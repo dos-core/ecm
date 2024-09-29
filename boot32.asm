@@ -1610,42 +1610,47 @@ found_load_file:
 		push word [es:bx + deClusterHigh]
 		push word [es:bx + deClusterLow]
 
-		mov dx, [es:bx + deSize + 2]
-		mov ax, [es:bx + deSize]
-					; dx:ax = file size (non-FAT+)
-
-		push ax			; stack & 15 = nonzero if to round up
-		mov cx, 4
-@@:
-		shr dx, 1
-		rcr ax, 1
-		loop @B			; convert to paragraphs, rounding down
-			; dx:ax = size in paragraphs, rounded down, if not FAT+
-			; ax = size in paragraphs, rounded down, if < 1_0000h
-			; cx = 0
-
 					; check FAT+ size bits
 		test byte [es:bx + dePlusSize], 0E7h
 					; test whether bits 7-5 and 2-0 NZ
 ; https://web.archive.org/web/20150219123449/http://www.fdos.org/kernel/fatplus.txt
 		jnz .large_file		; yes, clamp to maximum paras -->
 
-		test dx, dx		; > 0FFFFh paras ?
-		jz @F			; no, take actual size -->
-.large_file:
-		pop bx			; discard low word of size on stack
-		push cx			; stack = 0, do not round up
-		xchg ax, cx		; ax = 0
-		dec ax			; ax = clamp size to 0FFFFh paras
+		mov dx, [es:bx + deSize + 2]
+		mov bx, [es:bx + deSize]
+					; dx:bx = file size (non-FAT+)
+
+		push bx			; stack & 15 = nonzero if to round up
+		mov cx, 4
 @@:
-		xchg bx, ax		; bx = size in paragraphs, rounded down
+		shr dx, 1
+		rcr bx, 1
+		loop @B			; convert to paragraphs, rounding down
+		pop cx
+			; dx:bx = size in paragraphs, rounded down, if not FAT+
+			; bx = size in paragraphs, rounded down, if < 1_0000h
+			; cx & 15 = nonzero if to round up
+
+		test dx, dx		; > 0FFFFh paras ?
+		jnz .large_file		; yes, large file -->
+					; no, take actual size
+					; bx = size in paragraphs, rounded down
 		call check_enough.in_bx	; (CHG ax)
 
-		pop ax			; ax & 15 = nonzero if to round up
-		test al, 15		; NZ if to round up
+					; cx & 15 = nonzero if to round up
+		test cl, 15		; NZ if to round up
 		jz @F			; ZR, do not round up -->
 		inc bx			; round up for last partial paragraph
+		jnz @F			; ! natch. do saturating increment
+					;  ZR here means we had 0FFFFh.
+					;  reset the register to same value.
+.large_file:
+; if we *branch* here then file is >= 10_0000h bytes so >= 1_0000h paragraphs.
+;  that means we do not need to call check_enough because its jb could not
+;  possibly branch to the error handler (0FFFFh is never below anything).
+		mov bx, 0FFFFh		; set bx for large file case
 @@:
+
 		pop ax
 		pop dx			; dx:ax = first cluster
 
