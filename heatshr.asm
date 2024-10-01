@@ -13,6 +13,24 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+%if _TESTFILE
+.verbose.1:	db @F - ($ + 1)
+		db "Detected format -w "
+.verbose.1.w:
+		db "----h -l "
+.verbose.1.l:
+		db "----h.",13,10
+@@:
+.verbose.2:	db @F - ($ + 1)
+		db "Match at minus "
+.verbose.2.index:
+		db "----h length "
+.verbose.2.length:
+		db "----h.",13,10
+@@:
+%endif
+
+
 	numdef TESTFILE,	0
 	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
@@ -175,6 +193,35 @@ d0	mov byte [bp + ?errordata], 73h
 	lvar word,	low_bit_index_and_high_current_byte
 	 push cx
 
+%if _TESTFILE
+	rol byte [ss:verbose], 1
+	jnc @F
+	push es
+	push ds
+	push ax
+	push dx
+	push di
+
+	push ss
+	pop es
+	mov di, msg.verbose.1.l
+	call store_hex_word
+	mov ax, [bp + ?window_size_bits]
+	mov di, msg.verbose.1.w
+	call store_hex_word
+	push ss
+	pop ds
+	mov dx, msg.verbose.1
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop ax
+	pop ds
+	pop es
+@@:
+%endif
+
 .loop:
 %if _COUNTER
 	inc byte [bp + ?counter]
@@ -265,6 +312,36 @@ d0	mov byte [bp + ?errordata], 78h
 	neg cx				; -1 .. -65535
 	mov bx, -1			; sign-extend (always negative sense)
 
+
+%if _TESTFILE
+	rol byte [ss:verbose], 1
+	jnc @F
+	push es
+	push ds
+	push ax
+	push dx
+	push di
+
+	push ss
+	pop es
+	mov di, msg.verbose.2.length
+	call store_hex_word
+	mov ax, cx
+	neg ax
+	mov di, msg.verbose.2.index
+	call store_hex_word
+	push ss
+	pop ds
+	mov dx, msg.verbose.2
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop ax
+	pop ds
+	pop es
+@@:
+%endif
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
 	call normalise_pointer_with_displacement_bxcx
