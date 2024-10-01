@@ -13,6 +13,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+	numdef TESTFILE,	0
 	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -209,6 +210,10 @@ d0	mov byte [bp + ?errordata], 7Dh
 	sahf
 %endif
 d0	mov bx, word [bp + ?errordata]
+%if _TESTFILE
+	les di, [bp + ?dst]
+ %assign _TESTFILE_SUPPORTED 1
+%endif
 	lleave code
 	lret
 
