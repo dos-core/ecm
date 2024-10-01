@@ -37,6 +37,13 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 .verbose.2.length:
 		db "----h.",13,10
 @@:
+.verbose.3:	db @F - ($ + 1)
+		db "Copying zeros of length "
+.verbose.3.high:
+		db "----_"
+.verbose.3.low:
+		db "----h.",13,10
+@@:
 %endif
 
 
@@ -508,6 +515,34 @@ d0	mov byte [bp + ?errordata], 83h
 		;	 contents between the frame and the stack top.
 		; CHG:	cx, bx, dx, ax, es, di, ds, si
 store_zeros:
+%if _TESTFILE
+	rol byte [ss:verbose], 1
+	jnc @F
+	push es
+	push ds
+	push ax
+	push dx
+	push di
+
+	push ss
+	pop es
+	mov di, msg.verbose.3.low
+	call store_hex_word
+	mov ax, dx
+	mov di, msg.verbose.3.high
+	call store_hex_word
+	push ss
+	pop ds
+	mov dx, msg.verbose.3
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop ax
+	pop ds
+	pop es
+@@:
+%endif
 	mov bx, copy_data.stosb_zeros
 	jmp @F
 
