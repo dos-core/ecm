@@ -13,6 +13,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+	numdef TESTFILE,	0
+
 %if _TESTFILE
 .verbose.1:	db @F - ($ + 1)
 		db "Detected format -w "
@@ -47,7 +49,6 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
-	numdef TESTFILE,	0
 	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
