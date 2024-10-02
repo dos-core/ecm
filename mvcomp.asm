@@ -14,7 +14,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 	numdef TESTFILE,	0
-	numdef COUNTER,		0, 256
+	numdef COUNTER,		0, 128
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
 %endif
