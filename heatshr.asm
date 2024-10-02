@@ -516,7 +516,10 @@ d0	mov byte [bp + ?errordata], 83h
 		; CHG:	cx, bx, dx, ax, es, di, ds, si
 store_zeros:
 %if _TESTFILE
+	rol byte [ss:exceptional], 1
+	jc @F
 	rol byte [ss:verbose], 1
+@@:
 	jnc @F
 	push es
 	push ds

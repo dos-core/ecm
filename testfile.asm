@@ -128,6 +128,12 @@ cmdloop:
 	jmp cmdloop
 
 @@:
+	cmp al, 'E'
+	jne @F
+	mov byte [exceptional], 0FFh
+	jmp cmdloop
+
+@@:
 .invalidswitch:
 	mov byte [msg.invalidswitch.letter], al
 	mov dx, msg.invalidswitch
@@ -991,6 +997,7 @@ outfile:	dw 0
 nomorefile:
 switch:		db '-'
 verbose:	db 0
+exceptional:	db 0
 
 
 	absolute $
