@@ -53,8 +53,10 @@ source files for the applicable usage conditions.
 	numdef APL,		0
 	numdef BZP,		0
 	numdef ZEROCOMP,	0
+	numdef MVCOMP,		0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
-	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP) != 1
+	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
+	+ !!_MVCOMP) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -770,6 +772,11 @@ msg:
 
 %if _ZEROCOMP
 	%include "zerocomp.asm"
+%endif
+
+
+%if _MVCOMP
+	%include "mvcomp.asm"
 %endif
 
 
