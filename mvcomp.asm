@@ -166,7 +166,6 @@ d0	mov byte [bp + ?errordata], 7Eh
 	 pop ds
 	mov si, sp
 	mov ax, 1
-	cwd
 	call copy_data
 	pop ax
 d0	mov byte [bp + ?errordata], 75h
@@ -175,10 +174,9 @@ d0	mov byte [bp + ?errordata], 75h
 	xchg al, ah
 	mov ah, 0			; ax = number of words
 	add ax, ax			; ax = number of bytes
-	cwd				; dx:ax = number of bytes
 	lds si, [bp + ?src]
 	sub word [bp + ?src_remaining], ax
-	sbb word [bp + ?src_remaining + 2], dx
+	sbb word [bp + ?src_remaining + 2], 0
 					; enough space left ?
 d0	mov byte [bp + ?errordata], 26h
 	jb .error			; no -->
@@ -195,7 +193,7 @@ d0	mov byte [bp + ?errordata], 26h
 	pop cx
 	and cx, 0FFFh			; get OOOO OOOO OOOO
 	inc ax				; LLLL + 1
-	cwd				; dx:ax = length
+					; ax = length
 	inc cx				; OOOO OOOO OOOO +1
 	neg cx				; -2 .. -4096
 	mov bx, -1			; sign-extend (always negative sense)
@@ -251,7 +249,7 @@ d0	mov bx, word [bp + ?errordata]
 
 		; INP:	?dst -> destination (normalised)
 		;	ds:si -> source (normalised)
-		;	dx:ax = how long the data is (0 is valid)
+		;	ax = how long the data is (0 is valid), < 256
 		; OUT:	?dst incremented (normalised)
 		;	ds:si incremented (normalised)
 		;	?dst_remaining shortened
@@ -267,39 +265,18 @@ d0	mov bx, word [bp + ?errordata]
 copy_data:
 d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?dst_remaining], ax
-	sbb word [bp + ?dst_remaining + 2], dx
+	sbb word [bp + ?dst_remaining + 2], 0
 					; enough space left ?
 	jb .error			; no -->
 
+	xchg cx, ax
 	les di, [bp + ?dst]
-.loop:
-	mov cx, 64 * 1024 - 16		; block size
 		; If both pointers are normalised, moving 0FFF0h bytes is
 		;  valid and results in a maximum offset of 0FFFFh in either.
-
-	test dx, dx			; >= 1_0000h ?
-	jnz @F				; yes, full block -->
-	test ax, ax			; == 0 ?
-	jz .end				; yes, done -->
-	cmp ax, cx			; can move in one (last) block ?
-	jbe .last			; yes -->
-@@:
-					; no, move one block and continue
-	sub ax, cx
-	sbb dx, 0			; left over remaining
-	jmp .copy
-
-.last:
-	xchg cx, ax			; cx = remaining length
-	xor ax, ax			; no more remaining
-
-.copy:
 	rep movsb
 
 	call normalise_both_pointers
-	jmp .loop
 
-.end:
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es
 %if _PAYLOAD_KERNEL_MAX_PARAS
