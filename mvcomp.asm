@@ -148,8 +148,16 @@ d0	mov byte [bp + ?errordata], 7Eh
 	call disp_al_counter
 @@:
 %endif
-	call get_word
-	jc .end_check
+	sub word [bp + ?src_remaining], 2
+	sbb word [bp + ?src_remaining + 2], 0
+	jb .end
+
+	lds si, [bp + ?src]
+	lodsw
+	call normalise_dssi_pointer
+	mov word [bp + ?src], si
+	mov word [bp + ?src + 2], ds
+
 	test ax, 0F000h
 	jnz .match
 
@@ -302,36 +310,5 @@ d0	inc byte [bp + ?errordata + 1]
 
 	db __TEST_IMM8			; (NC)
 .error:
-	stc
-	retn
-
-
-		; INP:	?src -> source data (normalised)
-		;	?src_remaining
-		; OUT:	NC if success,
-		;	 ax = value read
-		;	 ds:si = ?src = incremented source (normalised)
-		;	 ?src_remaining decremented
-		;	CY if error (source buffer too small),
-		;	 ?src_remaining = 0
-		; CHG:	ds, si
-get_word:
-	sub word [bp + ?src_remaining], 2
-	sbb word [bp + ?src_remaining + 2], 0
-	jb .empty
-
-	lds si, [bp + ?src]
-
-	lodsw
-
-	call normalise_dssi_pointer
-	mov word [bp + ?src], si
-	mov word [bp + ?src + 2], ds
-	clc
-	retn
-
-.empty:
-	and word [bp + ?src_remaining], 0
-	and word [bp + ?src_remaining + 2], 0
 	stc
 	retn
