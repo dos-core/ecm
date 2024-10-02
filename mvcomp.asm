@@ -218,13 +218,6 @@ d0	mov byte [bp + ?errordata], 7Ch
 	jmp .loop
 
 
-.end_check:
-	xor cx, cx
-	cmp word [bp + ?src_remaining + 2], cx
-	jne .error
-	cmp word [bp + ?src_remaining], cx
-	jne .error
-
 .end:
 	db __TEST_IMM8			; (NC)
 .error:
