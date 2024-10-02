@@ -2,7 +2,7 @@
 %if 0
 
 8086 Assembly lDOS iniload payload heatshrink depacker
- by E. C. Masloch, 2020
+ by E. C. Masloch, 2020--2024
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
@@ -49,6 +49,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+	numdef Z,		0
 	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -414,6 +415,7 @@ d0	mov byte [bp + ?errordata], 78h
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; ds:si -> source of matching
+%ifn _Z
 	jnc .copy_zeros
 
 	push ax
@@ -425,6 +427,7 @@ d0	mov byte [bp + ?errordata], 78h
 	cmp word [bp + ?original_dst], si
 	ja .copy_zeros			; no, ?original_dst is above it -->
 @@:
+%endif
 
 .copy_data:
 	call copy_data			; give ?dst -> dest, ds:si -> source
@@ -441,6 +444,7 @@ d0	mov byte [bp + ?errordata], 7Ch
 	jmp .loop
 
 
+%ifn _Z
 		; INP:	bx:cx = negative displacement from ?dst
 		;	dx:ax = length of match
 		;	?dst
@@ -498,6 +502,7 @@ d0	mov byte [bp + ?errordata], 83h
 
 	lds si, [bp + ?original_dst]	; -> ?original_dst
 	jmp .copy_data			; back to common handling -->
+%endif
 
 
 		; INP:	?dst -> destination (normalised)
@@ -515,6 +520,7 @@ d0	mov byte [bp + ?errordata], 83h
 		;	 the function, therefore discarding any of the stack
 		;	 contents between the frame and the stack top.
 		; CHG:	cx, bx, dx, ax, es, di, ds, si
+%ifn _Z
 store_zeros:
 %if _TESTFILE
 	rol byte [ss:exceptional], 1
@@ -549,10 +555,13 @@ store_zeros:
 %endif
 	mov bx, copy_data.stosb_zeros
 	jmp @F
+%endif
 
 copy_data:
+%ifn _Z
 	mov bx, .movsb
 @@:
+%endif
 d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?dst_remaining], ax
 	sbb word [bp + ?dst_remaining + 2], dx
@@ -582,7 +591,11 @@ d0	inc byte [bp + ?errordata + 1]
 	xor ax, ax			; no more remaining
 
 .copy:
+%ifn _Z
 	call bx				; move one block (full or partial)
+%else
+	rep movsb
+%endif
 
 	call normalise_both_pointers
 	jmp .loop
@@ -601,6 +614,7 @@ d0	inc byte [bp + ?errordata + 1]
 	stc
 	retn
 
+%ifn _Z
 .movsb:
 	rep movsb
 	retn
@@ -611,6 +625,7 @@ d0	inc byte [bp + ?errordata + 1]
 	rep stosb
 	pop ax
 	retn
+%endif
 
 
 		; INP:	cx = 0..15
