@@ -27,7 +27,7 @@ Public domain by E. C. Masloch, 2012--2024
 	numdef VOLUMEID,	0
 	strdef FSIBOOTNAME,	"FSIBOOT4"
 	; used to set experimental name
-	strdef FSIBOOTNAME,	"FSIBEX04"
+	strdef FSIBOOTNAME,	"FSIBEX05"
 
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
@@ -676,11 +676,10 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 			; => directory sector buffer (one sector)
 %endif
 .writedirentry:	dw writedirentry.loaddir
-			; INP:	es:bx -> found dir entry in dir sector buffer
+			; INP:	ds:bx == es:bx -> found dir entry in dir sector buffer
 			;	si:di = loaded sector-in-FAT
 			; CHG:	ax, cx, dx
 			; STT:	ss:bp -> boot sector
-			;	ds = ss
 			;	UP
 			; OUT:	directory entry copied if so desired
 			;	(is a no-op if not to copy dir entry)
@@ -939,11 +938,10 @@ load_fsiboot:
 
 
 finish_start:
-		; INP:	es:bx -> found dir entry in dir sector buffer
+		; INP:	ds:bx == es:bx -> found dir entry in dir sector buffer
 		;	si:di = loaded sector-in-FAT
 		; CHG:	ax, cx, dx
 		; STT:	ss:bp -> boot sector
-		;	ds = ss
 		;	UP
 		; OUT:	directory entry copied if so desired
 		;	(is a no-op if not to copy dir entry)
@@ -971,17 +969,22 @@ writedirentry:
 	loop @B		; dx:ax = how many bytes loadable
    %if _LOAD_CHECK_MAX_SIZE_FATPLUS
 			; check FAT+ size bits
-	test byte [es:bx + dePlusSize], 0E7h
+	test byte [bx + dePlusSize], 0E7h
 			; test whether bits 7-5 and 2-0 NZ
 	jnz @F		; --> (NZ, NC)
    %endif
-	cmp word [es:bx + deSize + 2], dx
+	cmp word [bx + deSize + 2], dx
 	jne @F
-	cmp word [es:bx + deSize], ax
+	cmp word [bx + deSize], ax
 @@:
 	mov al, 'M'	; error condition letter if too large
-	ja error	; jump if ! (ZR || CY)
+	jna @F		; (jbe) jump if ZR || CY
+	push ss
+	pop ds		; error expects ds == ss
+	jmp error
+	; ja error	; jump if ! (ZR || CY)
 			;  ie jump if NZ && NC
+@@:
 %endif
 %if _LOAD_DIR_SEG
 	mov ax, _LOAD_DIR_SEG
@@ -991,11 +994,8 @@ writedirentry:
 %if _LOAD_DIR_SEG || (_ADD_DIR_SEG && _ADD_SEARCH)
 		; INP:	ax => where to store directory entry
 .ax:
-	push ds
 	push si
 	push di
-	 push es
-	 pop ds
 	mov si, bx	; ds:si -> directory entry
 	mov cx, DIRENTRY_size >> 1
 	mov es, ax
@@ -1005,7 +1005,6 @@ writedirentry:
 	 pop es		; es:bx -> dir entry in dir sector buffer
 	pop di
 	pop si
-	pop ds
 	retn
 %endif
 
@@ -1020,10 +1019,13 @@ load_finish:
 %if _ADD_SEARCH
 		mov word [VAR(fsiboot_table.filename)], add_name
 		call near word [dirsearch_entrypoint]
+			; es = ds => dirbuf
  %if _ADD_DIR_SEG
 		mov ax, _ADD_DIR_SEG
 		call writedirentry.ax
  %endif
+		push ss
+		pop ds
 %endif
 
 %if _TURN_OFF_FLOPPY
@@ -1606,14 +1608,11 @@ fsiboot:
 	mov si, di
 	mov word [VAR(fat_sector + 2)], si
 	mov word [VAR(fat_sector + 0)], di
-	call dirsearch
-
+	call dirsearch			; sets up ds == es, es:bx -> dir entry
 
 found_load_file:
 	call near word [VAR(fsiboot_table.writedirentry)]
 
-	push es
-	pop ds				; ds:bx -> directory entry
 ; get starting cluster of file
 		push word [bx + deClusterHigh]
 		push word [bx + deClusterLow]
@@ -1824,6 +1823,8 @@ found_it:
 		pop cx
 		pop cx			; (discard current cluster number)
 			; es:bx -> dir entry
+	push es
+	pop ds				; ds:bx -> directory entry
 	retn
 
 
@@ -1951,11 +1952,14 @@ memorysize_entrypoint:
 	dw fsiboot_memorysize
 
 		; INP:	si:di = loaded sector-in-FAT
-		;	word [fsiboot_table.filename] -> 8.3 filename
+		;	ds = ss
+		;	ds:word [fsiboot_table.filename] -> 8.3 filename
 		; CHG:	ax, cx, dx
 		; OUT:	si:di updated, if so
-		;	es:bx -> found directory entry
-		;	jumps to error handler if an error occurs
+		;	ds == es
+		;	ds:bx == es:bx -> found directory entry
+		;	jumps to error handler if an error occurs,
+		;	 ds = ss
 		; STT:	stack variables as set up by main FSIBOOT entry
 dirsearch_entrypoint:
 	dw dirsearch
