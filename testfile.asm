@@ -136,6 +136,12 @@ cmdloop:
 	jmp cmdloop
 
 @@:
+	cmp al, 'B'
+	jne @F
+	mov byte [..@breakpoint], 0CCh
+	jmp cmdloop
+
+@@:
 .invalidswitch:
 	mov byte [msg.invalidswitch.letter], al
 	mov dx, msg.invalidswitch
@@ -430,6 +436,9 @@ run:
 		; CHG:	ax, (bx), cx, dx, (es), ds, si, (di)
 		; STT:	UP
 		; Note:	The destination reaches up to below the source.
+..@breakpoint:
+	nop
+
 	call depack
 	jc error
 %if _IMAGE_EXE || _DEVICE
