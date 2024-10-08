@@ -14,6 +14,26 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 	numdef TESTFILE,	0
+
+%if _TESTFILE
+.verbose.2:	db @F - ($ + 1)
+		db "dest="
+.verbose.2.desthigh:
+		db "----_"
+.verbose.2.destlow:
+		db "----h src="
+.verbose.2.srchigh:
+		db "----_"
+.verbose.2.srclow:
+		db "----h "
+		db "Match at minus "
+.verbose.2.index:
+		db "----h length "
+.verbose.2.length:
+		db "----h.",13,10
+@@:
+%endif
+
 	numdef COUNTER,		0, 128
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -66,6 +86,14 @@ depack:
 
 	call normalise_both_pointers
 
+%if _TESTFILE
+	lvar dword,	original_src
+	 push ds
+	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
@@ -197,6 +225,81 @@ d0	mov byte [bp + ?errordata], 26h
 	inc cx				; OOOO OOOO OOOO +1
 	neg cx				; -2 .. -4096
 	mov bx, -1			; sign-extend (always negative sense)
+
+%if _TESTFILE
+	rol byte [ss:verbose], 1
+	jnc @F
+	push es
+	push ds
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+
+	push ss
+	pop es
+	mov di, msg.verbose.2.length
+	call store_hex_word
+	mov ax, cx
+	neg ax
+	mov di, msg.verbose.2.index
+	call store_hex_word
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.verbose.2.destlow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.verbose.2.desthigh
+	call store_hex_word
+
+	 push word [bp + ?original_src + 2]
+	 push word [bp + ?original_src]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 push word [bp + ?src + 2]
+	 push word [bp + ?src]
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.verbose.2.srclow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.verbose.2.srchigh
+	call store_hex_word
+
+	push ss
+	pop ds
+	mov dx, msg.verbose.2
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop ds
+	pop es
+@@:
+%endif
 
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
