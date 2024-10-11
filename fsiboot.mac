@@ -64,6 +64,11 @@ fsi_revision "FSIBEX04", "lDOS FSIBOOT experimental rev 04 (2024-08-19)"
 fsi_revision "FSIBEX05", "lDOS FSIBOOT experimental rev 05 (2024-10-04)"
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/aae8332780e8
 
+fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5 (2024-10-11)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/dec4786efc0a
+; Used for lDebug release 9:
+; lDebug release 9, (future)
+
 %if 0
 
 hg grep FSIBOOTNAME --all |
