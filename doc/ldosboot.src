@@ -30,7 +30,7 @@
 
 \title lDOS boot documentation
 
-\copyright 2020 by E. C. Masloch.
+\copyright 2020--2024 by E. C. Masloch.
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
 that uses the works is notified of this instrument.
@@ -373,7 +373,7 @@ The stack starting at \cw{ss:0} up to below \cw{ss:bp + 21Ch}
 should be in the area between the paragraphs indicated by
 the load top lower limit and memory top upper limit.
 (Refer to LOADDATA fields ldLoadTop and ldMemoryTop.)
-Subsequent stages like inicomp, fdkernpl, nullpl, and
+Subsequent stages like inicomp, fdkernpl, drkernpl, checkpl, nullpl, and
 kernels like lDebug and testpl may depend on these characteristics.
 
 
