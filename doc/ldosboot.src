@@ -751,6 +751,72 @@ and runs the former.
 This chapter documents other load protocols.
 
 
+\H{protocol-rombios-sector} ROM-BIOS to sector load protocol
+
+This protocol consists of:
+
+\b Linear address 07C00h holds the loaded sector
+
+\b Sector is entered at 0:7C00h (commonly) or 7C0h:0 (rarely)
+
+\b DL = load unit (reportedly may be wrong)
+
+
+\S{protocol-rombios-sector-assumptions} ROM-BIOS load - Assumptions
+
+\b A valid stack that does not overlap the sector is set up
+
+\b Sector size may be assumed to be exactly 512 Bytes, or at least 512 Bytes
+
+\b At least 512 Bytes from the boot device have been read
+
+\b Direction Flag is clear
+
+
+\H{protocol-mbr-sector} MBR loader to sector load protocol
+
+This protocol mostly mimics the ROM-BIOS to sector load protocol.
+However, its assumptions may differ:
+
+\b Stack top is below linear 07C00h
+
+\b DS:SI (less commonly, DS:BP) -> MBR partition table entry
+with effective start address of the partition being loaded
+
+\b MBR loader has relocated itself to linear 00600h
+before loading the next sector loader
+
+\b Currently loaded boot sector corresponds to a primary partition
+in the MBR's partition table
+
+
+\S{protocol-mbr-sector-partinfo} lDOS partition info detection
+
+The pointer in DS:SI is expected by lDOS loaders
+to dynamically detect hidden sectors.
+This detection does some rudimentary checks
+before updating the hidden sectors:
+
+\b DL must be >= 80h,
+
+\b The boot flag \cw{byte [ds:si]} must be >= 80h,
+
+\b The file system type \cw{byte [ds:si + 4]} must not be zero,
+
+Further, the detection can be disabled at build time
+or patched out using instsect's \cw{/P NONE} switch at install time.
+
+
+\S{protocol-mbr-sector-parttype} Microsoft partition type detection
+
+It appears that some Microsoft loaders expect
+the loaded sector and its hardcoded hidden sectors
+to correspond to a primary partition
+in the MBR's partition table.
+This seems to be used to read
+the partition table entry's partition type byte.
+
+
 \H{protocol-sector-freedos} Sector to FreeDOS load protocol
 
 The FreeDOS load protocol consists of:
