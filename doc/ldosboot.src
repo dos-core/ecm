@@ -348,6 +348,12 @@ from a diskette unit, that is a unit number below 80h.
 The high byte (yyh) is used otherwise, in case the loader loads
 from a hard disk unit, that is a unit number above-or-equal 80h.
 
+The \W{https://hg.pushbx.org/ecm/patchini/}{patchini repo}
+contains a C language tool called patchqry which
+allows to read and write the query patch site.
+Unlike the Script for lDebug, patchqry can
+operate on arbitrarily large files.
+
 
 \H{protocol-iniload-payload} Iniload to payload protocol
 
