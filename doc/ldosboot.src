@@ -627,6 +627,59 @@ the depacker.
 This requires MS-DOS version 5 compatibility.
 
 
+\H{protocol-fsiboot} Second stage FAT32 protocol, FSIBOOT
+
+The FSIBOOT protocols are used by the lDOS FAT32 boot sector loader
+to access its second stage.
+For a sector size <= 512 Bytes the FSIBOOT stage is stored
+in the FSINFO sector,
+within the large reserved area starting 4 bytes from the beginning
+of the FSINFO sector.
+(For a sector size >= 1 KiB the FSIBOOT stage is stored
+in the same sector as the first boot sector loader.)
+The first 8 bytes of the FSIBOOT stage form a signature.
+The signature is unique to a given protocol revision,
+and has to match what is expected by the boot sector loader.
+
+The idea is for the first stage to load the FSIBOOT stage early,
+then do some set up of the memory layout.
+Control flow is then directed into the main FSIBOOT entrypoint.
+A table in the first loader contains some links
+to the first stage, such as entrypoints to
+the read sector function,
+the success handler,
+the error handler,
+the memory full handler,
+and a handler to which a found directory entry is passed.
+Additional entries in the table point to the filename to find,
+the directory buffer segment to use,
+the minimum number of paragraphs that should be loaded,
+and the segment to which the kernel file should be read.
+
+The segment pointers for end of available load memory
+and the FAT buffer to use are passed in registers to
+the main FSIBOOT entrypoint.
+Some variables are passed on the stack.
+There are three additional entrypoints into the FSIBOOT stage,
+which are pointed to by the last three words
+of the memory allocated to FSIBOOT.
+Two of these are used yet,
+one for an additional directory search
+and the other for querying the size of the available
+Low Memory Area.
+
+The specifics listed here are applicable to the current
+non-experimental protocol revision as of 2024-10-11, known as FSIBOOT5.
+More details as well as older protocol revisions
+can be found in the corresponding source texts
+of the lDOS FAT32 loader,
+stored \W{in the repo in the boot32.asm file}{https://hg.pushbx.org/ecm/ldosboot/file/eaa4c8663066/boot32.asm}
+and in \W{its history}{https://hg.pushbx.org/ecm/ldosboot/log/tip/boot32.asm}.
+Future revisions of the protocol may land
+\W{in the ldosboot.exp experimental repo}{https://hg.pushbx.org/ecm/ldosboot.exp/}
+before they're picked into the main lDOS boot repo.
+
+
 \C{protocols-drload} DRLoad boot protocols
 
 The drload stage is a replacement for lDOS's iniload initial loader.
