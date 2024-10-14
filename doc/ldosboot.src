@@ -673,10 +673,10 @@ non-experimental protocol revision as of 2024-10-11, known as FSIBOOT5.
 More details as well as older protocol revisions
 can be found in the corresponding source texts
 of the lDOS FAT32 loader,
-stored \W{in the repo in the boot32.asm file}{https://hg.pushbx.org/ecm/ldosboot/file/eaa4c8663066/boot32.asm}
-and in \W{its history}{https://hg.pushbx.org/ecm/ldosboot/log/tip/boot32.asm}.
+stored \W{https://hg.pushbx.org/ecm/ldosboot/file/eaa4c8663066/boot32.asm}{in the repo in the boot32.asm file}
+and in \W{https://hg.pushbx.org/ecm/ldosboot/log/tip/boot32.asm}{its history}.
 Future revisions of the protocol may land
-\W{in the ldosboot.exp experimental repo}{https://hg.pushbx.org/ecm/ldosboot.exp/}
+\W{https://hg.pushbx.org/ecm/ldosboot.exp/}{in the ldosboot.exp experimental repo}
 before they're picked into the main lDOS boot repo.
 
 
