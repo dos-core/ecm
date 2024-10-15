@@ -2,7 +2,7 @@
 %if 0
 
 Loader for finishing file system booting
- by E. C. Masloch, 2017
+ by E. C. Masloch, 2017--2024
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
