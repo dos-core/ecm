@@ -1274,9 +1274,13 @@ ms6_continue1:
 			; (ie both bytes in the range 21h..7Eh)
 			;  Rx = RxDOS kernel
 			;  FD = FreeDOS kernel
+			;  DR = EDR-DOS kernel
+			;  MS = MS-DOS kernel
 			;  TP = TestPL
+			;  TW = Test writer
 			;  (lD)eb = lDebug
 			;  (lD)Db = lDDebug
+			;  (lD)bC = lCDebug
 %if ($ - $$) != 1024
  %error Invalid signature
 %endif
