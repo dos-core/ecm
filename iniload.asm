@@ -1322,6 +1322,7 @@ ldos_entry:
 	mov ax, cs
 	mov cx, word [bp + lsvLoadSeg]
 	sub cx, ax
+	jb error_notfullyloaded
 	cmp cx, (end -$$+0) >> 4
 	jae @F
 error_notfullyloaded:
