@@ -121,6 +121,10 @@ Currently the following signatures are defined:
 
 \dd lDOS test result writer kernel (testwrit.asm)
 
+\dt \cq{lDXX}
+
+\dd Signature not set (shouldn't be used)
+
 
 \S{protocol-sector-iniload-lsv} Load Stack Variables (LSV)
 

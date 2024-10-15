@@ -1281,6 +1281,7 @@ ms6_continue1:
 			;  (lD)eb = lDebug
 			;  (lD)Db = lDDebug
 			;  (lD)bC = lCDebug
+			;  XX = unset
 %if ($ - $$) != 1024
  %error Invalid signature
 %endif
