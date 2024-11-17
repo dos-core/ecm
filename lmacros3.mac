@@ -2,8 +2,8 @@
 %if 0
 
 Extensions to NASM macro collection
-Public Domain by C. Masloch, 2019
-Intended for 86 Mode programs.
+Public Domain by E. C. Masloch, 2019--2024
+Intended for Real/Virtual 86 Mode programs.
 
 %endif
 
@@ -19,7 +19,7 @@ Intended for 86 Mode programs.
 	; %1 = token: if "~", bit value will be negated after checking
 	; %2 = instruction
 	; %3 = variable, in the form "[address]" without size specification
-	; %4 = bit value(s) to access
+	; %4 = bit value(s) to access, must not be 0
 	; %5 = bool: disable word access warning, defaults to 0
 	; If the value in %4 has bits set in different bytes so that
 	; a single 8- or 16-bit instruction cannot access all the bits,
@@ -87,7 +87,7 @@ Intended for 86 Mode programs.
 	; clropt clears the specified bits (using an "and" instruction with
 	; the negated value) and leaves NC, but a random ZF.
 	; setopt sets the specified bits (using an "or" instruction) and
-	; leaves NC, NZ.
+	; leaves NC, NZ (_opt checks that the specified bits are nonzero).
 	; xoropt toggles the specified bits (using a "xor" instruction) and
 	; leaves NC, but a random ZF.
 %idefine testopt _opt ,test,
