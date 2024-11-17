@@ -2,8 +2,8 @@
 %if 0
 
 NASM macro collection
-Public Domain by C. Masloch, 2008-2012
-Intended for 86 Mode programs.
+Public Domain by E. C. Masloch, 2008--2024
+Intended for Real/Virtual 86 Mode programs.
 
 %endif
 
@@ -237,6 +237,7 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
 
 
 		; Compute required words/dwords/qwords/paragraphs/pages/KiB of known byte size (rounds up if necessary)
+		; NASM requires the parameter to be a scalar to enable shifting
 %idefine bytes(b)	(b)
 %idefine words(b)	((b)+1>>1)
 %idefine dwords(b)	((b)+3>>2)
@@ -247,6 +248,7 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
 %idefine kib(b)		((b)+1023>>10)
 
 		; Compute required bytes of known word/dword/qword/paragraph/page/KiB size
+		; NASM requires the parameter to be a scalar to enable shifting
 %idefine frombytes(b)		(b)
 %idefine fromwords(w)		((w)<<1)
 %idefine fromdwords(d)		((d)<<2)
