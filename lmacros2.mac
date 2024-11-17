@@ -2,8 +2,8 @@
 %if 0
 
 Extensions to NASM macro collection
-Public Domain by C. Masloch, 2011-2012
-Intended for 86 Mode programs.
+Public Domain by E. C. Masloch, 2011--2024
+Intended for Real/Virtual 86 Mode programs.
 
 %endif
 
@@ -994,6 +994,12 @@ __lleave_undefine_labels %$labellist
 
 %unimacro @@ 1+.nolist
 %unimacro @@ 0-1+.nolist
+%unmacro @@ 0.nolist
+%unmacro @@ 1+.nolist
+%unimacro @FI 0.nolist
+%unimacro @BI 0.nolist
+%unimacro @I 0-1.nolist 0
+%unimacro @S 0-1.nolist _@@_check
 
 	; Core macro implementing anonymous local labels that behave
 	;  similarly to (but not exactly the same way as) MS MASM's.
