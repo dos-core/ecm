@@ -923,10 +923,9 @@ finish_continue:
 	cmp ax, 60h + 1
 	jb short error_outofmemory_j1
 
-	mov di, relocate_to
 	push ax
-	push di		; dword on stack: relocate_to
-	jmp finish_relocation
+	call finish_relocation
+			; dword on stack: relocate_to
 
 
 		; ds => first chunk of to be relocated data
