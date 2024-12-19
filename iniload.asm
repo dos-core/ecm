@@ -964,12 +964,14 @@ relocator_size equ relocator.end - relocator
 	retf		; jump to relocator
 
 
+@@:
+	rep movsw	; subsequent but not last relocation
+
 		; ds => first chunk of to be relocated data
 		; es => first chunk of relocated data
 		; bx = 1000h (64 KiB >> 4)
 		; ax = number of paragraphs after first chunk (in next chunk)
 relocate_to:
-@@:
 	mov dx, es
 	add dx, bx
 	mov es, dx	; next segment
@@ -978,21 +980,17 @@ relocate_to:
 	add dx, bx
 	mov ds, dx	; next segment
 
+	xor si, si
+	xor di, di	; init offsets for next segment
+
 	sub ax, bx	; = how much to relocate after this round
 	mov cx, 1000h << 3	; in case another full 64 KiB to relocate
-	jae @F		; another full 64 KiB to relocate -->
+	jae @B		; another full 64 KiB to relocate -->
 	add ax, bx	; restore
 	mov cl, 3
 	shl ax, cl	; convert paragraphs to words
 	xchg cx, ax	; cx = that many words
-	xor ax, ax	; no more to relocate after this round
-
-@@:
-	xor si, si
-	xor di, di
-	rep movsw	; relocate next chunk
-	test ax, ax	; another round needed?
-	jnz @BB		; yes -->
+	rep movsw	; relocate last chunk (possibly zero length)
 
 	push ss
 	pop ds
