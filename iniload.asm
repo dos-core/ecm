@@ -926,41 +926,7 @@ finish_continue:
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
-finish_relocation:
-	push ax		; word on stack => where to relocate to
-	dec ax		; one less to allow relocator
-	mov es, ax
-	xor di, di	; es:di -> where to put relocator
-
-	push es
-	push di		; dword on stack: relocator destination
-
-	mov ds, bx	; ds => unrelocated cs
-	mov si, relocator	; ds:si -> relocator
-relocator_size equ relocator.end - relocator
-%rep (relocator_size + 1) / 2
-	movsw		; place relocator
-%endrep
-%if relocator_size > 16
- %error Relocator is too large
-%endif
-	xor di, di	; word [ss:sp+4]:di -> where to relocate to
-	xor si, si	; ds:si = cs:0
-
-			; cx => after end of loaded data
-	sub cx, bx	; length of currently loaded fragment
-	mov bx, 1000h
-	mov ax, cx
-	cmp ax, bx	; > 64 KiB ?
-	jbe @F
-	mov cx, bx	; first relocate the first 64 KiB
-@@:
-	sub ax, cx	; how much to relocate later
-	shl cx, 1
-	shl cx, 1
-	shl cx, 1	; how much to relocate first,
-			;  << 3 == convert paragraphs to words
-	retf		; jump to relocator
+	jmp finish_relocation
 
 
 		; ds => first chunk of to be relocated data
@@ -1084,6 +1050,43 @@ relocator:
 	rep movsw
 	retf		; jump to relocated relocate_to
 .end:
+
+
+finish_relocation:
+	push ax		; word on stack => where to relocate to
+	dec ax		; one less to allow relocator
+	mov es, ax
+	xor di, di	; es:di -> where to put relocator
+
+	push es
+	push di		; dword on stack: relocator destination
+
+	mov ds, bx	; ds => unrelocated cs
+	mov si, relocator	; ds:si -> relocator
+relocator_size equ relocator.end - relocator
+%rep (relocator_size + 1) / 2
+	movsw		; place relocator
+%endrep
+%if relocator_size > 16
+ %error Relocator is too large
+%endif
+	xor di, di	; word [ss:sp+4]:di -> where to relocate to
+	xor si, si	; ds:si = cs:0
+
+			; cx => after end of loaded data
+	sub cx, bx	; length of currently loaded fragment
+	mov bx, 1000h
+	mov ax, cx
+	cmp ax, bx	; > 64 KiB ?
+	jbe @F
+	mov cx, bx	; first relocate the first 64 KiB
+@@:
+	sub ax, cx	; how much to relocate later
+	shl cx, 1
+	shl cx, 1
+	shl cx, 1	; how much to relocate first,
+			;  << 3 == convert paragraphs to words
+	retf		; jump to relocator
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
