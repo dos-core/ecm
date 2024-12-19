@@ -982,9 +982,8 @@ relocate_to:
 	mov cx, 1000h << 3	; in case another full 64 KiB to relocate
 	jae @F		; another full 64 KiB to relocate -->
 	add ax, bx	; restore
-	shl ax, 1
-	shl ax, 1
-	shl ax, 1	; convert paragraphs to words
+	mov cl, 3
+	shl ax, cl	; convert paragraphs to words
 	xchg cx, ax	; cx = that many words
 	xor ax, ax	; no more to relocate after this round
 
