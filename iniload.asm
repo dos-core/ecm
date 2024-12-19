@@ -1115,12 +1115,12 @@ clust_to_first_sector:
 
 
 		; INP:	dx:ax = cluster (0-based)
-		;	si:di = loaded FAT sector, -1 if none
+		;	(not for FAT12) si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
 		;	NC if next cluster found
 		;	dx:ax = next cluster value (0-based)
-		;	si:di = loaded FAT sector
-		; CHG:	cx, bx
+		;	(not for FAT12) si:di = loaded FAT sector
+		; CHG:	cx, bx, (FAT12: si, di)
 clust_next:
 	add ax, 2
 	adc dx, 0
@@ -1144,10 +1144,10 @@ clust_next:
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
 		mov es, [bp + lsvFATSeg]
-		xchg bx, ax		; bx -> 16-bit word in FAT to load
+		xchg si, ax		; si -> 16-bit word in FAT to load
 
 ; get 16 bits from FAT
-		mov ax, [es:bx]
+		es lodsw		; ax = word [es:si], clobber si
 
 		and cl, 4	; = 4 iff CY after shift, else 0
 		shr ax, cl	; shift down iff odd entry, else unchanged
