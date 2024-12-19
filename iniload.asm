@@ -923,14 +923,12 @@ finish_continue:
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
+finish_relocation:
 	cmp ax, 60h + 1
 	jb short error_outofmemory_j1
 	push ax		; word on stack => where to relocate to
 	dec ax		; one less to allow relocator
 	mov es, ax
-
-
-finish_relocation:
 	xor di, di	; es:di -> where to put relocator
 
 	push es
