@@ -964,14 +964,17 @@ relocator_size equ relocator.end - relocator
 	retf		; jump to relocator
 
 
-@@:
-	rep movsw	; subsequent but not last relocation
-
 		; ds => first chunk of to be relocated data
 		; es => first chunk of relocated data
 		; bx = 1000h (64 KiB >> 4)
 		; ax = number of paragraphs after first chunk (in next chunk)
+		; cx = 0
 relocate_to:
+		; when branched here from relocator: cx = 0,
+		;  makes the following rep movsw a nop
+@@:		; when branched back here from later: cx = 8000h
+	rep movsw	; subsequent but not last relocation
+
 	mov dx, es
 	add dx, bx
 	mov es, dx	; next segment
