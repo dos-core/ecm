@@ -920,12 +920,13 @@ finish_continue:
 	add ax, bx	; ax = cs - paras to move down
 			; want to relocate cs to this
 	jnc short error_outofmemory_j1
+	cmp ax, 60h + 1
+	jb short error_outofmemory_j1
+
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
 finish_relocation:
-	cmp ax, 60h + 1
-	jb short error_outofmemory_j1
 	push ax		; word on stack => where to relocate to
 	dec ax		; one less to allow relocator
 	mov es, ax
