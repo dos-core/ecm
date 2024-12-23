@@ -105,17 +105,10 @@ skip_bpb:
 	jmp 0:common_entrypoint
 
 
-		; INP:	ds:dx -> message
-		; CHG:	ax
-disp_msg_asciz:
-	push si
-	mov si, dx
-	call disp_msg
-	pop si
-	retn
-
 disp_msg.loop:
 	call disp_al
+		; INP:	ds:si -> ASCIZ message
+		; CHG:	ax, si
 disp_msg:
 	lodsb
 	test al, al
@@ -204,12 +197,14 @@ loop_dump:
 	add ax, bx
 	test al, 15
 	jnz @F
-	mov dx, msg.prompt
-	call disp_msg_asciz
+	push si
+	mov si, msg.prompt
+	call disp_msg
 	xor ax, ax
 	int 16h
-	mov dx, msg.prompt_delete
-	call disp_msg_asciz
+	mov si, msg.prompt_delete
+	call disp_msg
+	pop si
 @@:
 	mov ax, si
 	call disp_ax_hex
