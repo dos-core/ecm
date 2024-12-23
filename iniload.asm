@@ -1388,35 +1388,35 @@ init_memory:
 	sub ax, (8192 + 32) >> 4
 			; 32 = leave space for higher buffer MCB + header
 			; +16 from the above calcs for 16-byte trailer
-	mov cx, ax	; use lower buffer as sector buffer
+	mov dx, ax	; use lower buffer as sector buffer
 	jmp short .gotsegs
 
 .gotsectorseg:
 			; ax = use higher buffer as sector buffer
 	sub bx, (8192 + 32) >> 4	; use lower buffer as FAT buffer
 			; 32 = leave space for higher buffer MCB + header
-	mov cx, bx
+	mov dx, bx
 		; ax = sector seg
 		; bx = FAT seg
-		; cx = the lower of the two
+		; dx = the lower of the two
 .gotsegs:
-	sub cx, (+_STACKSIZE -LOADCMDLINE + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
+	sub dx, (+_STACKSIZE -LOADCMDLINE + 512 + (ebpbNew - bpbNew) + 32 + 15) >> 4
 			; +_STACKSIZE = stack space
 			; -LOADCMDLINE = load cmd line + data + lsv space
 			; 512 = boot sector (allows finding filename)
 			; (ebpbNew - bpbNew) = additional space for BPBN moving
 			; 32 = leave space for lower buffer MCB + header
-		; cx = stack seg
+		; dx = stack seg
 
-	dec cx		; leave space for stack + BPB buffer MCB
-	cmp cx, word [bp + lsvLoadSeg]
+	dec dx		; leave space for stack + BPB buffer MCB
+	cmp dx, word [bp + lsvLoadSeg]
 	jnb @F
 .error_outofmemory:
 	jmp error_outofmemory
 @@:
 
 	push ax
-	mov dx, ss
+	mov si, ss
 	mov ax, bp
 	add ax, 512 + 15
 	jnc @F
@@ -1427,23 +1427,23 @@ init_memory:
 	shr ax, 1
 	shr ax, 1
 	shr ax, 1
-	add dx, ax
-	cmp dx, cx
+	add si, ax
+	cmp si, dx
 	ja .error_outofmemory
 
 		; note that the next conditional doesn't jump for lsvFATSeg = 0
-	mov dx, word [bp + lsvFATSeg]
-	add dx, (8192) >> 4
-	cmp dx, cx
+	mov cx, word [bp + lsvFATSeg]
+	add cx, (8192) >> 4
+	cmp cx, dx
 	ja .error_outofmemory
 	pop ax
 
+	inc dx		; => stack + BPB buffer
+	 push ss
+	 pop ds
+	mov es, dx
 	pop dx		; top of memory (=> start of RPL, EBDA, video memory)
-	inc cx		; => stack + BPB buffer
-	push ss
-	pop ds
-	mov es, cx
-	push cx		; top of memory below buffers
+	push es		; top of memory below buffers
 	push ax		; => sector seg
 
 	xor cx, cx
