@@ -109,7 +109,8 @@ disp_msg.loop:
 	call disp_al
 		; INP:	ds:si -> ASCIZ message
 		; OUT:	ds:si -> past the terminating NUL byte
-		; CHG:	ax, bp
+		;	al = 0
+		; CHG:	bp
 disp_msg:
 	lodsb
 	test al, al
@@ -189,15 +190,16 @@ loop_table:
 dump:
 	mov bx, cx
 loop_dump:
-	mov ax, cx
-	neg ax
-	add ax, bx
+	mov ax, cx		; ax = current loop counter
+	neg ax			; = minus current
+	add ax, bx		; = initial loop counter minus current
+				; can't be more than initial hence ah = 0
 	test al, 15
 	jnz @F
 	push si
 	mov si, msg.prompt
 	call disp_msg
-	xor ax, ax
+	; xor ax, ax		; already ah == 0 because ax was <= initial counter
 	int 16h
 	; mov si, msg.prompt_delete
 	call disp_msg
