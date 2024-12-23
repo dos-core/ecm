@@ -1103,8 +1103,8 @@ clust_to_first_sector:
 	mul cx			; dx:ax = high times SpC
 	test dx, dx
 	jnz short error_badchain_j
-	xchg dx, ax		; dx = high times SpC, low word
-	pop ax			; ax = low times SpC, high word
+				; ax = high times SpC, low word
+	pop dx			; dx = low times SpC, high word
 	add dx, ax		; dx = high word result
 .cy_error_badchain:
 	jc short error_badchain_j
