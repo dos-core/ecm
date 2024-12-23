@@ -150,15 +150,17 @@ common_entrypoint:
 	push ss	; +0
 
 	mov di, sp
+	push cs
+	pop ds
 	mov si, table
 	mov cx, table.amount
 loop_table:
 	xor ax, ax
-	cs lodsb
+	lodsb
 	xchg bx, ax
 	mov al, 32
 	call disp_al
-	cs lodsw
+	lodsw
 	call disp_ax
 	test bl, bl
 	js @F
@@ -170,8 +172,6 @@ loop_table:
 	loop loop_table
 		; bx = 00FFh
 
-	push cs
-	pop ds
 	xor si, si
 	mov cl, paras(32 * 4)
 	call dump
