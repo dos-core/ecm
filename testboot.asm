@@ -149,26 +149,26 @@ common_entrypoint:
 	push ds	; +2
 	push ss	; +0
 
-	mov si, sp
-	mov di, table
+	mov di, sp
+	mov si, table
 	mov cx, table.amount
 loop_table:
-	xor bx, bx
-	mov bl, [cs:di]
-	inc di
+	xor ax, ax
+	cs lodsb
+	xchg bx, ax
 	mov al, 32
 	call disp_al
-	mov ax, [cs:di]
+	cs lodsw
 	call disp_ax
 	test bl, bl
 	js @F
 	mov al, '='
 	call disp_al
-	mov ax, [ss:si + bx]
+	mov ax, [ss:di + bx]
 	call disp_ax_hex
 @@:
-	scasw
 	loop loop_table
+		; bx = 00FFh
 
 	push cs
 	pop ds
@@ -176,7 +176,7 @@ loop_table:
 	mov cl, paras(32 * 4)
 	call dump
 
-	xor di, di
+	xor bx, bx		; bx = 0
 	mov si, 7C00h - 32
 	mov cl, paras(512 + 32)
 	call dump
@@ -189,9 +189,9 @@ loop_table:
 
 
 dump:
-	mov bx, cx
+	mov di, cx
 loop_dump:
-	mov ax, bx		; = initial loop counter
+	mov ax, di		; = initial loop counter
 	sub ax, cx		; = initial loop counter minus current counter
 				; can't be more than initial hence ah = 0
 	push si
@@ -207,7 +207,7 @@ loop_dump:
 	pop ax
 	push cx
 	mov si, ax
-	test di, di
+	test bx, bx
 	jz @F
 	shr ax, 1
 	shr ax, 1		; convert byte offset to IVT interrupt number
@@ -221,7 +221,7 @@ loop_dump:
 	push si
 	mov cl, 16		; counter always < 256, so ch already == 0
 .loop_byte_number:
-	test di, di
+	test bx, bx
 	jz @F
 	lodsw
 	push ax
