@@ -194,19 +194,19 @@ loop_dump:
 	neg ax			; = minus current
 	add ax, bx		; = initial loop counter minus current
 				; can't be more than initial hence ah = 0
+	push si
 	test al, 15
 	jnz @F
-	push si
 	mov si, msg.prompt
 	call disp_msg
 	; xor ax, ax		; already ah == 0 because ax was <= initial counter
 	int 16h
 	; mov si, msg.prompt_delete
 	call disp_msg
-	pop si
 @@:
-	mov ax, si
+	pop ax
 	call disp_ax_hex
+	xchg si, ax
 	call disp_al_blank
 	call disp_al
 	push cx
