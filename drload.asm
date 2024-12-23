@@ -364,6 +364,15 @@ init_memory:
 				; al = 0 else
 	rep stosb		; clear remainder of buffer
 
+	mov word [bp + ldFATType], cx
+				; clear ldFATType and ldHasLBA
+	mov word [bp + lsvFATSeg], cx
+				; clear lsvFATSeg
+	dec cx
+	mov word [bp + lsvFATSector], cx
+	mov word [bp + lsvFATSector + 2], cx
+				; clear lsvFATSector
+
 %if _QUERY_PATCH
 	mov ax, word [cs:..@query_patch_site]
 %else
