@@ -216,7 +216,7 @@ loop_dump:
 	call disp_al_blank
 	call disp_al
 	push si
-	mov cx, 16
+	mov cl, 16		; counter always < 256, so ch already == 0
 .loop_byte_number:
 	test di, di
 	jz @F
