@@ -108,7 +108,8 @@ skip_bpb:
 disp_msg.loop:
 	call disp_al
 		; INP:	ds:si -> ASCIZ message
-		; CHG:	ax, si
+		; OUT:	ds:si -> past the terminating NUL byte
+		; CHG:	ax
 disp_msg:
 	lodsb
 	test al, al
@@ -202,7 +203,7 @@ loop_dump:
 	call disp_msg
 	xor ax, ax
 	int 16h
-	mov si, msg.prompt_delete
+	; mov si, msg.prompt_delete
 	call disp_msg
 	pop si
 @@:
