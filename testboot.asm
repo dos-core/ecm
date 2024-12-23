@@ -181,7 +181,7 @@ loop_table:
 
 	int3
 
-	xor ax, ax
+	xchg ax, cx
 	int 16h
 	int 19h
 
