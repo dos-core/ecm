@@ -972,6 +972,7 @@ finish_load:
 	pop ax
 	mov bx, cs
 	add ax, bx
+
 	mov word [bp + ldLoadUntilSeg], ax
 		; ldLoadUntilSeg => after last to-be-loaded paragraph
 
@@ -1095,19 +1096,19 @@ relocator_size equ relocator.end - relocator
 clust_to_first_sector:
 	mov cx, word [bp + ldClusterSize]
 	 push dx
-	mul cx
-	xchg bx, ax
-	 pop ax
-	push dx
-	mul cx
+	mul cx			; dx:ax = low times SpC
+	xchg bx, ax		; bx = low word result
+	 pop ax			; ax = high
+	push dx			; stack = low times SpC, high word
+	mul cx			; dx:ax = high times SpC
 	test dx, dx
 	jnz short error_badchain_j
-	xchg dx, ax
-	pop ax
-	add dx, ax
+	xchg dx, ax		; dx = high times SpC, low word
+	pop ax			; ax = low times SpC, high word
+	add dx, ax		; dx = high word result
 .cy_error_badchain:
 	jc short error_badchain_j
-	xchg ax, bx
+	xchg ax, bx		; ax = low word result, dx:ax = result
 
 	add ax, [bp + lsvDataStart]
 	adc dx, [bp + lsvDataStart + 2]
