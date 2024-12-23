@@ -214,10 +214,10 @@ loop_dump:
 	jz @F
 	shr ax, 1
 	shr ax, 1		; convert byte offset to IVT interrupt number
-	call disp_al_hex
+	call disp_al_hex	; display interrupt number
 	jmp @FF
 @@:
-	call disp_ax_hex	; display byte offset or interrupt number
+	call disp_ax_hex	; display byte offset
 @@:
 	call disp_al_blank
 	call disp_al
