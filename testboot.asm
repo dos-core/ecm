@@ -117,6 +117,11 @@ disp_msg:
 	jnz .loop
 	retn
 
+disp_ax:
+	call disp_al
+	xchg al, ah
+
+	db __TEST_IMM16		; skip mov
 disp_al_blank:
 	mov al, 32
 		; CHG:	bp
@@ -156,9 +161,7 @@ loop_table:
 	inc di
 	call disp_al_blank
 	mov ax, [cs:di]
-	call disp_al
-	xchg al, ah
-	call disp_al
+	call disp_ax
 	test bl, bl
 	js @F
 	mov al, '='
@@ -259,10 +262,8 @@ loop_dump:
 	dec ax
 	call disp_al
 	loop .loop_byte_text
-	mov al, 13
-	call disp_al
-	mov al, 10
-	call disp_al
+	mov ax, 13 + (10 << 8)
+	call disp_ax
 	pop cx
 	loop loop_dump
 	retn
