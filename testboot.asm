@@ -109,7 +109,7 @@ disp_msg.loop:
 	call disp_al
 		; INP:	ds:si -> ASCIZ message
 		; OUT:	ds:si -> past the terminating NUL byte
-		; CHG:	ax
+		; CHG:	ax, bp
 disp_msg:
 	lodsb
 	test al, al
