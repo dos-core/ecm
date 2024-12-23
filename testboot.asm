@@ -121,9 +121,6 @@ disp_ax:
 	call disp_al
 	xchg al, ah
 
-	db __TEST_IMM16		; skip mov
-disp_al_blank:
-	mov al, 32
 		; CHG:	bp
 disp_al:
 	push ax
@@ -159,7 +156,8 @@ loop_table:
 	xor bx, bx
 	mov bl, [cs:di]
 	inc di
-	call disp_al_blank
+	mov al, 32
+	call disp_al
 	mov ax, [cs:di]
 	call disp_ax
 	test bl, bl
@@ -219,8 +217,8 @@ loop_dump:
 @@:
 	call disp_ax_hex	; display byte offset
 @@:
-	call disp_al_blank
-	call disp_al
+	mov ax, 2020h
+	call disp_ax
 	push si
 	mov cl, 16		; counter always < 256, so ch already == 0
 .loop_byte_number:
