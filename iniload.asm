@@ -1483,7 +1483,7 @@ init_memory:
 	mov cx, (- lsvExtra + 512 + 1) >> 1
 	rep movsw	; copy lsv (including lsvExtra) and BPB
 	xor ax, ax
-	mov cx, ((ebpbNew - bpbNew + 15) & ~15) >> 1
+	mov cl, ((ebpbNew - bpbNew + 15) & ~15) >> 1
 	rep stosw	; initialise area behind sector (left so for FAT32)
 	pop ax
 	pop cx
