@@ -122,13 +122,9 @@ disp_al_blank:
 disp_al:
 	push ax
 	push bx
-	push dx
-.bios:
 	mov ah, 0Eh
 	mov bx, 7
 	int 10h
-.common:
-	pop dx
 	pop bx
 	pop ax
 	retn
