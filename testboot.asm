@@ -155,8 +155,8 @@ common_entrypoint:
 	mov si, table
 	mov cx, table.amount
 loop_table:
-	xor ax, ax
 	lodsb
+	cbw
 	xchg bx, ax
 	mov al, 32
 	call disp_al
@@ -170,7 +170,7 @@ loop_table:
 	call disp_ax_hex
 @@:
 	loop loop_table
-		; bx = 00FFh
+		; bx = FFFFh
 
 	xor si, si
 	mov cl, paras(32 * 4)
