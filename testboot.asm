@@ -206,19 +206,18 @@ loop_dump:
 @@:
 	pop ax
 	push cx
-	xor cx, cx		; cx = 0
+	push ax
 	test di, di
 	jz @F
-	mov cl, 2		; for IVT cl = 2
+	shr ax, 1
+	shr ax, 1		; convert byte offset to IVT interrupt number
 @@:
-	shr ax, cl		; convert byte offset to IVT interrupt number
 	call disp_ax_hex	; display byte offset or interrupt number
-	shl ax, cl		; undo conversion
-	xchg si, ax
+	pop si
 	call disp_al_blank
 	call disp_al
 	push si
-	mov cl, 16
+	mov cx, 16
 .loop_byte_number:
 	test di, di
 	jz @F
