@@ -1420,11 +1420,11 @@ init_memory:
 	mov ax, bp
 	mov cl, 3
 	add ax, 512 + 15
-	jnc @F
-	mov ax, 1_0000h >> 1
-	db __TEST_IMM16	; (skip one shr)
+	jnc @F		; if no carry --> (NC)
+			; CY
+	mov ax, 0	; preserve CY ! do not use xor
 @@:
-	shr ax, 1
+	rcr ax, 1	; bit 16 in is CF
 	shr ax, cl
 	add si, ax
 	cmp si, dx
