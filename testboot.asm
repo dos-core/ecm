@@ -191,9 +191,8 @@ loop_table:
 dump:
 	mov bx, cx
 loop_dump:
-	mov ax, cx		; ax = current loop counter
-	neg ax			; = minus current
-	add ax, bx		; = initial loop counter minus current
+	mov ax, bx		; = initial loop counter
+	sub ax, cx		; = initial loop counter minus current counter
 				; can't be more than initial hence ah = 0
 	push si
 	test al, 15
