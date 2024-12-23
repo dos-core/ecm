@@ -1480,8 +1480,9 @@ init_memory:
 			; ds:si -> lsv + BPB
 	mov di, _STACKSIZE - LOADCMDLINE + lsvExtra
 			; es:di -> where to place lsv
-	mov cx, (- lsvExtra + 512 + 1) >> 1
-	rep movsw	; copy lsv (including lsvExtra) and BPB
+	mov cx, (- lsvExtra + 512)
+	rep movsb	; copy lsv (including lsvExtra) and BPB
+			; byte move to avoid possibly crossing FFFFh boundary
 	xor ax, ax
 	mov cl, ((ebpbNew - bpbNew + 15) & ~15) >> 1
 	rep stosw	; initialise area behind sector (left so for FAT32)
