@@ -1418,15 +1418,14 @@ init_memory:
 	push ax
 	mov si, ss
 	mov ax, bp
+	mov cl, 3
 	add ax, 512 + 15
 	jnc @F
 	mov ax, 1_0000h >> 1
 	db __TEST_IMM16	; (skip one shr)
 @@:
 	shr ax, 1
-	shr ax, 1
-	shr ax, 1
-	shr ax, 1
+	shr ax, cl
 	add si, ax
 	cmp si, dx
 	ja .error_outofmemory
