@@ -148,6 +148,7 @@ common_entrypoint:
 
 	mov si, sp
 	mov di, table
+	mov cx, table.amount
 loop_table:
 	xor bx, bx
 	mov bl, [cs:di]
@@ -165,8 +166,7 @@ loop_table:
 	call disp_ax_hex
 @@:
 	scasw
-	cmp di, table.end
-	jb loop_table
+	loop loop_table
 
 	push cs
 	pop ds
@@ -284,7 +284,7 @@ disp_al_lownibble_hex:
 
 
 table:
-	db  +0, "SS"
+.:	db  +0, "SS"
 	db  +6, "BP"
 	db  +4, "SP"
 	db +22, "CS"
@@ -320,6 +320,7 @@ table:
 	db +58, "SF"
 	db -1, 13,10
 .end:
+.amount equ (.end - .) / 3
 
 msg:
 .prompt:	asciz "[more]"
