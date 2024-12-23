@@ -171,7 +171,7 @@ loop_table:
 	push cs
 	pop ds
 	xor si, si
-	mov cx, paras(32 * 4)
+	mov cl, paras(32 * 4)
 	call dump
 
 	xor di, di
