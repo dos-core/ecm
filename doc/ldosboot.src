@@ -973,6 +973,9 @@ This load protocol consists of:
 \b AX:BX = first data sector of first cluster,
 including hidden sectors
 
+\b CH = media ID byte (albeit this is passed through msload
+to msbio it appears not to be used at all)
+
 \b Linear 7C00h holds boot sector with BPB
 
 \b Diskette Parameter Table (DPT) may be relocated, possibly modified.
