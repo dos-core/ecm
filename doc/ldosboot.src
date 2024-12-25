@@ -469,6 +469,23 @@ The buffer is not initialised to anything generally.
 12 indicates FAT12, 16 FAT16, 32 FAT32.
 It is planned to allow zero for non-FAT filesystems.
 
+\lcont{
+
+If this is 12 and lsvFATSeg is nonzero, that variable points
+to the buffered FAT, either as many sectors as fill 6 KiB
+or the amount sectors per FAT from the BPB, whichever is less.
+
+If this is 16 and the low word of lsvFATSector is not FFFFh,
+then lsvFATSeg points to a single-sector buffer with the
+specified FAT sector (0 = first FAT sector) buffered.
+
+If this is 32 then it is treated the same as 16
+except the entire dword of lsvFATSector counts.
+In this case lsvFATSector equal to FFFF_FFFFh
+means nothing is buffered.
+
+}
+
 \dt ldHasLBA
 
 \dd Byte. Only least significant bit used.
