@@ -987,7 +987,7 @@ __SECT__
 	%endmacro
 
 
-		; Fill data to at leaat specified byte size (specify start label of data)
+		; Fill data to at least specified byte size (specify start label of data)
 		;
 		; %1 = Byte size to fill
 		; %2 = Fill byte (eg 0, 90h, 32)
