@@ -116,7 +116,9 @@ Intended for Real/Virtual 86 Mode programs.
  %assign %$parofs %$int_offset
 %elifnum %1
  %if %1 < 0
-  %fatal Invalid frame type specified (negative): %1
+  %if %1 != - %$base_size
+   %fatal Invalid frame type specified (negative): %1
+  %endif
  %endif
  %if %1 & 1
   %fatal Invalid frame type specified (odd): %1
