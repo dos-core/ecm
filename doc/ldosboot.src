@@ -1127,7 +1127,7 @@ around uses of the msdos7_message_table variable.
 \b \cw{byte [ss:bp + 2]} is expected to equal 0Eh or 0Ch
 to indicate to msload to use LBA access to the disk.
 These two values correspond to the FAT16 LBA or FAT32 LBA
-psrtition types as supported in the partition tables.
+partition types as supported in the partition tables.
 Any other value (typically \cq{NOP} 90h) indicates to use CHS access.
 
 
