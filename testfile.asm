@@ -61,6 +61,7 @@ source files for the applicable usage conditions.
 %endif
 %assign ADDITIONAL_MEMORY 0
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
+	numdef PROGRESS,	0, 1
 	numdef COUNTER,		0, 32
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two

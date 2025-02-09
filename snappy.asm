@@ -12,6 +12,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
+	numdef TESTFILE, 0
 
 snappy_chunk_id			equ 0FFh
 snappy_chunk_padding		equ 0FEh
@@ -177,6 +178,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sahf
 %endif
 d0	mov bx, word [bp + ?errordata]
+%if _TESTFILE
+	les di, [bp + ?dst]
+ %assign _TESTFILE_SUPPORTED 1
+%endif
 	lleave code
 	lret
 
