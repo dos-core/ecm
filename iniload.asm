@@ -947,8 +947,14 @@ relocate_to:
 	add dx, bx
 	mov ds, dx	; next segment
 
-	xor si, si
-	xor di, di	; init offsets for next segment
+		; If there is another part to move then the
+		;  prior move was a full 64 KiB, so the si
+		;  and di registers have wrapped around back
+		;  to zero. Therefore we needn't re-initialise
+		;  them here, the next part wants zeroes too.
+		; If there's no next part then the final move
+		;  will run with cx = 0 so it doesn't matter
+		;  what the si and di registers hold.
 
 	sub ax, bx	; = how much to relocate after this round
 	mov cx, 1000h << 3	; in case another full 64 KiB to relocate
