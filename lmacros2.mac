@@ -407,10 +407,22 @@ __lvar_define_var %2, %1
 		;  variables. This is always done using "lea sp, [bp - x]"
 		;  so it doesn't matter how many of the variables were
 		;  already initialised by pushing into them.
-%imacro lenter 0-1.nolist
+		;
+		; The second parameter can be "lea" (default) or "sub".
+		;  If it is "sub" a "sub sp" instruction is used to
+		;  reserve space rather than a combo of lea and push.
+%imacro lenter 0-2.nolist
 %ifctx LENTEREARLY
 %elifnctx LFRAME
  %fatal Must use lframe first
+%endif
+%assign %$sub 0
+%ifidni %2,sub
+ %assign %$sub 1
+%elifidni %2,lea
+%elifempty %2
+%else
+ %fatal Invalid parameter: %2
 %endif
 %ifidni %1,early
  %ifctx LENTEREARLY
@@ -429,6 +441,13 @@ __lvar_define_var %2, %1
  %repl LENTER
 %else
  %fatal Invalid parameter: %1
+%endif
+%if %$sub
+ %if %$wasearly
+  %fatal Cannot use sub with early
+ %elifctx LENTEREARLY
+  %fatal Cannot use sub with early
+ %endif
 %endif
 %assign %$lsizevariables (-%$ofs+1 - (- %$restore_frame_ofs) - %$pars_inner_size )&~1
 %ifn %$usereq
@@ -479,6 +498,8 @@ __lvar_define_var %2, %1
   %ifn %$early
    %if %$ofs
     %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && %$sub
+	sub sp, %$lsizevariables
     %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
     %elif %$wasearly == 0 && (%$lsizevariables) == 4
@@ -518,6 +539,8 @@ __lvar_define_var %2, %1
   %ifn %$early
    %if %$ofs
     %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && %$sub
+	sub esp, %$lsizevariables
     %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
     %elif %$wasearly == 0 && (%$lsizevariables) == 4
@@ -559,6 +582,8 @@ __lvar_define_var %2, %1
   %ifn %$early
    %if %$ofs
     %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && %$sub
+	sub rsp, %$lsizevariables
     %elif %$wasearly == 0 && (%$lsizevariables) == 2
 	push ax
     %elif %$wasearly == 0 && (%$lsizevariables) == 8
