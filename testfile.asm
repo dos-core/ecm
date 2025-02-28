@@ -342,6 +342,9 @@ read:
 	 push ss
 	 pop ds
 
+	mov ah, 3Eh
+	int 21h
+
 
 openoutfile:
 	mov si, word [outfile]
