@@ -1029,5 +1029,5 @@ allocparas:	resw 1
 	alignb 16
 end:
 		resb 512
-	alignb 2
+	alignb 16
 stack_top:
