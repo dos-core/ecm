@@ -67,8 +67,14 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 	defaulting
 
 %ifidni MODULE, fdkernpl
+	numdef DESTINATION, 60h
 	strdef PAYLOAD_FILE,	"KERNEL.SYS"
+%elifidni MODULE, drkernpl
+	numdef DESTINATION, 70h
+	strdef PAYLOAD_BIO_FILE,"drbio.bin"
+	strdef PAYLOAD_DOS_FILE,"drdos.sys"
 %else
+	numdef DESTINATION, 60h
 	strdef PAYLOAD_FILE,	"msbio.bin"
 %endif
 	numdef TEST_PROGRAM,	0
@@ -145,6 +151,7 @@ entry:
 %endif
 
 	mov ax, cs
+%if _DESTINATION < 70h
 %if _LCFG && _PASSLCFG
 	mov ds, ax
 	mov si, lcfg
@@ -154,6 +161,7 @@ entry:
 	xor di, di
 	mov cx, words(lcfg.size)
 	rep movsw
+%endif
 %endif
 	add ax, entry_size_p + payload_size_p
 	xor bx, bx
@@ -194,6 +202,21 @@ lcfgoption 32,,
 .inuse equ LCFGINUSE
 %endif
 
+%if _DESTINATION > 60h
+	align 256, db 0		; make sure we can always move forwards
+		; This is so that the drkernpl PAYLOAD is always
+		;  loaded to 700h or higher, as our ENTRY must be
+		;  loaded by the prior stage to 600h or higher.
+		; If the PAYLOAD is at >= 700h it is valid to move
+		;  forwards (Direction Flag UP) unconditionally to
+		;  relocate it to the destination at 700h.
+		; _PASSLCFG: To pass the lCFG block, the ENTRY section
+		;  is actually copied down to 00600h to keep the block.
+%if _LCFG && _PASSLCFG && ($ - $$) != 256
+ %error Expected entry section to be exactly 256 Bytes
+%endif
+%endif
+
 	align 16
 	endarea entry
 
@@ -201,13 +224,22 @@ lcfgoption 32,,
 	addsection PAYLOAD, follows=ENTRY
 payload:
 realpayload:
+%ifidni MODULE, drkernpl
+	incbin _PAYLOAD_BIO_FILE
+	align 16, db 38
+payloaddos:
+	incbin _PAYLOAD_DOS_FILE
+	align 16, db 38
+	endarea payloaddos
+%else
 	incbin _PAYLOAD_FILE
 	align 16, db 38
 
-%if _LCFG && _PASSLCFG
+ %if _LCFG && _PASSLCFG
 lcfg_destination:
 	times lcfg.size db 26
 	align 16, db 38
+ %endif
 %endif
 	endarea realpayload
 
@@ -215,7 +247,7 @@ lcfg_destination:
 	addsection STACKRELOCATE, follows=PAYLOAD vstart=0
 stackrelocate:
 
-	mov ax, 60h + payload_size_p
+	mov ax, _DESTINATION + payload_size_p
 	cli
 	mov ss, ax
 	lea sp, [bp + ldCommandLine]	; -> behind unused memory
@@ -274,13 +306,81 @@ stackrelocate:
 		;  accidentally expecting a command line if
 		;  it does not check the offsets properly.
 
+%ifidni MODULE, drkernpl
+	mov ax, _DESTINATION + paras(payloaddos - payload)
+%if 0
+	mov ds, ax
+	mov ax, word [bp + ldMemoryTop]
+	sub ax, payloaddos_size_p
+	mov es, ax
+%if 1
+	lea si, [bp + 512 + 15]
+	mov cl, 4
+	shr si, cl
+	mov cx, _DESTINATION + payload_size_p
+	add cx, si
+	cmp ax, cx
+	jb error
+%endif
+
+%if payloaddos_size > 65536
+ %error Too large DOS payload
+%endif
+	mov cx, payloaddos_size_w
+	rep movsw
+
+	push ss
+	pop ds
+
+	mov si, payloaddos_size
+%if _LCFG && _PASSLCFG
+	mov di, lcfg
+	mov cx, 60h
+%endif
+	jmp _POSITION:0
+
+%if 1
+error:
+	push cs
+	pop ds
+	mov si, msg.error
+	call disp_error
+	xor ax, ax
+	int 16h
+	int 19h
+
+
+disp_error.loop:
+	mov ah, 0Eh
+	mov bx, 7
+	; push bp
+		; (call may change bp, but it is not used here any longer.)
+	int 10h
+	; pop bp
+disp_error:
+	lodsb
+	test al, al
+	jnz .loop
+	retn
+
+msg.error:		asciz "drkernpl Load Error!",13,10
+%endif
+
+%else
+	mov si, payloaddos_size
+%if _LCFG && _PASSLCFG
+	mov di, lcfg
+	mov cx, 60h
+%endif
+%endif
+%else	; drkernpl
 %if _LCFG && _PASSLCFG
 	xor di, di
-	mov cx, 60h + paras(lcfg_destination - payload)
+	mov cx, _DESTINATION + paras(lcfg_destination - payload)
 					; cx:di -> lCFG block
 %endif
-	jmp 60h:0
-
+%endif	; drkernpl
+	jmp _DESTINATION:0
 
 	align 16
 	endarea stackrelocate
@@ -293,10 +393,24 @@ payload_size equ realpayload_size + stackrelocate_size
 relocate:
 	mov bx, 1000h	; = 1000h (paragraphs per 64 KiB)
 
+%ifidni MODULE, drkernpl
+ %if _LCFG && _PASSLCFG
 	mov ax, 60h
+	mov es, ax	; => destination start
+	mov ax, payload_size_p + 10h
+			; ax = how many paragraphs to move
+ %else		; preserve memory at 600h if not passing lCFG
+	mov ax, _DESTINATION
 	mov es, ax	; => destination start
 	mov ax, payload_size_p
 			; ax = how many paragraphs to move
+ %endif
+%else
+	mov ax, _DESTINATION
+	mov es, ax	; => destination start
+	mov ax, payload_size_p
+			; ax = how many paragraphs to move
+%endif
 
 	mov cx, cs
 	sub cx, ax
@@ -346,7 +460,7 @@ relocate:
 	rep movsw
 @@:
 
-	jmp 60h + realpayload_size_p:0	; transfer to stackrelocate
+	jmp _DESTINATION + realpayload_size_p:0	; transfer to stackrelocate
 
 %ifnidni MODULE, fdkernpl
 	align 256, db 0		; make sure new stack is lower than LD
