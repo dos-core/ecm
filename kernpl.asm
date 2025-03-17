@@ -1,8 +1,8 @@
 
 %if 0
 
-Loader adjustment for lDOS kernel
- by E. C. Masloch, 2025
+Loader adjustment for different kernels
+ by E. C. Masloch, 2017, 2024--2025
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
@@ -66,14 +66,17 @@ bpbnFilesystemID:	resb 8	; 12h 2Bh 36h 47h 52h
 
 	defaulting
 
-	strdef PAYLOAD_FILE, "msbio.bin"
+%ifidni MODULE, fdkernpl
+	strdef PAYLOAD_FILE,	"KERNEL.SYS"
+%else
+	strdef PAYLOAD_FILE,	"msbio.bin"
+%endif
 	numdef TEST_PROGRAM,	0
 	numdef PASSLCFG, 0
 	numdef COPY_INICOMP_LCFG, _PASSLCFG
 	numdef LCFG, _PASSLCFG
 
 
-%define MODULE lkernpl
 	strdef INILOAD_CFG, ""
 %ifnidn _INILOAD_CFG, ""
  %include _INILOAD_CFG
@@ -345,7 +348,9 @@ relocate:
 
 	jmp 60h + realpayload_size_p:0	; transfer to stackrelocate
 
+%ifnidni MODULE, fdkernpl
 	align 256, db 0		; make sure new stack is lower than LD
 		; With the alignment directive in ENTRY this
 		;  is probably not needed. However, there is
 		;  little harm in keeping it.
+%endif
