@@ -1286,6 +1286,7 @@ ms6_continue1:
 			;  (lD)eb = lDebug
 			;  (lD)Db = lDDebug
 			;  (lD)bC = lCDebug
+			;  (lD)OS = lDOS kernel (lMS-DOS since 2025 February)
 			;  XX = unset
 %if ($ - $$) != 1024
  %error Invalid signature

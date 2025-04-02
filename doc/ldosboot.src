@@ -83,7 +83,7 @@ Currently the following signatures are defined:
 
 \dt \cq{lDOS}
 
-\dd lDOS kernel (not yet in use)
+\dd lDOS kernel (used for lMS-DOS based kernel since 2025 February)
 
 \dt \cq{lDRx}
 
@@ -99,7 +99,7 @@ Currently the following signatures are defined:
 
 \dt \cq{lDMS}
 
-\dd MS-DOS (v4.01) single-file kernel in drkernpl stage
+\dd lMS-DOS single-file kernel in drkernpl stage (until 2025 February)
 
 \dt \cq{lDeb}
 
