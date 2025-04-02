@@ -1350,26 +1350,29 @@ error_notfullyloaded:
 
 init_memory:
 ; Get conventional memory size and store it
-		int 12h
+		int 12h		; ax = amount KiB of Low Memory Area
 		mov cl, 6
-		shl ax, cl
+		shl ax, cl	; times 1024 divided by 16 (that is, times 64),
+				;  ax => end of LMA
 %if _RPL
 	xor si, si
-	xchg dx, ax
-	mov ds, si
-	lds si, [4 * 2Fh]
-	add si, 3
-	lodsb
-	cmp al, 'R'
+	xchg dx, ax		; dx => end of LMA
+	mov ds, si		; => IVT
+	lds si, [4 * 2Fh]	; -> int 2Fh handler
+	add si, 3		; -> 3 bytes past int 2Fh handler
+	lodsb			; don't use lodsw !
+				;  could access the word at offset FFFFh
+				;  which causes a fault in 386+ Real 86 Mode.
+	cmp al, 'R'		; check "RPL" signature
 	jne .no_rpl
 	lodsb
 	cmp al, 'P'
 	jne .no_rpl
 	lodsb
 	cmp al, 'L'
-	jne .no_rpl
+	jne .no_rpl		; mismatch -->
 	mov ax, 4A06h
-	int 2Fh
+	int 2Fh			; call RPL to adjust memory size
 .no_rpl:
 	xchg ax, dx
 %endif
