@@ -1081,13 +1081,13 @@ relocator_size equ relocator.end - relocator
 
 			; cx => after end of loaded data
 	sub cx, bx	; length of currently loaded fragment
-	mov bx, 1000h
-	mov ax, cx
+	mov bx, 1000h	; = amount paragraphs per 64 KiB
+	mov ax, cx	; = amount paragraphs to relocate total
 	cmp ax, bx	; > 64 KiB ?
-	jbe @F
-	mov cx, bx	; first relocate the first 64 KiB
-@@:
-	sub ax, cx	; how much to relocate later
+	jbe @F		; no, do entire relocation at once -->
+	mov cx, bx	; yes, first relocate the first 64 KiB
+@@:			; cx = amount paragraphs to relocate first
+	sub ax, cx	; ax = amount paragraphs to relocate later
 	shl cx, 1
 	shl cx, 1
 	shl cx, 1	; how much to relocate first,
