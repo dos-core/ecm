@@ -191,7 +191,7 @@ loop_table:
 	mov bx, msg.xlation - ('0' + 10)
 			; subtract '0' to undo add,
 			;  and subtract 10 as a displacement
-	xlatb		; and translate using the list tail
+	xlatb		; and translate using the list mid
 .got:
 	call disp_al
 	xchg ax, dx	; ax = shifted remainder, clobber dx
