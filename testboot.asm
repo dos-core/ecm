@@ -202,8 +202,8 @@ loop_table:
 	cmp al, 0011_1110b
 			; -2 or -1 in high 6 bits ?
 	xchg bx, ax
-	je .end
-	ja @F		; yes, skip value display -->
+	je .end		; yes, -2, table end marker -->
+	ja @F		; yes, -1, skip value display -->
 	mov al, '='
 	call disp_al	; display the equals sign
 	mov ax, [ss:di + bx]
