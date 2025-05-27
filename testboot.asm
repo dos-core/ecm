@@ -250,21 +250,20 @@ loop_dump:
 	pop ax
 	push cx
 	mov si, ax
-	test bx, bx
+	test bx, bx		; (NC)
 	jz @F
 	shr ax, 1
 	shr ax, 1		; convert byte offset to IVT interrupt number
-	call disp_al_hex	; display interrupt number
-	jmp @FF
+	stc			; CY
 @@:
-	call disp_ax_hex	; display byte offset
-@@:
+	call disp_al_CY_ax_NC_hex	; display interrupt number or byte offset
 	mov ax, 2020h
 	call disp_ax
 	push si
 	mov cl, 16		; counter always < 256, so ch already == 0
 .loop_byte_number:
 	test bx, bx
+	stc			; CY
 	jz @F
 	lodsw
 	push ax
@@ -273,14 +272,13 @@ loop_dump:
 	mov al, ':'
 	call disp_al
 	pop ax
-	call disp_ax_hex
 	dec cx
 	dec cx
 	dec cx
-	jmp .dash
+	db __TEST_IMM8		; NC
 @@:
 	lodsb
-	call disp_al_hex
+	call disp_al_CY_ax_NC_hex	; display byte or low word of vector
 .dash:
 	cmp cl, 9
 	mov al, 32
@@ -308,6 +306,9 @@ loop_dump:
 	loop loop_dump
 	retn
 
+
+disp_al_CY_ax_NC_hex:
+	jc disp_al_hex
 
 disp_ax_hex:			; ax
 		xchg al,ah
