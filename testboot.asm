@@ -197,18 +197,19 @@ loop_table:
 	xchg ax, dx	; ax = shifted remainder, clobber dx
 	dec ch		; loop for both letters
 	jnz .loop_letter; jump after first letter -->
-	cmp al, 0011_1111b
-			; -1 in high 6 bits ?
+	cmp al, 0011_1110b
+			; -2 or -1 in high 6 bits ?
 	xchg bx, ax
-	je @F		; yes, skip value display -->
+	je .end
+	ja @F		; yes, skip value display -->
 	mov al, '='
 	call disp_al	; display the equals sign
 	mov ax, [ss:di + bx]
 	call disp_ax_hex; display the hexit number
 @@:
-	cmp si, table.end
-	jb loop_table
-		; bx = nonzero (= 0000_0000_0011_1111b)
+	jmp loop_table
+.end:
+		; bx = nonzero (= 0000_0000_0011_1110b)
 %endif
 
 	xor si, si
@@ -423,9 +424,13 @@ table:
 	item +54, "SD"
 	item +56, "SE"
 	item +58, "SF"
+ %if _METHOD == 1
 	item -1, `\r\n`
-.end:
+ %elif _METHOD == 2
+	item -2, `\r\n`
+ %endif
 %if _METHOD == 1
+.end:
 .amount equ (.end - .) / 3
 %endif
 
