@@ -19,6 +19,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		numdef FAT12, 0
 		numdef FAT16, 0
 		numdef FAT32, 0
+		numdef METHOD, 2
 		numdef NO_LIMIT, 0
 
 %if (!!_FAT12 + !!_FAT16 + !!_FAT32) > 1
@@ -153,6 +154,7 @@ common_entrypoint:
 	push cs
 	pop ds
 	mov si, table
+%if _METHOD == 1
 	mov cx, table.amount
 loop_table:
 	lodsb
@@ -171,6 +173,43 @@ loop_table:
 @@:
 	loop loop_table
 		; bx = FFFFh
+%elif _METHOD == 2
+loop_table:
+	mov al, 32
+	call disp_al
+	lodsw
+	mov cx, 0205h	; cl = 5, ch = 2
+.loop_letter:
+	mov dx, ax	; copy for remainder
+	shr dx, cl	; shift right remainder by 5 bits
+	and al, 1Fh	; isolate low 5 bits
+	add al, '0'	; if a decit or A-F
+	cmp al, 'A'	; is it an A-F ?
+	jae .got	; yes -->
+	cmp al, '9'	; is it a decit ?
+	jbe .got	; yes -->
+	mov bx, msg.xlation - ('0' + 10)
+			; subtract '0' to undo add,
+			;  and subtract 10 as a displacement
+	xlatb		; and translate using the list tail
+.got:
+	call disp_al
+	xchg ax, dx	; ax = shifted remainder, clobber dx
+	dec ch		; loop for both letters
+	jnz .loop_letter; jump after first letter -->
+	cmp al, 0011_1111b
+			; -1 in high 6 bits ?
+	xchg bx, ax
+	je @F		; yes, skip value display -->
+	mov al, '='
+	call disp_al	; display the equals sign
+	mov ax, [ss:di + bx]
+	call disp_ax_hex; display the hexit number
+@@:
+	cmp si, table.end
+	jb loop_table
+		; bx = nonzero (= 0000_0000_0011_1111b)
+%endif
 
 	xor si, si
 	mov cl, paras(32 * 4)
@@ -290,7 +329,6 @@ disp_al_lownibble_hex:
 		pop ax
 		retn
 
-
 msg:
 .prompt:	asciz "[more]"
 .prompt_length equ $ - 1 - .prompt
@@ -298,45 +336,98 @@ msg:
 		times .prompt_length db 32
 		db 13
 		db 0
+%if _METHOD == 2
+.xlation:
+	db "ILPSX", 13, 10
+ %if $ - .xlation > 'A' - ('0' + 10)
+  %error Translation table too long!
+ %endif
+%endif
 
+
+%imacro item 2.nolist
+ %if _METHOD == 1
+	db %1, %2
+ %elif _METHOD == 2
+ %strcat %%list "0123456789ILPSX",`\r\n`,"ABCDEF"
+ %substr %%testpoint %%list 'A' - '0' + 1
+ %ifnidn %%testpoint, 'A'
+  %fatal Translation list wrong!
+ %endif
+ %strlen %%listlength %%list
+ %assign %%encoded (%1 & 0011_1111b) << 10
+ %assign %%jj 0
+ %rep 2
+  %substr %%toencode %2 %%jj + 1
+  %assign %%ii 0
+  %rep %%listlength
+   %substr %%point %%list %%ii + 1
+   %ifidn %%point, %%toencode
+    %exitrep
+   %else
+    %assign %%ii %%ii + 1
+   %endif
+  %endrep
+  %if %%ii == %%listlength
+   %fatal Unencodeable point %%toencode in %2
+  %endif
+  %assign %%encoded %%encoded | (%%ii << (%%jj * 5))
+  %assign %%jj %%jj + 1
+ %endrep
+	dw %%encoded
+ %else
+  %fatal Unknown method selected: _METHOD
+ %endif
+%endmacro
+
+%if _METHOD == 2
+unaligned:
+	align 2
+aligned:
+ %if unaligned != aligned
+  %warning Alignment byte emitted
+ %endif
+%endif
 table:
-.:	db  +0, "SS"
-	db  +6, "BP"
-	db  +4, "SP"
-	db +22, "CS"
-	db +20, "IP"
-	db +26, "FL"
-	db -1, 13,10
-	db  +2, "DS"
-	db +10, "SI"
-	db +18, "ES"
-	db  +8, "DI"
-	db -1, 13,10
-	db +24, "AX"
-	db +16, "BX"
-	db +14, "CX"
-	db +12, "DX"
-	db -1, 13,10
-	db +28, "S0"
-	db +30, "S1"
-	db +32, "S2"
-	db +34, "S3"
-	db +36, "S4"
-	db +38, "S5"
-	db +40, "S6"
-	db +42, "S7"
-	db -1, 13,10
-	db +44, "S8"
-	db +46, "S9"
-	db +48, "SA"
-	db +50, "SB"
-	db +52, "SC"
-	db +54, "SD"
-	db +56, "SE"
-	db +58, "SF"
-	db -1, 13,10
+.:	item  +0, "SS"
+	item  +6, "BP"
+	item  +4, "SP"
+	item +22, "CS"
+	item +20, "IP"
+	item +26, "FL"
+	item -1, `\r\n`
+	item  +2, "DS"
+	item +10, "SI"
+	item +18, "ES"
+	item  +8, "DI"
+	item -1, `\r\n`
+	item +24, "AX"
+	item +16, "BX"
+	item +14, "CX"
+	item +12, "DX"
+	item -1, `\r\n`
+	item +28, "S0"
+	item +30, "S1"
+	item +32, "S2"
+	item +34, "S3"
+	item +36, "S4"
+	item +38, "S5"
+	item +40, "S6"
+	item +42, "S7"
+	item -1, `\r\n`
+	item +44, "S8"
+	item +46, "S9"
+	item +48, "SA"
+	item +50, "SB"
+	item +52, "SC"
+	item +54, "SD"
+	item +56, "SE"
+	item +58, "SF"
+	item -1, `\r\n`
 .end:
+%if _METHOD == 1
 .amount equ (.end - .) / 3
+%endif
 
 %if !_NO_LIMIT
 available:
