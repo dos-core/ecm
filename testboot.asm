@@ -291,6 +291,14 @@ disp_al_lownibble_hex:
 		retn
 
 
+msg:
+.prompt:	asciz "[more]"
+.prompt_length equ $ - 1 - .prompt
+.prompt_delete:	db 13
+		times .prompt_length db 32
+		db 13
+		db 0
+
 table:
 .:	db  +0, "SS"
 	db  +6, "BP"
@@ -329,14 +337,6 @@ table:
 	db -1, 13,10
 .end:
 .amount equ (.end - .) / 3
-
-msg:
-.prompt:	asciz "[more]"
-.prompt_length equ $ - 1 - .prompt
-.prompt_delete:	db 13
-		times .prompt_length db 32
-		db 13
-		db 0
 
 %if !_NO_LIMIT
 available:
