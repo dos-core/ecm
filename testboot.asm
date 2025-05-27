@@ -173,6 +173,7 @@ loop_table:
 @@:
 	loop loop_table
 		; bx = FFFFh
+		; cx = 0
 %elif _METHOD == 2
 loop_table:
 	mov al, 32
@@ -197,6 +198,7 @@ loop_table:
 	xchg ax, dx	; ax = shifted remainder, clobber dx
 	dec ch		; loop for both letters
 	jnz .loop_letter; jump after first letter -->
+			; here ch = 0 (needed for first call dump)
 	cmp al, 0011_1110b
 			; -2 or -1 in high 6 bits ?
 	xchg bx, ax
@@ -210,6 +212,7 @@ loop_table:
 	jmp loop_table
 .end:
 		; bx = nonzero (= 0000_0000_0011_1110b)
+		; ch = 0
 %endif
 
 	xor si, si
