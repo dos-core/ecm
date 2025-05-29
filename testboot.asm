@@ -310,9 +310,6 @@ loop_dump:
 	int 19h
 
 
-	retn
-
-
 disp_al_CY_ax_NC_hex:
 	jc disp_al_hex
 
