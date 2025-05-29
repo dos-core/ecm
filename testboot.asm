@@ -217,19 +217,6 @@ loop_table:
 
 	xor si, si
 	mov cl, paras(32 * 4)
-	call dump
-
-	xor bx, bx		; bx = 0
-	mov si, 7C00h - 32
-	mov cl, paras(512 + 32)
-	call dump
-
-	int3
-
-	xchg ax, cx
-	int 16h
-	int 19h
-
 
 dump:
 	mov di, cx
@@ -304,6 +291,25 @@ loop_dump:
 	call disp_ax
 	pop cx
 	loop loop_dump
+
+	test bx, bx		; first iteration (IVT) ?
+	xchg bx, cx		; bx = 0, cx = (method 2) 0000_0000_0011_1110b
+				; cx = (method 1) -1
+	mov si, 7C00h - 32
+%if _METHOD == 1
+	mov cx, paras(512 + 32)
+%elif _METHOD == 2
+	mov cl, paras(512 + 32)
+%endif
+	jnz dump		; yes, do jump back for second iteration -->
+				; no, second iteration (memory) done
+	int3
+
+	xchg ax, bx		; ax = 0
+	int 16h
+	int 19h
+
+
 	retn
 
 
