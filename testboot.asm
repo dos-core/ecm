@@ -2,7 +2,7 @@
 %if 0
 
 Loader test
- by E. C. Masloch, 2024
+ by E. C. Masloch, 2024--2025
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
