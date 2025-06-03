@@ -885,6 +885,14 @@ The original FreeDOS loaders typically allocate their boot sectors
 at 1FE0h:7C00h (linear 27A00h, at 158 KiB)
 and the stack in the same segment with an offset
 that's close below this address.
+Note that due to their memory layout, the original loaders
+require the load file's size rounded up to full clusters
+not to exceed 134 KiB when using load segment 60h.
+To avoid depending on a smaller cluster size and/or to allow
+using load segments up to 200h,
+a maximum file size of 128 KiB should be assumed.
+(The original loaders do not \s{check} that the file fits,
+rather they may crash or corrupt memory if it is too large.)
 
 
 \S{protocol-sector-freedos-cmdline} FreeDOS load extension - Command line
