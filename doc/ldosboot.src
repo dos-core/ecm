@@ -53,6 +53,11 @@ if the file is as large or larger than that.
 The entrypoint is found by applying no segment adjustment (0)
 and choosing the offset 400h (1024).
 
+The segment choice of 200h (8 KiB)
+avoids any possible sector reads across
+a 64 KiB ISA DMA boundary,
+even with the largest supported sector size (also 8 KiB).
+
 
 \S{protocol-sector-iniload-file} File properties
 
@@ -771,6 +776,9 @@ This happens to be enough to run a kernel-only inicomp stage,
 as well as the drkernpl stage that sets up
 the DRBIO/MSBIO and DRDOS/MSDOS modules
 and runs the former.
+Or, in the case of recent lDOS,
+the lkernpl stage setting up and running
+the combined MSBIO + MSDOS kernel.
 
 
 \C{protocols-other} Other documented boot load protocols
