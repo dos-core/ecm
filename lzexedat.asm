@@ -1,0 +1,452 @@
+
+%if 0
+
+8086 Assembly lDOS iniload payload LZEXE depacker
+ by E. C. Masloch, 2020--2025
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
+
+
+	numdef TESTFILE,	0
+%assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
+%assign NEED_NORMALISE_BOTH_POINTERS 0
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
+
+
+%if _TESTFILE
+.verbose.2:	db @F - ($ + 1)
+		db "dest="
+.verbose.2.desthigh:
+		db "----_"
+.verbose.2.destlow:
+		db "----h src="
+.verbose.2.srchigh:
+		db "----_"
+.verbose.2.srclow:
+		db "----h "
+		db "Match at minus "
+.verbose.2.index:
+		db "----h length "
+.verbose.2.length:
+		db "----h.",13,10
+@@:
+%endif
+
+
+	numdef COUNTER,		0, 64
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
+%endif
+
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	if _PAYLOAD_KERNEL_MAX_PARAS:
+		;	 ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		;	else:
+		;	 ax = -1
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need to be normalised.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+	lenter
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+ %endif
+ %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+ %endif
+%if _COUNTER
+	lvar word,	unused_and_counter
+	lequ ?unused_and_counter + 1, counter
+	 push bx		; initialise counter (high byte) to zero
+%endif
+
+%if _TESTFILE
+	lvar dword,	original_src
+	 push ds
+	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
+%endif
+	lvar dword,	src_remaining
+	 push dx
+	 push cx
+
+%if 0 && _PAYLOAD_KERNEL_MAX_PARAS
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 7Fh
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+%endif
+
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if _ALLOW_OVERLAPPING
+	add cx, word [bp + ?src_remaining]
+	adc bx, word [bp + ?src_remaining + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?dst_remaining variable is set to
+		;  ?src + ?src_remaining - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+
+	lvar dword,	dst_remaining
+	 push bx		; push into [bp + ?dst_remaining + 2]
+	 push cx		; push into [bp + ?dst_remaining]
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 7Eh
+	jc .error
+%endif
+
+	call load_word
+
+	test al, 1
+d0	mov byte [bp + ?errordata], 73h
+	jz .error
+
+	lvar word,	tagword
+	 push ax
+	mov al, 16
+	lvar word,	tagbitsleft	; only used as a byte
+	 push ax
+
+	jmp .loop
+
+.literal:
+	sub word [bp + ?src_remaining], 1
+	call sbb_src_remaining_check
+	sub word [bp + ?dst_remaining], 1
+	sbb word [bp + ?dst_remaining + 2], 0
+d0	mov byte [bp + ?errordata], 70h
+	jc .error
+	movsb
+	test si, si			; overflowed ?
+d0	mov byte [bp + ?errordata], 88h
+	jz .error
+	test di, di			; overflowed ?
+d0	mov byte [bp + ?errordata], 89h
+	jz .error
+
+.loop:
+	call get_bit
+	jc .literal
+
+.notliteral:
+	xor cx, cx			; ! ch = 0
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al_counter
+@@:
+%endif
+
+	call get_bit
+	jc .combined
+
+.shortmatch:
+		; cx = 0
+	call get_bit
+	rcl cx, 1
+	call get_bit
+	rcl cx, 1			; cx = 0..3
+
+	call load_byte			; load displacement
+
+	mov ah, -1			; sign extend for negative number
+	xchg bx, ax			; bx = displacement (-1 to -256)
+
+.match_cx_plus_2:
+	inc cx
+.match_cx_plus_1:
+	inc cx
+
+		; INP:	es:di -> destination
+		;	bx = match displacement (-1 to -8192)
+		;	cx = match count (2 to 256)
+.match:
+	sub word [bp + ?dst_remaining], cx
+	sbb word [bp + ?dst_remaining + 2], 0
+d0	mov byte [bp + ?errordata], 85h
+	jc .error
+
+	mov ax, di
+	add ax, bx			; ax -> match offset
+d0	mov byte [bp + ?errordata], 83h
+	jnc .error			; ax must be below di !
+	push di
+
+%if _TESTFILE
+	rol byte [ss:verbose], 1
+	jnc @F
+	push es
+	push ds
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+
+	 push ds
+	 push si
+	 push es
+	 push di
+	push ss
+	pop es
+	mov ax, cx
+	mov di, msg.verbose.2.length
+	call store_hex_word
+	mov ax, bx
+	neg ax
+	mov di, msg.verbose.2.index
+	call store_hex_word
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; es:di on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.verbose.2.destlow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.verbose.2.desthigh
+	call store_hex_word
+
+	 push word [bp + ?original_src + 2]
+	 push word [bp + ?original_src]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; ds:si on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.verbose.2.srclow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.verbose.2.srchigh
+	call store_hex_word
+
+	push ss
+	pop ds
+	mov dx, msg.verbose.2
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop ds
+	pop es
+@@:
+%endif
+
+@@:
+	mov al, byte [es:di + bx]	; load from window
+	stosb				; store, increment di
+	loop @B				; loop until -- cx == 0
+	pop ax				; = prior di
+	cmp di, ax
+d0	mov byte [bp + ?errordata], 82h
+	jbe .error			; ax must be above di !
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+					; CHG: ax, bx, cx, dx
+d0	mov byte [bp + ?errordata], 7Ch
+	jc .error
+%endif
+
+.loop_j1:
+	jmp .loop
+
+.combined:
+	call load_word			; load combined word
+
+	mov bx, ax
+	stc				; CY
+	rcr bh, 1			; rotate in a 1
+	sar bh, 1
+	sar bh, 1			; fill top three bits with 1s
+	and ah, 7
+	mov cl, ah			; ch already = 0
+	jnz .match_cx_plus_2		; length = cx + 2, bx = displacement
+
+.escape:
+	call load_byte			; ah = 0
+	cmp al, 1
+	jb .end_check
+	xchg cx, ax			; cx = length
+	ja .match_cx_plus_1		; length = cx + 1, bx = displacement
+
+.normalise:
+	call normalise_dssi_pointer
+	mov ax, di
+	mov cl, 4
+	sub ax, 8192			; large enough offset ?
+d0	mov byte [bp + ?errordata], 87h
+	jb .error			; no -->
+	and di, 15
+	add di, 8192			; 8192 .. 8207
+	shr ax, cl			; how many paragraphs to advance
+	mov cx, es
+	add cx, ax			; => new window
+	mov es, cx
+	jmp .loop_j1
+
+.end_check:
+d0	mov byte [bp + ?errordata], 7Dh
+	xor cx, cx
+	cmp word [bp + ?src_remaining + 2], cx
+	jne .error
+	cmp word [bp + ?src_remaining], cx
+	jne .error
+
+.end:
+	db __TEST_IMM8			; (NC)
+.error:
+	stc
+
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al_for_progress
+	mov al, 10
+	call disp_al_for_progress
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+%if _TESTFILE
+ %assign _TESTFILE_SUPPORTED 1
+%endif
+	lleave code
+	lret
+
+
+		; INP:	ds:si -> source
+		;	?src_remaining
+		; OUT:	NC if read a zero,
+		;	CY if read a one,
+		;	 ds:si = incremented source (not normalised)
+		;	 ?src_remaining decremented
+		;	branches to depack.error on error
+		; CHG:	si, ax
+get_bit:
+	dec byte [bp + ?tagbitsleft]
+	jnz .left
+	mov byte [bp + ?tagbitsleft], 16
+	call load_word
+	shr word [bp + ?tagword], 1
+	mov word [bp + ?tagword], ax
+	retn
+
+.left:
+	shr word [bp + ?tagword], 1
+	retn
+
+		; lodsw with ?src_remaining check
+load_word:
+	cmp si, -2			; would overflow ?
+d0	mov byte [bp + ?errordata], 86h
+	jae depack.error
+		; The above check needs to be done before the lodsw
+		;  so that lodsw never runs with si = 0FFFFh which
+		;  would fault on some machines.
+	sub word [bp + ?src_remaining], 2
+	lodsw
+
+sbb_src_remaining_check:
+	sbb word [bp + ?src_remaining + 2], 0
+d0	mov byte [bp + ?errordata], 84h
+	jc depack.error
+	retn
+
+		; lodsb with ?src_remaining check
+load_byte:
+	lodsb
+	test si, si			; overflowed ?
+d0	mov byte [bp + ?errordata], 81h
+	jz depack.error
+	sub word [bp + ?src_remaining], 1
+	jmp sbb_src_remaining_check
