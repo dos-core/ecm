@@ -100,9 +100,10 @@ ldLoadUntilSeg:	resw 1
 	numdef BZP,		0
 	numdef ZEROCOMP,	0
 	numdef MVCOMP,		0
+	numdef LZEXEDAT,	0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
 	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
-	+ !!_MVCOMP) != 1
+	+ !!_MVCOMP + !!_LZEXEDAT) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -132,6 +133,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.ZER"
 %elif _MVCOMP
 	strdef PAYLOAD_FILE,	"lDOSLOAD.MV"
+%elif _LZEXEDAT
+	strdef PAYLOAD_FILE,	"lDOSLOAD.LZE"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! (_IMAGE_EXE || _DEVICE)
@@ -1692,6 +1695,7 @@ msg:
 
 
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 1
+%assign NEED_NORMALISE_BOTH_POINTERS 1
 %assign CHECK_POINTERS_VARIABLE_SRC 1
 %assign CHECK_POINTERS_VARIABLE_DST 1
 
@@ -1763,6 +1767,11 @@ msg:
 %endif
 
 
+%if _LZEXEDAT
+	%include "lzexedat.asm"
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
@@ -1809,12 +1818,14 @@ check_pointers_not_overlapping:
 		;	es:di = pointer
 		; OUT:	ds:si normalised
 		;	es:di normalised
+%if NEED_NORMALISE_BOTH_POINTERS
 normalise_both_pointers:
 	 push es
 	 push di
 	call normalise_pointer
 	 pop di
 	 pop es
+%endif
 
 normalise_dssi_pointer:
 	 push ds
@@ -2036,6 +2047,8 @@ init0_end:
 %define which inizero
 %elif _MVCOMP
 %define which inimv
+%elif _LZEXEDAT
+%define which inilzexe
 %endif
 %warning which: num bytes used for depacker
 

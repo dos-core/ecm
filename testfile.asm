@@ -54,9 +54,10 @@ source files for the applicable usage conditions.
 	numdef BZP,		0
 	numdef ZEROCOMP,	0
 	numdef MVCOMP,		0
+	numdef LZEXEDAT,	0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
 	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
-	+ !!_MVCOMP) != 1
+	+ !!_MVCOMP + !!_LZEXEDAT) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -793,6 +794,11 @@ msg:
 %endif
 
 
+%if _LZEXEDAT
+	%include "lzexedat.asm"
+%endif
+
+
 %ifn _TESTFILE_SUPPORTED
  %error This compression method does not support test file mode yet.
 %endif
@@ -844,12 +850,14 @@ check_pointers_not_overlapping:
 		;	es:di = pointer
 		; OUT:	ds:si normalised
 		;	es:di normalised
+%if NEED_NORMALISE_BOTH_POINTERS
 normalise_both_pointers:
 	 push es
 	 push di
 	call normalise_pointer
 	 pop di
 	 pop es
+%endif
 
 normalise_dssi_pointer:
 	 push ds
