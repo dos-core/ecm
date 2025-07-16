@@ -329,7 +329,7 @@ d0	mov byte [bp + ?errordata], 83h
 	pop ax				; = prior di
 	cmp di, ax
 d0	mov byte [bp + ?errordata], 82h
-	jbe .error			; ax must be above di !
+	jbe .error			; di must be above ax !
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
