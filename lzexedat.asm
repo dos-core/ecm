@@ -14,6 +14,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 	numdef TESTFILE,	0
+	numdef 4,		0
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
 %assign NEED_NORMALISE_BOTH_POINTERS 0
 %assign CHECK_POINTERS_VARIABLE_SRC 0
@@ -349,7 +350,12 @@ d0	mov byte [bp + ?errordata], 7Ch
 	rcr bh, 1			; rotate in a 1
 	sar bh, 1
 	sar bh, 1			; fill top three bits with 1s
+%if _4
+	sar bh, 1			; fill top *four* bits with 1s
+	and ah, 15
+%else
 	and ah, 7
+%endif
 	mov cl, ah			; ch already = 0
 	jnz .match_cx_plus_2		; length = cx + 2, bx = displacement
 
