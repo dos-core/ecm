@@ -14,6 +14,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 
 	numdef TESTFILE,	0
+	numdef HEATSHRINK_FASTER, 1
 
 %if _TESTFILE
 .verbose.1:	db @F - ($ + 1)
@@ -591,13 +592,27 @@ d0	inc byte [bp + ?errordata + 1]
 	xor ax, ax			; no more remaining
 
 .copy:
+%if _HEATSHRINK_FASTER
+	neg cx				; 1 --> FFFFh, 2 -> FFFEh, etc
+	cmp si, cx			; si + length >= 10000h ?
+	jae .normalise			; yes, need to normalise -->
+	cmp di, cx			; di + length >= 10000h ?
+	jb @F				; no, skip normalisation -->
+.normalise:
+	call normalise_both_pointers
+@@:
+	neg cx				; restore to length
+%endif
+
 %ifn _Z
 	call bx				; move one block (full or partial)
 %else
 	rep movsb
 %endif
 
+%ifn _HEATSHRINK_FASTER
 	call normalise_both_pointers
+%endif
 	jmp .loop
 
 .end:
@@ -686,7 +701,12 @@ read_byte:
 
 	lodsb
 
+%if _HEATSHRINK_FASTER
+	cmp si, 40960
+	jb @F
+%endif
 	call normalise_dssi_pointer
+@@:
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
 	clc
