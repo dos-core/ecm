@@ -48,7 +48,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		db "----_"
 .except.2.srclow:
 		db "----h "
-		db "Long match of "
+		db "Long literal length "
 .except.2.lengthhigh:
 		db "----_"
 .except.2.lengthlow:
