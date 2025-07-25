@@ -38,6 +38,25 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 .verbose.2.length:
 		db "----h.",13,10
 @@:
+.except.2:	db @F - ($ + 1)
+		db "dest="
+.except.2.desthigh:
+		db "----_"
+.except.2.destlow:
+		db "----h src="
+.except.2.srchigh:
+		db "----_"
+.except.2.srclow:
+		db "----h "
+		db "Long match of "
+.except.2.lengthhigh:
+		db "----_"
+.except.2.lengthlow:
+		db "----h.",13,10
+@@:
+
+	align 2, db 0
+literalamount:	dd 0
 %endif
 
 
@@ -181,6 +200,10 @@ d0	mov byte [bp + ?errordata], 73h
 	jmp .loop
 
 .literal:
+%if _TESTFILE
+	add word [ss:literalamount], 1
+	adc word [ss:literalamount + 2], 0
+%endif
 	sub word [bp + ?src_remaining], 1
 	call sbb_src_remaining_check
 	sub word [bp + ?dst_remaining], 1
@@ -198,6 +221,91 @@ d0	mov byte [bp + ?errordata], 89h
 .loop:
 	call get_bit
 	jc .literal
+
+%if _TESTFILE
+	rol byte [ss:exceptional], 1
+	jnc @F
+	cmp word [ss:literalamount + 2], 0
+	jne .high
+	cmp word [ss:literalamount], 26
+.high:
+	jb @F
+	push es
+	push ds
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+
+	 push ds
+	 push si
+	 push es
+	 push di
+	push ss
+	pop es
+	mov ax, word [ss:literalamount]
+	mov di, msg.except.2.lengthlow
+	call store_hex_word
+	mov ax, word [ss:literalamount + 2]
+	mov di, msg.except.2.lengthhigh
+	call store_hex_word
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; es:di on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.except.2.destlow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.except.2.desthigh
+	call store_hex_word
+
+	 push word [bp + ?original_src + 2]
+	 push word [bp + ?original_src]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; ds:si on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.except.2.srclow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.except.2.srchigh
+	call store_hex_word
+
+	push ss
+	pop ds
+	mov dx, msg.except.2
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop ds
+	pop es
+@@:
+	and word [ss:literalamount + 2], 0
+	and word [ss:literalamount], 0
+%endif
+
 
 .notliteral:
 	xor cx, cx			; ! ch = 0
