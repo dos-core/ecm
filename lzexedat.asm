@@ -15,6 +15,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 	numdef TESTFILE,	0
 	numdef 4,		0
+	numdef LONGLITERAL,	0
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
 %assign NEED_NORMALISE_BOTH_POINTERS 0
 %assign CHECK_POINTERS_VARIABLE_SRC 0
@@ -200,6 +201,11 @@ d0	mov byte [bp + ?errordata], 73h
 	jmp .loop
 
 .literal:
+%if _LONGLITERAL
+	inc cx
+.loop_literal:
+%endif
+
 %if _TESTFILE
 	add word [ss:literalamount], 1
 	adc word [ss:literalamount + 2], 0
@@ -218,7 +224,12 @@ d0	mov byte [bp + ?errordata], 88h
 d0	mov byte [bp + ?errordata], 89h
 	jz .error
 
+%if _LONGLITERAL
+	loop .loop_literal
+%endif
+
 .loop:
+	xor cx, cx			; ! ch = 0, cx = 0
 	call get_bit
 	jc .literal
 
@@ -308,7 +319,6 @@ d0	mov byte [bp + ?errordata], 89h
 
 
 .notliteral:
-	xor cx, cx			; ! ch = 0
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -474,6 +484,18 @@ d0	mov byte [bp + ?errordata], 7Ch
 	xchg cx, ax			; cx = length
 	ja .match_cx_plus_1		; length = cx + 1, bx = displacement
 
+%if _LONGLITERAL
+	xchg cx, bx			; cx = displacement, top 4 or 3 bits sets
+ %if _4
+	and ch, ~ 1111_0000b		; isolate 12-bit displacement
+ %else
+	and ch, ~ 1110_0000b		; isolate 13-bit displacement
+ %endif
+ 	jcxz .normalise			; displacement 0 means segment change -->
+ 	cmp cx, 26			; long literals command needs >= 26 bytes
+ 	jb .error			; (reserved for future expansion)
+ 	jmp .loop_literal		; process the literals -->
+%endif
 .normalise:
 	call normalise_dssi_pointer
 	mov ax, di
