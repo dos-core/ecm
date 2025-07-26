@@ -37,7 +37,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 .verbose.2.index:
 		db "----h length "
 .verbose.2.length:
-		db "----h.",13,10
+		db "----h masque="
+.verbose.2.masque:
+		db "----h left="
+.verbose.2.left:
+		db "--h.",13,10
 @@:
 .except.2:	db @F - ($ + 1)
 		db "dest="
@@ -53,7 +57,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 .except.2.lengthhigh:
 		db "----_"
 .except.2.lengthlow:
-		db "----h.",13,10
+		db "----h masque="
+.except.2.masque:
+		db "----h left="
+.except.2.left:
+		db "--h.",13,10
 @@:
 
 	align 2, db 0
@@ -264,6 +272,14 @@ d0	mov byte [bp + ?errordata], 89h
 	mov di, msg.except.2.lengthhigh
 	call store_hex_word
 
+	mov ax, word [bp + ?tagword]
+	mov di, msg.except.2.masque
+	call store_hex_word
+
+	mov al, byte [bp + ?tagbitsleft]
+	mov di, msg.except.2.left
+	call store_hex_byte
+
 	 push word [bp + ?original_dst + 2]
 	 push word [bp + ?original_dst]
 	call pointer_to_linear
@@ -389,6 +405,14 @@ d0	mov byte [bp + ?errordata], 83h
 	neg ax
 	mov di, msg.verbose.2.index
 	call store_hex_word
+
+	mov ax, word [bp + ?tagword]
+	mov di, msg.verbose.2.masque
+	call store_hex_word
+
+	mov al, byte [bp + ?tagbitsleft]
+	mov di, msg.verbose.2.left
+	call store_hex_byte
 
 	 push word [bp + ?original_dst + 2]
 	 push word [bp + ?original_dst]
