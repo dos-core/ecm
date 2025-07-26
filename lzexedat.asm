@@ -188,9 +188,11 @@ d0	mov byte [bp + ?errordata], 7Eh
 
 	call load_word
 
+%if 0
 	test al, 1
 d0	mov byte [bp + ?errordata], 73h
 	jz .error
+%endif
 
 	lvar word,	tagword
 	 push ax
