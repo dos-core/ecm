@@ -84,7 +84,16 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		db "--h.",13,10
 @@:
 .extra.3:	db @F - ($ + 1)
-		db " command masque="
+		db " command "
+		db "dest="
+.extra.3.desthigh:
+		db "----_"
+.extra.3.destlow:
+		db "----h src="
+.extra.3.srchigh:
+		db "----_"
+.extra.3.srclow:
+		db "----h masque="
 .extra.3.masque:
 		db "----h left="
 .extra.3.left:
@@ -780,6 +789,10 @@ disp_command:
 	push dx
 	push di
 
+	 push ds
+	 push si
+	 push es
+	 push di
 	push ss
 	pop ds
 	call disp_msg_counted
@@ -793,6 +806,44 @@ disp_command:
 	mov al, byte [bp + ?tagbitsleft]
 	mov di, msg.extra.3.left
 	call store_hex_byte
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; es:di on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.extra.3.destlow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.extra.3.desthigh
+	call store_hex_word
+
+	 push word [bp + ?original_src + 2]
+	 push word [bp + ?original_src]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; ds:si on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.extra.3.srclow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.extra.3.srchigh
+	call store_hex_word
 
 	push ss
 	pop ds
