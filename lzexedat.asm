@@ -63,6 +63,38 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 .except.2.left:
 		db "--h.",13,10
 @@:
+.extra.2:	db @F - ($ + 1)
+		db "dest="
+.extra.2.desthigh:
+		db "----_"
+.extra.2.destlow:
+		db "----h src="
+.extra.2.srchigh:
+		db "----_"
+.extra.2.srclow:
+		db "----h "
+		db "Literal reads "
+.extra.2.value:
+		db "--h '"
+.extra.2.text:
+		db "-' masque="
+.extra.2.masque:
+		db "----h left="
+.extra.2.left:
+		db "--h.",13,10
+@@:
+.extra.3:	db @F - ($ + 1)
+		db " command masque="
+.extra.3.masque:
+		db "----h left="
+.extra.3.left:
+		db "--h.",13,10
+@@:
+.extra.4.eos:	counted "EOS"
+.extra.4.segchange:
+		counted "Seg Change"
+.extra.4.longliteral:
+		counted "Long Literal"
 
 	align 2, db 0
 literalamount:	dd 0
@@ -226,6 +258,98 @@ d0	mov byte [bp + ?errordata], 73h
 	sbb word [bp + ?dst_remaining + 2], 0
 d0	mov byte [bp + ?errordata], 70h
 	jc .error
+
+%if _TESTFILE
+	rol byte [ss:extraverbose], 1
+	jnc @F
+	push es
+	push ds
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+
+	mov al, [si]
+	 push ds
+	 push si
+	 push es
+	 push di
+	push ss
+	pop es
+	mov di, msg.extra.2.value
+	call store_hex_byte
+
+	mov di, msg.extra.2.text
+	inc ax
+	cmp al, 32
+	jg .gottext
+	mov al, '.' + 1
+.gottext:
+	dec ax
+	stosb
+
+	mov ax, word [bp + ?tagword]
+	mov di, msg.extra.2.masque
+	call store_hex_word
+
+	mov al, byte [bp + ?tagbitsleft]
+	mov di, msg.extra.2.left
+	call store_hex_byte
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; es:di on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.extra.2.destlow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.extra.2.desthigh
+	call store_hex_word
+
+	 push word [bp + ?original_src + 2]
+	 push word [bp + ?original_src]
+	call pointer_to_linear
+
+	xchg cx, ax
+	xchg bx, dx
+
+	 ; ds:si on stack
+	call pointer_to_linear
+
+	sub ax, cx
+	sbb dx, bx
+
+	mov di, msg.extra.2.srclow
+	call store_hex_word
+	xchg ax, dx
+	mov di, msg.extra.2.srchigh
+	call store_hex_word
+
+	push ss
+	pop ds
+	mov dx, msg.extra.2
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop ds
+	pop es
+@@:
+%endif
+
 	movsb
 	test si, si			; overflowed ?
 d0	mov byte [bp + ?errordata], 88h
@@ -235,7 +359,14 @@ d0	mov byte [bp + ?errordata], 89h
 	jz .error
 
 %if _LONGLITERAL
+ %if _TESTFILE
+	loop .loop_literal_j
+	jmp .loop
+.loop_literal_j:
+	jmp .loop_literal
+ %else
 	loop .loop_literal
+ %endif
 %endif
 
 .loop:
@@ -520,9 +651,22 @@ d0	mov byte [bp + ?errordata], 7Ch
  	jcxz .normalise			; displacement 0 means segment change -->
  	cmp cx, 26			; long literals command needs >= 26 bytes
  	jb .error			; (reserved for future expansion)
+%if _TESTFILE
+	push dx
+	mov dx, msg.extra.4.longliteral
+	call disp_command
+	pop dx
+%endif
  	jmp .loop_literal		; process the literals -->
 %endif
 .normalise:
+%if _TESTFILE
+	push dx
+	mov dx, msg.extra.4.segchange
+	call disp_command
+	pop dx
+%endif
+
 	call normalise_dssi_pointer
 	mov ax, di
 	mov cl, 4
@@ -538,6 +682,13 @@ d0	mov byte [bp + ?errordata], 87h
 	jmp .loop_j1
 
 .end_check:
+%if _TESTFILE
+	push dx
+	mov dx, msg.extra.4.eos
+	call disp_command
+	pop dx
+%endif
+
 d0	mov byte [bp + ?errordata], 7Dh
 	xor cx, cx
 	cmp word [bp + ?src_remaining + 2], cx
@@ -612,3 +763,49 @@ d0	mov byte [bp + ?errordata], 81h
 	jz depack.error
 	sub word [bp + ?src_remaining], 1
 	jmp sbb_src_remaining_check
+
+
+%if _TESTFILE
+disp_command:
+	rol byte [ss:exceptional], 1
+	jc .exceptional
+	rol byte [ss:extraverbose], 1
+	jnc @F
+.exceptional:
+	push es
+	push ds
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+
+	push ss
+	pop ds
+	call disp_msg_counted
+
+	push ss
+	pop es
+	mov ax, word [bp + ?tagword]
+	mov di, msg.extra.3.masque
+	call store_hex_word
+
+	mov al, byte [bp + ?tagbitsleft]
+	mov di, msg.extra.3.left
+	call store_hex_byte
+
+	push ss
+	pop ds
+	mov dx, msg.extra.3
+	call disp_msg_counted
+
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop ds
+	pop es
+@@:
+	retn
+%endif
