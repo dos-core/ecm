@@ -140,6 +140,14 @@ cmdloop:
 	jmp cmdloop
 
 @@:
+	cmp al, 'C'
+	jne @F
+	mov al, byte [commandsverbose]
+	mov byte [commandsextraverbose], al
+	mov byte [commandsverbose], 0FFh
+	jmp cmdloop
+
+@@:
 	cmp al, 'B'
 	jne @F
 	mov byte [..@breakpoint], 0CCh
@@ -1029,6 +1037,9 @@ nomorefile:
 switch:		db '-'
 verbose:	db 0
 extraverbose:	db 0
+commandsverbose:db 0
+commandsextraverbose:
+		db 0
 exceptional:	db 0
 
 

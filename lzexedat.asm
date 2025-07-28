@@ -776,11 +776,15 @@ d0	mov byte [bp + ?errordata], 81h
 
 %if _TESTFILE
 disp_command:
-	rol byte [ss:exceptional], 1
-	jc .exceptional
+	rol byte [ss:commandsextraverbose], 1
+	jc .do
 	rol byte [ss:extraverbose], 1
+	jc .do
+	cmp dx, msg.extra.4.longliteral
+	je @F
+	rol byte [ss:commandsverbose], 1
 	jnc @F
-.exceptional:
+.do:
 	push es
 	push ds
 	push ax
