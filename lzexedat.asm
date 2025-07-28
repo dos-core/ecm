@@ -33,7 +33,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		db "----_"
 .verbose.2.srclow:
 		db "----h "
-		db "Match at minus "
+		db "Match -"
 .verbose.2.index:
 		db "----h length "
 .verbose.2.length:
