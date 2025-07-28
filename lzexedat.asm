@@ -53,7 +53,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		db "----_"
 .except.2.srclow:
 		db "----h "
-		db "Long literal length "
+		db "Literal length "
 .except.2.lengthhigh:
 		db "----_"
 .except.2.lengthlow:
