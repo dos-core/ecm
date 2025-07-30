@@ -235,19 +235,12 @@ d0	mov byte [bp + ?errordata], 7Eh
 	jc .error
 %endif
 
-	call load_word
-
-%if 0
-	test al, 1
-d0	mov byte [bp + ?errordata], 73h
-	jz .error
-%endif
-
 	lvar word,	tagword
 	 push ax
-	mov al, 16
 	lvar word,	tagbitsleft	; only used as a byte
 	 push ax
+
+	call get_bit.init
 
 	jmp .loop
 
@@ -737,6 +730,7 @@ d0	mov bx, word [bp + ?errordata]
 get_bit:
 	dec byte [bp + ?tagbitsleft]
 	jnz .left
+.init:
 	mov byte [bp + ?tagbitsleft], 16
 	call load_word
 	shr word [bp + ?tagword], 1
