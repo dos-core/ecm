@@ -237,10 +237,11 @@ d0	mov byte [bp + ?errordata], 7Eh
 
 	lvar word,	tagword
 	 push ax
-	lvar word,	tagbitsleft	; only used as a byte
-	 push ax
+	mov ax, 1
+	lvar word,	tagbitscycle
+	 push ax		; = 1
 
-	call get_bit.init
+	call get_bit
 
 	jmp .loop
 
@@ -721,17 +722,26 @@ d0	mov bx, word [bp + ?errordata]
 
 		; INP:	ds:si -> source
 		;	?src_remaining
+		;	word [?tagword] = tag word
+		;	word [?tagbitscycle] = circular tag bits indicator
+		;	 (there's always a single bit set in this word.
+		;	 if this word is equal to 1 on INP then the tag
+		;	 word must be reloaded, and the last bit shifted
+		;	 out of the INP prior tag word.)
 		; OUT:	NC if read a zero,
 		;	CY if read a one,
 		;	 ds:si = incremented source (not normalised)
 		;	 ?src_remaining decremented
+		;	 word [?tagword] updated
+		;	 word [?tagbitscycle] updated
 		;	branches to depack.error on error
 		; CHG:	si, ax
 get_bit:
-	dec byte [bp + ?tagbitsleft]
-	jnz .left
-.init:
-	mov byte [bp + ?tagbitsleft], 16
+	ror word [bp + ?tagbitscycle], 1
+	jnc .left
+		; after this branch not taken, the cycle word
+		;  wraps around to be equal to 8000h. this
+		;  will wrap around again after 15 more ror.
 	call load_word
 	shr word [bp + ?tagword], 1
 	mov word [bp + ?tagword], ax
