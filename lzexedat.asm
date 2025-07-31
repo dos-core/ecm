@@ -296,7 +296,7 @@ d0	mov byte [bp + ?errordata], 70h
 	mov di, msg.extra.2.masque
 	call store_hex_word
 
-	mov al, byte [bp + ?tagbitsleft]
+	call get_tagbitsleft
 	mov di, msg.extra.2.left
 	call store_hex_byte
 
@@ -410,7 +410,7 @@ d0	mov byte [bp + ?errordata], 89h
 	mov di, msg.except.2.masque
 	call store_hex_word
 
-	mov al, byte [bp + ?tagbitsleft]
+	call get_tagbitsleft
 	mov di, msg.except.2.left
 	call store_hex_byte
 
@@ -544,7 +544,7 @@ d0	mov byte [bp + ?errordata], 83h
 	mov di, msg.verbose.2.masque
 	call store_hex_word
 
-	mov al, byte [bp + ?tagbitsleft]
+	call get_tagbitsleft
 	mov di, msg.verbose.2.left
 	call store_hex_byte
 
@@ -811,7 +811,7 @@ disp_command:
 	mov di, msg.extra.3.masque
 	call store_hex_word
 
-	mov al, byte [bp + ?tagbitsleft]
+	call get_tagbitsleft
 	mov di, msg.extra.3.left
 	call store_hex_byte
 
@@ -866,5 +866,18 @@ disp_command:
 	pop ds
 	pop es
 @@:
+	retn
+
+
+		; Convert cycle mask to a counter
+get_tagbitsleft:
+	push bx
+	mov bx, word [bp + ?tagbitscycle]
+	xor ax, ax
+@@:
+	inc ax
+	ror bx, 1
+	jnc @B
+	pop bx
 	retn
 %endif
