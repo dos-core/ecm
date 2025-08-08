@@ -1451,6 +1451,7 @@ at deSize,		dd %3
 %assign isdatetime 0
 %assign isdate 0
 %assign istime 0
+%assign islabel 0
 %push ROOT
 %define %$namelist "", ""
 %define %$dirname "/"
@@ -1471,7 +1472,19 @@ at deSize,		dd %3
 %assign %$parentfiletime _FATFILETIME
 %assign %$parentfiledate _FATFILEDATE
 %rep %0
- %if ischdir
+ %if islabel
+  %ifstr %1
+   %xdefine DIRLABEL %1
+  %else
+   %defstr DIRLABEL %1
+  %endif
+	usesection %$parent
+	istruc DIRENTRY
+at deName,		fill 11,32,db DIRLABEL
+at deAttrib,		db ATTR_VOLLABEL
+	iend
+  %assign islabel 0
+ %elif ischdir
   %ifidni %1, ..
    %ifctx ROOT
     %error Cannot back out over root
@@ -1575,6 +1588,8 @@ at deName,		db 0E5h
   %assign _FILETIME %1
 	convertdatetime
   %assign istime 0
+ %elifidni %1, ::label
+  %assign islabel 1
  %elifidni %1, ::chdir
   %assign ischdir 1
  %elifidni %1, ::fragment
@@ -1622,6 +1637,9 @@ at deName,		db 0E5h
  %endif
  %rotate 1
 %endrep
+%if islabel
+ %error No label specified
+%endif
 %if ischdir
  %error No directory to create specified
 %endif
