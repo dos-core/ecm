@@ -41,6 +41,61 @@ the current partition table.
 
 === Examples
 
+# Create small file system images with labels in EBPB new,
+# labels in the root directory, and two files each identifying
+# the partition:
+
+for label in hdd5 hdd6 hdc5 hdc6 hdc7 hdb1 hdb4 hdb5 hdb6 \
+  hda1_ccc hda2_ddd hda5_fff hda4_eee hda6_ggg hda7_hhh
+do
+  echo "$label" > "$label.id"
+  nasm -I ../lmacros/ bootimg.asm \
+    -D_PAYLOADFILE=::empty,::label,"'${label^^}'","$label.id",::rename,"$label.id",part.id \
+    -D_SPC=1 -D_BPE=16 -D_SPI=38000 -D_SPF=148 -D_ALIGNDATA \
+    -D_NUMROOT=512 -D_CHS_HEADS=255 -D_CHS_SECTORS=63 \
+    -D_UNIT=80h -D_MEDIAID=0F8h -D_DEFAULT_LABEL="'${label^^}'" \
+    -o "$label.prt" -D_FULL=0
+done
+
+# Create an image with multiple primary and nested logical partitions:
+
+nasm -I ../lmacros/ partdisk.asm -o partdisk.img \
+  -D_PAYLOAD=::primary,80h,20M,fat16_chs,hda1_ccc.prt,\
+::primary,0,20M,fat16_chs,hda2_ddd.prt,\
+::extended,41M,extended_chs,::logical,20M,fat16_chs,hda5_fff.prt,\
+::extended,max,extended_chs,::logical,20M,fat16_chs,hda6_ggg.prt,\
+::up,::up,::primary,0,20M,fat16_chs,hda4_eee.prt \
+  -D_MBR_DOSEMU_IMAGE_HEADER
+
+# Create an image with two extended partition chains, one
+# of type 5 and one of type 15:
+
+nasm -I ../lmacros/ partdisk.asm -o partdis2.img \
+  -D_PAYLOAD=::slot,4,::primary,80h,20M,fat16_chs,hdb4.prt,\
+::primary,0,20M,fat16_chs,hdb1.prt,\
+::slot,3,::extended,21M,extended_chs,::logical,20M,fat16_chs,hdb5.prt,\
+::up,::extended,21M,extended,::logical,20M,fat16_chs,hdb6.prt,::up \
+  -D_MBR_DOSEMU_IMAGE_HEADER
+
+# Create an image with multiple type 5 extended partition chains
+# and multiple logical partitions in the same EPBR:
+
+nasm -I ../lmacros/ partdisk.asm -o partdis3.img \
+  -D_PAYLOAD=::extended,41M,extended_chs,\
+::logical,20M,fat16_chs,hdc5.prt,\
+::logical,20M,fat16_chs,hdc6.prt,::up,\
+::extended,21M,extended_chs,::logical,20M,fat16_chs,hdc7.prt,::up \
+  -D_MBR_DOSEMU_IMAGE_HEADER
+
+# Create an image with a nested extended partition hidden behind
+# an empty extended partition in the same EPBR:
+
+nasm -I ../lmacros/ partdisk.asm -o partdis4.img \
+ -D_PAYLOAD=::extended,41M,extended_chs,\
+::logical,20M,fat16_chs,hdd5.prt,\
+::extended,1Ki,extended_chs,::up,\
+::extended,max,extended_chs,::logical,20M,fat16_chs,hdd6.prt,::up,::up \
+  -D_MBR_DOSEMU_IMAGE_HEADER
 
 %endif
 
