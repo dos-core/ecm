@@ -193,6 +193,73 @@ sptinternal
 .:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.",13,10
+
+%if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_traditional_order_logical
+sptinternal -3
+	jz .nottraditional
+
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
+.loop_traditional:
+sptrel	inc word [ %[_SCANPTAB_PREFIX]load_partition_cycle]
+sptinternal
+	jz .got_partition_cycle
+
+	mov al, [es:si + piType]
+
+%ifidn _BASE, bp
+	xor bx, bx
+%endif
+	test al, al
+	jz .next_traditional
+	cmp al, 0Fh		; extended partition (LBA aware) ?
+	je .next_traditional	; yes -->
+	and al, ~80h		; extended partition Linux (85h) ?
+	cmp al, 05h		;  or extended partition DOS (05h) ?
+	je .next_traditional	; yes -->
+
+%ifidn _BASE, bp
+	cmp word [_BASE+di-2], bx
+	jne .logical_traditional
+	cmp word [_BASE+di-4], bx
+%else
+	cmp word [_BASE+di-2], 0
+	jne .logical_traditional
+	cmp word [_BASE+di-4], 0
+%endif
+	je .next_traditional
+.logical_traditional:
+
+%if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; had a logical partition yet ?
+	jz .calllogicaltrad	; no, accept it -->
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_logical
+sptinternal -3			; ignore subsequent logical ?
+	jnz .ignorelogicaltrad	; yes, ignore it -->
+.calllogicaltrad:
+%endif
+
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+	jz .error_too_many_partitions
+	call cx			; (sets load_scan_flags & 32 if recognised)
+		; CHG: ax, (cx), dx, bx if _BASE = bp
+		; preserve: (cx), si, di, ds, es, bx if _BASE = ss:bx
+.ignorelogicaltrad:
+.next_traditional:
+	add si, 16		; -> next partition table entry
+sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
+sptinternal			; was last?
+	jb .loop_traditional	; no, loop -->
+
+sptrel	setopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; mark as had logical
+
+.nottraditional:
+%endif
+
 sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
 sptinternal
 .loop:
@@ -292,8 +359,9 @@ sptinternal -3
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
 sptinternal -3			; had a logical partition yet ?
 	jz .calllogical		; no, accept it -->
-sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_logical
-sptinternal -3			; ignore subsequent logical ?
+sptrel	test word [ %[_SCANPTAB_PREFIX]load_mode ], strict word \
+		mode_ignore_subsequent_logical | mode_traditional_order_logical
+sptinternal -4			; ignore subsequent logical or post-trad run ?
 	jnz .ignorelogical	; yes, ignore it -->
 .calllogical:
 %endif
@@ -378,16 +446,21 @@ d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 
 %if _MODE
 	xor ax, ax		; sentinel 0 = accept more logicals
+
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_traditional_order_logical
+sptinternal -3
+	jnz .traditionalsentinel
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
 sptinternal -3			; had a logical partition in this table ?
 	jz @F			; no, no need to reset -->
-sptrel	clropt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
-sptinternal -3			; accept a logical partition in next table
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_logical
 sptinternal -3			; ignore subsequent logical ?
 	jz @F			; no -->
+.traditionalsentinel:
 	mov al, 64		; sentinel 64 = no more logicals
 @@:
+sptrel	clropt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; accept a logical partition in next table
 %endif
 
 	pop si			; restore -> partition table entry
