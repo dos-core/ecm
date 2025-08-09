@@ -275,12 +275,24 @@ sptinternal -3
 %endif
 	je .next
 .logical:
+
+%if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; had a logical partition yet ?
+	jz .calllogical		; no, accept it -->
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_logical
+sptinternal -3			; ignore subsequent logical ?
+	jnz .ignorelogical	; yes, ignore it -->
+.calllogical:
+%endif
+
 sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 sptinternal
 	jz .error_too_many_partitions
-	call cx
+	call cx			; (sets load_scan_flags & 32 if recognised)
 		; CHG: ax, (cx), dx, bx if _BASE = bp
 		; preserve: (cx), si, di, ds, es, bx if _BASE = ss:bx
+.ignorelogical:
 .ignoreextended:
 .next:
 	add si, 16		; -> next partition table entry
@@ -351,14 +363,36 @@ sptinternal			; at end?
 .push_check_is_not_empty:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.push_check_is_not_empty",13,10
+
+%if _MODE
+	xor ax, ax		; sentinel 0 = accept more logicals
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; had a logical partition in this table ?
+	jz @F			; no, no need to reset -->
+sptrel	clropt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; accept a logical partition in next table
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_logical
+sptinternal -3			; ignore subsequent logical ?
+	jz @F			; no -->
+	mov al, 64		; sentinel 64 = no more logicals
+@@:
+%endif
+
 	pop si			; restore -> partition table entry
+%if _MODE
+	push word [es:si + piStart]
+	mov dx, word [es:si + piStart + 2]	; get extended partition offset
+	add si, ax		; now -> behind partition_table if sentinel set
+	pop ax
+%endif
 	push si			; stored at word [_BASE+di-10]
 	sub di, 10
 	push word [_BASE+di+10-2]
 	push word [_BASE+di+10-4]	; copy root
-
+%ifn _MODE
 	mov ax, word [es:si + piStart]
 	mov dx, word [es:si + piStart + 2]	; get extended partition offset
+%endif
 	add ax, word [_BASE+di-4]
 	adc dx, word [_BASE+di-2]	; add in root to get absolute sector number
 
@@ -398,6 +432,17 @@ sptinternal -3			; remember we found a nested extended partition
 	add sp, 8
 	pop si
 
+%if _MODE
+sptrel	clropt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; accept a logical partition in this table
+sptrel	cmp si, 64 + %[_SCANPTAB_PREFIX]partition_table
+sptinternal			; sentinel set ?
+	jb @F			; no -->
+sptrel	setopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; do not accept a logical partition in this table
+	sub si, 64		; undo sentinel addition
+@@:
+%endif
 	mov ax, word [_BASE+di-8]
 	mov dx, word [_BASE+di-6]
 	call %[_SCANPTAB_PREFIX]read_partition_table.reload
