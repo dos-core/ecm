@@ -21,16 +21,44 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
  %define sptrel reloc
  %define sptinternal internaldatarelocation
  %define sptexternal linkdatarelocation
+	numdef MODE, 1
 %else
  %define sptrel
  %define sptinternal comment
  %define sptexternal comment
+	numdef MODE, 0
 %endif
 	gendef BASE, ss:bx
 %ifidn _BASE, ss:bx
 %elifidn _BASE, bp
 %else
  %error Invalid base
+%endif
+
+%if _MODE
+mode_all_ext5			equ 00b
+mode_ignore_ext5		equ 01b
+mode_first_ext5			equ 10b
+mode_first_type_ext5		equ 11b
+
+mode_all_ext15			equ 00b << 2
+mode_ignore_ext15		equ 01b << 2
+mode_first_ext15		equ 10b << 2
+mode_first_type_ext15		equ 11b << 2
+
+mode_all_ext85			equ 00b << 4
+mode_ignore_ext85		equ 01b << 4
+mode_first_ext85		equ 10b << 4
+mode_first_type_ext85		equ 11b << 4
+
+mode_ignore_subsequent_nested	equ            1_00_00_00b
+mode_ignore_subsequent_logical	equ           10_00_00_00b
+mode_ignore_subsequent_primary	equ          100_00_00_00b
+mode_traditional_order_logical	equ         1000_00_00_00b
+mode_active_priority		equ       1_0000_00_00_00b
+mode_subsequent_primary_after	equ      10_0000_00_00_00b
+mode_disable_lba		equ 01_0000_0000_00_00_00b
+mode_dlasort_zero		equ 10_0000_0000_00_00_00b
 %endif
 
 
