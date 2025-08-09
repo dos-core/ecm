@@ -97,6 +97,17 @@ nasm -I ../lmacros/ partdisk.asm -o partdis4.img \
 ::extended,max,extended_chs,::logical,20M,fat16_chs,hdd6.prt,::up,::up \
   -D_MBR_DOSEMU_IMAGE_HEADER
 
+# Create an image in which an extended partition is in the EPBR
+# before the logical partition, leading lDebug and ldosmbr to
+# order them differently (hdc5 then hdc6) than lDOS, FreeDOS,
+# EDR-DOS, MS-DOS v5, and MS-DOS v7 (hdc6 then hdc5).
+
+nasm -I ../lmacros/ partdisk.asm -o partdis5.img \
+  -D_PAYLOAD=::extended,42M,extended_chs,\
+::extended,21M,extended_chs,::logical,20M,fat16_chs,hdc5.prt,\
+::up,::logical,20M,fat16_chs,hdc6.prt,::up \
+  -D_MBR_DOSEMU_IMAGE_HEADER
+
 %endif
 
 
