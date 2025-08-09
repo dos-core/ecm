@@ -222,7 +222,7 @@ sptinternal
 	test ah, 11b
 	jz .push		; if it is 00b = all, always accept -->
 	test ah, 10b		; if prior is NZ but this is zero
-	jz .notextended		;  then we have 01b, always ignore -->
+	jz .ignoreextended	;  then we have 01b, always ignore -->
 	test ah, 01b		; if prior is NZ and this is NZ,
 	; jnz .firsttype	;  then we have 11b, accept first of type
 	mov ah, 1		; flag 1 for 10b
@@ -237,7 +237,7 @@ sptinternal
 @@:
 sptrel	test byte [ %[_SCANPTAB_PREFIX]load_scan_flags ], ah
 sptinternal			; seen one of those before ?
-	jnz .notextended	; yes, ignore -->
+	jnz .ignoreextended	; yes, ignore -->
 sptrel	or byte [ %[_SCANPTAB_PREFIX]load_scan_flags ], ah
 sptinternal			; no, note seen it now
 	jmp .push		; and process extended partition -->
@@ -268,6 +268,7 @@ sptinternal
 	call cx
 		; CHG: ax, (cx), dx, bx if _BASE = bp
 		; preserve: (cx), si, di, ds, es, bx if _BASE = ss:bx
+.ignoreextended:
 .next:
 	add si, 16		; -> next partition table entry
 sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
