@@ -165,6 +165,90 @@ sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
 sptinternal
 %endif
 
+%if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
+sptinternal -3			; active primary first ?
+	jz .active_ignored
+
+.loop_active_primary:
+
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+	mov al, byte [es:si + piType]
+	cmp al, 0
+	je .loop_active_primary_skip
+	cmp byte [es:si + piBoot], 0
+	je .loop_active_primary_skip
+
+		; INP:	al = partition type
+		; OUT:	CY if an LBA or FAT32 type that's disabled
+		;	NC, ZR if known type we can access
+		;	NC, NZ if unknown type
+	call %[_SCANPTAB_PREFIX]load_is_known
+	jc .loop_active_primary_skip
+	jnz .loop_active_primary_skip
+
+	call cx			; es:si -> partition table entry
+				; byte [load_current_partition] = which
+	jmp .active_done
+
+.loop_active_primary_skip:
+	add si, 16
+sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
+sptinternal
+	jb .loop_active_primary
+
+.active_done:
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 0
+sptinternal -3
+
+
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
+sptinternal -3			; active primary first ?
+	jz .active_ignored
+
+.loop_active_skip:
+
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+	mov al, byte [es:si + piType]
+	cmp al, 0
+	je .loop_active_skip_skip
+	cmp byte [es:si + piBoot], 0
+	je .loop_active_skip_skip
+
+		; INP:	al = partition type
+		; OUT:	CY if an LBA or FAT32 type that's disabled
+		;	NC, ZR if known type we can access
+		;	NC, NZ if unknown type
+	call %[_SCANPTAB_PREFIX]load_is_known
+	jc .loop_active_skip_skip
+	jnz .loop_active_skip_skip
+sptrel	mov al, byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_scan_flags + 1], al
+sptinternal
+sptrel	setopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; mark as had a primary partition yet
+	jmp .active_skip_done
+
+.loop_active_skip_skip:
+	add si, 16
+sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
+sptinternal
+	jb .loop_active_skip
+
+.active_skip_done:
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 0
+sptinternal -3
+
+%endif
+
+.active_ignored:
 .loop_primary_parts:
 sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 sptinternal
@@ -172,6 +256,16 @@ sptinternal
 	je .loop_primary_skip
 
 %if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
+sptinternal -3			; active primary first ?
+	jz @F			; no -->
+sptrel	mov al, byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+sptrel	cmp byte [ %[_SCANPTAB_PREFIX]load_scan_flags + 1], al
+sptinternal
+	je .ignoreprimary
+@@:
+
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
 sptinternal -3			; had a primary partition yet ?
 	jz .callprimary		; no, accept it -->
