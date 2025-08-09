@@ -219,6 +219,9 @@ sptinternal
 	cmp al, 85h
 	jne .notextended
 .check:
+sptrel	clropt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 16
+sptinternal -3			; new outermost extended
+
 	test ah, 11b
 	jz .push		; if it is 00b = all, always accept -->
 	test ah, 10b		; if prior is NZ but this is zero
@@ -244,6 +247,15 @@ sptinternal			; no, note seen it now
 %endif
 
 .allextended:
+%if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_nested
+sptinternal -3
+	jz @F
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 16
+sptinternal -3
+	jnz .ignoreextended
+@@:
+%endif
 	cmp al, 0Fh		; extended partition (LBA aware) ?
 	je .push		; yes -->
 	and al, ~80h		; extended partition Linux (85h) ?
@@ -374,6 +386,12 @@ d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 .pop:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.pop",13,10
+
+%if _MODE
+sptrel	setopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 16
+sptinternal -3			; remember we found a nested extended partition
+				;  so we can ignore others in the same outermost
+%endif
 
 	add di, 10
 	add sp, 8
