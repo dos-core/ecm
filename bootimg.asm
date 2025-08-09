@@ -103,6 +103,11 @@ keywords are:
 ::directorypad	Followed by a number. Pads directory with as
 		 many deleted entries as specified.
 
+::label		Followed by a string. Emits a volume label
+		 directory entry. No check is done whether
+		 this is the only one or whether the current
+		 directory is the root directory or not.
+
 File and directory names are checked for duplicates. If a
 string like ::chdir,'foo',::chdir,..,::chdir,'foo' is used,
 the subdirectory will be detected as a duplicate. That is,
