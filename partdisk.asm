@@ -91,7 +91,7 @@ nasm -I ../lmacros/ partdisk.asm -o partdis3.img \
 # an empty extended partition in the same EPBR:
 
 nasm -I ../lmacros/ partdisk.asm -o partdis4.img \
- -D_PAYLOAD=::extended,41M,extended_chs,\
+  -D_PAYLOAD=::extended,41M,extended_chs,\
 ::logical,20M,fat16_chs,hdd5.prt,\
 ::extended,1Ki,extended_chs,::up,\
 ::extended,max,extended_chs,::logical,20M,fat16_chs,hdd6.prt,::up,::up \
