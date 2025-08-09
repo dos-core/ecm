@@ -638,8 +638,10 @@ sptinternal -3			; do not accept a logical partition in this table
 .replace:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.replace",13,10
+%if _MODE
 sptrel	clropt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
 sptinternal -3			; accept a logical partition in next table
+%endif
 
 	pop si				; (discard)
 .replace_no_pop:
