@@ -57,6 +57,7 @@ mode_ignore_subsequent_primary	equ          100_00_00_00b
 mode_traditional_order_logical	equ         1000_00_00_00b
 mode_active_priority		equ       1_0000_00_00_00b
 mode_subsequent_primary_after	equ      10_0000_00_00_00b
+mode_disable_fat32		equ 00_1000_0000_00_00_00b
 mode_disable_lba		equ 01_0000_0000_00_00_00b
 mode_dlasort_zero		equ 10_0000_0000_00_00_00b
 %endif
