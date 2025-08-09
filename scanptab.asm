@@ -17,6 +17,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	numdef PARTITION_TABLE_IN_CS, 1
 	numdef BOOTCMD_FAIL_ERROR, 1
 	numdef SPT_ELD, 0
+	numdef SPT_MULTIPASS, 0
 %if _SPT_ELD
  %define sptrel reloc
  %define sptinternal internaldatarelocation
@@ -99,7 +100,11 @@ mode_dlasort_zero		equ 10_0000_0000_00_00_00b
 		;	 subsequent partitions afterwards.
 		; Note:	May load sp from _BASE then pop bp then return
 		;	 near if the scan should stop after the call.
+%if _SPT_MULTIPASS
+%[_SCANPTAB_PREFIX]scan_priority_primary:
+%else
 %[_SCANPTAB_PREFIX]scan_partitions:
+%endif
 sptrel	and word [ %[_SCANPTAB_PREFIX]load_partition_cycle], 0
 sptinternal -3
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
@@ -153,6 +158,12 @@ sptinternal -3				; piLength is 0, too
 
 
 @@:
+ %if _SPT_MULTIPASS
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
+sptinternal -3			; active primary first ?
+	jz .end
+ %endif
+
 	xor ax, ax
 	xor dx, dx
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
@@ -170,9 +181,11 @@ sptinternal
 %endif
 
 %if _MODE
+ %ifn _SPT_MULTIPASS
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
 sptinternal -3			; active primary first ?
 	jz .active_ignored
+ %endif
 
 .loop_active_primary:
 
@@ -203,10 +216,54 @@ sptinternal
 	jb .loop_active_primary
 
 .active_done:
-sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+%if _SPT_MULTIPASS
+.end:
+%ifidn _BASE, bp
+	mov sp, bp		; restore sp
+	pop bp
+%else
+	mov sp, bx		; restore sp
+	pop ax			; (discard dummy bp value)
+%endif
+	retn			; and bye
+
+
+%[_SCANPTAB_PREFIX]scan_early_primary:
+sptrel	and word [ %[_SCANPTAB_PREFIX]load_partition_cycle], 0
+sptinternal -3
+
+	push bp
+%ifidn _BASE, ss:bx
+	mov bx, sp
+%elifidn _BASE, bp
+	mov bp, sp
+%endif
+	xor di, di
+	push di		; [_BASE+di-2]
+	push di		; [_BASE+di-4]
+	push di		; [_BASE+di-6]
+	push di		; [_BASE+di-8]
+	xor ax, ax
+	xor dx, dx
+
+%if _MODE
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], ax
 sptinternal
+%endif
+
+	call %[_SCANPTAB_PREFIX]read_partition_table.first
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], dl	; = 0
+sptinternal
+%if _SPT_ELD
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
+sptinternal
+%endif
+%else
 sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 0
 sptinternal -3
+%endif
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
 
 
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
@@ -290,7 +347,50 @@ sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
 sptinternal
 	jb .loop_primary_parts
 
+%if _SPT_MULTIPASS
+.end:
+%ifidn _BASE, bp
+	mov sp, bp		; restore sp
+	pop bp
+%else
+	mov sp, bx		; restore sp
+	pop ax			; (discard dummy bp value)
+%endif
+	retn			; and bye
+
+
 %[_SCANPTAB_PREFIX]scan_logical:
+	push bp
+%ifidn _BASE, ss:bx
+	mov bx, sp
+%elifidn _BASE, bp
+	mov bp, sp
+%endif
+	xor di, di
+	push di		; [_BASE+di-2]
+	push di		; [_BASE+di-4]
+	push di		; [_BASE+di-6]
+	push di		; [_BASE+di-8]
+
+	xor ax, ax
+	xor dx, dx
+%if _MODE
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], ax
+sptinternal
+%endif
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_partition_cycle], ax
+sptinternal
+	call %[_SCANPTAB_PREFIX]read_partition_table.first
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 4
+sptinternal -3
+%if _SPT_ELD
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
+sptinternal
+%endif
+%else
+
+%[_SCANPTAB_PREFIX]scan_logical:
+%endif
 .:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.",13,10
@@ -490,7 +590,7 @@ sptinternal			; was last?
 	mov sp, bx		; restore sp
 	pop ax			; (discard dummy bp value)
 %endif
-%if _MODE
+%if _MODE && ! _SPT_MULTIPASS
 	jmp scan_subsequent_primary
 %else
 	retn			; and bye
@@ -695,11 +795,20 @@ sptinternal -3			; subsequent after ?
 	push di		; [_BASE+di-4]
 	push di		; [_BASE+di-6]
 	push di		; [_BASE+di-8]
+
+%if ! _SPT_MULTIPASS
 sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], di
 sptinternal
+%endif
 
 	xor ax, ax
 	xor dx, dx
+
+%if _SPT_MULTIPASS
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], ax
+sptinternal
+%endif
+
 	call %[_SCANPTAB_PREFIX]read_partition_table.reload
 				; (re)read MBR
 sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
