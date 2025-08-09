@@ -124,7 +124,7 @@ sptinternal -3				; piLength is 0, too
 	xor dx, dx
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_partitions (before first call to read_partition_table)",13,10
-	call %[_SCANPTAB_PREFIX]read_partition_table
+	call %[_SCANPTAB_PREFIX]read_partition_table.first
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_partitions (after first call to read_partition_table)",13,10
 sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
@@ -288,7 +288,7 @@ d4	asciz "In scan_logical.push_check_is_not_empty",13,10
 	mov word [_BASE+di-4], ax	; set root
 .have_root:
 
-	call %[_SCANPTAB_PREFIX]read_partition_table
+	call %[_SCANPTAB_PREFIX]read_partition_table.first
 	jmp .
 
 .pop:
@@ -301,7 +301,7 @@ d4	asciz "In scan_logical.pop",13,10
 
 	mov ax, word [_BASE+di-8]
 	mov dx, word [_BASE+di-6]
-	call %[_SCANPTAB_PREFIX]read_partition_table
+	call %[_SCANPTAB_PREFIX]read_partition_table.reload
 	jmp .next
 
 .replace:
@@ -346,6 +346,16 @@ sptinternal
 		;       64 bytes [es:partition_table] = partition table
 		;       does not return if error
 %[_SCANPTAB_PREFIX]read_partition_table:
+%if _SPT_ELD
+.first:
+	db __TEST_IMM8			; NC, skip stc
+.reload:
+	stc
+%else
+.first:
+.reload:
+%endif
+
 	push bx
 %if _SPT_ELD
 sptrel	mov bx, word [buffersegment]
