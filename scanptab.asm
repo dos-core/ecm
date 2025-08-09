@@ -194,11 +194,62 @@ sptinternal
 %endif
 	test al, al
 	jz .next
+%if _MODE
+%ifidn _BASE, bp
+	cmp word [_BASE+di-2], bx
+	jne .allextended
+	cmp word [_BASE+di-4], bx
+%else
+	cmp word [_BASE+di-2], 0
+	jne .allextended
+	cmp word [_BASE+di-4], 0
+%endif
+	jne .allextended
+
+sptrel	mov ah, [ %[_SCANPTAB_PREFIX]load_mode ]
+sptinternal
+	cmp al, 5
+	je .check
+	shr ah, 1
+	shr ah, 1
+	cmp al, 15
+	je .check
+	shr ah, 1
+	shr ah, 1
+	cmp al, 85h
+	jne .notextended
+.check:
+	test ah, 11b
+	jz .push		; if it is 00b = all, always accept -->
+	test ah, 10b		; if prior is NZ but this is zero
+	jz .notextended		;  then we have 01b, always ignore -->
+	test ah, 01b		; if prior is NZ and this is NZ,
+	; jnz .firsttype	;  then we have 11b, accept first of type
+	mov ah, 1		; flag 1 for 10b
+	jz @F			; if ZR, we have 10b, accept first of all types with 10b
+.firsttype:
+	mov ah, 2		; flag 2 for 11b type 5
+	cmp al, 15
+	jb @F
+	mov ah, 4		; flag 4 for 11b type 15
+	je @F
+	mov ah, 8		; flag 8 for 11b type 85h
+@@:
+sptrel	test byte [ %[_SCANPTAB_PREFIX]load_scan_flags ], ah
+sptinternal			; seen one of those before ?
+	jnz .notextended	; yes, ignore -->
+sptrel	or byte [ %[_SCANPTAB_PREFIX]load_scan_flags ], ah
+sptinternal			; no, note seen it now
+	jmp .push		; and process extended partition -->
+%endif
+
+.allextended:
 	cmp al, 0Fh		; extended partition (LBA aware) ?
 	je .push		; yes -->
 	and al, ~80h		; extended partition Linux (85h) ?
 	cmp al, 05h		;  or extended partition DOS (05h) ?
 	je .push		; yes -->
+.notextended:
 
 %ifidn _BASE, bp
 	cmp word [_BASE+di-2], bx
@@ -337,6 +388,7 @@ d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
 d4	asciz "In scan_logical.replace",13,10
 
 	pop si				; (discard)
+.replace_no_pop:
 	mov ax, word [es:si + piStart]
 	mov dx, word [es:si + piStart + 2]	; get extended partition offset
 	add ax, word [_BASE+di - 4]
