@@ -116,6 +116,10 @@ d4	asciz "In scan_partitions",13,10
 	push di		; [_BASE+di-4]
 	push di		; [_BASE+di-6]
 	push di		; [_BASE+di-8]
+%if _MODE
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], di
+sptinternal
+%endif
 
 sptrel	cmp byte [ %[_SCANPTAB_PREFIX]load_unit], 80h
 sptinternal -3
@@ -691,6 +695,8 @@ sptinternal -3			; subsequent after ?
 	push di		; [_BASE+di-4]
 	push di		; [_BASE+di-6]
 	push di		; [_BASE+di-8]
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], di
+sptinternal
 
 	xor ax, ax
 	xor dx, dx
@@ -704,8 +710,6 @@ sptinternal
 sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
 sptinternal
 %endif
-sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], dx
-sptinternal
 
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
 sptinternal -3			; active primary first ?
