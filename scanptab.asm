@@ -164,13 +164,25 @@ sptinternal
 sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
 sptinternal
 %endif
+
 .loop_primary_parts:
 sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
 sptinternal
 	cmp byte [es:si + piType], 0
 	je .loop_primary_skip
+
+%if _MODE
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_scan_flags ], 32
+sptinternal -3			; had a primary partition yet ?
+	jz .callprimary		; no, accept it -->
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_primary
+sptinternal -3			; ignore subsequent primary ?
+	jnz .ignoreprimary	; yes, ignore it -->
+.callprimary:
+%endif
 	call cx			; es:si -> partition table entry
 				; byte [load_current_partition] = which
+.ignoreprimary:
 .loop_primary_skip:
 	add si, 16
 sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
