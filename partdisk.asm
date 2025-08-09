@@ -38,6 +38,55 @@ The default at the beginning and after any partition has been
 created is slot 0, which scans for the first unused entry in
 the current partition table.
 
+The size is specified in bytes. The following suffixes may be
+used to multiply the number by a unit prefix:
+
+k, kB		1000
+M, MB		1000 * 1000
+G, GB		1000 * 1000 * 1000
+Ki, KiB		1024
+Mi, MiB		1024 * 1024
+Gi, GiB		1024 * 1024 * 1024
+
+Size is rounded up to the next full sector. Further, partitions
+are always placed so that their start is on a head boundary
+(for primary and logical partitions) or so that their start is
+on a cylinder boundary (for extended partitions). Moreover,
+the size is always rounded up so that any partition ends on a
+cylinder boundary. (Extended partitions of type 5 must start
+on a cylinder boundary for MS-DOS v4 to v7 at least because
+their UPBs contain an amount of hidden sector within the
+innermost extended partition and a cylinder adjustment that is
+added in only after calculating the CHS from the LBA number.)
+
+Within an extended partition, that is when adding a logical
+partition or a nested extended partition, the size may be
+specified using the keyword MAX. This fills the outer
+extended partition entirely.
+
+The total image size depends on the size of all primary
+and outermost extended partitions, and is always rounded up
+to a full cylinder boundary.
+
+The type for a primary partition or a logical partition may
+be specified numerically. It must not equal 0, 5, 15, or 85h,
+and must not exceed 255. The type can instead be specified as
+a keyword as well. For the valid keywords, look at the typedef
+mmacro's definition and the list of partition type equates
+found just before it.
+
+The type for an extended partition must equal 5, 15, or 85h.
+For the keywords valid for that, look at the definition of
+the exttypedef mmacro.
+
+The image file specifications may be either the empty token,
+in which case the entire partition data is filled with an
+all-zeroes pattern. Or they can give a filename to include
+to initialise the image. The file must be sized so that it
+fits within the declared size of the partition. Any excess
+size of the partition after the included file is also filled
+with all-zeroes.
+
 
 === Examples
 
