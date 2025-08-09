@@ -272,6 +272,9 @@ sptinternal -3			; had a primary partition yet ?
 sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_primary
 sptinternal -3			; ignore subsequent primary ?
 	jnz .ignoreprimary	; yes, ignore it -->
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_subsequent_primary_after
+sptinternal -3			; subsequent after ?
+	jnz .ignoreprimary
 .callprimary:
 %endif
 	call cx			; es:si -> partition table entry
@@ -483,7 +486,12 @@ sptinternal			; was last?
 	mov sp, bx		; restore sp
 	pop ax			; (discard dummy bp value)
 %endif
+%if _MODE
+	jmp scan_subsequent_primary
+%else
 	retn			; and bye
+%endif
+
 
 .push:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
@@ -655,6 +663,154 @@ sptinternal
 sptrel	mov dx, msg.boot_too_many_partitions_error
 sptinternal
 	jmp bootcmd.fail
+%endif
+
+
+%if _MODE
+@@:
+	retn
+
+scan_subsequent_primary:
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_ignore_subsequent_primary
+sptinternal -3			; ignore subsequent primary ?
+	jnz @B			; yes -->
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_subsequent_primary_after
+sptinternal -3			; subsequent after ?
+	jz @B			; no -->
+
+	push bp
+%ifidn _BASE, ss:bx
+	mov bx, sp
+%elifidn _BASE, bp
+	mov bp, sp
+%endif
+	xor di, di
+	push di		; [_BASE+di-2]
+	push di		; [_BASE+di-4]
+	push di		; [_BASE+di-6]
+	push di		; [_BASE+di-8]
+
+	xor ax, ax
+	xor dx, dx
+	call %[_SCANPTAB_PREFIX]read_partition_table.reload
+				; (re)read MBR
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], dl	; = 0
+sptinternal
+%if _SPT_ELD
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_current_extended_and_is], dx	; = 0
+sptinternal
+%endif
+sptrel	mov word [ %[_SCANPTAB_PREFIX]load_scan_flags ], dx
+sptinternal
+
+sptrel	testopt [ %[_SCANPTAB_PREFIX]load_mode ], mode_active_priority
+sptinternal -3			; active primary first ?
+	jz .detect_lowest
+
+.loop_active_skip:
+
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+	mov al, byte [es:si + piType]
+	cmp al, 0
+	je .loop_active_skip_skip
+	cmp byte [es:si + piBoot], 0
+	je .loop_active_skip_skip
+
+		; INP:	al = partition type
+		; OUT:	CY if an LBA or FAT32 type that's disabled
+		;	NC, ZR if known type we can access
+		;	NC, NZ if unknown type
+	call %[_SCANPTAB_PREFIX]load_is_known
+	jc .loop_active_skip_skip
+	jnz .loop_active_skip_skip
+sptrel	mov al, byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_scan_flags + 1], al
+sptinternal
+	jmp .active_skip_done
+
+.loop_active_skip_skip:
+	add si, 16
+sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
+sptinternal
+	jb .loop_active_skip
+
+.detect_lowest:
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 0
+sptinternal -3
+
+.loop_lowest:
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+	mov al, byte [es:si + piType]
+	cmp al, 0
+	je .loop_lowest_skip_skip
+	cmp byte [es:si + piBoot], 0
+	je .loop_lowest_skip_skip
+
+		; INP:	al = partition type
+		; OUT:	CY if an LBA or FAT32 type that's disabled
+		;	NC, ZR if known type we can access
+		;	NC, NZ if unknown type
+	call %[_SCANPTAB_PREFIX]load_is_known
+	jc .loop_lowest_skip_skip
+	jnz .loop_lowest_skip_skip
+sptrel	mov al, byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_scan_flags + 1], al
+sptinternal
+	jmp .lowest_skip_done
+
+.loop_lowest_skip_skip:
+	add si, 16
+sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
+sptinternal
+	jb .loop_lowest
+	jmp .end		; none found
+
+.lowest_skip_done:
+.active_skip_done:
+sptrel	mov si, %[_SCANPTAB_PREFIX]partition_table
+sptinternal
+sptrel	mov byte [ %[_SCANPTAB_PREFIX]load_current_partition], 0
+sptinternal -3
+
+.loop_primary_parts:
+sptrel	inc byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+	cmp byte [es:si + piType], 0
+	je .loop_primary_skip
+
+%if _MODE
+sptrel	mov al, byte [ %[_SCANPTAB_PREFIX]load_current_partition]
+sptinternal
+sptrel	cmp byte [ %[_SCANPTAB_PREFIX]load_scan_flags + 1], al
+sptinternal
+	je .ignoreprimary
+%endif
+	call cx			; es:si -> partition table entry
+				; byte [load_current_partition] = which
+.ignoreprimary:
+.loop_primary_skip:
+	add si, 16
+sptrel	cmp si, strict word %[_SCANPTAB_PREFIX]partition_table.end
+sptinternal
+	jb .loop_primary_parts
+
+.end:
+%ifidn _BASE, bp
+	mov sp, bp		; restore sp
+	pop bp
+%else
+	mov sp, bx		; restore sp
+	pop ax			; (discard dummy bp value)
+%endif
+	retn
 %endif
 
 
