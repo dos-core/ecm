@@ -1,0 +1,38 @@
+
+%if 0
+
+scanptab - Scan partition table (macros)
+ 2019, 2025 by E. C. Masloch
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
+
+mode_all_ext5			equ 00b
+mode_ignore_ext5		equ 01b
+mode_first_ext5			equ 10b
+mode_first_type_ext5		equ 11b
+
+mode_all_ext15			equ 00b << 2
+mode_ignore_ext15		equ 01b << 2
+mode_first_ext15		equ 10b << 2
+mode_first_type_ext15		equ 11b << 2
+
+mode_all_ext85			equ 00b << 4
+mode_ignore_ext85		equ 01b << 4
+mode_first_ext85		equ 10b << 4
+mode_first_type_ext85		equ 11b << 4
+
+mode_ignore_subsequent_nested	equ            1_00_00_00b
+mode_ignore_subsequent_logical	equ           10_00_00_00b
+mode_ignore_subsequent_primary	equ          100_00_00_00b
+mode_traditional_order_logical	equ         1000_00_00_00b
+mode_active_priority		equ       1_0000_00_00_00b
+mode_subsequent_primary_after	equ      10_0000_00_00_00b
+mode_disable_fat32		equ 00_1000_0000_00_00_00b
+mode_disable_lba		equ 01_0000_0000_00_00_00b
+mode_dlasort_zero		equ 10_0000_0000_00_00_00b
