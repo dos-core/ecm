@@ -157,6 +157,18 @@ nasm -I ../lmacros/ partdisk.asm -o partdis5.img \
 ::up,::logical,20M,fat16_chs,hdc6.prt,::up \
   -D_MBR_DOSEMU_IMAGE_HEADER
 
+# Create an image with two logical partitions in the same EPBR
+# and a nested extended partition (with another logical partition)
+# between the two. Checks that traditional order and/or ignoring
+# the subsequent logical partition in the same EPBR work.
+
+nasm -I ../lmacros/ partdisk.asm -o partdis6.img \
+  -D_PAYLOAD=::extended,100M,extended_chs,\
+::logical,20M,fat16_chs,hdc5.prt,\
+::extended,21M,extended_chs,::logical,20M,fat16_chs,hdc6.prt,\
+::up,::logical,20M,fat16_chs,hdc7.prt,::up \
+  -D_MBR_DOSEMU_IMAGE_HEADER
+
 %endif
 
 
