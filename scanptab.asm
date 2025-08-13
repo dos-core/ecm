@@ -842,8 +842,6 @@ sptinternal
 	mov al, byte [es:si + piType]
 	cmp al, 0
 	je .loop_lowest_skip_skip
-	cmp byte [es:si + piBoot], 0
-	je .loop_lowest_skip_skip
 
 		; INP:	al = partition type
 		; OUT:	CY if an LBA or FAT32 type that's disabled
