@@ -40,6 +40,20 @@ numdef DEBUG5
 numdef VDD,		1	; try to load DEBXXVDD.DLL to use it for L and W sector commands
 numdef DISPLAY_ALL_NAMES,	0
 
+%if __NASM_VERSION_ID__ >= 2000000h + 17 * 10000h
+	numdef HAVE_NASM_NOTE, 1
+%else
+	numdef HAVE_NASM_NOTE, 0
+%endif
+
+%imacro noteincbin 2.nolist
+%strcat %%string _PAYLOAD_PREFIX_LST, %2
+%if _HAVE_NASM_NOTE
+ %note include listing file %%string
+%endif
+	incbin %1
+%endmacro
+
 
 	struc BS
 bsJump:	resb 3
@@ -210,6 +224,10 @@ ptExtendedLinux:	equ 85h
 	strdef PAYLOAD_FAT12,	"boot12.bin"
 	strdef PAYLOAD_FAT16,	"boot16.bin"
 	strdef PAYLOAD_FAT32,	"boot32.bin"
+	strdef PAYLOAD_PREFIX_LST,	""
+	strdef PAYLOAD_FAT12_LST,	"boot12.lst"
+	strdef PAYLOAD_FAT16_LST,	"boot16.lst"
+	strdef PAYLOAD_FAT32_LST,	"boot32.lst"
 	numdef NUM_REPLACEMENTS,4
 	numdef NUM_DETECT_NAMES,4
 %if _NUM_REPLACEMENTS > _NUM_DETECT_NAMES
@@ -219,21 +237,21 @@ ptExtendedLinux:	equ 85h
 
 	align 16, db 0
 %if _FAT12
-fat12_payload:		incbin _PAYLOAD_FAT12
+fat12_payload:		noteincbin _PAYLOAD_FAT12, _PAYLOAD_FAT12_LST
 .end:
 %if (fat12_payload.end - fat12_payload) != 512
  %error "FAT12 payload isn't 512 bytes sized."
 %endif
 %endif
 %if _FAT16
-fat16_payload:		incbin _PAYLOAD_FAT16
+fat16_payload:		noteincbin _PAYLOAD_FAT16, _PAYLOAD_FAT16_LST
 .end:
 %if (fat16_payload.end - fat16_payload) != 512
  %error "FAT16 payload isn't 512 bytes sized."
 %endif
 %endif
 %if _FAT32
-fat32_payload:		incbin _PAYLOAD_FAT32
+fat32_payload:		noteincbin _PAYLOAD_FAT32, _PAYLOAD_FAT32_LST
 .end:
 %assign fat32_payload.size (fat32_payload.end - fat32_payload)
 %assign _FAT32_TWO_SECTORS 0
