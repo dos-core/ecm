@@ -216,6 +216,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 %endif
 	numdef SECOND_PAYLOAD_EXE_MAX, -1
 	strdef SECOND_PAYLOAD_FILE,	"lDOSEXEC.COM"
+	strdef EXE_TRAIL_INCBIN, ""
 
 
 %define MODULE iniload
@@ -2583,7 +2584,11 @@ payload:
 .actual_end:
 %if _IMAGE_EXE
 	align 512, db 38	; until end of page
-	times 512 db 38		; a full additional page,
+.trail:
+%ifnidn _EXE_TRAIL_INCBIN, ""
+	incbin _EXE_TRAIL_INCBIN
+%endif
+	_fill 512, 38, .trail	; a full additional page,
 				; this is for the bogus exeExtraBytes
 		; Note that the pages start counting within the EXE header!
 		; Thus alignment to the file-level page boundary is correct.
@@ -2597,7 +2602,11 @@ second_payload:
 	align 16, db 38
 .actual_end:
 	align 512, db 38
-	times 512 db 38
+.trail:
+%ifnidn _EXE_TRAIL_INCBIN, ""
+	incbin _EXE_TRAIL_INCBIN
+%endif
+	_fill 512, 38, .trail
 .end:
 %endif
 
