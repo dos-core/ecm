@@ -189,6 +189,7 @@ nasm -I ../lmacros/ partdisk.asm -o partdis6.img \
 	strdef MBRCODEFILE, ""
 	numdef MBR_DOSEMU_IMAGE_HEADER,	0
 
+	numdef VERBOSE,			1
 	numdef ZEROBYTES_RESB,		1
 	numdef ZEROBYTES_MAX,		4000_0000h
 		; Using the resb trick to zero takes about 1/40th
@@ -748,6 +749,7 @@ dumptable mbr, MBR
   %fatal Internal error, unexpected list length
  %endif
  %rep %0 / 3
+ %if _VERBOSE
   %assign NUMBERSECTORS %3
   %if NUMBERSECTORS
    %assign NUMBERBYTES NUMBERSECTORS * _BPS
@@ -766,6 +768,7 @@ dumptable mbr, MBR
    %endif
    %warning Section %1, %2, NUMBERSECTORS sec (%[NUMBERPREFIXED] %[PREFIX]B)
   %endif
+ %endif
 	usesection %1
   %ifnempty %2
    %ifstr %2
