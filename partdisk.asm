@@ -764,7 +764,7 @@ dumptable mbr, MBR
     %assign NUMBERPREFIXED NUMBERBYTES
     %define PREFIX
    %endif
-   %warning Section %1, File %2, Size NUMBERSECTORS sectors (%[NUMBERPREFIXED] %[PREFIX]B)
+   %warning Section %1, %2, NUMBERSECTORS sec (%[NUMBERPREFIXED] %[PREFIX]B)
   %endif
 	usesection %1
   %ifnempty %2
