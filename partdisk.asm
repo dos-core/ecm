@@ -743,11 +743,15 @@ mbr_partition_table:
 dumptable mbr, MBR
 
 
-%macro list 3-*
+%macro list 3-*.nolist
  %if %0 % 3
   %fatal Internal error, unexpected list length
  %endif
  %rep %0 / 3
+  %assign NUMBERSECTORS %3
+  %if NUMBERSECTORS
+   %warning Section %1, File %2, Size NUMBERSECTORS sectors
+  %endif
 	usesection %1
   %ifnempty %2
    %ifstr %2
