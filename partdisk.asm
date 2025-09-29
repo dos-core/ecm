@@ -750,7 +750,21 @@ dumptable mbr, MBR
  %rep %0 / 3
   %assign NUMBERSECTORS %3
   %if NUMBERSECTORS
-   %warning Section %1, File %2, Size NUMBERSECTORS sectors
+   %assign NUMBERBYTES NUMBERSECTORS * _BPS
+   %if NUMBERBYTES >= 2 * 1000 * 1000 * 1000
+    %assign NUMBERPREFIXED NUMBERBYTES / (1000 * 1000 * 1000)
+    %define PREFIX G
+   %elif NUMBERBYTES >= 2 * 1000 * 1000
+    %assign NUMBERPREFIXED NUMBERBYTES / (1000 * 1000)
+    %define PREFIX M
+   %elif NUMBERBYTES >= 2 * 1000
+    %assign NUMBERPREFIXED NUMBERBYTES / (1000)
+    %define PREFIX k
+   %else
+    %assign NUMBERPREFIXED NUMBERBYTES
+    %define PREFIX
+   %endif
+   %warning Section %1, File %2, Size NUMBERSECTORS sectors (%[NUMBERPREFIXED] %[PREFIX]B)
   %endif
 	usesection %1
   %ifnempty %2
