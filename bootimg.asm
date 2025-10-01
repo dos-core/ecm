@@ -255,6 +255,9 @@ nasm -D_ATTRIB=ATTR_SYSTEM -I ../lmacros/ \
 	numdef FSI_INIT_FREE, 1	; initialise FSINFO amount free clusters
 	numdef NUMFATS, 2	; number of FATs
 	numdef NUMROOT, 224	; number of root directory entries
+	numdef EXTENDDIRECTORIES, 1	; extend directories with a NUL entry
+	numdef EXTENDROOTDIRECTORY, 1	; extend root directory with a NUL
+
 %assign _SP512 (512 + _BPS - 1) / _BPS
 ; (512 + 32 - 1) / 32 = 16
 ; (512 + 64 - 1) / 64 = 8
@@ -1727,7 +1730,9 @@ at deName,		db 0E5h
 %endrep
 	%endmacro
 
+%if _EXTENDDIRECTORIES
 	extenddirectories DIRLIST
+%endif
 
 
 	%macro allocatechains 1-*.nolist
@@ -1796,7 +1801,9 @@ data %+ ii %+ _end:
 
 	usesection fixed_root
 %if _BPE != 32
+ %if _EXTENDROOTDIRECTORY
 	times 32 db 0
+ %endif
 %endif
 	zerobytes ROOTSECTORS * _BPS - ($ - $$)
 
