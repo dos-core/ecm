@@ -60,6 +60,7 @@ Public domain by E. C. Masloch, 2012
 					; alternative RPL support,
 					;  assume RPL fits in this area
 	numdef FREE_PARA_LIMIT,	0, 100h
+	numdef LOADFULLFAT12,	1
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
@@ -674,7 +675,8 @@ start:
 	nextvariable load_seg, 2
 
 ; (word) segment of FAT buffer
-; for FAT12 this holds the entire FAT
+; for FAT12 this holds the entire FAT (specified with _LOADFULLFAT12)
+; for FAT12 without _LOADFULLFAT12 this is passed as zero
 ; for FAT16 this holds the sector given by wo[fat_sector]
 ; for FAT32 this holds the sector given by dwo[fat_sector]
 	nextvariable fat_seg, 2
@@ -909,12 +911,12 @@ read_sector_start:
  %if ADR_DIRBUF == ADR_FATBUF
 read_sector_dirbuf:
  %endif
- %if _FAT16 && ! _LOAD_NON_FAT
+ %if (_FAT16 || !_LOADFULLFAT12) && ! _LOAD_NON_FAT
 read_sector_fatbuf:
  %endif
- %if (ADR_DIRBUF == ADR_FATBUF) || (_FAT16 && ! _LOAD_NON_FAT)
+ %if (ADR_DIRBUF == ADR_FATBUF) || ((_FAT16 || !_LOADFULLFAT12) && ! _LOAD_NON_FAT)
 	mov bx, ADR_FATBUF>>4
-  %if _FAT16 && _SET_FAT_SEG && ! _LOAD_NON_FAT
+  %if (_FAT16 || !_LOADFULLFAT12) && _SET_FAT_SEG && ! _LOAD_NON_FAT
 	mov word [VAR(fat_seg)], bx
 		; Optimisation: Set FAT buffer segment here where
 		;  we have it ready in a register, instead of
@@ -1806,7 +1808,7 @@ DIRADJUST equ 0				; placeholder to avoid confusing error
 		push si			; remember cluster for later
 %endif
 
-%if !_FAT16 && !_LOAD_NON_FAT
+%if !_FAT16 && !_LOAD_NON_FAT && _LOADFULLFAT12
 ; Load the entire FAT into memory. This is easily feasible for FAT12,
 ;  as the FAT can only contain at most 4096 entries.
 ; (The exact condition should be "at most 4087 entries", or with a
@@ -1856,9 +1858,9 @@ DIRADJUST equ 0				; placeholder to avoid confusing error
 %endif
 
 		mov bx, _LOAD_ADR>>4	; => load address
-%if _FAT16 && !_LOAD_NON_FAT
+%if (_FAT16 || !_LOADFULLFAT12) && !_LOAD_NON_FAT
 		mov di, -1		; = no FAT sector read yet
- %if _SET_FAT_SEG && _SET_FAT_SEG_NORMAL
+ %if _SET_FAT_SEG && _SET_FAT_SEG_NORMAL && _FAT16
 	; This is not strictly needed because a FAT sector is
 	;  read in any case, initialising this variable later.
 		mov word [VAR(fat_sector)], di
@@ -1946,6 +1948,70 @@ next_cluster:
 ; get 16 bits from FAT
 		es lodsw
 		xchg ax, si
+		pop ax		; restore cluster number
+%elif !_LOADFULLFAT12
+		push si			; preserve cluster number for later
+
+; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
+;  so multiply cluster number by 3 first, then divide by 2.
+		mov ax, si		; = cluster number (up to 12 bits set)
+			; (remember cluster number in ax)
+		shl si, 1		; = 2n (up to 13 bits set)
+		add ax, si		; = 2n+n = 3n (up to 14 bits set)
+		shr ax, 1		; ax = byte offset into FAT (0..6129)
+					; CF = whether to use high 12 bits
+		cwd			; dx:ax = byte offset
+		pushf
+
+; Divide by sector size to split dx:ax into the remainder as the byte offset
+;  into the FAT sector, and quotient as the sector offset into the FAT.
+		div word [VAR(bytes_per_sector)]
+		mov si, dx		; = byte offset in sector
+			; dx = byte offset into sector (0..6129)
+			; ax = sector offset into FAT (0..11)
+
+; quotient in AX is FAT sector.
+; check the FAT buffer to see if this sector is already loaded
+; (simple disk cache; speeds things up a little --
+; actually, it speeds things up a lot)
+		cmp ax, di
+		je @F
+		mov di, ax
+ %if _SET_FAT_SEG && 0
+		mov word [VAR(fat_sector)], ax
+ %endif
+
+; read the target FAT sector.
+		push bx
+			; As noted above, the sector offset in ax here is
+			;  0..4095 (ie, 4 Ki S * 32 B/S = 128 KiB of FAT data),
+			;  therefore this cwd instruction always zeros dx.
+		cwd
+		add ax, [VAR(fat_start)]
+		adc dx, dx		; (account for overflow)
+ %if _RELOCATE
+		mov bx, word [VAR(fat_seg)]
+		call read_sector
+ %else
+		call read_sector_fatbuf
+ %endif
+		; cmp word [VAR(bytes_per_sector)], 8192
+		; jae .nosecond
+ 		call read_sector; load a second sector in case straddling entry
+.nosecond:
+		pop bx
+@@:
+		mov es, word [VAR(fat_seg)]
+; get 16 bits from FAT
+		es lodsw
+		xchg ax, si
+		popf
+		mov cl, 4
+		jc @F		; iff CY after shift -->
+		shl si, cl	; shift up iff even entry
+@@:
+		shr si, cl	; shift down (clears top 4 bits)
+
 		pop ax		; restore cluster number
 %else
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
@@ -2193,6 +2259,9 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 		push ss
 		pop es
  %endif
+%endif
+%if !_FAT16 && !_LOADFULLFAT12
+		and word [VAR(fat_seg)], 0
 %endif
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
