@@ -150,6 +150,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
 	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef MULTISECTOR,	1	; stash multi-sector loader into end2
+	excdef !_CHS, MULTISECTOR
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
@@ -689,6 +690,7 @@ read_sector:
 			pop ax		; ax = high word of sector
 					; dx:ax = high word of sector
  %endif
+.dx_ax_cx_lba_to_chs:
 			div word [bp + bsBPB + bpbCHSSectors]
 			xchg cx,ax
 			div word [bp + bsBPB + bpbCHSSectors]
@@ -725,6 +727,8 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 
+.dx_ax_cx_lba_to_chs_patch:		; = 0B8h if to continue
+					; = 0C3h if to return
 			mov ax, 0201h	; read one sector
 %if _CHS_RETRY
 			call .int13_retry
@@ -1782,8 +1786,17 @@ ms7_entry.continue:
 		; OUT:	patches applied
 		;	branch to multi_continue_1
 init_memory_multi:
+%if _LBA
+ %if !_LBA_SKIP_CHECK
+	test byte [bp + ldHasLBA], 1
+	jnz .skip
+ %else
+  %error Multi-sector loader must use proper LBA check currently
+ %endif
+%endif
 	mov byte [cs:skipped_all.multipatch], 0E9h
 	mov byte [cs:multi_patch_2], 0E9h
+.skip:
 	jmp multi_continue_1
 
 		; INP:	bx => where to load FAT12
@@ -1793,18 +1806,142 @@ init_memory_multi:
 		; OUT:	branch to multi_continue_2
 		;	 or branch to multi_continue_3
 load_fat12_multi:
-	jmp multi_continue_2
+	; push di
+	xor si, si
+@@:
+	inc si				; count sectors needed
+	sub di, [bp + bsBPB + bpbBytesPerSector]
+	ja @B				; if still di > bps, loop
+	cmp cx, si
+	jb @F
+	mov cx, si			; cx = min(cx, si)
+@@:
+	call multi_sector_read		; bx => cx sectors from dx:ax
+	; pop di
+	jmp multi_continue_3
 
 		; INP:	bx => where to load next sector
 		;	dx:ax = next sector to load
 		;	cx = how many sectors left in cluster, >= 1
-		;	?ldLoadUntilSeg => past end to load
-		;	?ldParaPerSector
+		;	ldLoadUntilSeg => past end to load
+		;	ldParaPerSector
 		;	dword [ss:sp] = current cluster (0-based)
 		; OUT:	branch to skipped_all.single_sector
 		;	 or branch to loaded_all with stack cleaned
 skipped_all_multi:
 	jmp skipped_all.single_sector
+
+@@:
+	retn
+		; INP:	dx:ax = start sector
+		;	cx = how many sectors to load
+		;	bx => segment to load to
+		; CHG:	es, si, bx, dx, ax, cx
+multi_sector_read:
+.:
+	jcxz @B
+	push dx
+	push ax				; stack = start sector
+	xor si, si
+	 push si			; 0 to do after
+	 push cx			; all to do now
+
+	mov es, bx			; => buffer
+	mov si, bx			; => buffer
+	and bx, 0F000h			; 64 KiB area of buffer
+@@:
+	add si, word [bp + ldParaPerSector]
+					; => behind next sector buffer
+	push si
+	dec si				; => at last paragraph in this buffer
+	and si, 0F000h			; 64 KiB area of last paragraph
+	cmp bx, si			; same ?
+	pop si
+	loope @B			; loop if same --> and not last
+	je .nolimit64			; if all same --> proceed with full
+	inc cx				; cx = how many need to be deferred
+	 pop si				; si = amount wanted
+	 pop bx				; discard the zero
+	sub si, cx			; si = amount we can do maximum
+	jnz .decrease64			; any ? then do them -->
+.singlesector:
+	mov bx, es			; restore => data
+	call read_sector
+		; cx = how many left
+		; dx:ax = next sector
+		; bx => next buffer
+	pop si
+	pop si				; discard sector number
+	jmp .				; loop back with updated sector/buffer
+
+.decrease64:
+	 push cx			; how many next
+	 ; push si			; how many now
+	db __TEST_IMM8			; skip pop
+.nolimit64:
+	pop si				; = how much first
+
+; DX:AX==LBA sector number
+; add partition start (= number of hidden sectors)
+		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
+		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
+	jc .error
+	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch], 0C3h
+		; = 0B8h if to continue
+		; = 0C3h if to return
+	xchg cx, ax			; dx:cx = sector LBA number
+	xchg dx, ax			; ax:cx = sector LBA number
+	xor dx, dx			; dx:ax:cx
+	call read_sector.dx_ax_cx_lba_to_chs
+	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch], 0B8h
+; @boeckmann code follows
+	mov ax, cx			; ax & 63 = S coordinate to read
+	and ax, 63			; isolate S coordinate
+	sub ax, word [bp + bsBPB + bpbCHSSectors]
+	dec ax
+	neg ax
+	push si
+	cmp ax, si
+	jb .limittrack
+	xchg ax, si			; ax = remaining to read, si clobbered
+.limittrack:
+; end of @boeckmann code
+
+	mov si, 4
+.retry:
+	mov ah, 02h			; function = read CHS sectors
+	push ax
+	int 13h
+	pop ax				; preserve al = count
+	jnc .got
+	dec si				; count down retry count
+	jz .error
+	xor ax, ax
+	int 13h				; reset disk
+	jmp .retry			; and retry -->
+
+.got:
+	pop si				; si = how many wanted this step
+	cbw				; S must be <= 63 so al is too, ah = 0
+	sub si, ax			; si = how many left over
+	xchg cx, ax			; cx = how many have been read this step
+	pop bx
+	add bx, si			; bx = how many still to do
+	pop ax
+	pop dx				; dx:ax = start sector number
+	add ax, cx
+	adc dx, 0			; dx:ax = next start sector
+	jc .error
+	 push bx
+	mov bx, es			; => input buffer
+@@:
+	add bx, word [bp + ldParaPerSector]
+	loop @B				; => next buffer
+	 pop cx				; cx = how many to do
+	jmp .				; loop back with updated sector/buffer
+
+.error:
+	jmp error_diskaccess
 %endif
 
 
