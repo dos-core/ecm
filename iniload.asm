@@ -2006,8 +2006,10 @@ multi_sector_read:
 	jnc .got
 	dec si				; count down retry count
 	jz .error
+	push ax
 	xor ax, ax
 	int 13h				; reset disk
+	pop ax
 	jmp .retry			; and retry -->
 
 .got:
