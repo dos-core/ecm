@@ -908,6 +908,8 @@ msg:
 
 
 finish_continue:
+	and ax, bx	; rounded up,
+		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
@@ -1685,8 +1687,6 @@ init_memory:
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
 	not bx		; ~ (para per sector - 1)
-	and ax, bx	; rounded up,
-		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 
 	jmp finish_continue
 
