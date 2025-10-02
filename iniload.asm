@@ -96,6 +96,12 @@ ldCommandLine:
 .start:		resb lsvclBufferLength
 	endstruc
 
+	struc LOADMULTIVARS, LOADCMDLINE - 10
+ldmCluster:	resd 1
+ldmAmount:	resw 1
+ldmSector:	resd 1
+	endstruc
+
 	struc LBAPACKET
 lpSize:		resw 1
 lpCount:	resw 1
@@ -1829,14 +1835,98 @@ load_fat12_multi:
 		; OUT:	branch to skipped_all.single_sector
 		;	 or branch to loaded_all with stack cleaned
 skipped_all_multi:
-	jmp skipped_all.single_sector
+	push ax				; push into ldmAmount (placeholder)
+	push word [bp + ldmSector + 2]	; push into ldmCluster + 2
+	push word [bp + ldmSector]	; push into ldmCluster
+
+	mov word [bp + ldmSector + 2], dx
+	mov word [bp + ldmSector], ax	; update sector
+
+	xor ax, ax
+	push bx
+@@:
+	inc ax
+	add bx, [bp + ldParaPerSector]
+	cmp bx, [bp + ldLoadUntilSeg]
+	jb @B				; ax = how many sectors needed
+	pop bx				; back to bx => segment
+.loop:
+	cmp cx, ax
+	jae .last
+	mov word [bp + ldmAmount], ax	; how many desired
+
+	pop ax
+	pop dx				; current cluster (0-based)
+	push dx
+	push ax
+	 push cx
+	call clust_next			; dx:ax = next cluster (0-based)
+	 pop cx
+	jc .eoc
+	add word [bp + ldmCluster], 1
+	adc word [bp + ldmCluster + 2], 0
+	cmp dx, word [bp + ldmCluster + 2]
+	jne .newclust
+	cmp ax, word [bp + ldmCluster]
+	jne .newclust
+	add cx, [bp + ldClusterSize]	; cx = how many at least consecutive
+.next:
+	mov ax, word [bp + ldmAmount]	; how many desired
+	jmp .loop
+
+.newclust:
+	add sp, 4			; discard ldmCluster
+	push dx
+	push ax				; push into ldmCluster
+	mov dx, word [bp + ldmSector + 2]
+	mov ax, word [bp + ldmSector]
+	sub word [bp + ldmAmount], cx
+	 push si
+	call multi_sector_read		; read consecutive data
+	 pop si				; preserve si:di if not FAT12
+	pop ax
+	pop dx
+	push dx
+	push ax				; get ldmCluster
+	 push bx
+	call clust_to_first_sector	; dx:ax = first sector, cx = spc
+	 pop bx
+	mov word [bp + ldmSector], ax	; store for next first sector
+	mov word [bp + ldmSector + 2], dx
+	jmp .next
+
+.last:
+	xchg cx, ax			; how many sectors last chunk
+	pop ax
+	pop ax				; discard stack (ldmCluster)
+	pop ax				; discard ldmAmount
+	pop ax
+	pop dx				; ldmSector
+	call multi_sector_read		; si needn't be preserved, no longer used
+	jmp loaded_all
+
+.eoc:
+%if 1		; unclear whether needed
+	add sp, 4			; discard ldmCluster
+	mov dx, word [bp + ldmSector + 2]
+	mov ax, word [bp + ldmSector]
+;	sub word [bp + ldmAmount], cx
+	call multi_sector_read		; read consecutive data
+	add sp, LOADMULTIVARS_size - 4
+%else
+	add sp, LOADMULTIVARS_size
+%endif
+	mov [bp + ldLoadingSeg], bx
+	jmp end_of_chain
+
 
 @@:
 	retn
 		; INP:	dx:ax = start sector
 		;	cx = how many sectors to load
 		;	bx => segment to load to
-		; CHG:	es, si, bx, dx, ax, cx
+		; OUT:	bx => after last data loaded
+		; CHG:	es, si, dx, ax, cx
 multi_sector_read:
 .:
 	jcxz @B
