@@ -149,6 +149,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
 	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
+	numdef MULTISECTOR,	1	; stash multi-sector loader into end2
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
@@ -1037,6 +1038,12 @@ loaded_all_if_ae:
 skipped_all:
 	sub bx, [bp + ldParaPerSector]
 				; restore bx => next sector to read
+%if _MULTISECTOR
+.multipatch:
+	test ax, skipped_all_multi - @F
+@@:
+.single_sector:
+%endif
 	call read_sector
 		; we can depend on the fact that at least
 		;  up to end was already loaded, so this
@@ -1562,13 +1569,21 @@ init_memory:
 		;  FAT loader, or by finish_load later).
 %endif
 
+%if _LSVEXTRA || _MULTISECTOR
+	mov cx, cs
+	mov ax, word [bp + lsvLoadSeg]
+	sub ax, cx
+%endif
+%if _MULTISECTOR
+	cmp ax, (end2 + 15 - $$ + 0) >> 4
+	jae init_memory_multi
+multi_continue_1:
+%endif
+
 %if _LSVEXTRA
 	test byte [bp + lsvExtra.flags], -1
 	jz @F
 
-	mov cx, cs
-	mov ax, word [bp + lsvLoadSeg]
-	sub ax, cx
 	cmp ax, (end_of_handle_lsv_extra_flags + 15 -$$+0) >> 4
 	jb error_notfullyloaded
 
@@ -1666,6 +1681,12 @@ init_memory:
 		cwd
 		mov ax, [bp + bsBPB + bpbReservedSectors]; = first FAT sector
 		mov bx, [bp + lsvFATSeg]
+%if _MULTISECTOR
+multi_patch_2: equ $
+	test ax, load_fat12_multi - @F
+@@:
+multi_continue_2: equ $
+%endif
 @@:
 		call read_sector	; read next FAT sector
 		sub di, [bp + bsBPB + bpbBytesPerSector]
@@ -1675,6 +1696,7 @@ init_memory:
 		loop @B			; if any FAT sector still remains -->
 @@:					; one of the limits reached; FAT read
 
+multi_continue_3: equ $
 .got_fat12:
 	db __TEST_IMM8	; skip pop ax
 .got_fat_type:
@@ -1752,6 +1774,38 @@ ms7_entry.continue:
 	add ax, (4 * 512) >> 4	; MS7 entry has 4 sectors loaded
 	xor cx, cx		; cx = 0
 	jmp ms7_entry.continue2_set_extra_and_empty_cmdline
+
+
+%if _MULTISECTOR
+		; INP:	ax = amount paragraphs already loaded
+		; CHG:	-
+		; OUT:	patches applied
+		;	branch to multi_continue_1
+init_memory_multi:
+	mov byte [cs:skipped_all.multipatch], 0E9h
+	mov byte [cs:multi_patch_2], 0E9h
+	jmp multi_continue_1
+
+		; INP:	bx => where to load FAT12
+		;	dx:ax = first FAT sector
+		;	cx = how many sectors at most
+		;	di = amount bytes in 6 KiB
+		; OUT:	branch to multi_continue_2
+		;	 or branch to multi_continue_3
+load_fat12_multi:
+	jmp multi_continue_2
+
+		; INP:	bx => where to load next sector
+		;	dx:ax = next sector to load
+		;	cx = how many sectors left in cluster, >= 1
+		;	?ldLoadUntilSeg => past end to load
+		;	?ldParaPerSector
+		;	dword [ss:sp] = current cluster (0-based)
+		; OUT:	branch to skipped_all.single_sector
+		;	 or branch to loaded_all with stack cleaned
+skipped_all_multi:
+	jmp skipped_all.single_sector
+%endif
 
 
 %assign num 2046-($-$$)
