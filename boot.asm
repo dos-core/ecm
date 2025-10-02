@@ -59,6 +59,7 @@ Public domain by E. C. Masloch, 2012
 	numdef RPL_GRACE_AREA,	130 * 1024
 					; alternative RPL support,
 					;  assume RPL fits in this area
+	numdef FREE_PARA_LIMIT,	0, 100h
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
@@ -457,7 +458,14 @@ ADR_END		equ	end -start+7C00h
  %if ADR_FATBUF < ADR_STACK_LOW
 ADR_FREE_UNTIL	equ	ADR_FATBUF
  %else
+  %if _FREE_PARA_LIMIT
+   %if _LOAD_ADR + _FREE_PARA_LIMIT * 16 > ADR_STACK_LOW
+    %error Free para too large
+   %endif
+ADR_FREE_UNTIL	equ	_LOAD_ADR + _FREE_PARA_LIMIT * 16
+  %else
 ADR_FREE_UNTIL	equ	ADR_STACK_LOW
+  %endif
  %endif
 
  %if ((ADR_FATBUF + 8192 - 1) & ~0FFFFh) != (ADR_FATBUF & ~0FFFFh)
@@ -2063,6 +2071,9 @@ next_cluster:
 
 finish_start:
 %if _LOAD_MIN_PARA
+ %if _FREE_PARA_LIMIT && _FREE_PARA_LIMIT < _LOAD_MIN_PARA
+  %error Load minimum must be allowed by para limit
+ %endif
  %if ((_LOAD_ADR >> 4) + _LOAD_MIN_PARA) & 255 == 0
 	; If the value is divisible by 256 we can compare only the
 	;  high byte for the same CF result: NC iff bx >= limit.
