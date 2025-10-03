@@ -2939,6 +2939,10 @@ payload:
 %endif
 .end:
 
+%assign num payload - $$
+%warning num bytes before iniload payload
+
+
 %if _SECOND_PAYLOAD_EXE
 	align 16, db 38
 second_payload:
