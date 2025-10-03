@@ -411,6 +411,11 @@ d3	test ax, "00"
 
 
 error:
+%if _MULTISECTOR
+.multi_patch:
+	test ax, restore_dpt - @F
+@@:
+%endif
 	push cs
 	pop ds
 	mov si, msg.error
@@ -1786,7 +1791,7 @@ ms7_entry.continue:
 
 %if _MULTISECTOR
 		; INP:	ax = amount paragraphs already loaded
-		; CHG:	-
+		; CHG:	bx, cx, dx, si, di, es
 		; OUT:	patches applied
 		;	branch to multi_continue_1
 init_memory_multi:
@@ -1798,10 +1803,47 @@ init_memory_multi:
   %error Multi-sector loader must use proper LBA check currently
  %endif
 %endif
-	mov byte [cs:skipped_all.multipatch], 0E9h
-	mov byte [cs:multi_patch_2], 0E9h
+	push ax
+	push ds
+
+	push cs
+	pop ds
+	mov al, 0E9h		; jmp near
+	mov byte [skipped_all.multipatch], al
+	mov byte [multi_patch_2], al
+	dec ax			; = 0E8h, call near
+	mov byte [error.multi_patch], al
+
+	xor ax, ax
+	mov es, ax		; => IVT
+	mov bx, 1Eh * 4		; es:bx -> int 1Eh in IVT
+	lds si, [es:bx]		; -> DPT source
+	mov word [cs:dpt_restore_ofs], si
+	mov word [cs:dpt_restore_seg], ds
+	mov di, 522h		; standard target for DPT
+	mov word [es:bx], di
+	mov word [es:bx + 2], es; -> our DPT
+	mov cx, 16
+	rep movsb		; copy it over
+	mov byte [es:di - 16 + 4], 36
+				; force sectors
+
+	pop ds
+	pop ax
 .skip:
 	jmp multi_continue_1
+
+restore_dpt:
+	xor bx, bx
+	mov ds, bx
+	mov bl, 1Eh * 4		; ds:bx -> int 1Eh vector
+	mov word [bx], 0
+dpt_restore_ofs equ $ - 2
+	mov word [bx + 2], 0
+dpt_restore_seg equ $ - 2
+	clropt [bp + ldHasLBA], 2	; reset single-sector flag
+	retn
+
 
 		; INP:	bx => where to load FAT12
 		;	dx:ax = first FAT sector
@@ -1901,7 +1943,7 @@ skipped_all_multi:
 	pop ax
 	pop dx				; ldmSector
 	call multi_sector_read		; si needn't be preserved, no longer used
-	clropt [bp + ldHasLBA], 2	; reset single-sector flag
+	call restore_dpt
 	jmp loaded_all
 
 .eoc:
