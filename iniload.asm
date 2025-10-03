@@ -1175,7 +1175,6 @@ clust_next:
 		add ax, dx		; = 2n+n = 3n (up to 14 bits set)
 		shr ax, 1		; ax = byte offset into FAT (0..6129)
 					; CF = whether to use high 12 bits
-		sbb cx, cx		; = -1 iff CY, else 0
 
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
@@ -1184,9 +1183,11 @@ clust_next:
 ; get 16 bits from FAT
 		es lodsw		; ax = word [es:si], clobber si
 
-		and cl, 4	; = 4 iff CY after shift, else 0
-		shr ax, cl	; shift down iff odd entry, else unchanged
-		and ax, 0FFFh	; insure it's only 12 bits
+		mov cl, 4
+		jc @F
+		shl ax, cl	; shift up
+@@:
+		shr ax, cl	; shift down
 	jmp short .gotvalue_zero_dx
 
 .fat32:
