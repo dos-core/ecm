@@ -407,7 +407,6 @@ d3	test ax, "00"
 		;	 matches and then assume that the second dword has
 		;	 the original int 1Eh address. Else, ds:si is used.
 	mov di, 1Eh * 4	; -> IVT entry of int 1Eh
-	cmp dx, di	; int 1Eh address on stack ?
 	jmp ms6_continue1
 
 
@@ -1256,8 +1255,7 @@ check_clust:
 
 
 ms6_continue1:
-	; Comparison happens before branching here.
-	; cmp dx, di	; int 1Eh address on stack ?
+	cmp dx, di	; int 1Eh address on stack ?
 	jne .dssi	; no -->
 	mov bp, sp
 	cmp word [bp + 2], cx	; segment 0 in next word ?
