@@ -1641,6 +1641,7 @@ multi_continue_1:
 
 	; dx:ax = total sectors
 
+	pop cx			; => original lsvFATSeg
 	cmp word [bp + bsBPB + bpbSectorsPerFAT], 0
 	mov byte [bp + ldFATType], 32
 	je .got_fat_type
@@ -1671,8 +1672,7 @@ multi_continue_1:
 	ja .got_fat_type
 
 	mov byte [bp + ldFATType], 12
-	pop ax
-	test ax, ax
+	test cx, cx
 	jnz .got_fat12
 
 ; lsvFATSeg was zero! This means the FAT isn't loaded yet.
@@ -1716,10 +1716,7 @@ multi_continue_2: equ $
 
 multi_continue_3: equ $
 .got_fat12:
-	db __TEST_IMM8	; skip pop ax
 .got_fat_type:
-	pop ax
-
 	mov ax, (payload.actual_end -$$+0 +15) >> 4
 	push ax
 		; on stack: payload.actual_end in paragraphs
