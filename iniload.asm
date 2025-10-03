@@ -1903,6 +1903,7 @@ skipped_all_multi:
 	pop ax
 	pop dx				; ldmSector
 	call multi_sector_read		; si needn't be preserved, no longer used
+	clropt [bp + ldHasLBA], 2	; reset single-sector flag
 	jmp loaded_all
 
 .eoc:
@@ -1917,6 +1918,7 @@ skipped_all_multi:
 	add sp, LOADMULTIVARS_size
 %endif
 	mov [bp + ldLoadingSeg], bx
+	clropt [bp + ldHasLBA], 2	; reset single-sector flag
 	jmp end_of_chain
 
 
@@ -1997,6 +1999,12 @@ multi_sector_read:
 .limittrack:
 ; end of @boeckmann code
 
+.again:
+	testopt [bp + ldHasLBA], 2
+	jz @F
+	mov al, 1			; force single-sector operation
+@@:
+
 	mov si, 4
 .retry:
 	mov ah, 02h			; function = read CHS sectors
@@ -2005,7 +2013,7 @@ multi_sector_read:
 	pop ax				; preserve al = count
 	jnc .got
 	dec si				; count down retry count
-	jz .error
+	jz .fallback
 	push ax
 	xor ax, ax
 	int 13h				; reset disk
@@ -2031,6 +2039,17 @@ multi_sector_read:
 	loop @B				; => next buffer
 	 pop cx				; cx = how many to do
 	jmp .				; loop back with updated sector/buffer
+
+.fallback:
+%if 1
+	cmp al, 1			; tried to load a single sector ?
+	je .error			; yes, this is an error -->
+%else
+	testopt [bp + ldHasLBA], 2	; already in single-sector mode ?
+	jnz .error			; yes, this is an error -->
+%endif
+	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
+	jmp .again
 
 .error:
 	jmp error_diskaccess
