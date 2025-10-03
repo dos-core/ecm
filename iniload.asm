@@ -975,7 +975,10 @@ relocate_to:
 		;  what the si and di registers hold.
 
 	sub ax, bx	; = how much to relocate after this round
-	mov cx, 1000h << 3	; in case another full 64 KiB to relocate
+		; cx = 0
+	mov ch, (1000h << 3) >> 8
+			; in case another full 64 KiB to relocate
+		; cl = 0
 	jae @B		; another full 64 KiB to relocate -->
 	add ax, bx	; restore
 	mov cl, 3
