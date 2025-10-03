@@ -1003,8 +1003,7 @@ finish_load:
 	mov word [bp + ldLoadUntilSeg], ax
 		; ldLoadUntilSeg => after last to-be-loaded paragraph
 
-	mov bx, word [bp + lsvLoadSeg]
-	cmp bx, ax
+	cmp word [bp + lsvLoadSeg], ax
 	jae short loaded_all_if_ae	; (for FreeDOS entrypoint) already loaded -->
 
 	mov word [bp + ldLoadingSeg], cs
