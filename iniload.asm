@@ -1905,20 +1905,8 @@ skipped_all_multi:
 	jmp loaded_all
 
 .eoc:
-%if 1		; unclear whether needed
-	add sp, 4			; discard ldmCluster
-	mov dx, word [bp + ldmSector + 2]
-	mov ax, word [bp + ldmSector]
-;	sub word [bp + ldmAmount], cx
-	call multi_sector_read		; read consecutive data
-	add sp, LOADMULTIVARS_size - 4
-%else
-	add sp, LOADMULTIVARS_size
-%endif
 	mov [bp + ldLoadingSeg], bx
-	clropt [bp + ldHasLBA], 2	; reset single-sector flag
-	jmp end_of_chain
-
+	jmp end_of_chain		; to error_badchain or error_shortfile
 
 @@:
 	retn
