@@ -923,6 +923,14 @@ msg:
 
 
 finish_continue:
+	mov word [bp + lsvFATSeg], cx
+	mov ax, (payload.actual_end -$$+0 +15) >> 4
+	push ax
+		; on stack: payload.actual_end in paragraphs
+	mov bx, [bp + ldParaPerSector]
+	dec bx		; para per sector - 1
+	add ax, bx	; round up
+	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
 		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 	mov bx, cs
@@ -1691,6 +1699,15 @@ multi_continue_1:
 ;  of memory instead of only the relevant 6 KiB. This is always true
 ;  if the sector size is 8 KiB, and with 4 KiB sector size it is true
 ;  iff word[sectors_per_fat] is higher than one.)
+
+
+	mov ax, cs
+	add ax, (payload.actual_end -$$+0 +15) >> 4
+	jc @F
+	cmp word [bp + lsvLoadSeg], ax
+	jae .got_fat12_zero
+@@:
+
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [bp + bsBPB + bpbSectorsPerFAT]
 					; maximum size of this FS's FAT
@@ -1717,14 +1734,9 @@ multi_continue_2: equ $
 multi_continue_3: equ $
 .got_fat12:
 .got_fat_type:
-	mov ax, (payload.actual_end -$$+0 +15) >> 4
-	push ax
-		; on stack: payload.actual_end in paragraphs
-	mov bx, [bp + ldParaPerSector]
-	dec bx		; para per sector - 1
-	add ax, bx	; round up
-	not bx		; ~ (para per sector - 1)
+	mov cx, word [bp + lsvFATSeg]
 
+.got_fat12_zero:
 	jmp finish_continue
 
 
