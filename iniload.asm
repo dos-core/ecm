@@ -1014,7 +1014,7 @@ finish_load:
 	mov di, [bp + lsvFATSector]
 	mov si, [bp + lsvFATSector + 2]
 	call check_clust
-	jc short error_badchain_j
+	jnc short error_badchain_j
 
 skip_next_clust:
 	push dx
@@ -1038,7 +1038,7 @@ skip_next_sect:
 	pop ax
 	pop dx
 	call clust_next
-	jnc skip_next_clust
+	jc skip_next_clust
 end_of_chain:
 	inc ax
 	inc ax
@@ -1248,7 +1248,8 @@ check_clust:
 
 .fat12:
 	cmp ax, 0FF7h - 2
-	jmp short .common
+	; jmp short .common
+	retn
 
 .fat32:
 	cmp dx, 0FFFh
@@ -1258,7 +1259,8 @@ check_clust:
 	cmp ax, 0FFF7h - 2
 @@:			;  -... or if NC first, CY here also
 .common:
-	cmc		; NC if valid
+	; cmc		; NC if valid
+	; CY if valid now !
 	retn
 
 
@@ -1751,7 +1753,7 @@ skipped_all_continue:
 	pop ax
 	pop dx
 	call clust_next
-	jnc load_next_clust
+	jc load_next_clust
 	jmp end_of_chain
 
 %if ($ - end) > 32
@@ -1905,7 +1907,7 @@ skipped_all_multi:
 	 push cx
 	call clust_next			; dx:ax = next cluster (0-based)
 	 pop cx
-	jc .eoc
+	jnc .eoc
 	add word [bp + ldmCluster], 1
 	adc word [bp + ldmCluster + 2], 0
 	cmp dx, word [bp + ldmCluster + 2]
