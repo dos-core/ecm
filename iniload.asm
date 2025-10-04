@@ -1914,7 +1914,9 @@ skipped_all_multi:
 	push dx
 	push ax
 	 push cx
+	 push bx
 	call clust_next			; dx:ax = next cluster (0-based)
+	 pop bx
 	 pop cx
 	jnc .eoc
 	add word [bp + ldmCluster], 1
