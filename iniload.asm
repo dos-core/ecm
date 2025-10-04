@@ -1034,7 +1034,6 @@ skip_next_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
-	mov bx, [bp + ldLoadingSeg]
 skip_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack
@@ -1137,7 +1136,7 @@ relocator_size equ relocator.end - relocator
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
 		; OUT:	dx:ax = first sector of that cluster
 		;	cx = adjusted sectors per cluster
-		; CHG:	bx
+		;	bx => buffer, from ldLoadingSeg
 clust_to_first_sector:
 	mov cx, word [bp + ldClusterSize]
 	 push dx
@@ -1159,6 +1158,7 @@ clust_to_first_sector:
 	adc dx, [bp + lsvDataStart + 2]
 	jc short .cy_error_badchain
 				; dx:ax = first sector in cluster
+	mov bx, [bp + ldLoadingSeg]
 	retn
 
 
@@ -1757,7 +1757,6 @@ load_next_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
-	mov bx, [bp + ldLoadingSeg]
 load_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack_j
