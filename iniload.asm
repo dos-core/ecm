@@ -1890,18 +1890,6 @@ init_memory_multi:
 .skip:
 	jmp multi_continue_1
 
-restore_dpt:
-%if _CHS
-	xor bx, bx
-	mov ds, bx
-	mov bl, 1Eh * 4		; ds:bx -> int 1Eh vector
-	mov word [bx], 0
-dpt_restore_ofs equ $ - 2
-	mov word [bx + 2], 0
-dpt_restore_seg equ $ - 2
-%endif
-	retn
-
 
 		; INP:	bx => where to load FAT12
 		;	dx:ax = first FAT sector
@@ -2011,7 +1999,18 @@ skipped_all_multi:
 	mov [bp + ldLoadingSeg], bx
 	jmp end_of_chain		; to error_badchain or error_shortfile
 
-@@:
+
+restore_dpt:
+%if _CHS
+	xor bx, bx
+	mov ds, bx
+	mov bl, 1Eh * 4		; ds:bx -> int 1Eh vector
+	mov word [bx], 0
+dpt_restore_ofs equ $ - 2
+	mov word [bx + 2], 0
+dpt_restore_seg equ $ - 2
+%endif
+@@:				; used by multi_sector_read
 	retn
 		; INP:	dx:ax = start sector
 		;	cx = how many sectors to load
