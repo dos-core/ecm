@@ -1825,6 +1825,8 @@ init_memory_multi:
 	push ax
 	push ds
 
+%if _CHS
+
 %if _LBA && _LBA_MULTI
 	cmp ax, (end3 + 15 - $$ + 0) >> 4
 %endif
@@ -1837,6 +1839,24 @@ init_memory_multi:
 	jae init_memory_multi_lba
 .nolba:
 %endif
+
+%else		; _CHS
+
+ %ifn _LBA && _LBA_MULTI
+  %error Multi loader combination not permitted
+ %endif
+	cmp ax, (end3 + 15 - $$ + 0) >> 4
+	jb .ret
+
+	push cs
+	pop ds
+	mov al, 0E9h		; jmp near
+	mov byte [skipped_all.multipatch], al
+	mov byte [multi_patch_2], al
+	jmp init_memory_multi_lba
+%endif		; _CHS
+
+%if _CHS
 	dec ax			; = 0E8h, call near
 	mov byte [error.multi_patch], al
 
@@ -1853,6 +1873,7 @@ init_memory_multi:
 	rep movsb		; copy it over
 	mov byte [es:di - 16 + 4], 36
 				; force sectors
+%endif
 
 .ret:
 	pop ds
@@ -1861,6 +1882,7 @@ init_memory_multi:
 	jmp multi_continue_1
 
 restore_dpt:
+%if _CHS
 	xor bx, bx
 	mov ds, bx
 	mov bl, 1Eh * 4		; ds:bx -> int 1Eh vector
@@ -1869,6 +1891,7 @@ dpt_restore_ofs equ $ - 2
 	mov word [bx + 2], 0
 dpt_restore_seg equ $ - 2
 	clropt [bp + ldHasLBA], 2	; reset single-sector flag
+%endif
 	retn
 
 
@@ -2030,12 +2053,17 @@ multi_sector_read:
 .nolimit64:
 	pop si				; = how much first
 
+%if _CHS
 %if _LBA && _LBA_MULTI
 .lbapatch:
 	test ax, multi_sector_read_lba - @F
 @@:
 %endif
+%else
+	jmp multi_sector_read_lba
+%endif
 
+%if _CHS
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
 		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
@@ -2082,6 +2110,7 @@ multi_sector_read:
 	int 13h				; reset disk
 	pop ax
 	jmp .retry			; and retry -->
+%endif
 
 .got:
 	pop si				; si = how many wanted this step
@@ -2103,6 +2132,7 @@ multi_sector_read:
 	 pop cx				; cx = how many to do
 	jmp .				; loop back with updated sector/buffer
 
+%if _CHS
 .fallback:
 %if 1
 	cmp al, 1			; tried to load a single sector ?
@@ -2113,6 +2143,7 @@ multi_sector_read:
 %endif
 	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
 	jmp .again
+%endif
 
 .error:
 	jmp error_diskaccess
@@ -2135,6 +2166,7 @@ end2:
 		;	branch to multi_continue_1 / init_memory_multi.ret
 		;	 or branch to init_memory_multi.nolba
 init_memory_multi_lba:
+%if _CHS
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jz init_memory_multi.nolba
@@ -2144,6 +2176,7 @@ init_memory_multi_lba:
 	mov byte [cs:restore_dpt], 0C3h	; make this a no-op
 	mov byte [cs:multi_sector_read.lbapatch], al
 					; jmp near
+%endif
 	jmp init_memory_multi.ret
 
 
