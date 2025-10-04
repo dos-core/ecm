@@ -1759,9 +1759,13 @@ load_next_clust:
 	call clust_to_first_sector
 load_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.2stack_j
+	jae loaded_all.2stack_j_NC
 
+.multi_late_patch:
 	call read_sector
+ %if _MULTISECTOR
+	jmp loaded_64_byte
+ %endif
 skipped_all_continue:
 	loop load_next_sect
 	pop ax
@@ -1774,11 +1778,24 @@ skipped_all_continue:
  %error load_next part exceeds end+32
 %endif
 
+ %if _MULTISECTOR
+loaded_64_byte:
+	cmp byte [bp + bsBPB + bpbBytesPerSector + 1], 512 >> 8
+	jb skipped_all_continue
+	stc		; CY, fall through to loaded_all.2stack_or_multi_late
+%if ($ - end) > 64
+ %error loaded_64_byte part exceeds end+64
+%endif
+ %endif
+
+		; if we fall through, sector size is at least
+		;  512 bytes and two sectors have been loaded
+		;  from the file already.
 		; if we jump to here, then the whole file has
 		;  been loaded, so this jump doesn't have to
 		;  stay in the 32 bytes after the end label.
-loaded_all.2stack_j:
-	jmp loaded_all.2stack
+loaded_all.2stack_j_NC:
+	jmp loaded_all.2stack_or_multi_late
 
 
 ms7_entry.continue:
@@ -1887,6 +1904,7 @@ init_memory_multi:
 	pop ds
 	pop ax
 .skip:
+.patch_late_multi:
 	jmp multi_continue_1
 
 
@@ -2168,6 +2186,47 @@ multi_sector_read:
 	align 16, db 38
 end2:
 
+%ifn _MULTISECTOR
+loaded_all.2stack_or_multi_late: equ loaded_all.2stack
+%else
+loaded_all.2stack_or_multi_late:
+	jnc loaded_all.2stack
+
+		; At least 1536 bytes were loaded initially,
+		;  two sectors were read, and sector size
+		;  is >= 512 bytes. Therefore, this code is
+		;  safely usable if it stays below end2 + 512.
+multi_late:
+	mov byte [cs:init_memory_multi.patch_late_multi], 0C3h
+				; retn
+	mov byte [cs:load_next_sect.multi_late_patch], 0E9h
+				; jmp near
+	mov word [cs:load_next_sect.multi_late_patch + 1], \
+	 skipped_all_multi - (load_next_sect.multi_late_patch + 3)
+	 			; continue with skipped_all_multi
+	push di
+	push si
+	push ax
+	push bx
+	push cx
+	push dx
+	xchg ax, bx		; clobbers bx
+	mov bx, cs
+	sub ax, bx		; = amount paragraphs loaded
+	call init_memory_multi	; set patches
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop si
+	pop di
+	jmp skipped_all_continue; back to the loop, will branch to multi
+				;  loader on next read_sector intention.
+
+%if ($ - $$) > 2048 + 512
+ %error Late multi entrypoint not within end2+512
+%endif
+%endif
 
 %if _MULTISECTOR && _LBA && _LBA_MULTI
 		; INP:	al = 0E9h
