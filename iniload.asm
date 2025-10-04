@@ -1034,8 +1034,8 @@ skip_next_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
-skip_next_sect:
 	mov bx, [bp + ldLoadingSeg]
+skip_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack
 
@@ -1046,8 +1046,6 @@ skip_next_sect:
 				; emulate read_sector:
 	call read_sector.increment_sector_number
 				; dx:ax += 1
-	mov [bp + ldLoadingSeg], bx
-
 	loop skip_next_sect
 	pop ax
 	pop dx
@@ -1172,6 +1170,7 @@ clust_to_first_sector:
 		;	(not for FAT12) si:di = loaded FAT sector
 		; CHG:	es, cx, bx, (FAT12: si, di)
 clust_next:
+	mov [bp + ldLoadingSeg], bx
 	add ax, 2
 	adc dx, 0
 
@@ -1758,14 +1757,13 @@ load_next_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
-load_next_sect:
 	mov bx, [bp + ldLoadingSeg]
+load_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack_j
 
 	call read_sector
 skipped_all_continue:
-	mov [bp + ldLoadingSeg], bx
 	loop load_next_sect
 	pop ax
 	pop dx
