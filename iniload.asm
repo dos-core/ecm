@@ -2086,9 +2086,11 @@ multi_sector_read:
 ; @boeckmann code follows
 	mov ax, cx			; ax & 63 = S coordinate to read
 	and ax, 63			; isolate S coordinate
+	dec ax				; make it 0-based
 	sub ax, word [bp + bsBPB + bpbCHSSectors]
-	dec ax
-	neg ax
+					; S coordinate - amount of S
+	neg ax				; amount of S - S coordinate
+					;  = how many S in this C:H left
 	push si
 	cmp ax, si
 	jb .limittrack
