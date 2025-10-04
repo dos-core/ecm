@@ -874,7 +874,11 @@ error:
 %endif
 	mov ah, 0Eh
 	int 10h		; display character
-	mov al, 07h
+; The int 10h function 0Eh call may change both al and ah. Therefore,
+;  we need to write the full ax here rather than depending on it
+;  preserving the function number. Refer to discussion in
+;  https://github.com/SvarDOS/bugz/issues/174#issuecomment-3368470724
+	mov ax, 0E07h
 	int 10h		; beep!
 
 	xor ax, ax	; await key pressed
