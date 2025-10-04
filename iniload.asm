@@ -2055,9 +2055,7 @@ multi_sector_read:
 
 %if _CHS
 %if _LBA && _LBA_MULTI
-.lbapatch:
-	test ax, multi_sector_read_lba - @F
-@@:
+.lbapatch:				; writes a near jump in 3 bytes
 %endif
 %else
 	jmp multi_sector_read_lba
@@ -2176,6 +2174,8 @@ init_memory_multi_lba:
 	mov byte [cs:restore_dpt], 0C3h	; make this a no-op
 	mov byte [cs:multi_sector_read.lbapatch], al
 					; jmp near
+	mov word [multi_sector_read.lbapatch + 1], \
+		multi_sector_read_lba - (multi_sector_read.lbapatch + 3)
 %endif
 	jmp init_memory_multi.ret
 
