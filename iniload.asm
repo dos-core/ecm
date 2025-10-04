@@ -157,6 +157,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef MULTISECTOR,	1	; stash multi-sector loader into end2
 	numdef LBA_MULTI,	1	; stash LBA multi-sector loader into end3
+	numdef ADDPROGRESS,	1	; patch to display progress dots in end3
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
@@ -572,6 +573,11 @@ read_sector:
 	push ax
 	push si
 
+%if _MULTISECTOR && _LBA && _LBA_MULTI && _ADDPROGRESS
+.patch_progress:
+	test ax, read_progress_single - @F
+@@:
+%endif
 	mov es, bx
 
 ; DX:AX==LBA sector number
@@ -2101,6 +2107,12 @@ multi_sector_read:
 	mov al, 1			; force single-sector operation
 @@:
 
+%if _MULTISECTOR && _LBA && _LBA_MULTI && _ADDPROGRESS
+.patch_progress:
+	test ax, read_progress_multi_chs - @F
+@@:
+%endif
+
 	mov si, 4
 .retry:
 	mov ah, 02h			; function = read CHS sectors
@@ -2166,11 +2178,16 @@ end2:
 %if _MULTISECTOR && _LBA && _LBA_MULTI
 		; INP:	al = 0E9h
 		;	ss:sp -> ds, ax
+		;	cs = ds
 		; CHG:	bx, cx, dx, si, di, es
 		; OUT:	patches applied
 		;	branch to multi_continue_1 / init_memory_multi.ret
 		;	 or branch to init_memory_multi.nolba
 init_memory_multi_lba:
+%if _ADDPROGRESS
+	mov byte [read_sector.patch_progress], 0E8h
+	mov byte [multi_sector_read.patch_progress], 0E8h
+%endif
 %if _CHS
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
@@ -2245,6 +2262,11 @@ multi_sector_read_lba:
 	jz @F
 	mov di, 1			; force single-sector operation
 @@:
+
+%if _ADDPROGRESS
+	call read_progress_multi_lba
+%endif
+
 	mov cx, 4
 	db __TEST_IMM16			; skip int
 .lbaretry:
@@ -2274,6 +2296,33 @@ multi_sector_read_lba:
 
 .error:
 	jmp multi_sector_read.error
+
+
+%if _ADDPROGRESS
+read_progress_multi_lba:
+	push ax
+	mov al, '&'
+	jmp @F
+
+read_progress_multi_chs:
+	push ax
+	mov al, '.'
+	jmp @F
+
+read_progress_single:
+	push ax
+	mov al, '+'
+@@:
+	push bx
+	push bp
+	mov ah, 0Eh
+	mov bx, 7
+	int 10h
+	pop bp
+	pop bx
+	pop ax
+	retn
+%endif
 
 
 %assign num 4096-($-$$)
