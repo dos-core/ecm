@@ -1890,7 +1890,6 @@ restore_dpt:
 dpt_restore_ofs equ $ - 2
 	mov word [bx + 2], 0
 dpt_restore_seg equ $ - 2
-	clropt [bp + ldHasLBA], 2	; reset single-sector flag
 %endif
 	retn
 
@@ -1996,6 +1995,7 @@ skipped_all_multi:
 	pop dx				; ldmSector
 	call multi_sector_read		; si needn't be preserved, no longer used
 	call restore_dpt
+	clropt [bp + ldHasLBA], 2	; reset single-sector flag
 	jmp loaded_all
 
 .eoc:
