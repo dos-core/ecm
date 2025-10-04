@@ -1761,7 +1761,7 @@ load_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack_j_NC
 
-.multi_late_patch:
+.multi_late_patch:	; patched to skipped_all.multipatch
 	call read_sector
  %if _MULTISECTOR
 	jmp loaded_64_byte
@@ -2202,8 +2202,14 @@ multi_late:
 	mov byte [cs:load_next_sect.multi_late_patch], 0E9h
 				; jmp near
 	mov word [cs:load_next_sect.multi_late_patch + 1], \
-	 skipped_all_multi - (load_next_sect.multi_late_patch + 3)
-	 			; continue with skipped_all_multi
+	 skipped_all.multipatch - (load_next_sect.multi_late_patch + 3)
+				; continue with skipped_all_multi
+		; This patch will work as intended even if
+		;  init_memory_multi is to decide to not
+		;  install its own patches at all. In this case
+		;  skipped_all.multipatch isn't patched but
+		;  rather runs a call read_sector then branches
+		;  to skipped_all_continue again.
 	push di
 	push si
 	push ax
