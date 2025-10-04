@@ -1163,8 +1163,8 @@ clust_to_first_sector:
 
 		; INP:	dx:ax = cluster (0-based)
 		;	(not for FAT12) si:di = loaded FAT sector, -1 if none
-		; OUT:	CY if no next cluster
-		;	NC if next cluster found
+		; OUT:	NC if no next cluster
+		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
 		;	(not for FAT12) si:di = loaded FAT sector
 		; CHG:	es, cx, bx, (FAT12: si, di)
@@ -1248,7 +1248,7 @@ clust_next:
 
 		; INP:	dx:ax = cluster value, 2-based
 		; OUT:	dx:ax -= 2 (makes it 0-based)
-		;	CY iff invalid cluster
+		;	NC iff invalid cluster
 check_clust:
 	and dh, 0Fh
 	sub ax, 2
