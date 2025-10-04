@@ -1786,9 +1786,9 @@ ms7_entry.continue:
 	cli
 	cld
 	pop bx
-	pop es
-	pop word [es:bx]
-	pop word [es:bx + 2]
+	pop ds
+	pop word [bx]
+	pop word [bx + 2]
 
 	lea bx, [bp + lsvCommandLine]
 	cmp sp, bx
