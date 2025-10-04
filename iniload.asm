@@ -2181,8 +2181,10 @@ init_memory_multi_lba:
  %else
   %error Multi-sector loader must use proper LBA check currently
  %endif
+%endif
 	mov byte [skipped_all.multipatch], al
 	mov byte [multi_patch_2], al
+%if _CHS
 	mov byte [restore_dpt], 0C3h	; make this a no-op
 	mov byte [multi_sector_read.lbapatch], al
 					; jmp near
