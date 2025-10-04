@@ -156,7 +156,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
 	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef MULTISECTOR,	1	; stash multi-sector loader into end2
-	excdef !_CHS, MULTISECTOR
+	numdef LBA_MULTI,	1	; stash LBA multi-sector loader into end3
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
@@ -1809,7 +1809,7 @@ ms7_entry.continue:
 		; OUT:	patches applied
 		;	branch to multi_continue_1
 init_memory_multi:
-%if _LBA
+%if _LBA && (!_LBA_MULTI)
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jnz .skip
@@ -1817,14 +1817,22 @@ init_memory_multi:
   %error Multi-sector loader must use proper LBA check currently
  %endif
 %endif
+
 	push ax
 	push ds
 
+%if _LBA && _LBA_MULTI
+	cmp ax, (end3 + 15 - $$ + 0) >> 4
+%endif
 	push cs
 	pop ds
 	mov al, 0E9h		; jmp near
 	mov byte [skipped_all.multipatch], al
 	mov byte [multi_patch_2], al
+%if _LBA && _LBA_MULTI
+	jae init_memory_multi_lba
+.nolba:
+%endif
 	dec ax			; = 0E8h, call near
 	mov byte [error.multi_patch], al
 
@@ -1842,6 +1850,7 @@ init_memory_multi:
 	mov byte [es:di - 16 + 4], 36
 				; force sectors
 
+.ret:
 	pop ds
 	pop ax
 .skip:
@@ -2017,6 +2026,12 @@ multi_sector_read:
 .nolimit64:
 	pop si				; = how much first
 
+%if _LBA && _LBA_MULTI
+.lbapatch:
+	test ax, multi_sector_read_lba - @F
+@@:
+%endif
+
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
 		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
@@ -2106,6 +2121,120 @@ multi_sector_read:
 	dw "MS"			; signature of MS-DOS 7 load
 	align 16, db 38
 end2:
+
+
+%if _MULTISECTOR && _LBA && _LBA_MULTI
+		; INP:	al = 0E9h
+		;	ss:sp -> ds, ax
+		; CHG:	bx, cx, dx, si, di, es
+		; OUT:	patches applied
+		;	branch to multi_continue_1 / init_memory_multi.ret
+		;	 or branch to init_memory_multi.nolba
+init_memory_multi_lba:
+ %if !_LBA_SKIP_CHECK
+	test byte [bp + ldHasLBA], 1
+	jz init_memory_multi.nolba
+ %else
+  %error Multi-sector loader must use proper LBA check currently
+ %endif
+	mov byte [cs:restore_dpt], 0C3h	; make this a no-op
+	mov byte [cs:multi_sector_read.lbapatch], al
+					; jmp near
+	jmp init_memory_multi.ret
+
+
+		; INP:	dx:ax = start sector within partition
+		;	es => buffer
+		;	si = how many sectors at most in this step, >= 1
+		;	stack -> how many sectors left for later (word),
+		;	 start sector (dword),
+		;	 near return address (word)
+multi_sector_read_lba:
+	mov bx, es
+	push si
+	cmp si, 127
+	jbe @F
+	mov si, 127
+; LBA limit appears to be 127 sectors per call.
+; refer to https://retrocomputing.stackexchange.com/questions/32124/whats-the-maximum-amount-of-sectors-an-lba-rom-bios-sector-read-call-can-access/
+@@:
+
+	push di
+	mov di, si
+
+; DX:AX==LBA sector number
+; add partition start (= number of hidden sectors)
+		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
+		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
+
+ %if (!_LBA_33_BIT) && _LBA_CHECK_NO_33
+	jc .error
+ %endif
+ %if _LBA_33_BIT
+	sbb si, si	; -1 if was CY, 0 else
+	neg si		; 1 if was CY, 0 else
+ %endif
+	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
+	push cx
+ %if _LBA_33_BIT
+	push si		; bit 32 = 1 if operating in 33-bit space
+ %else
+	push cx		; second highest word = 0
+ %endif
+	push dx
+	push ax		; qword sector number (lpSector)
+	push bx
+	push cx		; bx:0 -> buffer (lpBuffer)
+	push di		; word number of sectors to read (lpCount)
+	mov cl, 10h
+	push cx		; word size of disk address packet (lpSize)
+	mov si, sp	; ds:si -> disk address packet (on stack)
+
+	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+
+.lbaagain:
+	testopt [bp + ldHasLBA], 2
+	jz @F
+	mov di, 1			; force single-sector operation
+@@:
+	mov cx, 4
+	db __TEST_IMM16			; skip int
+.lbaretry:
+	int 13h
+	mov word [si + lpCount], di	; reset for subsequent attempts
+	mov ah, 42h			; 13.42 extensions read
+	int 13h
+	jnc .lbagot
+	xor ax, ax			; reset disk
+	loop .lbaretry			; count down retry count
+.lbafallback:
+ %if 1
+	cmp di, 1			; tried to load a single sector ?
+	je .error			; yes, this is an error -->
+ %else
+	testopt [bp + ldHasLBA], 2	; already in single-sector mode ?
+	jnz .error			; yes, this is an error -->
+ %endif
+	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
+	jmp .lbaagain
+
+.lbagot:
+	xchg ax, di			; al = how many read
+	add sp, word [si + lpSize]
+	pop di				; restore di
+	jmp multi_sector_read.got
+
+.error:
+	jmp multi_sector_read.error
+
+
+%assign num 4096-($-$$)
+%warning num bytes in front of end3
+%if num < 0
+ %warning LBA multi-sector loader is overflowing end3
+%endif
+end3:
+%endif
 
 
 		; This handling is in the second header part,
