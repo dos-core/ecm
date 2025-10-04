@@ -2037,9 +2037,9 @@ multi_sector_read:
 	cmp bx, si			; same ?
 	pop si
 	loope @B			; loop if same --> and not last
+	 pop si				; si = amount wanted --> (how much first)
 	je .nolimit64			; if all same --> proceed with full
 	inc cx				; cx = how many need to be deferred
-	 pop si				; si = amount wanted
 	 pop bx				; discard the zero
 	sub si, cx			; si = amount we can do maximum
 	jnz .decrease64			; any ? then do them -->
@@ -2056,10 +2056,7 @@ multi_sector_read:
 
 .decrease64:
 	 push cx			; how many next
-	 ; push si			; how many now
-	db __TEST_IMM8			; skip pop
-.nolimit64:
-	pop si				; = how much first
+.nolimit64:	; si = how much first
 
 %if _CHS
 %if _LBA && _LBA_MULTI
