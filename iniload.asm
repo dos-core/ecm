@@ -250,6 +250,10 @@ filesize equ end_of_file - $$
  %error Cannot use both of these.
 %endif
 
+%ifn _LBA || _CHS
+ %error Neither disk access method enabled.
+%endif
+
 %push
 %define %$string _INILOAD_SIGNATURE
 %strlen %$length %$string
