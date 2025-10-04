@@ -1829,16 +1829,26 @@ init_memory_multi:
 
 %if _LBA && _LBA_MULTI
 	cmp ax, (end3 + 15 - $$ + 0) >> 4
-%endif
+
 	push cs
 	pop ds
 	mov al, 0E9h		; jmp near
+
+	jae init_memory_multi_lba
+ %if !_LBA_SKIP_CHECK
+	test byte [bp + ldHasLBA], 1
+	jnz .ret
+ %else
+  %error Multi-sector loader must use proper LBA check currently
+ %endif
+.nolba:
+%else
+	push cs
+	pop ds
+	mov al, 0E9h		; jmp near
+%endif
 	mov byte [skipped_all.multipatch], al
 	mov byte [multi_patch_2], al
-%if _LBA && _LBA_MULTI
-	jae init_memory_multi_lba
-.nolba:
-%endif
 
 %else		; _CHS
 
@@ -1847,12 +1857,9 @@ init_memory_multi:
  %endif
 	cmp ax, (end3 + 15 - $$ + 0) >> 4
 	jb .ret
-
 	push cs
 	pop ds
 	mov al, 0E9h		; jmp near
-	mov byte [skipped_all.multipatch], al
-	mov byte [multi_patch_2], al
 	jmp init_memory_multi_lba
 %endif		; _CHS
 
@@ -2171,6 +2178,8 @@ init_memory_multi_lba:
  %else
   %error Multi-sector loader must use proper LBA check currently
  %endif
+	mov byte [skipped_all.multipatch], al
+	mov byte [multi_patch_2], al
 	mov byte [restore_dpt], 0C3h	; make this a no-op
 	mov byte [multi_sector_read.lbapatch], al
 					; jmp near
