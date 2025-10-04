@@ -420,8 +420,6 @@ error:
 	test ax, restore_dpt - @F
 @@:
 %endif
-	push cs
-	pop ds
 	mov si, msg.error
 	call disp_error
 	pop si
@@ -439,7 +437,7 @@ disp_error.loop:
 	int 10h
 	; pop bp
 disp_error:
-	lodsb
+	cs lodsb
 	test al, al
 	jnz .loop
 	retn
