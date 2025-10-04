@@ -2051,6 +2051,7 @@ multi_sector_read:
 		; bx => next buffer
 	pop si
 	pop si				; discard sector number
+.j:
 	jmp .				; loop back with updated sector/buffer
 
 .decrease64:
@@ -2135,7 +2136,7 @@ multi_sector_read:
 	add bx, word [bp + ldParaPerSector]
 	loop @B				; => next buffer
 	 pop cx				; cx = how many to do
-	jmp .				; loop back with updated sector/buffer
+	jmp .j				; loop back with updated sector/buffer
 
 %if _CHS
 .fallback:
