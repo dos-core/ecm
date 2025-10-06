@@ -2245,7 +2245,9 @@ multi_late:
 init_memory_multi_lba:
 %if _ADDPROGRESS
 	mov byte [read_sector.patch_progress], 0E8h
+ %if _CHS
 	mov byte [multi_sector_read.patch_progress], 0E8h
+ %endif
 %endif
 %if _CHS
  %if !_LBA_SKIP_CHECK
