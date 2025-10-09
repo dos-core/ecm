@@ -6,7 +6,7 @@ File system boot sector loader code for FAT32
 Adapted from 2002-11-26 fatboot.zip/fat12.asm,
  released as public domain by Chris Giese
 
-Public domain by E. C. Masloch, 2012--2024
+Public domain by E. C. Masloch, 2012--2025
 
 %endif
 
