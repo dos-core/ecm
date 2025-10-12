@@ -2184,6 +2184,7 @@ multi_sector_read:
 .got:
 	pop si				; si = how many wanted this step
 	cbw				; S must be <= 63 so al is too, ah = 0
+					; from LBA al is <= 127, so ah = 0
 	sub si, ax			; si = how many left over
 	xchg cx, ax			; cx = how many have been read this step
 	pop bx
