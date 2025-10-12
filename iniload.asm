@@ -413,6 +413,9 @@ d3	test ax, "00"
 		;	 whether the first dword (far pointer to IVT entry)
 		;	 matches and then assume that the second dword has
 		;	 the original int 1Eh address. Else, ds:si is used.
+	mov bp, sp
+	mov di, 1Eh * 4	; -> IVT entry of int 1Eh
+	cmp dx, di	; int 1Eh address on stack ?
 	jmp ms6_continue1
 
 
@@ -1308,9 +1311,6 @@ check_clust:
 
 
 ms6_continue1:
-	mov bp, sp
-	mov di, 1Eh * 4	; -> IVT entry of int 1Eh
-	cmp dx, di	; int 1Eh address on stack ?
 	jne .dssi	; no -->
 	cmp word [bp + 2], cx	; segment 0 in next word ?
 	jne .dssi	; no -->
