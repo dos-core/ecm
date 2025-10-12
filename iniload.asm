@@ -425,8 +425,7 @@ error:
 	pop si			; -> ASCII string terminated by dot
 	call disp_error		; display up to before dot
 	dec si			; -> point back at dot to return after display
-	call disp_error.loop	; display the dot
-	xor ax, ax
+	call disp_error.loop	; display the dot, ah = 0
 	int 16h
 	int 19h
 
@@ -442,6 +441,7 @@ disp_error:
 	cs lodsb
 	cmp al, '.'
 	jne .loop
+	cbw			; al = 2Eh '.' so ah here becomes zero
 	retn
 
 
