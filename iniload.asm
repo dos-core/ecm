@@ -1291,7 +1291,7 @@ clust_next:
 	push bx
 	add ax, [bp + bsBPB + bpbReservedSectors]
 	adc dx, 0
-	mov bx, [bp + lsvFATSeg]
+	mov bx, es
 	call read_sector
 	pop bx
 @@:
