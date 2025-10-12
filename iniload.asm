@@ -611,18 +611,19 @@ read_sector:
 	push ax		; qword sector number (lpSector)
 	push bx
 	push cx		; bx:0 -> buffer (lpBuffer)
-	inc cx
-	push cx		; word number of sectors to read (lpCount)
+	push cx		; word number of sectors to read (lpCount),
+			;  only need to init the high byte here (0)
 	mov cl, 10h
 	push cx		; word size of disk address packet (lpSize)
 	mov si, sp	; ds:si -> disk address packet (on stack)
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
-	mov ah, 42h	; 13.42 extensions read
 %if _LBA_RETRY
+	mov ah, 42h	; 13.42 extensions read
 	call .int13_retry	; clobbers cx if NC
 %else
-	call .int13_preserve_lpcount
+	mov ax, 4201h	; 13.42 extensions read
+	call .int13_set_lpcount
 %endif
 	jnc .lba_done
 
@@ -639,12 +640,12 @@ read_sector:
 	 mov word [si + 4 + 2], es
 	; and word [si + 4 + 0], byte 0
 
-	mov ah, 42h
 %if _LBA_RETRY
+	mov ah, 42h
 	call .int13_retry	; clobbers cx if NC
 %else
-	int 13h
-		; (don't need .int13_preserve_lpcount as no further call)
+	mov ax, 4201h	; 13.42 extensions read
+	call .int13_set_lpcount
 %endif
 .err_CY_2:
 	jc .err_CY_1
@@ -693,6 +694,13 @@ read_sector:
 %if _CHS		; +70 bytes
  %if _LBA && _LBA_33_BIT
 	jnz .err_NZ_2
+ %endif
+ %if _LBA
+	sub si, lpCount + 2 + 16
+		; point byte [ds:si + lpCount] -> unclaimed stack space
+		;  the lpCount + 2 is for the offset,
+		;  the 16 is to cover subsequent allocations on the stack
+		;  (watch for {lpcountalloc})
  %endif
 ; dx:ax = LBA sector number, (if _LBA) cx = 0
 ; divide by number of sectors per track to get sector number
@@ -748,10 +756,11 @@ read_sector:
 
 .dx_ax_cx_lba_to_chs_patch:		; = 0B8h if to continue
 					; = 0C3h if to return
-			mov ax, 0201h	; read one sector
 %if _CHS_RETRY
-			call .int13_retry	; clobbers cx if NC
+			call .int13_retry_ah	; clobbers cx if NC
+					; {lpcountalloc} near call
 %else
+			mov ax, 0201h	; read one sector
 			int 13h
 %endif
 			jnc .done
@@ -760,13 +769,14 @@ read_sector:
 .err_NZ_1:
 	jne .err
 
-	push es		; user buffer
+	push es		; user buffer, {lpcountalloc}
 	 mov es, word [bp + ldSectorSeg]
 
-	mov ax, 0201h
 %if _CHS_RETRY
-	call .int13_retry		; clobbers cx if NC
+	call .int13_retry_ah		; clobbers cx if NC
+					; {lpcountalloc} near call
 %else
+	mov ax, 0201h
 	int 13h
 %endif
 .err_CY_1:
@@ -818,10 +828,16 @@ error_diskaccess: equ $
 
 
 %if (_LBA && _LBA_RETRY) || (_CHS && _CHS_RETRY)
+ %if _CHS && _CHS_RETRY
+.int13_retry_ah:
+	mov ah, 02h	; CHS read function
+ %endif
 .int13_retry:
-	push ax
+	mov al, 01h	; counter for CHS read, lpCount value for LBA read
+	push ax		; {lpcountalloc}
 %if _LBA
-	call .int13_preserve_lpcount
+	call .int13_set_lpcount
+			; {lpcountalloc} near call
 %else
 	int 13h		; first try
 %endif
@@ -836,22 +852,30 @@ error_diskaccess: equ $
 %if ! _LBA
 	int 13h		; retry, CF error status, ah error number
 	retn
-%endif		; else: fall through to .int13_preserve_lpcount
+%endif		; else: fall through to .int13_set_lpcount
 %endif
 
 %if _LBA
-		; have to reset the LBAPACKET's lpCount, as the handler may
+		; have to (re)set the LBAPACKET's lpCount, as the handler may
 		;  set it to "the number of blocks successfully transferred".
+		;  rather than preserve it as before, always set it to 1 here.
+		;  the high byte is already initialised to zero and cannot be
+		;  changed by the call, so the entire word equals 1 after the
+		;  low byte is set here.
 
 		; hack: si points into unclaimed stack space
 		;  when this is called from the CHS handler.
 		;  this should not cause any issues however.
-		; actually, if !_LBA_SKIP_CHECK, then si is set
-		;  to point to claimed stack space. also legal.
-.int13_preserve_lpcount:
-	push word [si + lpCount]
+		;  {lpcountalloc}
+
+		; INP:	ah = function number
+		;	al = count of sectors (always 1)
+		; OUT:	NC if success
+		;	CY if error,
+		;	 ah = error code
+.int13_set_lpcount:
+	mov byte [si + lpCount], al
 	int 13h
-	pop word [si + lpCount]
 	retn
 %endif
 
