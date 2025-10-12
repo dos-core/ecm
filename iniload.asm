@@ -1747,9 +1747,7 @@ multi_continue_1:
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [bp + bsBPB + bpbSectorsPerFAT]
 					; maximum size of this FS's FAT
-			; If we're here, then ax = 0 (jnz jumped if not),
-			;  so this cwd always zeros dx.
-		cwd
+		xor dx, dx
 		mov ax, [bp + bsBPB + bpbReservedSectors]; = first FAT sector
 		mov bx, [bp + lsvFATSeg]
 %if _MULTISECTOR
