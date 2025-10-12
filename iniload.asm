@@ -652,11 +652,11 @@ read_sector:
 
 	pop es
 	; pop cx
-	add sp, 10h
+	add sp, word [si + lpSize]
 	jmp .sectorseg_helper_then_done
 
 .lba_done:
-	add sp, 10h
+	add sp, word [si + lpSize]
 	jmp short .done
 
 .lba_error: equ .err
