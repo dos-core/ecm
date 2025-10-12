@@ -1736,19 +1736,20 @@ multi_continue_1:
 ;  if the sector size is 8 KiB, and with 4 KiB sector size it is true
 ;  iff word[sectors_per_fat] is higher than one.)
 
-
+			; If we're here, then ax <= 0FF5h (ja jumped if not),
+			;  so this cwd always zeros dx.
+		cwd			; dx = 0, prepare for dx:ax = FAT sector
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
 	jc @F
 	cmp word [bp + lsvLoadSeg], ax
 	jae .got_fat12_zero
 @@:
-
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [bp + bsBPB + bpbSectorsPerFAT]
 					; maximum size of this FS's FAT
-		xor dx, dx
-		mov ax, [bp + bsBPB + bpbReservedSectors]; = first FAT sector
+		mov ax, [bp + bsBPB + bpbReservedSectors]
+					; dx:ax = first FAT sector
 		mov bx, [bp + lsvFATSeg]
 %if _MULTISECTOR
 multi_patch_2: equ $
