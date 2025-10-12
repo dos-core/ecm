@@ -572,6 +572,12 @@ query_geometry:
 		; Note:	If error 09h (data boundary error) is returned,
 		;	 the read is done into the ldSectorSeg buffer,
 		;	 then copied into the user buffer.
+		; Note:	With _DMA_BOUNDARY_CHECK_CODE=0 we don't check
+		;	 for error 09h, rather we assume that an error
+		;	 will always be either a data boundary error
+		;	 what can be cured by using the sectorseg, or
+		;	 else the sectorseg attempt will error out on
+		;	 its own eventually doing no additional harm.
 read_sector:
 	push dx
 	push cx
