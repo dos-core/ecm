@@ -767,12 +767,14 @@ read_sector:
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
 
-.dx_ax_cx_lba_to_chs_patch:		; = 0B8h if to continue
-					; = 0C3h if to return
 %if _CHS_RETRY
+.dx_ax_cx_lba_to_chs_patch_E8:		; = 0E8h if to continue
+					; = 0C3h if to return
 			call .int13_retry_ah	; clobbers cx if NC
 					; {lpcountalloc} near call
 %else
+.dx_ax_cx_lba_to_chs_patch_B8:		; = 0B8h if to continue
+					; = 0C3h if to return
 			mov ax, 0201h	; read one sector
 			int 13h
 %endif
@@ -2136,14 +2138,30 @@ multi_sector_read:
 		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 	jc .error
-	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch], 0C3h
+%if _CHS_RETRY
+	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch_E8], 0C3h
+					; = 0E8h if to continue
+					; = 0C3h if to return
+%else
+	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch_B8], 0C3h
+					; = 0B8h if to continue
+					; = 0C3h if to return
+%endif
 		; = 0B8h if to continue
 		; = 0C3h if to return
 	xchg cx, ax			; dx:cx = sector LBA number
 	xchg dx, ax			; ax:cx = sector LBA number
 	xor dx, dx			; dx:ax:cx
 	call read_sector.dx_ax_cx_lba_to_chs
-	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch], 0B8h
+%if _CHS_RETRY
+	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch_E8], 0E8h
+					; = 0E8h if to continue
+					; = 0C3h if to return
+%else
+	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch_B8], 0B8h
+					; = 0B8h if to continue
+					; = 0C3h if to return
+%endif
 ; @boeckmann code follows
 	mov ax, cx			; ax & 63 = S coordinate to read
 	and ax, 63			; isolate S coordinate
