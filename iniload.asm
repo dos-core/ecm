@@ -671,10 +671,6 @@ read_sector:
 	add sp, word [si + lpSize]
 	jmp .sectorseg_helper_then_done
 
-.lba_done:
-	add sp, word [si + lpSize]
-	jmp short .done
-
 .lba_error: equ .err
 
  %if !_CHS
@@ -825,6 +821,14 @@ error_diskaccess: equ $
 	push ss
 	pop ds
 
+%if _LBA
+	db __TEST_IMM16			; skip add sp
+.lba_done:
+	add sp, word [si + lpSize]
+ %if ($ - .lba_done) != 2
+  %error Unexpected add sp instruction size
+ %endif
+%endif
 .done:
 ; increment segment
 	mov bx, es
