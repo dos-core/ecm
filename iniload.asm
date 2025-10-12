@@ -421,9 +421,11 @@ error:
 @@:
 %endif
 	mov si, msg.error
-	call disp_error
-	pop si
-	call disp_error
+	call disp_error		; display "Load error: "
+	pop si			; -> ASCII string terminated by dot
+	call disp_error		; display up to before dot
+	dec si			; -> point back at dot to return after display
+	call disp_error.loop	; display the dot
 	xor ax, ax
 	int 16h
 	int 19h
@@ -438,8 +440,8 @@ disp_error.loop:
 	; pop bp
 disp_error:
 	cs lodsb
-	test al, al
-	jnz .loop
+	cmp al, '.'
+	jne .loop
 	retn
 
 
@@ -773,7 +775,7 @@ read_sector:
 .err:
 error_diskaccess: equ $
 	call error
-	db "Disk read error.", 0
+	db "Disk read error."
 
 
 %if _CHS
@@ -861,19 +863,19 @@ error_diskaccess: equ $
 
 error_shortfile:
 	call error
-	db "File is too short.", 0
+	db "File is too short."
 
 error_badchain:
 	call error
-	db "Bad cluster chain.", 0
+	db "Bad cluster chain."
 
 error_badclusters:
 	call error
-	db "Bad amount of clusters.", 0
+	db "Bad amount of clusters."
 
 error_outofmemory:
 	call error
-	db "Out of memory.", 0
+	db "Out of memory."
 
 %assign num 512-($-$$)
 %if num >= 3
@@ -926,7 +928,7 @@ ms7_entry:
 	jmp ldos_entry.ms7_common
 
 msg:
-.error:	db "Load error: ", 0
+.error:	db "Load error: ."
 
 
 finish_continue:
@@ -1381,7 +1383,7 @@ ldos_entry:
 	jae @F
 error_notfullyloaded:
 	call error
-	db "Initial loader not fully loaded.", 0
+	db "Initial loader not fully loaded."
 @@:
 
 	mov bx, (payload.actual_end -$$+0 +15) >> 4
@@ -2495,14 +2497,14 @@ loaded_all:
 %if _CHECKSUM
 error_header_checksum_failed:
 	call error
-	db "Header checksum failed.", 0
+	db "Header checksum failed."
 
 error_data_checksum_failed:
 	stc
 	int3
 	jnc ..@data_checksum_ignore_failure_debugger
 	call error
-	db "Data checksum failed.", 0
+	db "Data checksum failed."
 %endif
 
 
@@ -2582,7 +2584,7 @@ d3	test ax, "F0"
 
 .error:
 	call error
-	asciz "Invalid base pointer in FreeDOS entrypoint."
+	db "Invalid base pointer in FreeDOS entrypoint."
 
 
 %if _LSVEXTRA
@@ -2970,24 +2972,24 @@ d5	asciz 13,10,"In query_geometry 3",13,10
 .sector_too_small:
 .sector_not_power:
 	call error
-	asciz "Invalid sector size."
+	db "Invalid sector size."
 
 .invalid_sectors:
 .invalid_heads:
 	call error
-	asciz "Invalid geometry."
+	db "Invalid geometry."
 
 scan_logical.got_partition_cycle:
 	call error
-	asciz "Partition cycle detected."
+	db "Partition cycle detected."
 
 scan_logical.error_too_many_partitions:
 	call error
-	asciz "Too many partitions detected."
+	db "Too many partitions detected."
 
 read_partition_table.signature_fail:
 	call error
-	asciz "Invalid partition table detected."
+	db "Invalid partition table detected."
 
 
 		; INP:	dx:ax = first sector
