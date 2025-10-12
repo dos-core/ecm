@@ -1810,26 +1810,31 @@ load_next_sect:
 
 .multi_late_patch:	; patched to skipped_all.multipatch
 	call read_sector
- %if _MULTISECTOR
-	jmp loaded_64_byte
- %endif
 skipped_all_continue:
+ %if _MULTISECTOR
+	jmp loaded_32_byte
+ %endif
+skipped_all_continue_after_loaded_32_byte:
 	loop load_next_sect
 	jmp loadorskip_next_cluster
+
+ %if _MULTISECTOR
+loaded_32_byte:
+	push ax
+	mov ax, cs
+	neg ax		; minus cs
+	add ax, bx	; loaded segment minus cs = how many paragraphs loaded
+	cmp ax, paras(end3 + 15 -$$+0)
+			; enough for end3 ?
+	pop ax
+	jb skipped_all_continue_after_loaded_32_byte
+			; not yet -->
+	stc		; CY, fall through to loaded_all.2stack_or_multi_late
+ %endif
 
 %if ($ - end) > 32
  %error load_next part exceeds end+32
 %endif
-
- %if _MULTISECTOR
-loaded_64_byte:
-	cmp byte [bp + bsBPB + bpbBytesPerSector + 1], 512 >> 8
-	jb skipped_all_continue
-	stc		; CY, fall through to loaded_all.2stack_or_multi_late
-%if ($ - end) > 64
- %error loaded_64_byte part exceeds end+64
-%endif
- %endif
 
 		; if we fall through, sector size is at least
 		;  512 bytes and two sectors have been loaded
@@ -2286,7 +2291,8 @@ multi_late:
 	pop ax
 	pop si
 	pop di
-	jmp skipped_all_continue; back to the loop, will branch to multi
+	jmp skipped_all_continue_after_loaded_32_byte
+				; back to the loop, will branch to multi
 				;  loader on next read_sector intention.
 
 %if ($ - $$) > 2048 + 512
