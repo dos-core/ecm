@@ -969,14 +969,26 @@ finish_continue:
 	mov bx, [bp + ldParaPerSector]
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
+		; assumed to not overflow, (payload.actual_end + 8192) < 10_0000h
+payload_actual_end_equate equ payload.actual_end -$$+0
+%ifn (payload_actual_end_equate + 15 + 8192) < 10_0000h
+ %error Overflow possible
+%endif
 	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
 		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
+	jc @F		; overflow ? then we're near top of memory -->
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
-	jbe short finish_load
+	ja @FF		; end of load > available, then need to relocate -->
+	; jbe short finish_load
+	jmp finish_load
 
+@@:
+	sub ax, word [bp + ldLoadTop]	; = paras to move down
+			; mimic end of load minus available calculation, will CY
+@@:
 	mov cx, word [bp + lsvLoadSeg]
 			; => after end of loaded data
 	sub word [bp + lsvLoadSeg], ax
