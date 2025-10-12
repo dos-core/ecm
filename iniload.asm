@@ -620,7 +620,7 @@ read_sector:
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 	mov ah, 42h	; 13.42 extensions read
 %if _LBA_RETRY
-	call .int13_retry
+	call .int13_retry	; clobbers cx if NC
 %else
 	call .int13_preserve_lpcount
 %endif
@@ -641,7 +641,7 @@ read_sector:
 
 	mov ah, 42h
 %if _LBA_RETRY
-	call .int13_retry
+	call .int13_retry	; clobbers cx if NC
 %else
 	int 13h
 		; (don't need .int13_preserve_lpcount as no further call)
@@ -750,7 +750,7 @@ read_sector:
 					; = 0C3h if to return
 			mov ax, 0201h	; read one sector
 %if _CHS_RETRY
-			call .int13_retry
+			call .int13_retry	; clobbers cx if NC
 %else
 			int 13h
 %endif
@@ -765,7 +765,7 @@ read_sector:
 
 	mov ax, 0201h
 %if _CHS_RETRY
-	call .int13_retry
+	call .int13_retry		; clobbers cx if NC
 %else
 	int 13h
 %endif
@@ -811,6 +811,9 @@ error_diskaccess: equ $
 	jne @F
 	inc dx
 @@:
+	db __TEST_IMM8		; skip pop cx
+.popcxret:		; NC stack has function number
+	pop cx		; discard word on stack, preserve NC, clobber cx
 	retn
 
 
@@ -822,20 +825,12 @@ error_diskaccess: equ $
 %else
 	int 13h		; first try
 %endif
-	jnc @F		; NC, success on first attempt -->
+	jnc .popcxret	; NC, success on first attempt --> (clobbers cx)
 
 ; reset drive
 	xor ax, ax
-	int 13h
-	jnc @FF		; NC, reset succeeded -->
-			; CY, reset failed, error in ah
+	int 13h		; ignore CF status from the reset, to save on code size
 
-@@:			; NC or CY, stack has function number
-	inc sp
-	inc sp		; discard word on stack, preserve CF
-	retn
-
-@@:
 ; try read again
 	pop ax		; restore function number
 %if ! _LBA
