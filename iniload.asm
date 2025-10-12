@@ -878,7 +878,7 @@ error_outofmemory:
 %assign num 512-($-$$)
 %if num >= 3
 %assign num num - 3
- %warning num bytes in front of ms7_entry
+ %warning %[num]+3 bytes in front of ms7_entry
 	_fill 512 - 3,38,start
 error_outofmemory_j1:
 	jmp error_outofmemory
