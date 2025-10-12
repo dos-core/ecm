@@ -168,6 +168,8 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
+	numdef DMA_BOUNDARY_CHECK_CODE,0; check for DMA boundary error code,
+					;  if 0 then always try sectorseg read
 	numdef STACKSIZE,	2048
 %if _STACKSIZE < 256
  %error Too small stack size
@@ -631,8 +633,10 @@ read_sector:
 	cmp ah, 1	; invalid function?
 	je .no_lba_skip	; try CHS instead -->
 %endif
+%if _DMA_BOUNDARY_CHECK_CODE
 	cmp ah, 9	; data boundary error?
 	jne .lba_error
+%endif
 
 	; push word [si + 4 + 0]
 	push es		; => user buffer
@@ -765,9 +769,13 @@ read_sector:
 %endif
 			jnc .done
 
+%if _DMA_BOUNDARY_CHECK_CODE
 	cmp ah, 9	; data boundary error?
 .err_NZ_1:
 	jne .err
+%else
+.err_NZ_1: equ .err
+%endif
 
 	push es		; user buffer, {lpcountalloc}
 	 mov es, word [bp + ldSectorSeg]
