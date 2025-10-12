@@ -1112,6 +1112,7 @@ skip_next_sect:
 	call read_sector.increment_sector_number
 				; dx:ax += 1
 	loop skip_next_sect
+loadorskip_next_cluster:
 	pop ax
 	pop dx
 	call clust_next
@@ -1803,11 +1804,6 @@ multi_continue_3: equ $
 	_fill 1024+512,38,start
 end:
 
-
-load_next_clust:
-	push dx
-	push ax
-	call clust_to_first_sector
 load_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jae loaded_all.2stack_j_NC
@@ -1819,11 +1815,7 @@ load_next_sect:
  %endif
 skipped_all_continue:
 	loop load_next_sect
-	pop ax
-	pop dx
-	call clust_next
-	jc load_next_clust
-	jmp end_of_chain
+	jmp loadorskip_next_cluster
 
 %if ($ - end) > 32
  %error load_next part exceeds end+32
