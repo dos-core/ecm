@@ -1002,15 +1002,13 @@ payload_actual_end_equate equ payload.actual_end -$$+0
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	jc @F		; overflow ? then we're near top of memory -->
-	sub ax, word [bp + ldLoadTop]	; = paras to move down
-	ja @FF		; end of load > available, then need to relocate -->
-	; jbe short finish_load
-	jmp finish_load
-
+	cmp ax, word [bp + ldLoadTop]	; = paras to move down
+	; ja @FF	; end of load > available, then need to relocate -->
+	jbe short finish_load
 @@:
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
-			; mimic end of load minus available calculation, will CY
-@@:
+			; calculate end of wanted load minus available,
+			;  will CY if branched to this @@, NC if fell through
 	mov cx, word [bp + lsvLoadSeg]
 			; => after end of loaded data
 	sub word [bp + lsvLoadSeg], ax
