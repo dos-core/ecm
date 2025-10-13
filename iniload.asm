@@ -2056,24 +2056,6 @@ skipped_all_multi:
 	jmp end_of_chain		; to error_badchain or error_shortfile
 
 
-%if _CHS
-multi_sector_read.fallback:
-%if 1
-	cmp al, 1			; tried to load a single sector ?
-	je .error			; yes, this is an error -->
-%else
-	testopt [bp + ldHasLBA], 2	; already in single-sector mode ?
-	jnz .error			; yes, this is an error -->
-%endif
-	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
-	jmp multi_sector_read.again
-%endif
-
-.error:
-multi_sector_read.error:
-	jmp error_diskaccess
-
-
 restore_dpt:
 %if _CHS
 	xor bx, bx
@@ -2086,6 +2068,8 @@ dpt_restore_seg equ $ - 2
 %endif
 @@:				; used by multi_sector_read
 	retn
+
+
 		; INP:	dx:ax = start sector
 		;	cx = how many sectors to load
 		;	bx => segment to load to
@@ -2129,6 +2113,24 @@ multi_sector_read:
 	pop si				; discard sector number
 .j:
 	jmp .				; loop back with updated sector/buffer
+
+
+%if _CHS
+.fallback:
+%if 1
+	cmp al, 1			; tried to load a single sector ?
+	je .error			; yes, this is an error -->
+%else
+	testopt [bp + ldHasLBA], 2	; already in single-sector mode ?
+	jnz .error			; yes, this is an error -->
+%endif
+	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
+	jmp .again
+%endif
+
+.error:
+	jmp error_diskaccess
+
 
 .decrease64:
 	 push cx			; how many next
