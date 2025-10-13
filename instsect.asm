@@ -2393,9 +2393,70 @@ disp_fsi: equ $
 
 	mov si, fsi_known_revisions
 .loop:
+	call .check
+	jc .unknown
+	jne .loop
+	cmp dx, fsiboot_sub_empty
+	jne .known
+	mov cx, word [disp_fsi_check_subrevision]
+	jcxz .known
+	push ax
+.loopsub:
+	push cx
+	call .check
+	pop cx
+	jc .known_pop
+	jne .known_pop
+	push si
+	push di
+	push cx
+	mov si, cx		; -> code
+	mov cx, 1 + FSIBOOTG_size - FSIBOOTG.fsicode
+				; length + 1
+	mov di, dx		; -> subrevision
+	scasw			; skip sequential
+	mov dx, word [di]	; = length of pattern
+	scasw			; skip length
+	sub cx, dx		; length buffer - pattern length + 1
+	jbe .loopsub
+.scansub:
+	 push si
+	 push di
+	 push cx
+	 mov cx, dx		; = length of pattern
+	 repe cmpsb		; match ?
+	 pop cx
+	 pop di
+	 pop si
+	 je .known_sub		; yes -->
+	 inc si			; -> point at next byte
+	 loop .scansub
+	pop cx
+	pop di
+	pop si
+	jmp .loopsub
+
+.known_sub:
+	pop cx
+	pop di
+	pop si
+	pop dx			; discard ax on stack
+	db __TEST_IMM8		; skip pop
+.known_pop:
+	pop ax
+.known:
+	mov dx, msg.fsi_known.1
+	call disp_msg_asciz
+	xchg dx, ax
+	call disp_msg_asciz
+	mov dx, msg.fsi_known.2
+	jmp .display_done_msg
+
+.check:
 	lodsw				; ax -> description string
 	test ax, ax
-	jz .unknown
+	stc
+	jz @F
 	xchg ax, dx
 	lodsw
 	xchg ax, dx			; dx = subrevision
@@ -2406,14 +2467,9 @@ disp_fsi: equ $
 	pop si
 	pop di
 	lea si, [si + 8]
-	jne .loop
-.known:
-	mov dx, msg.fsi_known.1
-	call disp_msg_asciz
-	xchg dx, ax
-	call disp_msg_asciz
-	mov dx, msg.fsi_known.2
-	jmp .display_done_msg
+	clc
+@@:
+	retn
 
 .unknown:
 	mov bx, di
@@ -2482,8 +2538,10 @@ check_fsi_provided:
 	pop di
 .none:
 
+	mov word [disp_fsi_check_subrevision], si
 	mov dx, msg.fsi_provided.1
 	call disp_fsi
+	and word [disp_fsi_check_subrevision], 0
 
 	testopt [internalflags], detectedfsineeded
 	jz .done_check_sg
@@ -4075,6 +4133,8 @@ fsi_known_revisions:
 %include "fsiboot.mac"
 	dw 0
 
+	fsiboot_subrevisions
+
 dumpsearches STRINGS
 
 
@@ -5183,6 +5243,8 @@ load_unit:	dw -1
 load_use_partinfo:	dw -1
 load_use_query_geometry:dw -1
 load_use_lba:		dw -1
+disp_fsi_check_subrevision:
+			dw 0
 drivenumber:	db 0
 
 	align 4, db 0
