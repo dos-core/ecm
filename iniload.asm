@@ -1810,7 +1810,7 @@ skipped_all_continue_after_loaded_32_byte:
 	jmp loadorskip_next_cluster
 
  %if _MULTISECTOR
-loaded_32_byte:
+check_end3_loaded:
 	push ax
 	mov ax, cs
 	neg ax		; minus cs
@@ -1818,18 +1818,24 @@ loaded_32_byte:
 	cmp ax, paras(end3 + 15 -$$+0)
 			; enough for end3 ?
 	pop ax
+	retn
+
+
+loaded_32_byte:
+	call check_end3_loaded
 	jb skipped_all_continue_after_loaded_32_byte
 			; not yet -->
-	stc		; CY, fall through to loaded_all.2stack_or_multi_late
- %endif
-
 %if ($ - end) > 32
  %error load_next part exceeds end+32
 %endif
+	stc		; CY, fall through to loaded_all.2stack_or_multi_late
+ %else
+%if ($ - end) > 32
+ %error load_next part exceeds end+32
+%endif
+ %endif
 
-		; if we fall through, sector size is at least
-		;  512 bytes and two sectors have been loaded
-		;  from the file already.
+		; if we fall through, end3 is fully loaded.
 		; if we jump to here, then the whole file has
 		;  been loaded, so this jump doesn't have to
 		;  stay in the 32 bytes after the end label.
