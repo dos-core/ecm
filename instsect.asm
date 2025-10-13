@@ -2393,13 +2393,16 @@ disp_fsi: equ $
 
 	mov si, fsi_known_revisions
 .loop:
-	lodsw
+	lodsw				; ax -> description string
 	test ax, ax
 	jz .unknown
+	xchg ax, dx
+	lodsw
+	xchg ax, dx			; dx = subrevision
 	push di
 	push si
 	mov cx, 4
-	repe cmpsw
+	repe cmpsw			; compare identifier
 	pop si
 	pop di
 	lea si, [si + 8]
@@ -4059,9 +4062,10 @@ dumpsearches SEARCHES
 
 %define STRINGS db ""
 
-	%macro fsi_revision 2.nolist
+	%macro fsi_revision 2-3.nolist 0
 %xdefine STRINGS STRINGS, %%message:, {asciz %2}
 	dw %%message
+	dw %3
 	db %1
 	%endmacro
 
