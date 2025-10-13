@@ -72,6 +72,7 @@ fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5 (2024-10-11)", fsiboot_sub_empty
 
 fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5a (2025-10-13)", fsiboot5a_sub_id
 ; https://hg.pushbx.org/ecm/ldosboot.exp/rev/83b76ed20c4b
+; This is compatible to FSIBOOT5 so the signature didn't change.
 
 %macro fsiboot_subrevisions 0
 fsiboot_sub_empty:
