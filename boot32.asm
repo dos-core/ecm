@@ -677,8 +677,8 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 %endif
 .writedirentry:	dw writedirentry.loaddir
 			; INP:	ds:bx == es:bx -> found dir entry in dir sector buffer
-			;	si:di = loaded sector-in-FAT
-			; CHG:	ax, cx, dx
+			;	si:di = loaded sector-in-FAT (in original FSIBOOT5)
+			; CHG:	ax, cx, dx, (new:) si, di
 			; STT:	ss:bp -> boot sector
 			;	UP
 			; OUT:	directory entry copied if so desired
@@ -939,8 +939,8 @@ load_fsiboot:
 
 finish_start:
 		; INP:	ds:bx == es:bx -> found dir entry in dir sector buffer
-		;	si:di = loaded sector-in-FAT
-		; CHG:	ax, cx, dx
+		;	si:di = loaded sector-in-FAT (in original FSIBOOT5)
+		; CHG:	ax, cx, dx, (new:) si, di
 		; STT:	ss:bp -> boot sector
 		;	UP
 		; OUT:	directory entry copied if so desired
@@ -1609,8 +1609,7 @@ fsiboot:
 	mov [VAR(data_start+2)], dx
 
 	mov di, -1
-	mov si, di
-	mov word [VAR(fat_sector + 2)], si
+	mov word [VAR(fat_sector + 2)], di
 	mov word [VAR(fat_sector + 0)], di
 	call dirsearch			; sets up ds == es, es:bx -> dir entry
 
@@ -1743,12 +1742,10 @@ next_root_sect:
 	mov bx, [VAR(fsiboot_table.dirbuf)]
 	call near word [VAR(fsiboot_table.read_sector)]
 
-	push di
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
 	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
 	jnz @F			; directory, label, or LFN entry --> (NZ)
-	push si
 	push di
 	push cx
 	mov si, [VAR(fsiboot_table.filename)]
@@ -1757,13 +1754,11 @@ next_ent:
 	repe cmpsb		; check entry
 	pop cx
 	pop di
-	pop si
 @@:				; ZR = match, NZ = mismatch
 	je found_it		; found entry -->
 	lea di, [di + DIRENTRY_size]
 
 	loop next_ent		; count down sector's entries (jumps iff cx >0)
-	pop di
 	pop cx
 	loop next_root_sect
 	pop ax
@@ -1822,7 +1817,6 @@ check_enough:
 found_it:
 			; es:di -> dir entry in dir sector buffer
 	mov bx, di
-		pop di			; restore si:di = loaded FAT sector
 		pop cx			; (discard sectors per cluster counter)
 		pop cx
 		pop cx			; (discard current cluster number)
@@ -1833,12 +1827,10 @@ found_it:
 
 
 		; INP:	dx:ax = cluster (0-based)
-		;	si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
 		;	NC if next cluster found
 		;	dx:ax = next cluster value (0-based)
-		;	si:di = loaded FAT sector
-		; CHG:	cx, bx, es
+		; CHG:	cx, bx, es, si, di
 clust_next:
 	add ax, 2
 	adc dx, 0
@@ -1851,32 +1843,30 @@ clust_next:
 	xchg ax, dx
 	xor dx, dx		; dx:ax = high word
 	div word [VAR(bytes_per_sector)]
-	xchg bx, ax		; bx = result high word, clobbers ax
+	xchg si, ax		; si = result high word, clobbers ax
 	 pop ax			; dx = remainder, ax = low word
 	div word [VAR(bytes_per_sector)]
-	xchg dx, bx		; dx:ax = result, bx = remainder
+	xchg dx, si		; dx:ax = result, si = remainder
 				; dx:ax = sector offset into FAT (0--200_0000h)
 				; bx = byte offset into FAT sector (0--8190)
-	cmp dx, si
+	mov es, [VAR(fat_seg)]
+	cmp dx, word [VAR(fat_sector + 2)]
 	jne @F		; read sector
-	cmp ax, di
+	cmp ax, word [VAR(fat_sector + 0)]
 	je @FF		; sector is already buffered
 @@:
-	mov si, dx
-	mov di, ax
 	mov word [VAR(fat_sector + 2)], dx
 	mov word [VAR(fat_sector + 0)], ax
 
-	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
-	mov bx, [VAR(fat_seg)]
+	mov bx, es
 	call near word [VAR(fsiboot_table.read_sector)]
-	pop bx
 @@:
-	mov es, [VAR(fat_seg)]
-	mov ax, [es:bx]
-	mov dx, [es:bx + 2]
+	es lodsw
+	xchg ax, dx
+	es lodsw
+	xchg ax, dx
 
 		; INP:	dx:ax = cluster value, 2-based
 		; OUT:	dx:ax -= 2 (makes it 0-based)
@@ -1955,11 +1945,11 @@ reserved_entrypoint:
 memorysize_entrypoint:
 	dw fsiboot_memorysize
 
-		; INP:	si:di = loaded sector-in-FAT
+		; INP:
 		;	ds = ss
 		;	ds:word [fsiboot_table.filename] -> 8.3 filename
-		; CHG:	ax, cx, dx
-		; OUT:	si:di updated, if so
+		; CHG:	ax, cx, dx, si, di
+		; OUT:
 		;	ds == es
 		;	ds:bx == es:bx -> found directory entry
 		;	jumps to error handler if an error occurs,
