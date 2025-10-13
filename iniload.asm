@@ -1957,6 +1957,7 @@ multi_sector_read:
 .singlesector:
 	mov bx, es			; restore => data
 	call read_sector
+	dec cx
 		; cx = how many left
 		; dx:ax = next sector
 		; bx => next buffer
