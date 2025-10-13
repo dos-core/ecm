@@ -1863,11 +1863,11 @@ DIRADJUST equ 0				; placeholder to avoid confusing error
 
 		mov bx, _LOAD_ADR>>4	; => load address
 %if (_FAT16 || !_LOADFULLFAT12) && !_LOAD_NON_FAT
-		mov di, -1		; = no FAT sector read yet
- %if _SET_FAT_SEG && _SET_FAT_SEG_NORMAL && _FAT16
-	; This is not strictly needed because a FAT sector is
-	;  read in any case, initialising this variable later.
-		mov word [VAR(fat_sector)], di
+ %if _FAT16
+		or word [VAR(fat_sector)], -1
+					; = no FAT sector read yet
+ %else
+		mov di, -1
  %endif
 %endif
 %if _LOAD_NON_FAT
@@ -1925,12 +1925,9 @@ next_cluster:
 ; check the FAT buffer to see if this sector is already loaded
 ; (simple disk cache; speeds things up a little --
 ; actually, it speeds things up a lot)
-		cmp ax, di
+		cmp ax, word [VAR(fat_sector)]
 		je @F
-		mov di, ax
- %if _SET_FAT_SEG
 		mov word [VAR(fat_sector)], ax
- %endif
 
 ; read the target FAT sector.
 		push bx
@@ -1981,9 +1978,6 @@ next_cluster:
 		cmp ax, di
 		je @F
 		mov di, ax
- %if _SET_FAT_SEG && 0
-		mov word [VAR(fat_sector)], ax
- %endif
 
 ; read the target FAT sector.
 		push bx
