@@ -1983,6 +1983,23 @@ load_fat12_multi:
 		; OUT:	branch to skipped_all.single_sector
 		;	 or branch to loaded_all with stack cleaned
 skipped_all_multi:
+ %if _ADDPROGRESS
+	mov byte [cs:multi_sector_read.patch_late_progress_init], 73h	; jae
+		; REM:	Enables the late progress init branch within
+		;	 multi_sector_read. Note that this code assumes
+		;	 that bx => past the last loaded file part.
+		;	For this reason, the branch must be enabled
+		;	 only here, not earlier. The FAT12 load, if it
+		;	 happens, also uses multi_sector_read and its
+		;	 buffer is somewhere else / higher so during
+		;	 the FAT12 load the late progress init branch
+		;	 must be disabled still.
+		;	The FAT16 and FAT32 load are not relevant to
+		;	 this because they always directly call the
+		;	 (single-sector) read_sector, so we know that
+		;	 all calls to multi_sector_read after here are
+		;	 loading actual file data.
+ %endif
 	push word [bp + ldmSector + 2]	; push into ldmCluster + 2
 	push word [bp + ldmSector]	; push into ldmCluster
 
@@ -2112,6 +2129,12 @@ multi_sector_read:
 	pop si
 	pop si				; discard sector number
 .j:
+%if _ADDPROGRESS
+	call check_end3_loaded
+.patch_late_progress_init:
+	test al, late_progress_init - @F
+@@:
+%endif
 	jmp .				; loop back with updated sector/buffer
 
 
@@ -2250,6 +2273,17 @@ end2:
 %ifn _MULTISECTOR
 loaded_all.2stack_or_multi_late: equ loaded_all.2stack
 %else
+
+%if _ADDPROGRESS
+late_progress_init:
+	mov byte [cs:multi_sector_read.patch_late_progress_init], __TEST_IMM8
+	mov byte [cs:read_sector.patch_progress], 0E8h
+ %if _CHS
+	mov byte [cs:multi_sector_read.patch_progress], 0E8h
+ %endif
+ 	jmp multi_sector_read.
+%endif
+
 loaded_all.2stack_or_multi_late:
 	jnc loaded_all.2stack
 
