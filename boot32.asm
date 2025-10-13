@@ -1674,7 +1674,7 @@ found_load_file:
 
 		call check_clust
 ..@CY_2_fsiboot_error_badchain:
-		jc ..@CY_3_fsiboot_error_badchain
+		jnc ..@CY_3_fsiboot_error_badchain
 
 next_load_cluster:
 		push dx
@@ -1706,7 +1706,7 @@ next_load_cluster:
 		pop dx
 
 		call clust_next
-		jnc next_load_cluster
+		jc next_load_cluster
 		inc ax
 		inc ax
 		test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
@@ -1725,7 +1725,7 @@ dirsearch:
 	mov dx, [VAR(root_cluster + 2)]
 	call check_clust
 ..@CY_3_fsiboot_error_badchain:
-	jc fsiboot_error_badchain
+	jnc fsiboot_error_badchain
 
 next_root_clust:
 	push dx
@@ -1764,7 +1764,7 @@ next_ent:
 	pop ax
 	pop dx
 	call clust_next
-	jnc next_root_clust
+	jc next_root_clust
 file_not_found:
 	mov al, 'F'
 	db __TEST_IMM16		; skip mov al
@@ -1827,8 +1827,8 @@ found_it:
 
 
 		; INP:	dx:ax = cluster (0-based)
-		; OUT:	CY if no next cluster
-		;	NC if next cluster found
+		; OUT:	NC if no next cluster
+		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
 		; CHG:	cx, bx, es, si, di
 clust_next:
@@ -1870,7 +1870,7 @@ clust_next:
 
 		; INP:	dx:ax = cluster value, 2-based
 		; OUT:	dx:ax -= 2 (makes it 0-based)
-		;	CY iff invalid cluster
+		;	NC iff invalid cluster
 check_clust:
 	and dh, 0Fh
 	sub ax, 2
@@ -1879,7 +1879,8 @@ check_clust:
 	jb @F		; CY here means valid ...-
 	cmp ax, 0FFF7h - 2
 @@:			;  -... or if NC first, CY here also
-	cmc		; NC if valid
+	; cmc		; NC if valid
+	; now CY if valid
 	retn
 
 
