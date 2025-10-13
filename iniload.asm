@@ -1646,12 +1646,12 @@ init_memory:
 		;  FAT loader, or by finish_load later).
 %endif
 
-%if _LSVEXTRA || _MULTISECTOR
+%if _LSVEXTRA || _MULTISECTOR || _ADDPROGRESS
 	mov cx, cs
 	mov ax, word [bp + lsvLoadSeg]
 	sub ax, cx
 %endif
-%if _MULTISECTOR
+%if _MULTISECTOR || _ADDPROGRESS
 	cmp ax, (end2 + 15 - $$ + 0) >> 4
 	jae init_memory_multi
 multi_continue_1:
@@ -1870,7 +1870,7 @@ ms7_entry.continue:
 	jmp ms7_entry.continue2_set_extra_and_empty_cmdline
 
 
-%if _MULTISECTOR
+%if _MULTISECTOR || _ADDPROGRESS
 		; INP:	ax = amount paragraphs already loaded
 		; CHG:	bx, cx, dx, si, di, es
 		; OUT:	patches applied
@@ -1911,8 +1911,10 @@ init_memory_multi:
 	pop ds
 	mov al, 0E9h		; jmp near
 %endif
+%if _MULTISECTOR
 	mov byte [skipped_all.multipatch], al
 	mov byte [multi_patch_2], al
+%endif
 
 %else		; _CHS
 
@@ -1927,7 +1929,7 @@ init_memory_multi:
 	jmp init_memory_multi_lba
 %endif		; _CHS
 
-%if _CHS
+%if _MULTISECTOR && _CHS
 	dec ax			; = 0E8h, call near
 	mov byte [error.multi_patch], al
 
@@ -1954,6 +1956,7 @@ init_memory_multi:
 	jmp multi_continue_1
 
 
+%if _MULTISECTOR
 		; INP:	bx => where to load FAT12
 		;	dx:ax = first FAT sector
 		;	cx = how many sectors at most
@@ -2262,6 +2265,7 @@ multi_sector_read:
 	 pop cx				; cx = how many to do
 	jmp .j				; loop back with updated sector/buffer
 %endif
+%endif
 
 
 %assign num 2046-($-$$)
@@ -2271,10 +2275,11 @@ multi_sector_read:
 	align 16, db 38
 end2:
 
-%ifn _MULTISECTOR
+%ifn _MULTISECTOR || _ADDPROGRESS
 loaded_all.2stack_or_multi_late: equ loaded_all.2stack
 %else
 
+%if _MULTISECTOR
 %if _ADDPROGRESS
 late_progress_init:
 	mov byte [cs:multi_sector_read.patch_late_progress_init], __TEST_IMM8
@@ -2283,6 +2288,7 @@ late_progress_init:
 	mov byte [cs:multi_sector_read.patch_progress], 0E8h
  %endif
  	jmp multi_sector_read.
+%endif
 %endif
 
 loaded_all.2stack_or_multi_late:
@@ -2295,6 +2301,7 @@ loaded_all.2stack_or_multi_late:
 multi_late:
 	mov byte [cs:init_memory_multi.patch_late_multi], 0C3h
 				; retn
+ %if _MULTISECTOR
 	mov byte [cs:load_next_sect.multi_late_patch], 0E9h
 				; jmp near
 	mov word [cs:load_next_sect.multi_late_patch + 1], \
@@ -2306,6 +2313,7 @@ multi_late:
 		;  skipped_all.multipatch isn't patched but
 		;  rather runs a call read_sector then branches
 		;  to skipped_all_continue again.
+ %endif
 	push di
 	push si
 	push ax
@@ -2342,7 +2350,7 @@ multi_late:
 init_memory_multi_lba:
 %if _ADDPROGRESS
 	mov byte [read_sector.patch_progress], 0E8h
- %if _CHS
+ %if _CHS && _MULTISECTOR
 	mov byte [multi_sector_read.patch_progress], 0E8h
  %endif
 %endif
@@ -2371,6 +2379,7 @@ init_memory_multi_lba:
 	jmp init_memory_multi.addprogressonly
 %endif
 
+%if _MULTISECTOR && _LBA && _LBA_MULTI
 		; INP:	dx:ax = start sector within partition
 		;	es => buffer
 		;	si = how many sectors at most in this step, >= 1
@@ -2459,6 +2468,7 @@ multi_sector_read_lba:
 
 .error:
 	jmp multi_sector_read.error
+%endif
 %endif
 
 
