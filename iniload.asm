@@ -1089,8 +1089,6 @@ finish_load:
 
 	mov ax, [bp + lsvFirstCluster]
 	mov dx, [bp + lsvFirstCluster + 2]
-	mov di, [bp + lsvFATSector]
-	mov si, [bp + lsvFATSector + 2]
 	call check_clust
 	jnc short error_badchain_j
 
@@ -1228,12 +1226,10 @@ clust_to_first_sector:
 
 
 		; INP:	dx:ax = cluster (0-based)
-		;	(not for FAT12) si:di = loaded FAT sector, -1 if none
 		; OUT:	NC if no next cluster
 		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
-		;	(not for FAT12) si:di = loaded FAT sector
-		; CHG:	es, cx, bx, (FAT12: si, di)
+		; CHG:	es, cx, bx, si, di
 clust_next:
 	mov [bp + ldLoadingSeg], bx
 	add ax, 2
@@ -1281,31 +1277,29 @@ clust_next:
 	xchg ax, dx
 	xor dx, dx		; dx:ax = high word
 	div word [bp + bsBPB + bpbBytesPerSector]
-	xchg bx, ax		; bx = high word / divisor
+	xchg si, ax		; si = high word / divisor
 	 pop ax			; dx = remainder, ax = low word
 	div word [bp + bsBPB + bpbBytesPerSector]
-	xchg dx, bx		; dx:ax = result, bx = remainder
+	xchg dx, si		; dx:ax = result, si = remainder
 				; dx:ax = sector offset into FAT (0--200_0000h)
-				; bx = byte offset into FAT sector (0--8190)
-	cmp dx, si
+				; si = byte offset into FAT sector (0--8190)
+	cmp dx, word [bp + lsvFATSector + 2]
 	jne @F		; read sector
-	cmp ax, di
+	cmp ax, word [bp + lsvFATSector]
 	je @FF		; sector is already buffered
 @@:
-	mov si, dx
-	mov di, ax
 	mov word [bp + lsvFATSector + 2], dx
 	mov word [bp + lsvFATSector + 0], ax
 
-	push bx
 	add ax, [bp + bsBPB + bpbReservedSectors]
 	adc dx, 0
 	mov bx, es
 	call read_sector
-	pop bx
 @@:
-	mov dx, [es:bx + 2]
-	mov ax, [es:bx]		; dx:ax = FAT32 entry
+	es lodsw
+	xchg ax, dx
+	es lodsw
+	xchg ax, dx		; dx:ax = FAT32 entry
 
 	cmp byte [bp + ldFATType], 16	; is it FAT32 ?
 	jne @F			; yes -->
@@ -2032,9 +2026,7 @@ skipped_all_multi:
 	mov dx, word [bp + ldmSector + 2]
 	mov ax, word [bp + ldmSector]
 	sub word [bp + ldmAmount], cx
-	 push si
 	call multi_sector_read		; read consecutive data
-	 pop si				; preserve si:di if not FAT12
 	pop ax
 	pop dx
 	push dx
