@@ -1717,9 +1717,9 @@ multi_continue_1:
 	sbb dx, word [bp + lsvDataStart + 2]
 
 	; dx:ax = total amount of data sectors
-	mov bx, ax
-	xchg ax, dx
-	xor dx, dx
+	xchg bx, ax		; bx = low word, clobber ax
+	xchg ax, dx		; ax = high word, clobber dx
+	xor dx, dx		; dx:ax = high word
 	div word [bp + ldClusterSize]
 	xchg bx, ax
 	div word [bp + ldClusterSize]
