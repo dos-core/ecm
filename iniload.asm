@@ -96,9 +96,8 @@ ldCommandLine:
 .start:		resb lsvclBufferLength
 	endstruc
 
-	struc LOADMULTIVARS, LOADCMDLINE - 10
+	struc LOADMULTIVARS, LOADCMDLINE - 8
 ldmCluster:	resd 1
-ldmAmount:	resw 1
 ldmSector:	resd 1
 	endstruc
 
@@ -1229,7 +1228,7 @@ clust_to_first_sector:
 		; OUT:	NC if no next cluster
 		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
-		; CHG:	es, cx, bx, si, di
+		; CHG:	es, cx, bx, si
 clust_next:
 	mov [bp + ldLoadingSeg], bx
 	add ax, 2
@@ -1978,25 +1977,23 @@ load_fat12_multi:
 		; OUT:	branch to skipped_all.single_sector
 		;	 or branch to loaded_all with stack cleaned
 skipped_all_multi:
-	push ax				; push into ldmAmount (placeholder)
 	push word [bp + ldmSector + 2]	; push into ldmCluster + 2
 	push word [bp + ldmSector]	; push into ldmCluster
 
 	mov word [bp + ldmSector + 2], dx
 	mov word [bp + ldmSector], ax	; update sector
 
-	xor ax, ax
+	xor di, di
 	push bx
 @@:
-	inc ax
+	inc di
 	add bx, [bp + ldParaPerSector]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jb @B				; ax = how many sectors needed
+	jb @B				; di = how many sectors needed
 	pop bx				; back to bx => segment
 .loop:
-	cmp cx, ax
+	cmp cx, di
 	jae .last
-	mov word [bp + ldmAmount], ax	; how many desired
 
 	pop ax
 	pop dx				; current cluster (0-based)
@@ -2016,7 +2013,6 @@ skipped_all_multi:
 	jne .newclust
 	add cx, [bp + ldClusterSize]	; cx = how many at least consecutive
 .next:
-	mov ax, word [bp + ldmAmount]	; how many desired
 	jmp .loop
 
 .newclust:
@@ -2025,7 +2021,7 @@ skipped_all_multi:
 	push ax				; push into ldmCluster
 	mov dx, word [bp + ldmSector + 2]
 	mov ax, word [bp + ldmSector]
-	sub word [bp + ldmAmount], cx
+	sub di, cx
 	call multi_sector_read		; read consecutive data
 	pop ax
 	pop dx
@@ -2039,10 +2035,9 @@ skipped_all_multi:
 	jmp .next
 
 .last:
-	xchg cx, ax			; how many sectors last chunk
+	mov cx, di			; how many sectors last chunk
 	pop ax
 	pop ax				; discard stack (ldmCluster)
-	pop ax				; discard ldmAmount
 	pop ax
 	pop dx				; ldmSector
 	call multi_sector_read		; si needn't be preserved, no longer used
