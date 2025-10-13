@@ -52,6 +52,7 @@ Public domain by E. C. Masloch, 2012--2025
 	numdef USE_PART_INFO_DISABLED, 0
 	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
+	numdef FREE_PARA_LIMIT, 0, 100h
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
@@ -920,7 +921,14 @@ load_fsiboot:
 		; Do a far return here to ensure that cs is zero.
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
+ %if _FREE_PARA_LIMIT
+  %if _LOAD_ADR + _FREE_PARA_LIMIT * 16 > ADR_STACK_LOW
+   %error Free para too large
+  %endif
+	mov ax, (_LOAD_ADR >> 4) + _FREE_PARA_LIMIT
+ %else
 	mov ax, (ADR_STACK_LOW >> 4)
+ %endif
 	mov bx, ADR_FATBUF >> 4		; => FAT sector buffer (one sector)
 	push es
 	push di				; -> fsiboot.start
