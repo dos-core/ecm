@@ -593,7 +593,7 @@ read_sector:
 	push ax
 	push si
 
-%if _MULTISECTOR && _LBA && _LBA_MULTI && _ADDPROGRESS
+%if _ADDPROGRESS
 .patch_progress:
 	test ax, read_progress_single - @F
 @@:
@@ -1802,14 +1802,14 @@ load_next_sect:
 .multi_late_patch:	; patched to skipped_all.multipatch
 	call read_sector
 skipped_all_continue:
- %if _MULTISECTOR
+%if _MULTISECTOR || _ADDPROGRESS
 	jmp loaded_32_byte
  %endif
 skipped_all_continue_after_loaded_32_byte:
 	loop load_next_sect
 	jmp loadorskip_next_cluster
 
- %if _MULTISECTOR
+ %if _MULTISECTOR || _ADDPROGRESS
 check_end3_loaded:
 	push ax
 	mov ax, cs
@@ -1876,7 +1876,7 @@ ms7_entry.continue:
 		; OUT:	patches applied
 		;	branch to multi_continue_1
 init_memory_multi:
-%if _LBA && (!_LBA_MULTI)
+%if _LBA && (!_LBA_MULTI) && (!_ADDPROGRESS)
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jnz .skip
@@ -1890,7 +1890,7 @@ init_memory_multi:
 
 %if _CHS
 
-%if _LBA && _LBA_MULTI
+%if _LBA && _LBA_MULTI || _ADDPROGRESS
 	cmp ax, (end3 + 15 - $$ + 0) >> 4
 
 	push cs
@@ -1898,6 +1898,7 @@ init_memory_multi:
 	mov al, 0E9h		; jmp near
 
 	jae init_memory_multi_lba
+.addprogressonly:
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jnz .ret
@@ -2218,7 +2219,7 @@ multi_sector_read:
 	mov al, 1			; force single-sector operation
 @@:
 
-%if _MULTISECTOR && _LBA && _LBA_MULTI && _ADDPROGRESS
+%if _ADDPROGRESS
 .patch_progress:
 	test ax, read_progress_multi_chs - @F
 @@:
@@ -2330,7 +2331,7 @@ multi_late:
 %endif
 %endif
 
-%if _MULTISECTOR && _LBA && _LBA_MULTI
+%if _MULTISECTOR && _LBA && _LBA_MULTI || _ADDPROGRESS
 		; INP:	al = 0E9h
 		;	ss:sp -> ds, ax
 		;	cs = ds
@@ -2345,6 +2346,9 @@ init_memory_multi_lba:
 	mov byte [multi_sector_read.patch_progress], 0E8h
  %endif
 %endif
+
+%if _MULTISECTOR && _LBA && _LBA_MULTI
+
 %if _CHS
  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
@@ -2363,7 +2367,9 @@ init_memory_multi_lba:
 		multi_sector_read_lba - (multi_sector_read.lbapatch + 3)
 %endif
 	jmp init_memory_multi.ret
-
+%else
+	jmp init_memory_multi.addprogressonly
+%endif
 
 		; INP:	dx:ax = start sector within partition
 		;	es => buffer
@@ -2453,6 +2459,7 @@ multi_sector_read_lba:
 
 .error:
 	jmp multi_sector_read.error
+%endif
 
 
 %if _ADDPROGRESS
@@ -2482,6 +2489,7 @@ read_progress_single:
 %endif
 
 
+%if _MULTISECTOR || _ADDPROGRESS
 %assign num 4096-($-$$)
 %warning num bytes in front of end3
 %if num < 0
