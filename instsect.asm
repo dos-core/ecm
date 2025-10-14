@@ -330,6 +330,8 @@ start:
 %endif
 	cmp al, 'O'
 	je .switch_o
+	cmp al, '4'
+	je .switch_4
 	cmp al, 'U'
 	je .switch_u
 	cmp al, 'P'
@@ -566,6 +568,25 @@ disp_error: equ $
 	dec si
 	mov al, bl
 	jmp .o_store
+
+.switch_4:
+@@:
+	lodsb
+	cmp al, 32
+	je @B
+	cmp al, 9
+	je @B
+	cmp al, '='
+	je @B
+	cmp al, ':'
+	je @B
+
+	mov dx, msg.prefix
+	dec si
+	call isstring?
+	jne .error
+	setopt [cmd_line_flags], clf4KiBPatch
+	jmp .loop
 
 .switch_u:
 @@:
@@ -3319,6 +3340,110 @@ set_lba:
 .done:
 
 
+set_4KiB_prefix:
+	testopt [cmd_line_flags], clf4KiBPatch
+	jz .done
+
+	mov bx, fourKiB_search_metadata
+
+.looppattern:
+	mov si, first_sector_buffer
+	mov dx, 512
+	mov di, [bx]
+	test di, di
+	jz .notfound
+	mov cx, [bx + 2]
+	add bx, 8
+
+
+@@:
+	mov al, byte [di]	; get first byte
+	xchg si, di		; es:di -> to search
+	xchg dx, cx		; cx = count remaining, at least 1
+	repne scasb		; scan for byte
+	xchg dx, cx
+	xchg si, di		; restore register setup
+	jne .nextpattern
+
+	dec si			; scasb left a pointer behind match
+	inc dx			; also fix counter
+	push bx
+	push si
+	push di
+	push cx
+	cmp cx, dx
+	ja .mismatchpattern	; (NZ) if doesn't fit in 512 bytes
+	call .patchwildcards	; patch potential match candidate's wildcards
+	repe cmpsb
+.mismatchpattern:
+	pop cx
+	pop di
+	pop si
+	pop bx
+	je .foundpattern
+	inc si
+	dec dx
+	jnz @B
+
+.nextpattern:
+%if 1
+@@:
+	cmp word [bx], 0
+	lea bx, [bx + 2]
+	jne @B
+%else
+		; With the repne scasb optimisation we may get
+		;  al = first byte, and .patchwildcards may have
+		;  never run for this pattern. So don't use this.
+	xchg bx, ax		; get .patchwildcards return
+%endif
+	jmp .looppattern
+
+
+.notfound:
+	mov dx, msg.4KiB_not_found
+	jmp disp_error
+
+.patchwildcards: equ set_lba.patchwildcards
+
+
+		; si -> match
+		; word [si + 1] = value
+		; bx -> wildcards list
+.foundpattern:
+	mov ax, word [si + 1]
+	cmp ax, 7A0h
+	je @F
+	cmp ax, paras(4096) + 200h
+	je @F
+	mov dx, msg.errorcolon
+	call disp_msg_asciz
+@@:
+	mov dx, msg.4KiB_found.1
+	call disp_msg_asciz
+	mov dx, word [bx - 8 + 6]
+	call disp_msg_asciz	; display what we found
+
+	mov dx, msg.4KiB_patching
+	cmp ax, 7A0h
+	je .dopatch
+	mov dx, msg.4KiB_already
+	cmp ax, paras(4096) + 200h
+	je .ispatched
+	mov dx, msg.4KiB_unknown.1
+	call disp_msg_asciz
+	call disp_ax_hex
+	mov dx, msg.4KiB_unknown.2
+	jmp disp_error
+
+.dopatch:
+	mov word [si + 1], paras(4096) + 200h
+
+.ispatched:
+.done_msg:
+	call disp_msg_asciz
+.done:
+
 set_geometry:
 	mov si, g_table
 	mov dx, msg.g_previous
@@ -4058,6 +4183,7 @@ query_search_strings:
 %include "typesuch.asm"
 
 
+
 %unmacro search_wildcard 1-2 0
 %unmacro fsi_search_string 2
 %unmacro dumpsearches 1-*
@@ -4134,6 +4260,65 @@ fsi_known_revisions:
 	dw 0
 
 	fsiboot_subrevisions
+
+dumpsearches STRINGS
+
+
+%define SEARCHES dw ""
+%define STRINGS db ""
+
+	%macro fourKiB_search_string 2
+
+%define WILDCARDS dw ""
+
+ %define %%identifier label_%1_4KiB
+ %defstr %%string %1
+
+%xdefine %%extra %%name
+
+%%start:
+%[%%identifier %+ _search_string]:
+
+%if %2
+	mov ax, 0
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+	mov bx, 0			; => FAT buffer
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+	push es
+	push di
+	retf				; transfer to FSIBOOT
+%else
+	mov ax, 0
+search_wildcard %%start, -2
+search_wildcard %%start, -1
+	sub ax, [bp - 18]		; para per sector
+	push ax
+%endif
+
+%%end:
+
+%xdefine STRINGS STRINGS, %%name:, db %%string, db 0
+%xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
+	 dw 0, dw %%extra, WILDCARDS, dw 0
+%[%%identifier %+ _length]: equ %%end - %%start
+
+	%endmacro
+
+
+%assign variant 0
+ %define identifier boot
+	fourKiB_search_string identifier, variant
+%assign variant 1
+ %define identifier boot32
+	fourKiB_search_string identifier, variant
+
+
+	align 2, db 0
+fourKiB_search_metadata:
+dumpsearches SEARCHES
+	dw 0,0
 
 dumpsearches STRINGS
 
@@ -5342,6 +5527,8 @@ msg:
 	db 9,"/L AUTOHDD",9,"patch boot loader to use auto LBA (HDD-only) handling",13,10
 	db 9,"/L NONE",9,9,"patch boot loader to use only CHS",13,10
 	db 13,10
+	db 9,"/4 PREFIX",9,9,"enable 4 KiB prefix patch",13,10
+	db 13,10
 	db 9,"/G KEEP",9,9,"keep all current geometry (default)",13,10
 	db 9,"/G AUTO",9,9,"read all auto geometry from DOS",13,10
 	db 9,"/G HEADS=x",9,"set geometry CHS heads (x = KEEP, AUTO, numeric)",13,10
@@ -5526,6 +5713,7 @@ load_kernel_name: equ $
 .auto:			asciz "AUTO"
 .autohdd:		asciz "AUTOHDD"
 .none:			asciz "NONE"
+.prefix:		asciz "PREFIX"
 .heads:			asciz "HEADS"
 .sectors:		asciz "SECTORS"
 .hidden:		asciz "HIDDEN"
@@ -5538,6 +5726,7 @@ load_kernel_name: equ $
 .g_updated:		asciz "Updated geometry: "
 .error_invalid_number:	asciz "Invalid number.",13,10
 .using_fix_unit:	asciz " Using fixed unit of "
+.4KiB_unknown.2:
 .using_fix_unit_after:	asciz "h.",13,10
 .unit_not_found:	asciz "Error: Unit selection code not found in sector.",13,10
 .unit_not_found.keep:	asciz "Unit selection code not found in sector. Keeping as is.",13,10
@@ -5572,6 +5761,14 @@ load_kernel_name: equ $
 .lba_found_suffix:	asciz " found in sector."
 .lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detection to auto detection for HDD only.",13,10
 .using_autohdd_lba:	asciz " Using auto LBA detection (HDD only).",13,10
+
+
+.errorcolon:		asciz "Error: "
+.4KiB_not_found:	asciz "Error: 4 KiB patch site not found in sector.",13,10
+.4KiB_found.1:		asciz "4 KiB patch site found for lDOS "
+.4KiB_already:		asciz ", already patched.",13,10
+.4KiB_unknown.1:	asciz ", has unknown size "
+.4KiB_patching:		asciz ", patching.",13,10
 
 .fsi_not_found:		db "Need FSIBOOT: "
 .none_found:		asciz "(None found.)",13,10
@@ -6101,6 +6298,7 @@ clfSetOEMName:			equ 100_0000h
 clfPreserveOEMName:		equ 200_0000h
 clfAllowInvalidFSI:		equ 400_0000h
 clfCheckFSI:			equ 800_0000h
+clf4KiBPatch:			equ 1000_0000h
 
 	align 4, db 0
 cmd_line_readsector12_file:
