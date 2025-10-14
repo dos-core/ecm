@@ -2140,7 +2140,7 @@ multi_sector_read:
 %if _ADDPROGRESS
 	call check_end3_loaded
 .patch_late_progress_init:
-dist equ late_progress_init - @F
+dist equ late_progress_init_j - @F
 	test al, dist
 @@:
  %assign num dist
@@ -2279,7 +2279,15 @@ dist equ late_progress_init - @F
 
 
 %assign num 2046-($-$$)
-%warning num bytes in front of end2
+%if num >= 3
+%assign num num - 3
+ %warning %[num]+3 bytes in front of end2
+late_progress_init_j:
+	jmp late_progress_init
+%else
+late_progress_init_j: equ late_progress_init
+ %warning num bytes in front of end2
+%endif
 	_fill 2046,38,start
 	dw "MS"			; signature of MS-DOS 7 load
 	align 16, db 38
