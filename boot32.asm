@@ -6,7 +6,7 @@ File system boot sector loader code for FAT32
 Adapted from 2002-11-26 fatboot.zip/fat12.asm,
  released as public domain by Chris Giese
 
-Public domain by E. C. Masloch, 2012--2024
+Public domain by E. C. Masloch, 2012--2025
 
 %endif
 
@@ -52,6 +52,7 @@ Public domain by E. C. Masloch, 2012--2024
 	numdef USE_PART_INFO_DISABLED, 0
 	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
+	numdef FREE_PARA_LIMIT, 0, 100h
 	numdef CHS,		1	; support CHS (if it fits)
 	numdef LBA,		1	; support LBA (if available)
 	numdef LBA_33_BIT,	1	; support 33-bit LBA
@@ -677,8 +678,8 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 %endif
 .writedirentry:	dw writedirentry.loaddir
 			; INP:	ds:bx == es:bx -> found dir entry in dir sector buffer
-			;	si:di = loaded sector-in-FAT
-			; CHG:	ax, cx, dx
+			;	si:di = loaded sector-in-FAT (in original FSIBOOT5)
+			; CHG:	ax, cx, dx, (new:) si, di
 			; STT:	ss:bp -> boot sector
 			;	UP
 			; OUT:	directory entry copied if so desired
@@ -920,7 +921,14 @@ load_fsiboot:
 		; Do a far return here to ensure that cs is zero.
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
+ %if _FREE_PARA_LIMIT
+  %if _LOAD_ADR + _FREE_PARA_LIMIT * 16 > ADR_STACK_LOW
+   %error Free para too large
+  %endif
+	mov ax, (_LOAD_ADR >> 4) + _FREE_PARA_LIMIT
+ %else
 	mov ax, (ADR_STACK_LOW >> 4)
+ %endif
 	mov bx, ADR_FATBUF >> 4		; => FAT sector buffer (one sector)
 	push es
 	push di				; -> fsiboot.start
@@ -939,8 +947,8 @@ load_fsiboot:
 
 finish_start:
 		; INP:	ds:bx == es:bx -> found dir entry in dir sector buffer
-		;	si:di = loaded sector-in-FAT
-		; CHG:	ax, cx, dx
+		;	si:di = loaded sector-in-FAT (in original FSIBOOT5)
+		; CHG:	ax, cx, dx, (new:) si, di
 		; STT:	ss:bp -> boot sector
 		;	UP
 		; OUT:	directory entry copied if so desired
@@ -1177,7 +1185,11 @@ error:
 %endif
 	mov ah, 0Eh
 	int 10h		; display character
-	mov al, 07h
+; The int 10h function 0Eh call may change both al and ah. Therefore,
+;  we need to write the full ax here rather than depending on it
+;  preserving the function number. Refer to discussion in
+;  https://github.com/SvarDOS/bugz/issues/174#issuecomment-3368470724
+	mov ax, 0E07h
 	int 10h		; beep!
 
 	xor ax, ax	; await key pressed
@@ -1605,8 +1617,7 @@ fsiboot:
 	mov [VAR(data_start+2)], dx
 
 	mov di, -1
-	mov si, di
-	mov word [VAR(fat_sector + 2)], si
+	mov word [VAR(fat_sector + 2)], di
 	mov word [VAR(fat_sector + 0)], di
 	call dirsearch			; sets up ds == es, es:bx -> dir entry
 
@@ -1671,7 +1682,7 @@ found_load_file:
 
 		call check_clust
 ..@CY_2_fsiboot_error_badchain:
-		jc ..@CY_3_fsiboot_error_badchain
+		jnc ..@CY_3_fsiboot_error_badchain
 
 next_load_cluster:
 		push dx
@@ -1703,7 +1714,7 @@ next_load_cluster:
 		pop dx
 
 		call clust_next
-		jnc next_load_cluster
+		jc next_load_cluster
 		inc ax
 		inc ax
 		test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
@@ -1722,7 +1733,7 @@ dirsearch:
 	mov dx, [VAR(root_cluster + 2)]
 	call check_clust
 ..@CY_3_fsiboot_error_badchain:
-	jc fsiboot_error_badchain
+	jnc fsiboot_error_badchain
 
 next_root_clust:
 	push dx
@@ -1739,12 +1750,10 @@ next_root_sect:
 	mov bx, [VAR(fsiboot_table.dirbuf)]
 	call near word [VAR(fsiboot_table.read_sector)]
 
-	push di
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
 	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
 	jnz @F			; directory, label, or LFN entry --> (NZ)
-	push si
 	push di
 	push cx
 	mov si, [VAR(fsiboot_table.filename)]
@@ -1753,19 +1762,17 @@ next_ent:
 	repe cmpsb		; check entry
 	pop cx
 	pop di
-	pop si
 @@:				; ZR = match, NZ = mismatch
 	je found_it		; found entry -->
 	lea di, [di + DIRENTRY_size]
 
 	loop next_ent		; count down sector's entries (jumps iff cx >0)
-	pop di
 	pop cx
 	loop next_root_sect
 	pop ax
 	pop dx
 	call clust_next
-	jnc next_root_clust
+	jc next_root_clust
 file_not_found:
 	mov al, 'F'
 	db __TEST_IMM16		; skip mov al
@@ -1818,7 +1825,6 @@ check_enough:
 found_it:
 			; es:di -> dir entry in dir sector buffer
 	mov bx, di
-		pop di			; restore si:di = loaded FAT sector
 		pop cx			; (discard sectors per cluster counter)
 		pop cx
 		pop cx			; (discard current cluster number)
@@ -1829,12 +1835,10 @@ found_it:
 
 
 		; INP:	dx:ax = cluster (0-based)
-		;	si:di = loaded FAT sector, -1 if none
-		; OUT:	CY if no next cluster
-		;	NC if next cluster found
+		; OUT:	NC if no next cluster
+		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
-		;	si:di = loaded FAT sector
-		; CHG:	cx, bx, es
+		; CHG:	cx, bx, es, si, di
 clust_next:
 	add ax, 2
 	adc dx, 0
@@ -1847,36 +1851,34 @@ clust_next:
 	xchg ax, dx
 	xor dx, dx		; dx:ax = high word
 	div word [VAR(bytes_per_sector)]
-	xchg bx, ax		; bx = result high word, clobbers ax
+	xchg si, ax		; si = result high word, clobbers ax
 	 pop ax			; dx = remainder, ax = low word
 	div word [VAR(bytes_per_sector)]
-	xchg dx, bx		; dx:ax = result, bx = remainder
+	xchg dx, si		; dx:ax = result, si = remainder
 				; dx:ax = sector offset into FAT (0--200_0000h)
 				; bx = byte offset into FAT sector (0--8190)
-	cmp dx, si
+	mov es, [VAR(fat_seg)]
+	cmp dx, word [VAR(fat_sector + 2)]
 	jne @F		; read sector
-	cmp ax, di
+	cmp ax, word [VAR(fat_sector + 0)]
 	je @FF		; sector is already buffered
 @@:
-	mov si, dx
-	mov di, ax
 	mov word [VAR(fat_sector + 2)], dx
 	mov word [VAR(fat_sector + 0)], ax
 
-	push bx
 	add ax, [VAR(fat_start)]
 	adc dx, 0
-	mov bx, [VAR(fat_seg)]
+	mov bx, es
 	call near word [VAR(fsiboot_table.read_sector)]
-	pop bx
 @@:
-	mov es, [VAR(fat_seg)]
-	mov ax, [es:bx]
-	mov dx, [es:bx + 2]
+	es lodsw
+	xchg ax, dx
+	es lodsw
+	xchg ax, dx
 
 		; INP:	dx:ax = cluster value, 2-based
 		; OUT:	dx:ax -= 2 (makes it 0-based)
-		;	CY iff invalid cluster
+		;	NC iff invalid cluster
 check_clust:
 	and dh, 0Fh
 	sub ax, 2
@@ -1885,7 +1887,8 @@ check_clust:
 	jb @F		; CY here means valid ...-
 	cmp ax, 0FFF7h - 2
 @@:			;  -... or if NC first, CY here also
-	cmc		; NC if valid
+	; cmc		; NC if valid
+	; now CY if valid
 	retn
 
 
@@ -1951,11 +1954,11 @@ reserved_entrypoint:
 memorysize_entrypoint:
 	dw fsiboot_memorysize
 
-		; INP:	si:di = loaded sector-in-FAT
+		; INP:
 		;	ds = ss
 		;	ds:word [fsiboot_table.filename] -> 8.3 filename
-		; CHG:	ax, cx, dx
-		; OUT:	si:di updated, if so
+		; CHG:	ax, cx, dx, si, di
+		; OUT:
 		;	ds == es
 		;	ds:bx == es:bx -> found directory entry
 		;	jumps to error handler if an error occurs,

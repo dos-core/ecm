@@ -20,6 +20,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		numdef FAT16, 0
 		numdef FAT32, 0
 		numdef METHOD, 2
+		numdef EXTENDED, 0
+		excdef _METHOD != 2, EXTENDED
 		numdef NO_LIMIT, 0
 
 %if (!!_FAT12 + !!_FAT16 + !!_FAT32) > 1
@@ -204,6 +206,9 @@ loop_table:
 	xchg bx, ax
 	je .end		; yes, -2, table end marker -->
 	ja @F		; yes, -1, skip value display -->
+ %if _EXTENDED
+	add bx, bx
+ %endif
 	mov al, '='
 	call disp_al	; display the equals sign
 	mov ax, [ss:di + bx]
@@ -346,7 +351,7 @@ msg:
 		db 0
 %if _METHOD == 2
 .xlation:
-	db "ILPSX", 13, 10
+	db "PQRSX", 13, 10
  %if $ - .xlation > 'A' - ('0' + 10)
   %error Translation table too long!
  %endif
@@ -357,13 +362,28 @@ msg:
  %if _METHOD == 1
 	db %1, %2
  %elif _METHOD == 2
- %strcat %%list "0123456789ILPSX",`\r\n`,"ABCDEF"
+ %strcat %%list "0123456789PQRSX",`\r\n`,"ABCDEFGHIJKLMNO"
  %substr %%testpoint %%list 'A' - '0' + 1
  %ifnidn %%testpoint, 'A'
   %fatal Translation list wrong!
  %endif
  %strlen %%listlength %%list
- %assign %%encoded (%1 & 0011_1111b) << 10
+ %if %%listlength > 32
+  %error Translation list too long!
+ %endif
+ %assign %%displacement %1
+ %if %%displacement != -1 && %%displacement != -2
+  %if _EXTENDED
+   %if (%%displacement & 1) != 0
+    %error "Displacement mustn't be odd!"
+   %endif
+   %assign %%displacement %%displacement >> 1
+  %endif
+ %endif
+ %if %%displacement >= 11_1110b
+  %error Displacement too high!
+ %endif
+ %assign %%encoded (%%displacement & 0011_1111b) << 10
  %assign %%jj 0
  %rep 2
   %substr %%toencode %2 %%jj + 1
@@ -431,6 +451,22 @@ table:
 	item +54, "SD"
 	item +56, "SE"
 	item +58, "SF"
+%if _EXTENDED
+	item -1, `\r\n`
+	item +60, "SG"
+	item +62, "SH"
+	item +64, "SI"
+	item +66, "SJ"
+	item +68, "SK"
+	item +70, "SL"
+	item +72, "SM"
+	item +74, "SN"
+	item -1, `\r\n`
+	item +76, "SO"
+	item +78, "SP"
+	item +80, "SQ"
+	item +82, "SR"
+%endif
  %if _METHOD == 1
 	item -1, `\r\n`
  %elif _METHOD == 2
