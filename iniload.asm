@@ -1134,6 +1134,8 @@ skipped_all:
 @@:
 .single_sector:
 %endif
+		; this is now the only callsite of read_sector
+		;  in the single-sector file load loop.
 	call read_sector
 		; we can depend on the fact that at least
 		;  up to end was already loaded, so this
@@ -1795,14 +1797,7 @@ multi_continue_3: equ $
 	_fill 1024+512,38,start
 end:
 
-skipped_all_continue:
 %if _MULTISECTOR || _ADDPROGRESS
-	jmp loaded_32_byte
- %endif
-skipped_all_continue_after_loaded_32_byte:
-	jmp loadorskip_next_sector
-
- %if _MULTISECTOR || _ADDPROGRESS
 check_end3_loaded:
 	push ax
 	mov ax, cs
@@ -1813,31 +1808,22 @@ check_end3_loaded:
 	pop ax
 	retn
 
-
-loaded_32_byte:
+skipped_all_continue:
 	call check_end3_loaded
-	jb skipped_all_continue_after_loaded_32_byte
+	jb loadorskip_next_sector
 			; not yet -->
-%if ($ - end) > 32
- %error load_next part exceeds end+32
-%endif
-%assign num 32 - ($ - end)
-	stc		; CY, fall through to loaded_all.2stack_or_multi_late
  %else
+skipped_all_continue: equ loadorskip_next_sector
+ %endif
+
 %if ($ - end) > 32
  %error load_next part exceeds end+32
 %endif
 %assign num 32 - ($ - end)
- %endif
 %warning num bytes in front of end+32
 
-
 		; if we fall through, end3 is fully loaded.
-		; if we jump to here, then the whole file has
-		;  been loaded, so this jump doesn't have to
-		;  stay in the 32 bytes after the end label.
-loaded_all.2stack_j_NC:
-	jmp loaded_all.2stack_or_multi_late
+	jmp multi_late
 
 
 ms7_entry.continue:
@@ -2281,9 +2267,7 @@ late_progress_init_j: equ late_progress_init
 	align 16, db 38
 end2:
 
-%ifn _MULTISECTOR || _ADDPROGRESS
-loaded_all.2stack_or_multi_late: equ loaded_all.2stack
-%else
+%if _MULTISECTOR || _ADDPROGRESS
 
 %if _MULTISECTOR
 %if _ADDPROGRESS
@@ -2296,9 +2280,6 @@ late_progress_init:
  	jmp multi_sector_read.
 %endif
 %endif
-
-loaded_all.2stack_or_multi_late:
-	jnc loaded_all.2stack
 
 		; At least 1536 bytes were loaded initially,
 		;  two sectors were read, and sector size
@@ -2323,7 +2304,7 @@ multi_late:
 	pop ax
 	pop si
 	pop di
-	jmp skipped_all_continue_after_loaded_32_byte
+	jmp loadorskip_next_sector
 				; back to the loop, will branch to multi
 				;  loader on next read_sector intention.
 
