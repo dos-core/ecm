@@ -921,6 +921,7 @@ load_fsiboot:
 		; Do a far return here to ensure that cs is zero.
  %endif
 %elif _LOAD_ADR < ADR_STACK_LOW
+		; magic code for instsect
  %if _FREE_PARA_LIMIT
   %if _LOAD_ADR + _FREE_PARA_LIMIT * 16 > ADR_STACK_LOW
    %error Free para too large
@@ -934,6 +935,7 @@ load_fsiboot:
 	push di				; -> fsiboot.start
 	retf
 		; Do a far return here to ensure that cs is zero.
+		; end magic code for instsect
 %else
  %error Load address within used memory
 %endif

@@ -1707,6 +1707,7 @@ relocated:
 	jb error_memory
  %endif
 %elif _LOAD_ADR < ADR_FREE_UNTIL
+		; magic code for instsect
  %if !_FIX_SECTOR_SIZE
 	mov ax, ADR_FREE_UNTIL >> 4	; rounding *down*
  %endif
@@ -1731,6 +1732,7 @@ relocated:
   %endif
  %endif
 		push ax		; push into word [VAR(last_available_sector)]
+		; end magic code for instsect
 %endif
 %if _LOAD_CHECK_MAX_SIZE
  %if !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
