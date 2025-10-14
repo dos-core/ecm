@@ -2136,8 +2136,14 @@ multi_sector_read:
 %if _ADDPROGRESS
 	call check_end3_loaded
 .patch_late_progress_init:
-	test al, late_progress_init - @F
+dist equ late_progress_init - @F
+	test al, dist
 @@:
+ %assign num dist
+ %if num > 127
+  %error Distance too long! num
+ %endif
+ %warning Distance is num
 %endif
 	jmp .				; loop back with updated sector/buffer
 
