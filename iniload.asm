@@ -1243,15 +1243,15 @@ clust_next:
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ;  so multiply cluster number by 3 first, then divide by 2.
 					; ax = cluster number (up to 12 bits set)
-		mov dx, ax
+		mov si, ax
 		shl ax, 1		; = 2n (up to 13 bits set)
-		add ax, dx		; = 2n+n = 3n (up to 14 bits set)
-		shr ax, 1		; ax = byte offset into FAT (0..6129)
+		add si, ax		; = 2n+n = 3n (up to 14 bits set)
+		shr si, 1		; si = byte offset into FAT (0..6129)
 					; CF = whether to use high 12 bits
 
 ; Use the calculated byte offset as an offset into the FAT
 ;  buffer, which holds all of the FAT's relevant data.
-		xchg si, ax		; si -> 16-bit word in FAT to load
+					; si -> 16-bit word in FAT to load
 
 ; get 16 bits from FAT
 		es lodsw		; ax = word [es:si], clobber si
