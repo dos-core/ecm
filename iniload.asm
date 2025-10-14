@@ -2011,9 +2011,6 @@ skipped_all_multi:
 	push word [bp + ldmSector + 2]	; push into ldmCluster + 2
 	push word [bp + ldmSector]	; push into ldmCluster
 
-	mov word [bp + ldmSector + 2], dx
-	mov word [bp + ldmSector], ax	; update sector
-
 	xor di, di
 	push bx
 @@:
@@ -2022,6 +2019,9 @@ skipped_all_multi:
 	cmp bx, [bp + ldLoadUntilSeg]
 	jb @B				; di = how many sectors needed
 	pop bx				; back to bx => segment
+.loop_set_sector:
+	mov word [bp + ldmSector + 2], dx
+	mov word [bp + ldmSector], ax	; update sector
 .loop:
 	cmp cx, di
 	jae .last
@@ -2043,7 +2043,6 @@ skipped_all_multi:
 	cmp ax, word [bp + ldmCluster]
 	jne .newclust
 	add cx, [bp + ldClusterSize]	; cx = how many at least consecutive
-.next:
 	jmp .loop
 
 .newclust:
@@ -2061,9 +2060,7 @@ skipped_all_multi:
 	 push bx
 	call clust_to_first_sector	; dx:ax = first sector, cx = spc
 	 pop bx
-	mov word [bp + ldmSector], ax	; store for next first sector
-	mov word [bp + ldmSector + 2], dx
-	jmp .next
+	jmp .loop_set_sector
 
 .last:
 	mov cx, di			; how many sectors last chunk
