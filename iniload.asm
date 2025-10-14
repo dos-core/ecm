@@ -1106,8 +1106,8 @@ skip_next_sect:
 				; emulate read_sector:
 	call read_sector.increment_sector_number
 				; dx:ax += 1
+loadorskip_next_sector:
 	loop skip_next_sect
-loadorskip_next_cluster:
 	pop ax
 	pop dx
 	call clust_next
@@ -1795,19 +1795,12 @@ multi_continue_3: equ $
 	_fill 1024+512,38,start
 end:
 
-load_next_sect:
-	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.2stack_j_NC
-
-.multi_late_patch:	; patched to skipped_all.multipatch
-	call read_sector
 skipped_all_continue:
 %if _MULTISECTOR || _ADDPROGRESS
 	jmp loaded_32_byte
  %endif
 skipped_all_continue_after_loaded_32_byte:
-	loop load_next_sect
-	jmp loadorskip_next_cluster
+	jmp loadorskip_next_sector
 
  %if _MULTISECTOR || _ADDPROGRESS
 check_end3_loaded:
@@ -2314,19 +2307,6 @@ loaded_all.2stack_or_multi_late:
 multi_late:
 	mov byte [cs:init_memory_multi.patch_late_multi], 0C3h
 				; retn
- %if _MULTISECTOR
-	mov byte [cs:load_next_sect.multi_late_patch], 0E9h
-				; jmp near
-	mov word [cs:load_next_sect.multi_late_patch + 1], \
-	 skipped_all.multipatch - (load_next_sect.multi_late_patch + 3)
-				; continue with skipped_all_multi
-		; This patch will work as intended even if
-		;  init_memory_multi is to decide to not
-		;  install its own patches at all. In this case
-		;  skipped_all.multipatch isn't patched but
-		;  rather runs a call read_sector then branches
-		;  to skipped_all_continue again.
- %endif
 	push di
 	push si
 	push ax
