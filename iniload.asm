@@ -2193,8 +2193,6 @@ dist equ late_progress_init_j - @F
 					; = 0B8h if to continue
 					; = 0C3h if to return
 %endif
-		; = 0B8h if to continue
-		; = 0C3h if to return
 	xchg cx, ax			; dx:cx = sector LBA number
 	xchg dx, ax			; ax:cx = sector LBA number
 	xor dx, dx			; dx:ax:cx
