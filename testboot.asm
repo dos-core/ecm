@@ -346,7 +346,7 @@ msg:
 		db 0
 %if _METHOD == 2
 .xlation:
-	db "ILPSX", 13, 10
+	db "PQRSX", 13, 10
  %if $ - .xlation > 'A' - ('0' + 10)
   %error Translation table too long!
  %endif
@@ -357,7 +357,7 @@ msg:
  %if _METHOD == 1
 	db %1, %2
  %elif _METHOD == 2
- %strcat %%list "0123456789ILPSX",`\r\n`,"ABCDEF"
+ %strcat %%list "0123456789PQRSX",`\r\n`,"ABCDEFGHIJKLMNO"
  %substr %%testpoint %%list 'A' - '0' + 1
  %ifnidn %%testpoint, 'A'
   %fatal Translation list wrong!
