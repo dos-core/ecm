@@ -1091,6 +1091,19 @@ finish_load:
 	call check_clust
 	jnc short error_badchain_j
 
+		; The following loop first skips across parts
+		;  of the file already loaded. This is at least
+		;  1536 bytes and at most less than the entire
+		;  payload part. As soon as the branch to the
+		;  label skipped_all is taken once, the purpose
+		;  of this loop changes so that it implements
+		;  single-sector loading of the kernel file.
+		; The branch to skipped_all is taken every time
+		;  that the loop runs another iteration. The
+		;  stop logic and read_sector calls happen as
+		;  desired without replicating the loop as we
+		;  used to do before. This in every iteration
+		;  runs a few more instructions (cheap).
 skip_next_clust:
 	push dx
 	push ax
