@@ -2253,6 +2253,7 @@ dist equ late_progress_init_j - @F
 
 
 %assign num 2046-($-$$)
+%if _MULTISECTOR
 %if num >= 3
 %assign num num - 3
  %warning %[num]+3 bytes in front of end2
@@ -2260,6 +2261,9 @@ late_progress_init_j:
 	jmp late_progress_init
 %else
 late_progress_init_j: equ late_progress_init
+ %warning num bytes in front of end2
+%endif
+%else
  %warning num bytes in front of end2
 %endif
 	_fill 2046,38,start
