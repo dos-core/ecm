@@ -2255,7 +2255,7 @@ dist equ late_progress_init_j - @F
 
 
 %assign num 2046-($-$$)
-%if _MULTISECTOR
+%if _MULTISECTOR && _ADDPROGRESS
 %if num >= 3
 %assign num num - 3
  %warning %[num]+3 bytes in front of end2
