@@ -5527,7 +5527,7 @@ msg:
 	db 9,"/L AUTOHDD",9,"patch boot loader to use auto LBA (HDD-only) handling",13,10
 	db 9,"/L NONE",9,9,"patch boot loader to use only CHS",13,10
 	db 13,10
-	db 9,"/4 PREFIX",9,9,"enable 4 KiB prefix patch",13,10
+	db 9,"/4 PREFIX",9,"enable 4 KiB prefix patch",13,10
 	db 13,10
 	db 9,"/G KEEP",9,9,"keep all current geometry (default)",13,10
 	db 9,"/G AUTO",9,9,"read all auto geometry from DOS",13,10
