@@ -363,7 +363,14 @@ msg:
   %fatal Translation list wrong!
  %endif
  %strlen %%listlength %%list
- %assign %%encoded (%1 & 0011_1111b) << 10
+ %if %%listlength > 32
+  %error Translation list too long!
+ %endif
+ %assign %%displacement %1
+ %if %%displacement >= 11_1110b
+  %error Displacement too high!
+ %endif
+ %assign %%encoded (%%displacement & 0011_1111b) << 10
  %assign %%jj 0
  %rep 2
   %substr %%toencode %2 %%jj + 1
