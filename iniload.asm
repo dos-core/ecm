@@ -1828,12 +1828,16 @@ loaded_32_byte:
 %if ($ - end) > 32
  %error load_next part exceeds end+32
 %endif
+%assign num 32 - ($ - end)
 	stc		; CY, fall through to loaded_all.2stack_or_multi_late
  %else
 %if ($ - end) > 32
  %error load_next part exceeds end+32
 %endif
+%assign num 32 - ($ - end)
  %endif
+%warning num bytes in front of end+32
+
 
 		; if we fall through, end3 is fully loaded.
 		; if we jump to here, then the whole file has
