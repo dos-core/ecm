@@ -1822,8 +1822,10 @@ skipped_all_continue: equ loadorskip_next_sector
 %assign num 32 - ($ - end)
 %warning num bytes in front of end+32
 
+%if _MULTISECTOR || _ADDPROGRESS
 		; if we fall through, end3 is fully loaded.
 	jmp multi_late
+%endif
 
 
 ms7_entry.continue:
