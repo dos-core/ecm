@@ -364,6 +364,59 @@ Unlike the Script for lDebug, patchqry can
 operate on arbitrarily large files.
 
 
+\S{protocol-sector-iniload-error} lDOS boot error condition letters
+
+The native original lDOS boot sector loaders
+are designed to emit a single error condition letter
+and then a beep code upon detectable errors.
+After that they wait for a keypress using int 16h function 00h
+then run an int 19h call.
+The terse display comes down to saving code space
+in the loaders.
+
+The following letters are defined:
+
+\dt V
+
+\dd Check value mismatch
+
+\dt F
+
+\dd File not found
+
+\dt E
+
+\dd Not enough file data
+
+\dt R
+
+\dd Disk read error
+
+\dt B
+
+\dd Bad chain / bad FS
+
+\dt M
+
+\dd Out of memory
+
+\dt I
+
+\dd FSIBOOT error
+
+\dt S
+
+\dd Fix sector size mismatch
+
+\dt C
+
+\dd Fix cluster size mismatch
+
+\dt N
+
+\dd Non-FAT load needs larger cluster size
+
+
 \H{protocol-iniload-payload} Iniload to payload protocol
 
 The payload is loaded to an arbitrary segment.
