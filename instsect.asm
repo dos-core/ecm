@@ -1,7 +1,7 @@
 
 %if 0
 
-instsect.asm - install boot sectors. 2018--2024 by E. C. Masloch
+instsect.asm - install boot sectors. 2018--2025 by E. C. Masloch
 
 Usage of the works is permitted provided that this
 instrument is retained with the works, so that any entity
