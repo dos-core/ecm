@@ -5488,7 +5488,7 @@ g_table_end:
 
 
 msg:
-.help:	db "INSTSECT: Install boot sectors. 2018--2024 by E. C. Masloch",13,10
+.help:	db "INSTSECT: Install boot sectors. 2018--2025 by E. C. Masloch",13,10
 	db 13,10
 	db "Usage of the works is permitted provided that this",13,10
 	db "instrument is retained with the works, so that any entity",13,10
