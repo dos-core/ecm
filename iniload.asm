@@ -997,7 +997,7 @@ payload_actual_end_equate equ payload.actual_end -$$+0
 %endif
 	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
-		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
+		; (((payload.actual_end -$$+0 +15) >> 4) + pps - 1) & ~ (pps - 1)
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	jc @F		; overflow ? then we're near top of memory -->
