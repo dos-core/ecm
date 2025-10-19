@@ -1897,11 +1897,13 @@ init_memory_multi:
 
 	jae init_memory_multi_lba
 .addprogressonly:
- %if !_LBA_SKIP_CHECK
+ %if _MULTISECTOR && _LBA
+  %if !_LBA_SKIP_CHECK
 	test byte [bp + ldHasLBA], 1
 	jnz .ret
- %else
-  %error Multi-sector loader must use proper LBA check currently
+  %else
+   %error Multi-sector loader must use proper LBA check currently
+  %endif
  %endif
 .nolba:
 %else
