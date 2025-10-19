@@ -2527,7 +2527,7 @@ loaded_all:
 
 .fat32:
 
-%if _QUERY_PATCH
+%if (_QUERY_GEOMETRY || !_LBA_SKIP_CHECK) && _QUERY_PATCH
 	mov ax, word [cs:..@query_patch_site]
 %else
 	mov ax, _QUERY_DEFAULT
