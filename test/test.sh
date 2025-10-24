@@ -288,7 +288,8 @@ fi
   -D_MAP=boot${bpe}tw.map -l boot${bpe}tw.lst -o boot${bpe}tw.bin &&
  "$NASM" "${LDOSBOOT_DIR%/}"/testwrit.asm \
   "$options_i_lmacros" \
-  -o testwrit.bin -l testwrit.lst &&
+  -o testwrit.bin -l testwrit.lst \
+  "$@" &&
  "$NASM" "${LDOSBOOT_DIR%/}"/iniload.asm -w-user \
   "$options_i_ldosboot" \
   "$options_i_lmacros" \
