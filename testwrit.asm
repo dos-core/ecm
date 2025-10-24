@@ -404,8 +404,8 @@ dirsp:		dw 0
 ; quitrecurse:	db 0
 
 msg:
-.error:		asciz "Load error: "
-.success:	db "Test writer loaded successfully. Quitting the machine."
+.error:		asciz "^",13,10,"Load error: "
+.success:	db "^",13,10,"Test writer loaded successfully. Quitting the machine."
 .error.trailer:	asciz 13,10
 .filename:	fill 8, 32, db _FILE_NAME
 		fill 3, 32, db _FILE_EXT
