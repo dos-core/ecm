@@ -566,7 +566,7 @@ write_sector:
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
 
  %if (!_LBA || !_LBA_33_BIT) && _LBA_CHECK_NO_33
-	jc .err_CY
+	jc .err
  %endif
 %if _LBA		; +70 bytes (with CHS, +63 bytes without CHS)
  %if _LBA_33_BIT
