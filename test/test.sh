@@ -289,13 +289,31 @@ fi
  "$NASM" "${LDOSBOOT_DIR%/}"/testwrit.asm \
   "$options_i_lmacros" \
   -o testwrit.bin -l testwrit.lst \
-  "$@" &&
+  "$@"
+    rc=$?
+    payloadfile=testwrit.bin
+    if ((use_build_inicheck)); then
+    ((rc == 0)) && \
+    "$NASM" -Ox "${LDOSBOOT_DIR%/}"/checkpl.asm -f bin \
+      -w+reloc-rel -w+error=reloc-rel \
+      "$options_i_lmacros" \
+      "$options_i_ldosboot" \
+      "$options_i_scanptab" \
+      -I"${INICHECK_DIR%/}"/iniload/ \
+      $build_checkpl_options -o testwrit.chk \
+      -D_PAYLOAD_FILE="'$payloadfile'" \
+      "$@" \
+      && "$CHECKSUM" testwrit.chk > /dev/null
+    rc=$?
+    payloadfile=testwrit.chk
+    fi
+    ((rc == 0)) && \
  "$NASM" "${LDOSBOOT_DIR%/}"/iniload.asm -w-user \
   "$options_i_ldosboot" \
   "$options_i_lmacros" \
   "$options_i_scanptab" \
   -D_PADDING='(48 * 1024)' \
-  -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
+  -D_PAYLOAD_FILE="'$payloadfile'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' "$@" &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
   -D_WARN_DEFAULT_OFF=1 \

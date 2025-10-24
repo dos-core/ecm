@@ -36,4 +36,4 @@
 [ -z "$NASM" ] && NASM=nasm
 [ -z "$CHECKSUM" ] && CHECKSUM="${INICHECK_DIR%/}"/iniload/checksum
 
-[ -z "$use_build_inicheck" ] && use_build_inicheck=0
+[ -z "$use_build_inicheck" ] && use_build_inicheck=1
