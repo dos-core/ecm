@@ -165,25 +165,25 @@ then
     elif [[ "$1" == spc && -n "$2" ]]
     then
       ((spc="($2)"))
-      (($?)) && exit $?
+      (($?)) && exit 1
       shift
       shift
     elif [[ "$1" == mib && -n "$2" ]]
     then
       ((spi="(($2) * 1024 * 2)"))
-      (($?)) && exit $?
+      (($?)) && exit 1
       shift
       shift
     elif [[ "$1" == spi && -n "$2" ]]
     then
       ((spi="($2)"))
-      (($?)) && exit $?
+      (($?)) && exit 1
       shift
       shift
     elif [[ "$1" == nr && -n "$2" ]]
     then
       ((nr="($2)"))
-      (($?)) && exit $?
+      (($?)) && exit 1
       shift
       shift
     elif [[ "$1" == pitype && -n "$2" ]]
@@ -198,13 +198,13 @@ then
     elif [[ "$1" == chsheads && -n "$2" ]]
     then
       ((chsheads="($2)"))
-      (($?)) && exit $?
+      (($?)) && exit 1
       shift
       shift
     elif [[ "$1" == chssectors && -n "$2" ]]
     then
       ((chssectors="($2)"))
-      (($?)) && exit $?
+      (($?)) && exit 1
       shift
       shift
     else
@@ -330,7 +330,7 @@ fi
   -I ./ \
   "$options_i_lmacros" \
   "$options_i_bootimg"
-(($?)) && exit $?
+(($?)) && exit 1
 if [[ -n "$TMPINC" ]]
 then
 	rm -f *.tmp
@@ -366,7 +366,7 @@ then
   "$options_i_lmacros" \
   -o oldmbr.bin &&
   dd if=oldmbr.bin of=hdimage.img seek="$seekmbr" bs=1 count=440 conv=notrunc status=none
-  (($?)) && exit $?
+  (($?)) && exit 1
 
   "$NASM" "${INSTSECT_DIR%/}"/instsect.asm \
    -w-macro-params-legacy \
@@ -376,7 +376,7 @@ then
    -D_FAT12=0 -D_FAT16=0 -D_FAT32=0 -D_FAT$bpe=1 \
    -D_PAYLOAD_FAT$bpe="'boot${bpe}tw.bin'" \
    -o inst${bpe}tw.com -l inst${bpe}tw.lst -D_MAP=inst${bpe}tw.map
-  (($?)) && exit $?
+  (($?)) && exit 1
   if ((dosemu))
   then
     timeout --foreground 10 "$DOSEMU" \
@@ -422,7 +422,7 @@ fi
      -o diskinst.img -l diskinst.lst \
      -D_PAYLOADFILE="${BOOT_KERNEL##*/},${BOOT_COMMAND##*/},autoexec.bat,inst${bpe}tw.com,quit.com" \
      -D_BOOTFILE="'bootinst.bin'"
-    (($?)) && exit $?
+    (($?)) && exit 1
 if [[ -n "$TMPINC" ]]
 then
 	rm -f *.tmp
@@ -456,7 +456,7 @@ fi
   "$options_i_lmacros" \
   -o diskldbg.img -l diskldbg.lst \
   -D_PAYLOADFILE="ldebug.com" -D_BOOTFILE="'boot12db.bin'"
- (($?)) && exit $?
+ (($?)) && exit 1
 if [[ -n "$TMPINC" ]]
 then
 	rm -f *.tmp
