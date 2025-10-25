@@ -972,8 +972,16 @@ clust_next:
 
 	push es
 	cmp byte [bp + ldFATType], 16
-	je .fat16
 	ja .fat32
+%if 1
+	call error
+	asciz "Cannot walk clusters for FAT12/FAT16 file system."
+		; The FAT12 FAT may actually not be loaded yet.
+		;  So if we were to enable and use this, then
+		;  the kernel should check for that and load the
+		;  FAT if it isn't loaded yet.
+%else
+	je .fat16
 
 .fat12:
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
@@ -998,6 +1006,7 @@ clust_next:
 		shr ax, cl	; shift down iff odd entry, else unchanged
 		and ax, 0FFFh	; insure it's only 12 bits
 	jmp short .gotvalue_zero_dx
+%endif
 
 .fat32:
 		; * 4 = byte offset into FAT (0--4000_0000h)
