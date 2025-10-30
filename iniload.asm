@@ -2419,7 +2419,6 @@ init_memory_multi_lba:
 		;	 control to multi_sector_read.got with al = amount
 		;	 of sectors actually read (< 128), ss:sp unchanged.
 multi_sector_read_lba:
-	mov bx, es
 	cmp si, 127
 	jbe @F
 	mov si, 127		; = min(si, 127)
@@ -2451,8 +2450,8 @@ multi_sector_read_lba:
  %endif
 	push dx
 	push ax		; qword sector number (lpSector)
-	push bx
-	push cx		; bx:0 -> buffer (lpBuffer)
+	push es
+	push cx		; es => buffer (es:0 = lpBuffer)
 	push di		; word number of sectors to read (lpCount)
 	mov cl, 10h
 	push cx		; word size of disk address packet (lpSize)
