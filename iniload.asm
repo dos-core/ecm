@@ -2536,7 +2536,7 @@ read_progress_single:
 %assign num 4096-($-$$)
 %warning num bytes in front of end3
 %if num < 0
- %warning LBA multi-sector loader is overflowing end3
+ %warning LBA multi-sector loader is overflowing expected end3/4096
 %endif
 end3:
 %endif
