@@ -2089,13 +2089,23 @@ dpt_restore_seg equ $ - 2
 
 
 		; INP:	dx:ax = start sector
-		;	cx = how many sectors to load
+		;	cx = how many sectors to load (zero allowed)
 		;	bx => segment to load to
 		; OUT:	bx => after last data loaded
 		; CHG:	es, si, dx, ax, cx
+		; REM:	This function may be called from load_fat12_multi
+		;	 and then from skipped_all_multi. In the latter
+		;	 case bx => past file data that is already loaded.
+		; REM:	May call read_sector to do a read that crosses
+		;	 a 64 KiB boundary, otherwise handles all reads
+		;	 by itself. If a read of more than 1 sector
+		;	 fails repeatedly, the flag [ldHasLBA] |= 2 is
+		;	 set and all subsequent attempts will load only
+		;	 a single sector at a time.
 multi_sector_read:
-.:
-	jcxz @B
+.:	; after any read, loop back to here with dx:ax = sector number and
+	;  bx => buffer adjusted, and cx = remaining count (may be zero).
+	jcxz @B				; cx zero ? then done -->
 	push dx
 	push ax				; stack = start sector
 	xor si, si
@@ -2123,7 +2133,7 @@ multi_sector_read:
 .singlesector:
 	mov bx, es			; restore => data
 	call read_sector
-	dec cx
+	dec cx				; (bugfix, keep track of remaining count)
 		; cx = how many left
 		; dx:ax = next sector
 		; bx => next buffer
@@ -2131,13 +2141,13 @@ multi_sector_read:
 	pop si				; discard sector number
 .j:
 %if _ADDPROGRESS
-	call check_end3_loaded
+	call check_end3_loaded		; is bx => loaded end3 ?
 .patch_late_progress_init:
 dist equ late_progress_init_j - @F
-	test al, dist
+	test al, dist			; (this is patched to 73h, jae short)
 @@:
  %assign num dist
- %if num > 127
+ %if num > 127				; jae short jumps at most 127 bytes forward
   %error Distance too long! num
  %endif
  %warning Distance is num
@@ -2169,6 +2179,7 @@ dist equ late_progress_init_j - @F
 %if _CHS
 %if _LBA && _LBA_MULTI
 .lbapatch:				; writes a near jump in 3 bytes
+	;  (this patch clobbers the subsequent add ax instruction)
 %endif
 %else
 	jmp multi_sector_read_lba
@@ -2179,7 +2190,8 @@ dist equ late_progress_init_j - @F
 ; add partition start (= number of hidden sectors)
 		add ax,[bp + bsBPB + bpbHiddenSectors + 0]
 		adc dx,[bp + bsBPB + bpbHiddenSectors + 2]
-	jc .error
+	jc .error			; dx:ax = unit absolute sector,
+					;  error if >4 Gi sectors
 %if _CHS_RETRY
 	mov byte [cs:read_sector.dx_ax_cx_lba_to_chs_patch_E8], 0C3h
 					; = 0E8h if to continue
@@ -2212,7 +2224,7 @@ dist equ late_progress_init_j - @F
 					;  = how many S in this C:H left
 	push si
 	cmp ax, si
-	jb .limittrack
+	jb .limittrack			; ax = min(ax, si)
 	xchg ax, si			; ax = remaining to read, si clobbered
 .limittrack:
 ; end of @boeckmann code
