@@ -2302,10 +2302,14 @@ late_progress_init:
 %endif
 %endif
 
-		; At least 1536 bytes were loaded initially,
-		;  two sectors were read, and sector size
-		;  is >= 512 bytes. Therefore, this code is
-		;  safely usable if it stays below end2 + 512.
+		; This is entered if the single-sector loop
+		;  detects that up to end3 has been loaded.
+		;  It is safe to run this part, the CHS or
+		;  LBA multi init, and the progress patches
+		;  at this point. To ensure proper operation,
+		;  pass bx => the current loaded segment to
+		;  the init_memory_multi entrypoint in ax,
+		;  subtracting cs to get amount paras loaded.
 multi_late:
 	mov byte [cs:init_memory_multi.patch_late_multi], 0C3h
 				; retn
@@ -2328,10 +2332,6 @@ multi_late:
 	jmp loadorskip_next_sector
 				; back to the loop, will branch to multi
 				;  loader on next read_sector intention.
-
-%if ($ - $$) > 2048 + 512
- %error Late multi entrypoint not within end2+512
-%endif
 %endif
 
 %if _MULTISECTOR && _LBA && _LBA_MULTI || _ADDPROGRESS
