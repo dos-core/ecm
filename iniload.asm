@@ -2191,7 +2191,7 @@ dist equ late_progress_init_j - @F
 .decrease64:
 	 push cx			; how many next
 .nolimit64:	; si = how much first
-
+	push si				; how many at most in this call
 %if _CHS
 %if _LBA && _LBA_MULTI
 .lbapatch:				; writes a near jump in 3 bytes
@@ -2238,7 +2238,6 @@ dist equ late_progress_init_j - @F
 					; S coordinate - amount of S
 	neg ax				; amount of S - S coordinate
 					;  = how many S in this C:H left
-	push si
 	cmp ax, si
 	jb .limittrack			; ax = min(ax, si)
 	xchg ax, si			; ax = remaining to read, si clobbered
@@ -2273,6 +2272,11 @@ dist equ late_progress_init_j - @F
 	jmp .retry			; and retry -->
 %endif
 
+		; INP:	ss:sp -> word how many wanted this step,
+		;	 word how many wanted later,
+		;	 dword start sector number
+		;	es => buffer just read to
+		;	al = how many actually just read, < 128
 .got:
 	pop si				; si = how many wanted this step
 	cbw				; S must be <= 63 so al is too, ah = 0
@@ -2406,18 +2410,19 @@ init_memory_multi_lba:
 		; INP:	dx:ax = start sector within partition
 		;	es => buffer
 		;	si = how many sectors at most in this step, >= 1
-		;	stack -> how many sectors left for later (word),
+		;	stack -> word equal to si,
+		;	 how many sectors left for later (word),
 		;	 start sector (dword),
 		;	 near return address (word)
+		; CHG:	ax, bx, cx, dx, si
 		; REM:	Upon successful read of at least 1 sector, transfer
 		;	 control to multi_sector_read.got with al = amount
-		;	 of sectors read and ss:sp -> how many wanted.
+		;	 of sectors actually read (< 128), ss:sp unchanged.
 multi_sector_read_lba:
 	mov bx, es
-	push si
 	cmp si, 127
 	jbe @F
-	mov si, 127
+	mov si, 127		; = min(si, 127)
 ; LBA limit appears to be 127 sectors per call.
 ; refer to https://retrocomputing.stackexchange.com/questions/32124/whats-the-maximum-amount-of-sectors-an-lba-rom-bios-sector-read-call-can-access/
 @@:
@@ -2469,7 +2474,7 @@ multi_sector_read_lba:
 	db __TEST_IMM16			; skip int
 .lbaretry:
 	int 13h
-	mov word [si + lpCount], di	; reset for subsequent attempts
+	mov word [si + lpCount], di	; reset for next attempt
 	mov ah, 42h			; 13.42 extensions read
 	int 13h
 	jnc .lbagot
