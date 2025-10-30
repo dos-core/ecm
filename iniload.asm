@@ -2064,7 +2064,7 @@ skipped_all_multi:
 	pop ax				; discard stack (ldmCluster)
 	pop ax
 	pop dx				; ldmSector
-	call multi_sector_read		; si needn't be preserved, no longer used
+	call multi_sector_read
 	call restore_dpt
 	clropt [bp + ldHasLBA], 2	; reset single-sector flag
 	jmp loaded_all
