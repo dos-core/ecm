@@ -2047,7 +2047,7 @@ skipped_all_multi:
 	push ax				; push into ldmCluster
 	mov dx, word [bp + ldmSector + 2]
 	mov ax, word [bp + ldmSector]
-	sub di, cx
+	sub di, cx			; amount sectors needed later, is >0
 	call multi_sector_read		; read consecutive data
 	pop ax
 	pop dx
