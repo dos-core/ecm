@@ -2113,9 +2113,9 @@ dpt_restore_seg equ $ - 2
 		; REM:	May call read_sector to do a read that crosses
 		;	 a 64 KiB boundary, otherwise handles all reads
 		;	 by itself. If a read of more than 1 sector
-		;	 fails repeatedly, the flag [ldHasLBA] |= 2 is
-		;	 set and all subsequent attempts will load only
-		;	 a single sector at a time.
+		;	 fails repeatedly, the flag [ldHasLBA] |= 2 is set
+		;	 (ldhlfForceSingleSector) and then all subsequent
+		;	 attempts will load only a single sector at a time.
 multi_sector_read:
 .:	; after any read, loop back to here with dx:ax = sector number and
 	;  bx => buffer adjusted, and cx = remaining count (may be zero).
@@ -2409,6 +2409,9 @@ init_memory_multi_lba:
 		;	stack -> how many sectors left for later (word),
 		;	 start sector (dword),
 		;	 near return address (word)
+		; REM:	Upon successful read of at least 1 sector, transfer
+		;	 control to multi_sector_read.got with al = amount
+		;	 of sectors read and ss:sp -> how many wanted.
 multi_sector_read_lba:
 	mov bx, es
 	push si
