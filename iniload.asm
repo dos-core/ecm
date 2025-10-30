@@ -2455,6 +2455,7 @@ multi_sector_read_lba:
 	push di		; word number of sectors to read (lpCount)
 	mov cl, 10h
 	push cx		; word size of disk address packet (lpSize)
+		; ! ch = 0
 	mov si, sp	; ds:si -> disk address packet (on stack)
 
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
@@ -2469,7 +2470,7 @@ multi_sector_read_lba:
 	call read_progress_multi_lba
 %endif
 
-	mov cx, 4
+	mov cl, 4			; ! ch already = 0
 	db __TEST_IMM16			; skip int
 .lbaretry:
 	int 13h
@@ -2479,7 +2480,7 @@ multi_sector_read_lba:
 	jnc .lbagot
 	xor ax, ax			; reset disk
 	loop .lbaretry			; count down retry count
-.lbafallback:
+.lbafallback:				; ! cx = 0
  %if 1
 	cmp di, 1			; tried to load a single sector ?
 	je .error			; yes, this is an error -->
