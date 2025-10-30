@@ -88,6 +88,9 @@ lsvExtra:		; word
 .flags:		resb 1	; byte
 	endstruc
 
+ldhlfLBA:		equ 1
+ldhlfForceSingleSector:	equ 2
+
 lsvefNoDataStart	equ 1
 lsvefPartitionNumber	equ 2
 
@@ -618,7 +621,7 @@ read_sector:
  %endif
 	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
  %if !_LBA_SKIP_CHECK
-	test byte [bp + ldHasLBA], 1
+	test byte [bp + ldHasLBA], ldhlfLBA
 	jz .no_lba_checked
  %endif
 	push cx
@@ -1876,7 +1879,7 @@ ms7_entry.continue:
 init_memory_multi:
 %if _LBA && (!_LBA_MULTI) && (!_ADDPROGRESS)
  %if !_LBA_SKIP_CHECK
-	test byte [bp + ldHasLBA], 1
+	test byte [bp + ldHasLBA], ldhlfLBA
 	jnz .skip
  %else
   %error Multi-sector loader must use proper LBA check currently
@@ -1899,7 +1902,7 @@ init_memory_multi:
 .addprogressonly:
  %if _MULTISECTOR && _LBA
   %if !_LBA_SKIP_CHECK
-	test byte [bp + ldHasLBA], 1
+	test byte [bp + ldHasLBA], ldhlfLBA
 	jnz .ret
   %else
    %error Multi-sector loader must use proper LBA check currently
@@ -2066,7 +2069,8 @@ skipped_all_multi:
 	pop dx				; ldmSector
 	call multi_sector_read
 	call restore_dpt
-	clropt [bp + ldHasLBA], 2	; reset single-sector flag
+	clropt [bp + ldHasLBA], ldhlfForceSingleSector
+					; reset single-sector flag
 	jmp loaded_all
 
 .eoc:
@@ -2161,10 +2165,12 @@ dist equ late_progress_init_j - @F
 	cmp al, 1			; tried to load a single sector ?
 	je .error			; yes, this is an error -->
 %else
-	testopt [bp + ldHasLBA], 2	; already in single-sector mode ?
+	testopt [bp + ldHasLBA], ldhlfForceSingleSector
+					; already in single-sector mode ?
 	jnz .error			; yes, this is an error -->
 %endif
-	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
+	setopt [bp + ldHasLBA], ldhlfForceSingleSector
+					; set flag to force single-sector operation
 	jmp .again
 %endif
 
@@ -2230,7 +2236,7 @@ dist equ late_progress_init_j - @F
 ; end of @boeckmann code
 
 .again:
-	testopt [bp + ldHasLBA], 2
+	testopt [bp + ldHasLBA], ldhlfForceSingleSector
 	jz @F
 	mov al, 1			; force single-sector operation
 @@:
@@ -2366,7 +2372,7 @@ init_memory_multi_lba:
 
 %if _CHS
  %if !_LBA_SKIP_CHECK
-	test byte [bp + ldHasLBA], 1
+	test byte [bp + ldHasLBA], ldhlfLBA
 	jz init_memory_multi.nolba
  %else
   %error Multi-sector loader must use proper LBA check currently
@@ -2437,7 +2443,7 @@ multi_sector_read_lba:
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
 
 .lbaagain:
-	testopt [bp + ldHasLBA], 2
+	testopt [bp + ldHasLBA], ldhlfForceSingleSector
 	jz @F
 	mov di, 1			; force single-sector operation
 @@:
@@ -2461,10 +2467,12 @@ multi_sector_read_lba:
 	cmp di, 1			; tried to load a single sector ?
 	je .error			; yes, this is an error -->
  %else
-	testopt [bp + ldHasLBA], 2	; already in single-sector mode ?
+	testopt [bp + ldHasLBA], ldhlfForceSingleSector
+					; already in single-sector mode ?
 	jnz .error			; yes, this is an error -->
  %endif
-	setopt [bp + ldHasLBA], 2	; set flag to force single-sector operation
+	setopt [bp + ldHasLBA], ldhlfForceSingleSector
+					; set flag to force single-sector operation
 	jmp .lbaagain
 
 .lbagot:
@@ -2732,7 +2740,7 @@ parse_partition_number:
 @@:
 
  %if !_LBA_SKIP_CHECK
-	test byte [bp + ldHasLBA], 1
+	test byte [bp + ldHasLBA], ldhlfLBA
 	jnz @F
  %endif
 
