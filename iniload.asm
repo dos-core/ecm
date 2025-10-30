@@ -2442,7 +2442,7 @@ multi_sector_read_lba:
 	sbb si, si	; -1 if was CY, 0 else
 	neg si		; 1 if was CY, 0 else
  %endif
-	xor cx, cx	; cx = 0 (needed if jumping to .no_lba_checked)
+	xor cx, cx	; cx = 0
 	push cx
  %if _LBA_33_BIT
 	push si		; bit 32 = 1 if operating in 33-bit space
