@@ -1948,14 +1948,14 @@ init_memory_multi:
 	mov cx, 16
 	rep movsb		; copy it over
 	mov byte [es:di - 16 + 4], 36
-				; force sectors
+				; force sectors (reportedly DR-DOS does this)
 %endif
 
 .ret:
 	pop ds
 	pop ax
 .skip:
-.patch_late_multi:
+.patch_late_multi:		; byte patched to retn (C3h) if late multi init
 	jmp multi_continue_1
 
 
@@ -1989,6 +1989,9 @@ load_fat12_multi:
 		;	dword [ss:sp] = current cluster (0-based)
 		; OUT:	branch to skipped_all.single_sector
 		;	 or branch to loaded_all with stack cleaned
+		; REM:	Stack must match expected layout for the
+		;	 LOADMULTIVARS to access the expected data.
+		;	On INP ss:sp -> cluster dword, LOADCMDLINE.
 skipped_all_multi:
  %if _ADDPROGRESS
 	mov byte [cs:multi_sector_read.patch_late_progress_init], 73h	; jae
@@ -2010,21 +2013,21 @@ skipped_all_multi:
 	push word [bp + ldmSector + 2]	; push into ldmCluster + 2
 	push word [bp + ldmSector]	; push into ldmCluster
 
-	xor di, di
+	xor di, di			; = 0
 	push bx
 @@:
-	inc di
-	add bx, [bp + ldParaPerSector]
-	cmp bx, [bp + ldLoadUntilSeg]
+	inc di				; increment count of sectors
+	add bx, [bp + ldParaPerSector]	; increment => after sector buffer
+	cmp bx, [bp + ldLoadUntilSeg]	; loop if not yet reached the end
 	jb @B				; di = how many sectors needed
 	pop bx				; back to bx => segment
 .loop_set_sector:
 	mov word [bp + ldmSector + 2], dx
 	mov word [bp + ldmSector], ax	; update sector
 .loop:
-	cmp cx, di
-	jae .last
-
+	cmp cx, di			; have consecutive >= needed ?
+	jae .last			; yes, do last chunk -->
+					; no, continue to walk the cluster chain
 	pop ax
 	pop dx				; current cluster (0-based)
 	push dx
@@ -2034,17 +2037,22 @@ skipped_all_multi:
 	call clust_next			; dx:ax = next cluster (0-based)
 	 pop bx
 	 pop cx
-	jnc .eoc
+	jnc .eoc			; short file or bad cluster -->
 	add word [bp + ldmCluster], 1
 	adc word [bp + ldmCluster + 2], 0
+					; = expected next cluster if consecutive
 	cmp dx, word [bp + ldmCluster + 2]
 	jne .newclust
 	cmp ax, word [bp + ldmCluster]
-	jne .newclust
-	add cx, [bp + ldClusterSize]	; cx = how many at least consecutive
-	jmp .loop
+	jne .newclust			; mismatch, cluster not consecutive -->
+	add cx, [bp + ldClusterSize]	; cx = amount sectors at least consecutive
+	jmp .loop			; check now enough consecutive sectors -->
 
-.newclust:
+.newclust:	; the next needed cluster (dx:ax) is not consecutive
+		;  with the prior one. so read the remaining sectors
+		;  up to the end of the prior cluster, then set up
+		;  the loop to find consecutive sectors starting at
+		;  the non-consecutive new cluster.
 	add sp, 4			; discard ldmCluster
 	push dx
 	push ax				; push into ldmCluster
@@ -2059,7 +2067,7 @@ skipped_all_multi:
 	 push bx
 	call clust_to_first_sector	; dx:ax = first sector, cx = spc
 	 pop bx
-	jmp .loop_set_sector
+	jmp .loop_set_sector		; set ldmSector to new cluster's and loop
 
 .last:
 	mov cx, di			; how many sectors last chunk
@@ -2068,7 +2076,7 @@ skipped_all_multi:
 	pop ax
 	pop dx				; ldmSector
 	call multi_sector_read
-	call restore_dpt
+	call restore_dpt		; clobbers bx, ds
 	clropt [bp + ldHasLBA], ldhlfForceSingleSector
 					; reset single-sector flag
 	jmp loaded_all
@@ -2078,6 +2086,8 @@ skipped_all_multi:
 	jmp end_of_chain		; to error_badchain or error_shortfile
 
 
+		; INP:	word [cs:dpt_restore_ofs], word [cs:dpt_restore_seg]
+		; CHG:	bx, ds
 restore_dpt:
 %if _CHS
 	xor bx, bx
