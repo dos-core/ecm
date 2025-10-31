@@ -168,6 +168,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 		; (needed if to use partition scanner)
 
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
+		; (mustn't be enabled if multi-sector loader is included)
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
 	numdef DMA_BOUNDARY_CHECK_CODE,0; check for DMA boundary error code,
@@ -185,6 +186,8 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
  %error Too large stack size
 %endif
 	numdef CHECKSUM,	0	; include checksumming of kernel image
+		; (this is obsolete and shouldn't be used. will
+		;  fail if multi-sector loader is enabled.)
 %if _CHECKSUM
  %include "inicheck.mac"
 %endif
@@ -435,7 +438,7 @@ error:
 %if _MULTISECTOR
 .multi_patch:
 	test ax, restore_dpt - @F
-@@:
+@@:				; if CHS multi-sector loader used, reset DPT
 %endif
 	mov si, msg.error
 	call disp_error		; display "Load error: "
@@ -449,7 +452,7 @@ error:
 
 disp_error.loop:
 	mov ah, 0Eh
-	mov bx, 7
+	mov bx, 7		; bh = page 0
 	; push bp
 		; (call may change bp, but it is not used here any longer.)
 	int 10h
@@ -467,6 +470,8 @@ disp_error:
 		; OUT:	BPB CHS heads and sectors rewritten (if query success)
 		;	ldHasLBA set to 1 or 0 to use LBA or CHS accesses
 		; CHG:	ax, bx, cx, dx, es, di
+		; REM:	Currently doesn't observe _LBA or _CHS defines.
+		;	If _LBA_SKIP_CHECK, ldHasLBA is set to zero.
 query_geometry:
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 		; magic bytes start
@@ -560,6 +565,7 @@ query_geometry:
 	mov byte [bp + ldHasLBA], al
 %else
 	mov byte [bp + ldHasLBA], 0
+			; LBA skip check, write a zero here
 %endif
 
 %if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
@@ -570,14 +576,14 @@ query_geometry:
 		; Read a sector using Int13.02 or Int13.42
 		;
 		; INP:	dx:ax = sector number within partition
-		;	bx:0-> buffer
+		;	bx => buffer to read to
 		;	(_LBA) ds = ss
 		; OUT:	If unable to read,
 		;	 ! jumps to error instead of returning
 		;	If sector has been read,
+		;	 es = input bx => buffer just read to
 		;	 dx:ax = next sector number (has been incremented)
-		;	 bx:0-> next buffer (bx = es+word[para_per_sector])
-		;	 es = input bx
+		;	 bx => next buffer (bx = es + word[para_per_sector])
 		; CHG:	-
 		; STT:	ds = ss
 		;
@@ -592,16 +598,16 @@ query_geometry:
 		;	 its own eventually doing no additional harm.
 read_sector:
 	push dx
-	push cx
-	push ax
-	push si
+	push cx			; preserve cx
+	push ax			; preserve starting sector (in partition)
+	push si			; preserve si
 
 %if _ADDPROGRESS
 .patch_progress:
 	test ax, read_progress_single - @F
 @@:
 %endif
-	mov es, bx
+	mov es, bx		; es => buffer
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -633,7 +639,7 @@ read_sector:
 	push dx
 	push ax		; qword sector number (lpSector)
 	push bx
-	push cx		; bx:0 -> buffer (lpBuffer)
+	push cx		; bx => buffer (bx:0 = lpBuffer)
 	push cx		; word number of sectors to read (lpCount),
 			;  only need to init the high byte here (0)
 	mov cl, 10h
@@ -843,13 +849,14 @@ error_diskaccess: equ $
 %endif
 .done:
 ; increment segment
-	mov bx, es
+	mov bx, es			; restore bx => buffer
 	add bx, word [bp + ldParaPerSector]
+					; point bx => next buffer
 
 	pop si
 	pop ax
 	pop cx
-	pop dx
+	pop dx				; restore sector number input
 .increment_sector_number:
 ; increment LBA sector number
 	inc ax
@@ -1068,7 +1075,7 @@ relocate_to:
 	rep movsw	; relocate last chunk (possibly zero length)
 
 	push ss
-	pop ds
+	pop ds		; reset ds = ss
 
 		; ds = ss
 		; cs = low enough to complete load
@@ -1079,18 +1086,20 @@ relocate_to:
 finish_load:
 	pop ax
 	mov bx, cs
-	add ax, bx
-
+	add ax, bx	; => behind space for last needed payload data
 	mov word [bp + ldLoadUntilSeg], ax
-		; ldLoadUntilSeg => after last to-be-loaded paragraph
+			; ldLoadUntilSeg => after last to-be-loaded paragraph
 
 	cmp word [bp + lsvLoadSeg], ax
-	jae short loaded_all_if_ae	; (for FreeDOS entrypoint) already loaded -->
+	jae short loaded_all_if_ae
+			; (for FreeDOS entrypoint) already loaded -->
 
 	mov word [bp + ldLoadingSeg], cs
+			; begin => at start of iniload
 
 	mov ax, [bp + lsvFirstCluster]
 	mov dx, [bp + lsvFirstCluster + 2]
+			; dx:ax = first cluster passed to us
 	call check_clust
 	jnc short error_badchain_j
 
@@ -1111,34 +1120,36 @@ skip_next_clust:
 	push dx
 	push ax
 	call clust_to_first_sector
+				; dx:ax = first data sector (in partition),
+				;  bx = ldLoadingSeg => next buffer space
 skip_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.2stack
+	jae loaded_all.2stack	; already loaded enough ?
 
 	add bx, [bp + ldParaPerSector]
-				; bx += paras per sector
+				; bx += paras per sector, => behind next buffer
 	cmp bx, [bp + lsvLoadSeg]
-	ja skipped_all
-				; emulate read_sector:
+	ja skipped_all		; if above loadseg, do read a sector -->
+				; otherwise, emulate read_sector:
 	call read_sector.increment_sector_number
 				; dx:ax += 1
 loadorskip_next_sector:
-	loop skip_next_sect
+	loop skip_next_sect	; count down, handle next sector in cluster -->
 	pop ax
 	pop dx
-	call clust_next
-	jc skip_next_clust
+	call clust_next		; walk cluster chain
+	jc skip_next_clust	; handle next cluster -->
 end_of_chain:
 	inc ax
 	inc ax
 	test al, 8	; set in 0FFF_FFF8h--0FFF_FFFFh,
 			;  clear in 0, 1, and 0FFF_FFF7h
-	jz short error_badchain_j
+	jz short error_badchain_j	; this error
 	mov bx, [bp + ldLoadingSeg]
-	cmp bx, [bp + ldLoadUntilSeg]
+	cmp bx, [bp + ldLoadUntilSeg]	; (always bx below ldLoadUntilSeg ?)
 loaded_all_if_ae:
-	jae loaded_all
-	jmp error_shortfile
+	jae loaded_all			; if enough data loaded -->
+	jmp error_shortfile		; that error instead
 
 
 skipped_all:
@@ -1147,7 +1158,7 @@ skipped_all:
 %if _MULTISECTOR
 .multipatch:
 	test ax, skipped_all_multi - @F
-@@:
+@@:				; enter multi-sector loader if enabled yet -->
 .single_sector:
 %endif
 		; this is now the only callsite of read_sector
@@ -1172,7 +1183,7 @@ error_badchain_j:
 relocator:
 	pop es		; => where to relocate to
 	rep movsw
-	retf		; jump to relocated relocate_to
+	retf		; branch to relocated relocate_to
 .end:
 
 
@@ -1210,7 +1221,7 @@ relocator_size equ relocator.end - relocator
 	shl cx, 1
 	shl cx, 1	; how much to relocate first,
 			;  << 3 == convert paragraphs to words
-	retf		; jump to relocator
+	retf		; branch to relocator, which branches to relocate_to
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
@@ -1243,6 +1254,7 @@ clust_to_first_sector:
 
 
 		; INP:	dx:ax = cluster (0-based)
+		;	bx => file data buffer, stored to ldLoadingSeg
 		; OUT:	NC if no next cluster
 		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
@@ -1250,13 +1262,14 @@ clust_to_first_sector:
 clust_next:
 	mov [bp + ldLoadingSeg], bx
 	add ax, 2
-	adc dx, 0
+	adc dx, 0		; return it to a 2-based cluster number
+				;  (there are FAT entries for cluster 0, 1)
 
 	mov es, [bp + lsvFATSeg]
 	cmp byte [bp + ldFATType], 16
-	je .fat16
-	ja .fat32
-
+	je .fat16		; == 16
+	ja .fat32		; > 16, must be 32
+				; < 16, must be 12
 .fat12:
 ; FAT12 entries are 12 bits, bytes are 8 bits. Ratio is 3 / 2,
 ;  so multiply cluster number by 3 first, then divide by 2.
@@ -1275,8 +1288,8 @@ clust_next:
 		es lodsw		; ax = word [es:si], clobber si
 
 		mov cl, 4
-		jc @F
-		shl ax, cl	; shift up
+		jc @F		; if to use high 12 bits, skip shl -->
+		shl ax, cl	; shift up (zeroes high 4 bits after next shr)
 @@:
 		shr ax, cl	; shift down
 	jmp short .gotvalue_zero_dx
@@ -1303,14 +1316,15 @@ clust_next:
 	cmp dx, word [bp + lsvFATSector + 2]
 	jne @F		; read sector
 	cmp ax, word [bp + lsvFATSector]
-	je @FF		; sector is already buffered
+	je @FF		; sector is already buffered -->
 @@:
 	mov word [bp + lsvFATSector + 2], dx
 	mov word [bp + lsvFATSector + 0], ax
+			; remember the sector that we're loading
 
 	add ax, [bp + bsBPB + bpbReservedSectors]
-	adc dx, 0
-	mov bx, es
+	adc dx, 0	; = sector number within partition
+	mov bx, es	; bx => FAT buffer
 	call read_sector
 @@:
 	es lodsw
@@ -1328,16 +1342,16 @@ clust_next:
 		; OUT:	dx:ax -= 2 (makes it 0-based)
 		;	NC iff invalid cluster
 check_clust:
-	and dh, 0Fh
+	and dh, 0Fh		; isolate low 28 bits (FAT32 uses 28 bits)
 	sub ax, 2
-	sbb dx, 0
+	sbb dx, 0		; make 0-based
 
 	cmp byte [bp + ldFATType], 16
 	ja .fat32
 	je .fat16
 
 .fat12:
-	cmp ax, 0FF7h - 2
+	cmp ax, 0FF7h - 2	; CY if valid
 	; jmp short .common
 	retn
 
@@ -1437,20 +1451,21 @@ ldos_entry:
 .ms7_common:
 	mov ax, cs
 	mov cx, word [bp + lsvLoadSeg]
-	sub cx, ax
-	jb error_notfullyloaded
+	sub cx, ax		; = amount paragraphs loaded yet
+	jb error_notfullyloaded	; lsvLoadSeg must not be < cs -->
 	cmp cx, (end -$$+0) >> 4
-	jae @F
+	jae @F			; enough loaded -->
 error_notfullyloaded:
 	call error
 	db "Initial loader not fully loaded."
 @@:
 
 	mov bx, (payload.actual_end -$$+0 +15) >> 4
-	cmp cx, bx
-	jbe @F
-	add bx, ax
+	cmp cx, bx		; lsvLoadSeg *too high* ?
+	jbe @F			; no -->
+	add bx, ax		; calculate segment to clamp lsvLoadSeg to
 	mov word [bp + lsvLoadSeg], bx
+				; store clamped segment
 @@:
 
 init_memory:
@@ -1523,6 +1538,11 @@ init_memory:
 	dec dx		; leave space for stack + BPB buffer MCB
 	cmp dx, word [bp + lsvLoadSeg]
 	jnb @F
+		; this check passes if we have the 20 KiB LMA top reservation
+		;  suggested for the lDOS load protocol. for IBM-DOS,
+		;  MS-DOS v6, and MS-DOS v7 load lsvLoadSeg is <= 0F0h.
+		;  for FreeDOS and EDR-DOS load, lsvLoadSeg is clamped and
+		;  we hope that the top 20 KiB are free.
 .error_outofmemory:
 	jmp error_outofmemory
 @@:
@@ -1541,6 +1561,11 @@ init_memory:
 	add si, ax
 	cmp si, dx
 	ja .error_outofmemory
+		; this check passes for lDOS (top reservation), IBM-DOS,
+		;  MS-DOS v6, and MS-DOS v7 (stack expected at 07C00h),
+		;  and is likely to pass for FreeDOS and EDR-DOS (stack is
+		;  typically at 1FE0h:7C00h, lDebug loader adheres to the
+		;  top reservation even for FreeDOS load with auto BPB).
 
 		; note that the next conditional doesn't jump for lsvFATSeg = 0
 	mov cx, word [bp + lsvFATSeg]
@@ -1667,10 +1692,11 @@ init_memory:
 %if _LSVEXTRA || _MULTISECTOR || _ADDPROGRESS
 	mov cx, cs
 	mov ax, word [bp + lsvLoadSeg]
-	sub ax, cx
+	sub ax, cx	; = amount paragraphs already resident
 %endif
 %if _MULTISECTOR || _ADDPROGRESS
 	cmp ax, (end2 + 15 - $$ + 0) >> 4
+			; have end2 (possibly end3 too) ?
 	jae init_memory_multi
 multi_continue_1:
 %endif
@@ -1680,6 +1706,7 @@ multi_continue_1:
 	jz @F
 
 	cmp ax, (end_of_handle_lsv_extra_flags + 15 -$$+0) >> 4
+			; have expanded loader ?
 	jb error_notfullyloaded
 
 	call handle_lsv_extra_flags
@@ -1691,7 +1718,7 @@ multi_continue_1:
 	mov al, [bp + bsBPB + bpbSectorsPerCluster]
 	dec ax
 	mov ah, 0
-	inc ax
+	inc ax		; decode byte 00h to word 0100h, otherwise zero-extend
 	mov [bp + ldClusterSize], ax
 
 ; 16-byte paragraphs per sector
@@ -1721,7 +1748,8 @@ multi_continue_1:
 	pop cx			; => original lsvFATSeg
 	cmp word [bp + bsBPB + bpbSectorsPerFAT], 0
 	mov byte [bp + ldFATType], 32
-	je .got_fat_type
+				; prepare for FAT32
+	je .got_fat_type	; is FAT32 -->
 
 	; dx:ax = total amount of sectors
 	sub ax, word [bp + lsvDataStart]
@@ -1744,13 +1772,13 @@ multi_continue_1:
 @@:
 	cmp ax, 0FFF7h - 2
 	ja .badclusters
-	shr byte [bp + ldFATType], 1	; = 16
-	cmp ax, 0FF7h - 2
-	ja .got_fat_type
+	shr byte [bp + ldFATType], 1	; = 16, prepare for FAT16
+	cmp ax, 0FF7h - 2		; is it FAT16 ?
+	ja .got_fat_type		; yes -->
 
-	mov byte [bp + ldFATType], 12
-	test cx, cx
-	jnz .got_fat12
+	mov byte [bp + ldFATType], 12	; it is FAT12
+	test cx, cx			; lsvFATSeg was nonzero ?
+	jnz .got_fat12			; yes, then the FAT is already loaded -->
 
 ; lsvFATSeg was zero! This means the FAT isn't loaded yet.
 
@@ -1774,27 +1802,30 @@ multi_continue_1:
 		cwd			; dx = 0, prepare for dx:ax = FAT sector
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
-	jc @F
-	cmp word [bp + lsvLoadSeg], ax
-	jae .got_fat12_zero
+					; => behind end of needed payload space
+	jc @F				; if this overflows we'll relocate later,
+					;  in the meantime we need to load the FAT
+	cmp word [bp + lsvLoadSeg], ax	; already loaded all ?
+	jae .got_fat12_zero		; yes, skip loading the FAT -->
 @@:
 		mov di, 6 << 10		; maximum size of FAT12 to load
 		mov cx, [bp + bsBPB + bpbSectorsPerFAT]
 					; maximum size of this FS's FAT
 		mov ax, [bp + bsBPB + bpbReservedSectors]
 					; dx:ax = first FAT sector
-		mov bx, [bp + lsvFATSeg]
+		mov bx, [bp + lsvFATSeg]; bx => FAT buffer
 %if _MULTISECTOR
 multi_patch_2: equ $
 	test ax, load_fat12_multi - @F
-@@:
+@@:					; if early multi init done,
+					;  now go to FAT loader -->
 multi_continue_2: equ $
 %endif
 @@:
 		call read_sector	; read next FAT sector
 		sub di, [bp + bsBPB + bpbBytesPerSector]
 					; di = bytes still left to read
-		jbe @F			; if none -->
+		jbe @F			; if none (di borrowed or now == 0) -->
 					; (jbe means jump if CF || ZF)
 		loop @B			; if any FAT sector still remains -->
 @@:					; one of the limits reached; FAT read
@@ -1811,7 +1842,9 @@ multi_continue_3: equ $
 %assign num 1024+512-($-$$)
 %warning num bytes in front of end
 	_fill 1024+512,38,start
-end:
+end:	; IBM-DOS and MS-DOS v6 load only load up to here (1536 bytes).
+	;  lDOS load can also cope with loading only up to here, albeit
+	;  it will in fact generally load 4 KiB or more.
 
 %if _MULTISECTOR || _ADDPROGRESS
 check_end3_loaded:
@@ -1828,6 +1861,7 @@ skipped_all_continue:
 	call check_end3_loaded
 	jb loadorskip_next_sector
 			; not yet -->
+		; fall through to jmp multi_late
  %else
 skipped_all_continue: equ loadorskip_next_sector
  %endif
@@ -1837,6 +1871,10 @@ skipped_all_continue: equ loadorskip_next_sector
 %endif
 %assign num 32 - ($ - end)
 %warning num bytes in front of end+32
+	; With the theoretical minimum sector size of 32 bytes,
+	;  and at least 1536 (end) always loaded by the prior
+	;  stage, the first single-sector read_sector call has
+	;  loaded at least up to 1568 (end+32).
 
 %if _MULTISECTOR || _ADDPROGRESS
 		; if we fall through, end3 is fully loaded.
@@ -1893,12 +1931,13 @@ init_memory_multi:
 
 %if _LBA && _LBA_MULTI || _ADDPROGRESS
 	cmp ax, (end3 + 15 - $$ + 0) >> 4
-
+				; enough for LBA multi-loader or progress patch ?
 	push cs
 	pop ds
-	mov al, 0E9h		; jmp near
+	mov al, 0E9h		; (jmp near)
 
 	jae init_memory_multi_lba
+				; yes, try installing that -->
 .addprogressonly:
  %if _MULTISECTOR && _LBA
   %if !_LBA_SKIP_CHECK
@@ -1912,7 +1951,7 @@ init_memory_multi:
 %else
 	push cs
 	pop ds
-	mov al, 0E9h		; jmp near
+	mov al, 0E9h		; (jmp near)
 %endif
 %if _MULTISECTOR
 	mov byte [skipped_all.multipatch], al
