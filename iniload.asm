@@ -2102,7 +2102,7 @@ skipped_all_multi:
 	pop ax
 	pop dx
 	push dx
-	push ax				; get ldmCluster
+	push ax				; get ldmCluster (leave a copy on stack)
 	 push bx
 	call clust_to_first_sector	; dx:ax = first sector, cx = spc
 	 pop bx
@@ -2113,9 +2113,9 @@ skipped_all_multi:
 	pop ax
 	pop ax				; discard stack (ldmCluster)
 	pop ax
-	pop dx				; ldmSector
+	pop dx				; get ldmSector and clean stack
 	call multi_sector_read
-	call restore_dpt		; clobbers bx, ds
+	call restore_dpt		; clobbers bx, ds (unused by loaded_all)
 	clropt [bp + ldHasLBA], ldhlfForceSingleSector
 					; reset single-sector flag
 	jmp loaded_all
@@ -2130,14 +2130,14 @@ skipped_all_multi:
 restore_dpt:
 %if _CHS
 	xor bx, bx
-	mov ds, bx
+	mov ds, bx		; ds => IVT
 	mov bl, 1Eh * 4		; ds:bx -> int 1Eh vector
-	mov word [bx], 0
+	mov word [bx], 0	; write original int 1Eh offset
 dpt_restore_ofs equ $ - 2
-	mov word [bx + 2], 0
+	mov word [bx + 2], 0	; write original int 1Eh segment
 dpt_restore_seg equ $ - 2
 %endif
-@@:				; used by multi_sector_read
+@@:				; this retn is used by multi_sector_read
 	retn
 
 
@@ -2145,6 +2145,8 @@ dpt_restore_seg equ $ - 2
 		;	cx = how many sectors to load (zero allowed)
 		;	bx => segment to load to
 		; OUT:	bx => after last data loaded
+		;	(cx = 0, but this is not used)
+		;	(dx:ax = sector after end sector, not used)
 		; CHG:	es, si, dx, ax, cx
 		; REM:	This function may be called from load_fat12_multi
 		;	 and then from skipped_all_multi. In the latter
@@ -2225,6 +2227,12 @@ dist equ late_progress_init_j - @F
 
 .error:
 	jmp error_diskaccess
+		; we go here if repeated read calls even of a single
+		;  sector at a time all fail. if a multi-sector read
+		;  fails, it first sets the single-sector flag and
+		;  attempts to load the first sector on its own.
+		; 64 KiB boundary crossing never goes through here
+		;  as we detect that early and pass it to read_sector.
 
 
 .decrease64:
@@ -2295,7 +2303,7 @@ dist equ late_progress_init_j - @F
 @@:
 %endif
 
-	mov si, 4
+	mov si, 4			; 4 attempts (retry 3 times)
 .retry:
 	mov ah, 02h			; function = read CHS sectors
 	push ax
@@ -2365,6 +2373,7 @@ end2:
 %if _ADDPROGRESS
 late_progress_init:
 	mov byte [cs:multi_sector_read.patch_late_progress_init], __TEST_IMM8
+				; avoid entering this code again
 	mov byte [cs:read_sector.patch_progress], 0E8h
  %if _CHS
 	mov byte [cs:multi_sector_read.patch_progress], 0E8h
@@ -2509,7 +2518,8 @@ multi_sector_read_lba:
 	call read_progress_multi_lba
 %endif
 
-	mov cl, 4			; ! ch already = 0
+	mov cl, 4			; 4 attempts (retry 3 times)
+					; ! ch already = 0
 	db __TEST_IMM16			; skip int
 .lbaretry:
 	int 13h
@@ -2533,8 +2543,8 @@ multi_sector_read_lba:
 	jmp .lbaagain
 
 .lbagot:
-	xchg ax, di			; al = how many read
-	add sp, word [si + lpSize]
+	xchg ax, di			; al = how many read, <= 127
+	add sp, word [si + lpSize]	; discard LBA packet
 	pop di				; restore di
 	jmp multi_sector_read.got
 
