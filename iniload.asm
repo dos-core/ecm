@@ -357,7 +357,7 @@ ms6_entry:
 		; cs:ip = 70h:0
 		; ax:bx = first data sector of first cluster,
 		;	including hidden sectors
-		; 0:7C00h-> boot sector with BPB,
+		; 0:7C00h-> boot sector with (E)BPB,
 		;	    load unit field set, hidden sectors set
 		; (actually boot unit in dl; because the "MZ" signature
 		;  destroys dl we assume it's in the BPB too)
@@ -371,6 +371,20 @@ ms6_entry:
 		; Or:
 		;	ds:si = old int 1Eh address
 		; 0:500h-> directory entry for BIO file
+
+		; This entrypoint is also used by the FreeDOS / EDR-DOS entry.
+		; cs:ip = 60h:0 or 70h:0 (segment can be changed by SYS /L option)
+		; bl and/or dl = load unit (not used by us)
+		; ss:bp -> boot sector with (E)BPB,
+		;	    load unit field set, hidden sectors set
+		; ss:sp -> below boot sector, not overlapping file data
+		; Full file loaded.
+		; Detected by cs != 70h or ss:sp -> above full file data.
+
+		; This entrypoint is also used by the MS-DOS v1 entry.
+		; ip = 100h, cs = unknown
+		; cs:ip -> file data, might be clamped to a limit < 64 KiB
+		; Detected by ip != 0.
 	cli
 	push dx
 	inc bp		; undo signature instructions
@@ -379,8 +393,9 @@ d3	call d3_display_two_characters
 d3	test ax, "00"
 
 	mov cx, cs
-	cmp cx, 70h
-	je @F
+	cmp cx, 70h			; cx == 70h ?
+	je @F				; yes -->
+					; no, must be FreeDOS or .com entry
 .freedos_or_msdos1_com_entry:
 	jmp freedos_or_msdos1_com_entry
 @@:
@@ -473,6 +488,9 @@ disp_error:
 		; REM:	Currently doesn't observe _LBA or _CHS defines.
 		;	If _LBA_SKIP_CHECK, ldHasLBA is set to zero.
 query_geometry:
+%if ldhlfLBA != 1
+ %error Expecting LBA flag to equal 1
+%endif
 %if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
 		; magic bytes start
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
@@ -744,6 +762,27 @@ read_sector:
 			pop ax		; ax = high word of sector
 					; dx:ax = high word of sector
  %endif
+
+		; INP:	dx:ax:cx = 32-bit sector number (dx = 0)
+		;	bpbCHSSectors
+		;	bpbCHSHeads
+		;	bpbnBootUnit
+		; OUT:	! branches to error if CHS coordinates overflow
+		;	cx:dx = encoded CHS tuple,
+		;	 dl = load unit
+		;	 cl7:cl6:ch = cylinder number
+		;	 dh = head number
+		;	 cl5 to cl0 = sector number, 1-based
+		;	bx = 0
+		; CHG:	ax
+		; REM:	If byte [cs:.dx_ax_cx_lba_to_chs_patch_E8/_B8] is
+		;	 patched to 0C3h (retn) then this is a function
+		;	 that returns as described, if not erroring out.
+		;	If the byte is reset to 0E8h (call near imm) or
+		;	 0B8h (mov ax imm) then this code is ready to be
+		;	 used as part of the single-sector read_sector.
+		; REM:	Called by the multi-sector loader in CHS mode.
+		;	 The caller does and undoes the described patch.
 .dx_ax_cx_lba_to_chs:
 			div word [bp + bsBPB + bpbCHSSectors]
 			xchg cx,ax
@@ -826,6 +865,11 @@ error_diskaccess: equ $
 	pop es
 %endif
 
+		; INP:	es => destination segment buffer
+		;	bpbBytesPerSector
+		;	ldSectorSeg => sector segment holding the data read
+		; CHG:	si, cx
+		; STT:	ds = ss
 .sectorseg_helper_then_done:
 	xor si, si
 	mov ds, word [bp + ldSectorSeg]
@@ -871,9 +915,24 @@ error_diskaccess: equ $
 
 %if (_LBA && _LBA_RETRY) || (_CHS && _CHS_RETRY)
  %if _CHS && _CHS_RETRY
+		; INP:	cx:dx = encoded CHS tuple and unit
+		;	es:bx -> buffer to write
 .int13_retry_ah:
 	mov ah, 02h	; CHS read function
  %endif
+		; INP:	ah function number
+		;	ah = 02h for CHS read,
+		;	 cx:dx = encoded CHS tuple and unit
+		;	 es:bx -> buffer to write
+		;	 ds:si -> into unclaimed stack space
+		;	ah = 42h for LBA read,
+		;	 dl = unit
+		;	 ds:si -> LBA packet,
+		;	  initialised except for low byte of lpCount
+		; OUT:	NC if success (on first or second attempt),
+		;	 may clobber cx (if first attempt succeeds)
+		;	CY if error (on both attempts),
+		;	 ah = error code
 .int13_retry:
 	mov al, 01h	; counter for CHS read, lpCount value for LBA read
 	push ax		; {lpcountalloc}
@@ -911,6 +970,14 @@ error_diskaccess: equ $
 		;  {lpcountalloc}
 
 		; INP:	ah = function number
+		;	ah = 02h for CHS read,
+		;	 cx:dx = encoded CHS tuple and unit
+		;	 es:bx -> buffer to write
+		;	 ds:si -> into unclaimed stack space
+		;	ah = 42h for LBA read,
+		;	 dl = unit
+		;	 ds:si -> LBA packet,
+		;	  initialised except for low byte of lpCount
 		;	al = count of sectors (always 1)
 		; OUT:	NC if success
 		;	CY if error,
@@ -1026,8 +1093,10 @@ payload_actual_end_equate equ payload.actual_end -$$+0
 	add ax, bx	; ax = cs - paras to move down
 			; want to relocate cs to this
 	jnc short error_outofmemory_j1
-	cmp ax, 60h + 1
+			; underflow -->
+	cmp ax, 60h + 1	; have space for relocator paragraph at 60h:0 ?
 	jb short error_outofmemory_j1
+			; no -->
 
 	push ax
 	call finish_relocation
@@ -1042,7 +1111,10 @@ payload_actual_end_equate equ payload.actual_end -$$+0
 relocate_to:
 		; when branched here from relocator: cx = 0,
 		;  makes the following rep movsw a nop
-@@:		; when branched back here from later: cx = 8000h
+		;  if ax != 0 then relocator did a whole 64 KiB
+		;  so that si = di = 0.
+@@:		; when branched back here from later: cx = 8000h,
+		;  si = di = 0.
 	rep movsw	; subsequent but not last relocation
 
 	mov dx, es
@@ -1124,7 +1196,7 @@ skip_next_clust:
 				;  bx = ldLoadingSeg => next buffer space
 skip_next_sect:
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.2stack	; already loaded enough ?
+	jae loaded_all.2stack	; already loaded enough ? then done -->
 
 	add bx, [bp + ldParaPerSector]
 				; bx += paras per sector, => behind next buffer
@@ -1179,7 +1251,10 @@ error_badchain_j:
 
 		; ds => first chunk of to be relocated data
 		; word [ss:sp] => first chunk of relocation destination
-		; cx = number of words in first chunk
+		; si = di = 0
+		; relocation destination is always below source
+		; this relocator runs from a paragraph below the destination
+		; cx = number of words in first chunk, 300h <= cx <= 1000h
 relocator:
 	pop es		; => where to relocate to
 	rep movsw
@@ -1250,6 +1325,7 @@ clust_to_first_sector:
 	jc short .cy_error_badchain
 				; dx:ax = first sector in cluster
 	mov bx, [bp + ldLoadingSeg]
+				; bx => loading segment
 	retn
 
 
@@ -1297,11 +1373,11 @@ clust_next:
 .fat32:
 		; * 4 = byte offset into FAT (0--4000_0000h)
 	add ax, ax
-	adc dx, dx
+	adc dx, dx		; double dx:ax
 .fat16:
 		; * 2 = byte offset into FAT (0--2_0000h)
 	add ax, ax
-	adc dx, dx
+	adc dx, dx		; double dx:ax
 
 	 push ax
 	xchg ax, dx
@@ -1374,18 +1450,23 @@ ms6_continue1:
 	mov word [es:di], si
 	mov word [es:di + 2], ds	; restore old int 1Eh address
 
+		; set up stack. insure to set ss then in the very next
+		;  instruction set sp. DI here.
 	mov ss, cx			; = 0
 	mov sp, 7C00h + lsvCommandLine
 
 	push word [es:500h + 20]
-	push word [es:500h + 26]
+	push word [es:500h + 26]	; get starting cluster
 	pop word [bp + lsvFirstCluster + 0]
 	pop word [bp + lsvFirstCluster + 2]
+					; store starting cluster in lsv
 
 	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
 	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
+					; get data start relative to partition
 	mov word [bp + lsvDataStart + 0], bx
 	mov word [bp + lsvDataStart + 2], ax
+					; store data start in lsv
 	jmp ms7_entry.ms6_common	; passing cx = 0
 
 
@@ -1509,7 +1590,7 @@ init_memory:
 	and bh, 0F0h	; 64 KiB chunk of last paragraph of higher buffer
 	cmp bh, dh	; in same chunk?
 	mov bx, ax
-	je .gotsectorseg	; yes, use higher buffer as sector buffer ->
+	je .gotsectorseg; yes, use higher buffer as sector buffer ->
 			; bx = use higher buffer as FAT buffer
 	inc bx		; => 8 KiB buffer (no 16-byte trailer)
 	sub ax, (8192 + 32) >> 4
@@ -1520,7 +1601,8 @@ init_memory:
 
 .gotsectorseg:
 			; ax = use higher buffer as sector buffer
-	sub bx, (8192 + 32) >> 4	; use lower buffer as FAT buffer
+	sub bx, (8192 + 32) >> 4
+			; use lower buffer as FAT buffer
 			; 32 = leave space for higher buffer MCB + header
 	mov dx, bx
 		; ax = sector seg
@@ -1548,17 +1630,18 @@ init_memory:
 @@:
 
 	push ax
-	mov si, ss
-	mov ax, bp
+	mov si, ss	; => incoming stack
+	mov ax, bp	; si:ax -> boot sector with BPB
 	mov cl, 3
-	add ax, 512 + 15
+	add ax, 512 + 15; ax -> past boot sector with BPB
 	jnc @F		; if no carry --> (NC)
 			; CY
 	mov ax, 0	; preserve CY ! do not use xor
+			; this ends up calculating the offset like 10000h
 @@:
 	rcr ax, 1	; bit 16 in is CF
-	shr ax, cl
-	add si, ax
+	shr ax, cl	; shift offset right by 4 places
+	add si, ax	; => above incoming stack with boot sector
 	cmp si, dx
 	ja .error_outofmemory
 		; this check passes for lDOS (top reservation), IBM-DOS,
@@ -1576,7 +1659,7 @@ init_memory:
 
 	inc dx		; => stack + BPB buffer
 	 push ss
-	 pop ds
+	 pop ds		; => incoming stack
 	mov es, dx
 	pop dx		; top of memory (=> start of RPL, EBDA, video memory)
 	push es		; top of memory below buffers
@@ -1625,13 +1708,15 @@ init_memory:
 	rep stosw	; initialise area behind sector (left so for FAT32)
 	pop ax
 	pop cx
+		; set up stack. insure to set ss then in the very next
+		;  instruction set sp. DI here.
 	mov ss, cx
 	mov sp, _STACKSIZE
 			; -> above end of stack space
 	mov bp, _STACKSIZE - LOADCMDLINE
 			; -> BPB, above end of lsv
 	dec cx		; => space for stack + BPB buffer MCB
-	sti
+	sti		; EI
 
 		; ax => sector buffer
 		; bx => FAT buffer
@@ -1657,8 +1742,8 @@ init_memory:
 	pop ds
 
 	mov bx, [bp + bsBPB + bpbSectorsPerFAT]
-	test bx, bx
-	jz .is_fat32
+	test bx, bx	; FAT32 ?
+	jz .is_fat32	; yes, skip expansion -->
 
 	; lea si, [bp + 510]			; -> last source word
 	mov si, _STACKSIZE - LOADCMDLINE + 510
@@ -1674,6 +1759,9 @@ init_memory:
 
 	mov word [bp + lsvFirstCluster + 2], cx
 	mov word [bp + lsvFATSector + 2], cx
+			; zero-extend sector and cluster
+			;  (on FAT12/FAT16, lDOS load and MS-DOS v7 load
+			;  may pass garbage in the high word)
 
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge], bx
 	mov word [bp + bsBPB + ebpbSectorsPerFATLarge + 2], cx
