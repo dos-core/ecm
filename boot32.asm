@@ -803,6 +803,7 @@ skip_bpb:
 	push ax			; push into word [VAR(entries_per_sector)]
 
 load_fsiboot:
+		; start magic bytes for loader
 	cmp ax, 1024 >> 5	; sector size is at least 1 KiB (large) ?
 	jae .loaded		; already loaded as part of the boot sector -->
 
@@ -821,6 +822,7 @@ load_fsiboot:
 @@:			; (ZR, NC if ax == 0)
 	jae error_fsiboot	; (jump if NC)
 				; dx:ax = FSINFO sector (dx = 0 from cwd)
+		; end magic bytes for loader
 	mov cx, 512
 	mov bx, ADR_FSIBOOT >> 4
 @@:
