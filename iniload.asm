@@ -1165,7 +1165,7 @@ relocate_to:
 		; word [ss:sp] = payload.actual_end in paras
 finish_load:
 %if _LOADERSUPPORT
-	mov al, [bp + lsvExtra]
+	mov al, [bp + lsvExtra.flags]
 	and al, lsvefPreserveLoader
 	or [bp + ldHasLBA], al
 			; pass through the flag for loader support
