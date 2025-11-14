@@ -157,10 +157,22 @@ imageident:
 .size:	dw paras(ALLOCATION)
 	times 3 dw 0
 
+entry_query:
+	dw query
+
 	times 32 - ($ - $$) db 0
 
 start:		; ip = 32
 	jmp relocatedown
+
+query:
+	cmp ax, 60h
+	je @F
+	call error
+	db "Unexpected query segment address."
+@@:
+	mov ax, 60h + paras(endallocation - $$)
+	retf
 
 main:
 
