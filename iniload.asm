@@ -90,9 +90,15 @@ lsvExtra:		; word
 
 ldhlfLBA:		equ 1
 ldhlfForceSingleSector:	equ 2
+ldhlfPreserveLoader	equ 4
 
 lsvefNoDataStart	equ 1
 lsvefPartitionNumber	equ 2
+lsvefPreserveLoader	equ 4
+
+%if lsvefPreserveLoader != ldhlfPreserveLoader
+ %error Unexpected flag values
+%endif
 
 	struc LOADCMDLINE, LOADDATA - lsvclBufferLength
 ldCommandLine:
@@ -166,6 +172,8 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef EDRDOS_AUTO,	1	; support EDR-DOS entry if large enough
 	numdef LSVEXTRA,	1	; use lsvExtra field
 		; (needed if to use partition scanner)
+	numdef LOADERSUPPORT,	0	; support loader extensions
+	excdef !_LSVEXTRA, LOADERSUPPORT
 
 	numdef LBA_SKIP_CHECK,	0	; don't use proper LBA extensions check
 		; (mustn't be enabled if multi-sector loader is included)
@@ -1156,6 +1164,12 @@ relocate_to:
 		; ldParaPerSector = initialised
 		; word [ss:sp] = payload.actual_end in paras
 finish_load:
+%if _LOADERSUPPORT
+	mov al, [bp + lsvExtra]
+	and al, lsvefPreserveLoader
+	or [bp + ldHasLBA], al
+			; pass through the flag for loader support
+%endif
 	pop ax
 	mov bx, cs
 	add ax, bx	; => behind space for last needed payload data
@@ -1492,6 +1506,7 @@ ms6_continue1:
  %error Invalid signature
 %endif
 ldos_entry:
+		; loader magic bytes start
 	cli
 	cld
 
@@ -1528,7 +1543,18 @@ ldos_entry:
 		; byte [ss:bp - 17] = flags for initialisation
 %endif
 	push ax			; push into lsvCommandLine if sp -> LSV
+		; loader magic bytes end
 
+		; loader enters here with:
+		; INP:	ss:sp -> lsvCommandLine or lower
+		;	ss:bp -> boot sector, above lsv
+		;	ax = 0 (not currently needed but for consistency)
+		;	word [lsvCommandLine] initialised
+		;	word [lsvExtra] initialised
+		;	ip = 409h
+		;	cs = typically 200h
+		;	lsv above lsvExtra as before
+		;	command line as before
 .ms7_common:
 	mov ax, cs
 	mov cx, word [bp + lsvLoadSeg]
@@ -1790,7 +1816,8 @@ multi_continue_1:
 %endif
 
 %if _LSVEXTRA
-	test byte [bp + lsvExtra.flags], -1
+	test byte [bp + lsvExtra.flags], \
+		lsvefNoDataStart | lsvefPartitionNumber
 	jz @F
 
 	cmp ax, (end_of_handle_lsv_extra_flags + 15 -$$+0) >> 4
@@ -2676,6 +2703,17 @@ read_progress_single:
  %warning LBA multi-sector loader is overflowing expected end3/4096
 %endif
 end3:
+%endif
+
+%if _LOADERSUPPORT
+	align 16, db 38
+ %if ($ - $$) > (4096 - 16)
+  %error LOADER support signature is overflowing 4096
+ %endif
+loadersupport:
+	db "LOAD","ERSU","PPOR","T00"	; signature and version
+	db 0				; flags, tbd
+	align 16, db 0
 %endif
 
 
