@@ -159,6 +159,10 @@ imageident:
 
 entry_query:
 	dw query
+entry_reloc:
+	dw reloc
+entry_debug:
+	dw debug
 
 	times 32 - ($ - $$) db 0
 
@@ -173,6 +177,18 @@ query:
 @@:
 	mov ax, 60h + paras(endallocation - $$)
 	retf
+
+reloc:
+	call unhook_and_place_at_600
+	mov ax, 60h
+	retf
+
+debug:
+	mov si, msg.debug
+	call disp_error
+	int 16h
+	int 19h
+
 
 main:
 
@@ -802,7 +818,7 @@ Contact your AMD representative for information on a BIOS update.
 	retn
 
 
-error:
+unhook_and_place_at_600:
 	push cs
 	pop ds
 	rol byte [intercepted], 1
@@ -830,10 +846,16 @@ error:
 	xor si, si
 	mov cx, words(endallocation - $$)
 	rep movsw
+	mov dx, cs
 	push es
 	call retfinstruction
+
+	mov cx, ss
+	cmp cx, dx
+	jne @F
 	mov ss, ax
 	nop
+@@:
 
 	mov ax, 40h
 	mov es, ax
@@ -861,6 +883,12 @@ error:
 	sti
 
 .notreserved:
+	retn
+
+
+error:
+	call unhook_and_place_at_600
+
 	mov si, msg.error
 	call disp_error		; display "Load error: "
 	pop si			; -> ASCII string terminated by dot
@@ -910,6 +938,7 @@ i19:
 	dd 0
 
 msg:
+.debug:	db "Hello world!",13,10,"."
 .error:	db "Loader error: ."
 .name:	fill 8, 32, db "LDDEBUGU"
 	fill 3, 32, db "COM"
