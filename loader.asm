@@ -15,6 +15,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %include "lmacros3.mac"
 %ixdefine d4 comment
 
+	numdef PADDING, 0
+
 	struc BS
 bsJump:	resb 3
 bsOEM:	resb 8
@@ -1015,6 +1017,14 @@ relocatedown:
 .done:
 	jmp main
 
+%if _PADDING
+ %if ($ - $$) > _PADDING
+  %warning No padding needed
+ %else
+	times _PADDING - ($ - $$) db 0
+ %endif
+%endif
+
 .relocate:
 	xor di, di
 	xor si, si
@@ -1047,3 +1057,7 @@ stack:
 .padding:
 	alignb 16
 endallocation:
+
+%if (endallocation - $$) > 65520
+ %error Too large
+%endif
