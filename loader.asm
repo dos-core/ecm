@@ -109,6 +109,33 @@ ldmCluster:	resd 1
 ldmSector:	resd 1
 	endstruc
 
+	struc LOADERIMAGEIDENT
+liiSignature:		resb 4		; "NLDR"
+liiVersion:		resb 2		; "00"
+liiChecksum:		resw 1		; word sum of first 8 words = 0
+liiAmountParagraphs:	resw 1
+liiReserved:		resw 3
+liiEntryQuerySize:	resw 1		; 0 if not supported
+		; INP:	cs => NLDR image ident
+		;	ip = this word field content
+		;	ax = 60h
+		; OUT:	ax => behind memory requested (should be >= 60h)
+		; CHG:	es, ds, di, si, bx, cx, dx
+		; STT:	far called, UP, EI
+liiEntryRelocate:	resw 1		; 0 if not supported
+		; INP:	cs => NLDR image ident
+		;	ip = this word field content
+		; OUT:	ax => relocated NLDR segment (usually 60h)
+		; CHG:	es, ds, di, si, bx, cx, dx
+		; STT:	far called, UP, EI
+liiEntryDebug:		resw 1		; 0 if not supported
+		; INP:	es = ds = cs = ss => relocated NLDR
+		;	ip = this word field content
+		;	sp = next word field content
+		; STT:	running as debuggee, UP, EI
+liiStackPointer:	resw 1
+	endstruc
+
 	struc LBAPACKET
 lpSize:		resw 1
 lpCount:	resw 1
@@ -154,17 +181,21 @@ ALLOCATION equ (fromkib(kib(endallocation - $$)))
 	bits 16
 	org 0
 imageident:
-	db "NLDR00"
-.check:	dw 0
-.size:	dw paras(ALLOCATION)
-	times 3 dw 0
 
-entry_query:
+	istruc LOADERIMAGEIDENT
+at liiSignature
+	db "NLDR00"
+at liiAmountParagraphs
+	dw paras(ALLOCATION)
+at liiEntryQuerySize
 	dw query
-entry_reloc:
+at liiEntryRelocate
 	dw reloc
-entry_debug:
+at liiEntryDebug
 	dw debug
+at liiStackPointer
+	dw 0
+	iend
 
 	times 32 - ($ - $$) db 0
 
@@ -350,7 +381,7 @@ init_imageident:
 	loop .loop
 
 	neg dx
-	mov word [imageident.check], dx	; set image ident checksum
+	mov word [imageident + liiChecksum], dx	; set image ident checksum
 
 
 relocatetop:
