@@ -125,6 +125,7 @@ liiEntryQuerySize:	resw 1		; 0 if not supported
 liiEntryRelocate:	resw 1		; 0 if not supported
 		; INP:	cs => NLDR image ident
 		;	ip = this word field content
+		;	ax = 60h
 		; OUT:	ax => relocated NLDR segment (usually 60h)
 		; CHG:	es, ds, di, si, bx, cx, dx
 		; STT:	far called, UP, EI
@@ -212,6 +213,11 @@ query:
 	retf
 
 reloc:
+	cmp ax, 60h
+	je @F
+	call error
+	db "Unexpected reloc segment address."
+@@:
 	call unhook_and_place_at_600
 	mov ax, 60h
 	retf
