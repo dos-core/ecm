@@ -338,7 +338,7 @@ start:
 	dw (_SECOND_PAYLOAD_EXE_MIN_CALC + 15) >> 4	; exeMaxAlloc
 %endif
 %if _SECOND_PAYLOAD_EXE_AUTO_STACK
-	dw ((second_payload.actual_end - second_payload) \
+	dw ((second_payload_actual_end_late - second_payload_late) \
 		+ _SECOND_PAYLOAD_EXE_MIN_CALC \
 		- _SECOND_PAYLOAD_EXE_AUTO_STACK + 15) >> 4	; exeInitSS
 	dw _SECOND_PAYLOAD_EXE_AUTO_STACK	; exeInitSP

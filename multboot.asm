@@ -32,7 +32,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 MULTIBOOT_CMDLINE_LENGTH equ lsvclBufferLength
 
 MULTIBOOT_BASE equ (1024+64)*1024	; one paragraph above the HMA
-MULTIBOOT_END equ MULTIBOOT_BASE + (payload.actual_end - $$ + 0)
+MULTIBOOT_END equ MULTIBOOT_BASE + (payload_actual_end_late)
 MULTIBOOT_BSS_END equ MULTIBOOT_END \
 		+ fromdwords(dwords(MULTIBOOT_CMDLINE_LENGTH))
 MULTIBOOT_TARGET_SEGMENT equ 200h
@@ -392,7 +392,7 @@ multiboot_1_2_common:
 		; relocate image to a good location, 2000h
 	mov esi, MULTIBOOT_BASE		; -> iniload image
 	mov edi, MULTIBOOT_TARGET
-	mov ecx, (payload.actual_end - $$ + 0 + 3) / 4
+	mov ecx, (payload_actual_end_late + 3) / 4
 	rep movsd
 
  %if _MULTIBOOT_PROGRESS
@@ -401,7 +401,7 @@ multiboot_1_2_common:
 	inc ebp
  %endif
 
-MULTIBOOT_ESI_AFTER equ MULTIBOOT_BASE + (payload.actual_end - $$ + 0 + 3) / 4 * 4
+MULTIBOOT_ESI_AFTER equ MULTIBOOT_BASE + (payload_actual_end_late + 3) / 4 * 4
 %if MULTIBOOT_ESI_AFTER != MULTIBOOT_END
 	mov esi, MULTIBOOT_END
 %endif
