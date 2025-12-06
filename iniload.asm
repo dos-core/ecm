@@ -249,12 +249,14 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
  %include _INILOAD_CFG
 %endif
 
+	strdef INILOAD_PAYLOAD_INCLUDE, ""
+
 
 	cpu 8086
 	org 0
 
 %if _EDRDOS_AUTO
-filesize equ end_of_file - $$
+filesize equ iniload_filesize_late
  %if filesize >= (32 * 1024)
   %assign _EDRDOS 1
  %else
@@ -296,7 +298,7 @@ start:
 		; For now hardcoded to carry a .COM-like executable.
 		; Note: With _IMAGE_EXE_AUTO_STACK, the
 		;	 stack segment will be behind the image.
-	dw (payload.end - $$ + 511) / 512	; exePages
+	dw (payload_end_late + 511) / 512	; exePages
 	dw 0		; exeRelocItems
 	dw (payload -$$+0) >> 4	; exeHeaderSize
 	dw (_IMAGE_EXE_MIN_CALC + 15) >> 4	; exeMinAlloc
@@ -326,9 +328,9 @@ start:
 		; For now hardcoded to carry a .COM-like executable.
 		; Note: With _SECOND_PAYLOAD_EXE_AUTO_STACK, the
 		;	 stack segment will be behind the image.
-	dw (second_payload.end - $$ + 511) / 512	; exePages
+	dw (second_payload_end_late + 511) / 512	; exePages
 	dw 0		; exeRelocItems
-	dw (second_payload -$$+0) >> 4	; exeHeaderSize
+	dw (second_payload_late +0) >> 4	; exeHeaderSize
 	dw (_SECOND_PAYLOAD_EXE_MIN_CALC + 15) >> 4	; exeMinAlloc
 %if _SECOND_PAYLOAD_EXE_MAX
 	dw _SECOND_PAYLOAD_EXE_MAX	; exeMaxAlloc
@@ -414,7 +416,7 @@ d3	test ax, "00"
 	shr di, cl			; to paragraphs, rounding down
 	mov cx, ss			; => ss
 	add di, cx			; ss:sp converted to paragraphs
-	cmp di, 70h + paras(end_of_file - $$)
+	cmp di, 70h + paras(iniload_filesize_late)
 	jae .freedos_or_msdos1_com_entry; doesn't overlap file data -->
 %endif
 
@@ -1069,20 +1071,20 @@ msg:
 
 finish_continue:
 	mov word [bp + lsvFATSeg], cx
-	mov ax, (payload.actual_end -$$+0 +15) >> 4
+	mov ax, (payload_actual_end_late +15) >> 4
 	push ax
 		; on stack: payload.actual_end in paragraphs
 	mov bx, [bp + ldParaPerSector]
 	dec bx		; para per sector - 1
 	add ax, bx	; round up
 		; assumed to not overflow, (payload.actual_end + 8192) < 10_0000h
-payload_actual_end_equate equ payload.actual_end -$$+0
+payload_actual_end_equate equ payload_actual_end_late
 %ifn (payload_actual_end_equate + 15 + 8192) < 10_0000h
  %error Overflow possible
 %endif
 	not bx		; ~ (para per sector - 1)
 	and ax, bx	; rounded up,
-		; (((payload.actual_end -$$+0 +15) >> 4) + pps - 1) & ~ (pps - 1)
+		; (((payload_actual_end_late +15) >> 4) + pps - 1) & ~ (pps - 1)
 	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	jc @F		; overflow ? then we're near top of memory -->
@@ -1567,7 +1569,7 @@ error_notfullyloaded:
 	db "Initial loader not fully loaded."
 @@:
 
-	mov bx, (payload.actual_end -$$+0 +15) >> 4
+	mov bx, (payload_actual_end_late +15) >> 4
 	cmp cx, bx		; lsvLoadSeg *too high* ?
 	jbe @F			; no -->
 	add bx, ax		; calculate segment to clamp lsvLoadSeg to
@@ -1916,7 +1918,7 @@ multi_continue_1:
 			;  so this cwd always zeros dx.
 		cwd			; dx = 0, prepare for dx:ax = FAT sector
 	mov ax, cs
-	add ax, (payload.actual_end -$$+0 +15) >> 4
+	add ax, (payload_actual_end_late +15) >> 4
 					; => behind end of needed payload space
 	jc @F				; if this overflows we'll relocate later,
 					;  in the meantime we need to load the FAT
@@ -2896,7 +2898,7 @@ d3	test ax, "F0"
 %endif
 .multiboot_entry:
 	mov ax, cs
-	add ax, (payload.actual_end -$$+0 +15) >> 4
+	add ax, (payload_actual_end_late +15) >> 4
 				; Multiboot1/2 and FreeDOS have whole image
 	xor cx, cx		; cx = 0
 	jmp ms7_entry.continue2
@@ -3450,7 +3452,7 @@ end_of_handle_lsv_extra_flags:
 
 
 %if _CHECKSUM
-CHECKSUM_SIZE_P equ (payload.actual_end - $$ + 0) / 16
+CHECKSUM_SIZE_P equ (payload_actual_end_late) / 16
 
 	overridedef STANDALONE, 0
  %include "inicheck.asm"
@@ -3534,6 +3536,13 @@ msdos1_com_entry:
 
 	align 16, db 38
 payload:
+
+%assign num payload - $$
+%warning num bytes before iniload payload
+
+%ifnidn _INILOAD_PAYLOAD_INCLUDE, ""
+ %include _INILOAD_PAYLOAD_INCLUDE
+%else
 	incbin _PAYLOAD_FILE
 	align 16, db 38
 .actual_end:
@@ -3549,9 +3558,8 @@ payload:
 		; Thus alignment to the file-level page boundary is correct.
 %endif
 .end:
-
-%assign num payload - $$
-%warning num bytes before iniload payload
+payload_actual_end_late equ payload.actual_end - $$
+payload_end_late equ payload.end - $$
 
 
 %if _SECOND_PAYLOAD_EXE
@@ -3567,6 +3575,10 @@ second_payload:
 %endif
 	_fill 512, 38, .trail
 .end:
+second_payload_late equ second_payload - $$
+second_payload_actual_end_late equ second_payload.actual_end - $$
+second_payload_end_late equ second_payload.end - $$
+
 %endif
 
 %if ($ - start) < 4096
@@ -3582,8 +3594,11 @@ second_payload:
 %endif
 
 end_of_file:
+iniload_filesize_late equ end_of_file - $$
 %if _EDRDOS
- %if (70h + paras(end_of_file - $$)) < 800h
+ %if (70h + paras(iniload_filesize_late)) < 800h
   %error Too small payload to detect EDR-DOS entrypoint
  %endif
 %endif
+
+%endif	; _INILOAD_PAYLOAD_INCLUDE
