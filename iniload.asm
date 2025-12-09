@@ -3534,15 +3534,15 @@ msdos1_com_entry:
 	ascic "86-DOS version 1 not supported, aborting.",13,10
 
 
+%ifnidn _INILOAD_PAYLOAD_INCLUDE, ""
+ %include _INILOAD_PAYLOAD_INCLUDE
+%else
 	align 16, db 38
 payload:
 
 %assign num payload - $$
 %warning num bytes before iniload payload
 
-%ifnidn _INILOAD_PAYLOAD_INCLUDE, ""
- %include _INILOAD_PAYLOAD_INCLUDE
-%else
 	incbin _PAYLOAD_FILE
 	align 16, db 38
 .actual_end:
