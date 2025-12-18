@@ -2197,7 +2197,7 @@ skipped_all_multi:
 	 pop bx
 	 pop cx
 	jnc .eoc			; short file or bad cluster -->
-		; ! CY
+		; ! CY, si = 0
 	adc word [bp + ldmCluster], si
 	adc word [bp + ldmCluster + 2], si
 					; = expected next cluster if consecutive
