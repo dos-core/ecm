@@ -165,7 +165,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef LBA_CHECK_NO_33,	1	; else: check that LBA doesn't carry
 	numdef MULTISECTOR,	1	; stash multi-sector loader into end2
 	numdef LBA_MULTI,	1	; stash LBA multi-sector loader into end3
-	numdef ADDPROGRESS,	1	; patch to display progress dots in end3
+	numdef ADDPROGRESS,	0	; patch to display progress dots in end3
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
