@@ -1350,6 +1350,7 @@ clust_to_first_sector:
 		; OUT:	NC if no next cluster
 		;	CY if next cluster found
 		;	dx:ax = next cluster value (0-based)
+		;	si = 0
 		; CHG:	es, cx, bx, si
 clust_next:
 	mov [bp + ldLoadingSeg], bx
@@ -1432,11 +1433,13 @@ clust_next:
 
 		; INP:	dx:ax = cluster value, 2-based
 		; OUT:	dx:ax -= 2 (makes it 0-based)
+		;	si = 0
 		;	NC iff invalid cluster
 check_clust:
+	xor si, si
 	and dh, 0Fh		; isolate low 28 bits (FAT32 uses 28 bits)
 	sub ax, 2
-	sbb dx, 0		; make 0-based
+	sbb dx, si		; make 0-based
 
 	cmp byte [bp + ldFATType], 16
 	ja .fat32
@@ -2194,8 +2197,9 @@ skipped_all_multi:
 	 pop bx
 	 pop cx
 	jnc .eoc			; short file or bad cluster -->
-	add word [bp + ldmCluster], 1
-	adc word [bp + ldmCluster + 2], 0
+		; ! CY
+	adc word [bp + ldmCluster], si
+	adc word [bp + ldmCluster + 2], si
 					; = expected next cluster if consecutive
 	cmp dx, word [bp + ldmCluster + 2]
 	jne .newclust
