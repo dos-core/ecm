@@ -2213,7 +2213,8 @@ skipped_all_multi:
 		;  up to the end of the prior cluster, then set up
 		;  the loop to find consecutive sectors starting at
 		;  the non-consecutive new cluster.
-	add sp, 4			; discard ldmCluster
+	pop si
+	pop si				; discard ldmCluster
 	push dx
 	push ax				; push into ldmCluster
 	mov dx, word [bp + ldmSector + 2]
