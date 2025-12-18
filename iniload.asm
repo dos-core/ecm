@@ -2092,9 +2092,9 @@ init_memory_multi:
 	dec ax			; = 0E8h, call near
 	mov byte [error.multi_patch], al
 
-	xor ax, ax
-	mov es, ax		; => IVT
-	mov bx, 1Eh * 4		; es:bx -> int 1Eh in IVT
+	xor bx, bx
+	mov es, bx		; => IVT
+	mov bl, 1Eh * 4		; es:bx -> int 1Eh in IVT
 	lds si, [es:bx]		; -> DPT source
 	mov word [cs:dpt_restore_ofs], si
 	mov word [cs:dpt_restore_seg], ds
