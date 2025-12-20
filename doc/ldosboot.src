@@ -50,6 +50,8 @@ Common choices are 60h, 70h, and 200h.
 At least 1536 bytes of the file must be loaded.
 Current loaders will load at least 8192 bytes
 if the file is as large or larger than that.
+(If the instsect option \cw{/4 PREFIX} is used,
+only up to 4 KiB may be loaded.)
 The entrypoint is found by applying no segment adjustment (0)
 and choosing the offset 400h (1024).
 
@@ -69,11 +71,20 @@ The lDebug loader and the FAT32+FSIBOOT loader currently retain the 1536 bytes l
 The file may allow multi-use as a flat .COM format executable,
 flat .SYS format device driver, or MZ .EXE format executable
 and/or device driver.
-It is also valid to append arbitrary sized data such as a .ZIP archive.
+It is also valid to append arbitrary sized data,
+such as a .ZIP or .7Z archive,
+or an Extension for lDebug using the eldapend tool.
+However, to support entry as a FreeDOS or EDR-DOS kernel file
+using the original FreeDOS loaders,
+the entire file must be no larger than 128 KiB.
+To detect EDR-DOS entry the file must be at least 32 KiB in size.
+Loading as a device driver from config.sys may also check
+the entire file size on some DOS versions.
 
 The file needs to be placed in the root directory for the boot sector loaders.
 The lDebug loader allows to load a file
 from any subdirectory and this is also allowed.
+(This may interfere with attempts to find the load file though.)
 The file may be fragmented in any part.
 The file data may be located anywhere in the file system.
 The supported cluster sizes should be between 32 Bytes and 2 MiB, inclusive.
@@ -125,6 +136,14 @@ Currently the following signatures are defined:
 \dt \cq{lDTW}
 
 \dd lDOS test result writer kernel (testwrit.asm)
+
+\dt \cq{lDLd}
+
+\dd lDOS pre-boot loader
+
+\dt \cq{lDMC}
+
+\dd lDOS Master Control Program (contains lDOS kernel, lCDebugX, and loader)
 
 \dt \cq{lDXX}
 
@@ -201,7 +220,9 @@ This follows the structure like this:
 \c lsvCommandLine:
 \c .start:         resb lsvclBufferLength
 \c .signature:     resw 1
-\c lsvExtra:       resw 1
+\c lsvExtra:               ; word
+\c .partition:     resb 1  ; byte
+\c .flags:         resb 1  ; byte
 \c         endstruc
 
 \dt lsvCommandLine.start
@@ -235,6 +256,118 @@ which is always a power of two and always below-or-equal 100h.
 
 \b lDebug with protocol options \cw{cmdline=0 push_dpt=0}
 sets \cq{sp = bp - 10h}
+
+
+\S{protocol-sector-iniload-lsv-extra} LSV extension - Extra
+
+The lDOS iniload entry at 400h in the file contains
+the following 9 bytes of code:
+
+\c ldos_entry:
+\c         cli
+\c         cld
+\c         xor ax, ax
+\c         push ax         ; push into lsvExtra if sp -> LSV
+\c         mov word [bp + lsvExtra], ax
+\c         push ax         ; push into lsvCommandLine if sp -> LSV
+
+This assembles to:
+
+\c 400 FA
+\c 401 FC
+\c 402 31C0
+\c 404 50
+\c 405 8946EE
+\c 408 50
+
+The same structure as shown in \k{protocol-sector-iniload-lsv-cmdline}
+is expected by this code:
+
+\c lsvclSignature          equ "CL"
+\c lsvclBufferLength       equ 256
+\c
+\c         struc LSVCMDLINE, LOADSTACKVARS - lsvclBufferLength - 4
+\c lsvCommandLine:
+\c .start:         resb lsvclBufferLength
+\c .signature:     resw 1
+\c lsvExtra:               ; word
+\c .partition:     resb 1  ; byte
+\c .flags:         resb 1  ; byte
+\c         endstruc
+
+The currently known flags for the lsvExtra.flags byte:
+
+\c lsvefNoDataStart        equ 1
+\c lsvefPartitionNumber    equ 2
+\c lsvefPreserveLoader     equ 4
+
+By detecting the 9-byte entry code snippet,
+one is able to avoid the zeroing of lsvExtra.
+To do this,
+ss:sp should be made point at lsvCommandLine.signature or lower.
+The word lsvCommandLine.signature should be initialised appropriately.
+The ip should be set to 409h,
+ax to zero,
+and the Interrupt Flag and Direction Flag should be cleared.
+Entering the initial loader then will preserve lsvExtra.
+
+
+\S{protocol-sector-iniload-loadersupport} Loader support signature
+
+There may be a signature, aligned on a 16-byte boundary,
+that reads \cq{LOADERSUPPORT00}.
+After the 15 text bytes a flag byte follows,
+which currently must be all-zeroes.
+If this signature is present within the first 4096 bytes
+of the file, it indicates that:
+
+\b This initial loader loads an lDebug debugger.
+
+\b The initial loader LSV extra extension is supported.
+
+\b The debugger kernel mode entry supports the lsvefPreserveLoader flag.
+
+\b If the flag is set,
+the debugger will detect a hidden NLDR and
+call into it to preserve it and relocate it to the low position
+during the debugger's installation.
+
+
+Hidden means that the NLDR is installed atop the Low Memory Area,
+either at the position indicated by the int 12h memory size
+or behind an EBDA. The NLDR header is of the following format:
+
+\c         struc LOADERIMAGEIDENT
+\c liiSignature:           resb 4  ; "NLDR"
+\c liiVersion:             resb 2  ; "00"
+\c liiChecksum:            resw 1  ; word sum of first 8 words = 0
+\c liiAmountParagraphs:    resw 1
+\c liiReserved:            resw 3
+\c liiEntryQuerySize:      resw 1  ; 0 if not supported
+\c         ; INP:  cs => NLDR image ident
+\c         ;       ip = this word field content
+\c         ;       ax = 60h
+\c         ; OUT:  ax => behind memory requested (should be >= 60h)
+\c         ; CHG:  es, ds, di, si, bx, cx, dx
+\c         ; STT:  far called, UP, EI
+\c liiEntryRelocate:       resw 1          ; 0 if not supported
+\c         ; INP:  cs => NLDR image ident
+\c         ;       ip = this word field content
+\c         ;       ax = 60h
+\c         ; OUT:  ax => relocated NLDR segment (usually 60h)
+\c         ; CHG:  es, ds, di, si, bx, cx, dx
+\c         ; STT:  far called, UP, EI
+\c liiEntryDebug:          resw 1          ; 0 if not supported
+\c         ; INP:  es = ds = cs = ss => relocated NLDR
+\c         ;       ip = this word field content
+\c         ;       sp = next word field content
+\c         ; STT:  running as debuggee, UP, EI
+\c liiStackPointer:        resw 1
+\c         endstruc
+
+The pointers in this structure are used by the debugger
+during its initialisation
+if the lsvefPreserveLoader flag was set.
 
 
 \S{protocol-sector-iniload-memory} Memory map
@@ -283,6 +416,8 @@ It is found within
 \W{https://hg.pushbx.org/ecm/ldosboot/file/e0c17723f953/testpl.asm#l668}{the ldosboot repo}.
 This handling is based on the function of the same name
 \W{https://hg.pushbx.org/ecm/instsect/file/53e4327aacd6/instsect.asm#l2442}{in the instsect application}.
+(The lDOS MCP debugger wants to know the filename it was loaded from,
+in order to access its appended ELD library.)
 
 
 \S{protocol-sector-iniload-patch} Query patch support

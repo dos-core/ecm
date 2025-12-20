@@ -1531,6 +1531,8 @@ ms6_continue1:
 			;  (lD)Db = lDDebug
 			;  (lD)bC = lCDebug
 			;  (lD)OS = lDOS kernel (lMS-DOS since 2025 February)
+			;  Ld = lDOS pre-boot loader
+			;  MC = lDOS Master Control Program
 			;  XX = unset
 %if ($ - $$) != 1024
  %error Invalid signature
