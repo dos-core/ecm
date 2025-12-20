@@ -312,7 +312,7 @@ and the Interrupt Flag and Direction Flag should be cleared.
 Entering the initial loader then will preserve lsvExtra.
 
 
-\S{protocol-sector-iniload-loadersupport} Loader support signature
+\S{protocol-sector-iniload-loadersupport} Pre-boot loader support
 
 There may be a signature, aligned on a 16-byte boundary,
 that reads \cq{LOADERSUPPORT00}.
