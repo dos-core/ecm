@@ -304,7 +304,7 @@ The currently known flags for the lsvExtra.flags byte:
 By detecting the 9-byte entry code snippet,
 one is able to avoid the zeroing of lsvExtra.
 To do this,
-ss:sp should be made point at lsvCommandLine.signature or lower.
+ss:sp should be made to point at lsvCommandLine.signature or lower.
 The word lsvCommandLine.signature should be initialised appropriately.
 The ip should be set to 409h,
 ax to zero,
