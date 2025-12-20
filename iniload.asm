@@ -139,6 +139,7 @@ ptLinux:		equ 83h
 ptExtendedLinux:	equ 85h
 
 
+query_no_multi equ 8
 query_no_geometry equ 4
 query_no_chs equ 2
 query_no_lba equ 1
@@ -521,7 +522,8 @@ query_geometry:
  %endif
 
   %if _QUERY_PATCH
-	test al, 4		; don't query geometry ?
+	test al, query_no_geometry
+				; don't query geometry ?
 	jnz @F			; yes -->
   %endif
 
@@ -555,9 +557,18 @@ query_geometry:
 	pop dx			; restore unit number in dl
  %endif
  %if _QUERY_PATCH
-	shr al, 1		; CY if force CHS
+  %if _MULTISECTOR
+	push ax
+  %endif
+%if query_no_lba != 1
+ %error Unexpected flag layout
+%endif
+	shr al, 1		; CY if force CHS (no LBA)
 	jc @F			; if so -->
-	and al, 1		; force LBA ?
+%if query_no_chs != 2
+ %error Unexpected flag layout
+%endif
+	and al, 1		; force LBA ? (no CHS)
 	jnz .done_lba		; yes -->
  %endif
 	push ds
@@ -584,6 +595,15 @@ query_geometry:
 .no_lba:
 .done_lba:
 	mov byte [bp + ldHasLBA], al
+ %if _QUERY_PATCH
+  %if _MULTISECTOR
+	pop ax
+	test al, query_no_multi
+	jz @F
+	or byte [bp + ldHasLBA], ldhlfForceSingleSector
+@@:
+  %endif
+ %endif
 %else
 	mov byte [bp + ldHasLBA], 0
 			; LBA skip check, write a zero here

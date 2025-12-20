@@ -318,6 +318,8 @@ The following flag values are used:
 
 \b 04h Force use of BPB's CHS geometry, do not detect with 13.08
 
+\b 08h Force use of single-sector accesses to load kernel
+
 \b 40h Used by test result writer (testwrit).
 If this value is set for the load unit,
 then the test application will skip all query geometry
