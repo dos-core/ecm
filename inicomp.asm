@@ -63,6 +63,10 @@ ldLoadUntilSeg:	resw 1
 %endif
 	numdef TEST_PROGRESS,	0
 
+	numdef INCLUDE_UNCOMPRESSED
+	numdef INCLUDE_UNCOMPRESSED_IN_IMAGE, 1
+	numdef WRITE_WRONG_FILE
+
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
 	numdef IMAGE_EXE,	0
@@ -261,6 +265,37 @@ init0_exe_entry:
 	mov bx, 1		; EXE mode
 	push ax
   %if _TEST_PROGRAM
+%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+	push ds
+	mov ax, word [2Ch]	; => environment
+	test ax, ax
+	jnz @F
+.errorfile:
+	jmp init0_error_file
+@@:
+	mov ds, ax
+	mov cx, 8000h
+	xor si, si		; -> environment
+@@:
+	lodsb
+	test al, al
+	loopnz @B		; si -> past one NUL
+	jcxz .errorfile
+	cmp byte [si], 0	; -> another NUL ?
+	loopne @B		; no, skip next variable -->
+	jcxz .errorfile
+	inc si			; skip double NUL
+	lodsw			; load amount strings after environment
+	cmp ax, 1		; 1 ?
+	jne .errorfile		; no -->
+	mov dx, si		; ds:dx -> executable pathname
+	mov ax, 3D00h + 0_010_0_000b	; deny write, read only
+	int 21h			; open
+	jc .errorfile
+	pop ds			; restore => PSP
+	push ax			; push into ?handle
+%endif
+
 	mov si, 81h
 	xor dx, dx
 	xor ax, ax
@@ -322,7 +357,8 @@ cmdline:
 	jmp .
 
 .end:
-	push dx
+				; bx for ?whichtest
+	push dx			; for ?repetitions
   %endif
 	mov dx, ss		; => after end of available space
 	mov ax, cs
@@ -452,6 +488,26 @@ init0_common:
 @@:
 	mov ax, 4CFFh
 	int 21h
+
+%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+init0_error_file:
+	mov dx, init0_msg.error_stderr_file + 256
+	mov cx, init0_msg.error_stderr_file.length
+	push cs
+	pop ds
+	mov bx, 2
+	mov ah, 40h
+	int 21h
+
+	mov dx, init0_msg.error_stdout + 256
+	mov cx, init0_msg.error_stdout.length
+	mov bx, 1
+	mov ah, 40h
+	int 21h
+	mov ax, 4CFFh
+	int 21h
+%endif
+
 %endif
 
 
@@ -1995,6 +2051,10 @@ init1_end:
 	usesection INIT0
 %if _TEST_PROGRAM
 init0_msg:
+%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+.error_stderr_file:	db "Error: Unable to open own executable file.",13,10
+.error_stderr_file.length equ $ - .error_stderr_file
+%endif
 .error_stderr:	db "Error: Not enough memory allocated.",13,10
 .error_stderr.length: equ $ - .error_stderr
 .error_c_stdout:
@@ -2070,11 +2130,18 @@ init2_start:
 		; bx = 1 if A mode test,
 		;	8001h if B mode test,
 		;	4001h if C mode test
-	push bx
+	push bx			; push into ?whichtest
 
 	lframe 0
+%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+	lpar word,	handle
+%endif
 	lpar word,	repetitions
 	lpar word,	whichtest
+%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+	lequ 128,	buffersize
+	lvar ?buffersize,	buffer
+%endif
 	lenter
 
 	mov dx, word [bp + ?repetitions]
@@ -2140,11 +2207,12 @@ init2_start:
 	jmp init2_error
 
 @@:
-	numdef INCLUDE_UNCOMPRESSED
-	numdef WRITE_WRONG_FILE
 %if _INCLUDE_UNCOMPRESSED
+ %if _INCLUDE_UNCOMPRESSED_IN_IMAGE
 payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
-
+ %else
+payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
+ %endif
 	call checkdecompressed
 	je @F
 
@@ -2341,6 +2409,15 @@ payload_uncompressed_size equ payload_uncompressed.end - payload_uncompressed
 
 
 %if _WRITE_WRONG_FILE
+		; INP:	si => decompressed image
+		;	payload_uncompressed_size = size
+		;	! _INCLUDE_UNCOMPRESSED_IN_IMAGE:
+		;	 word [bp + ?handle] = file handle
+		;	 [bp + ?buffer] = ?buffersize buffer
+		; OUT:	WRONG.BIN contains what we decompressed
+		;	WRONG2.BIN contains expected payload
+		; CHG:	ds, si, ax, bx, cx, dx
+		; STT:	UP
 writefiles:
 	push cs
 	pop ds
@@ -2381,6 +2458,7 @@ writefiles:
 	int 21h
 	jc .notfile2
 
+%if _INCLUDE_UNCOMPRESSED_IN_IMAGE
 	mov bx, ax
 	mov cx, payload_uncompressed_size >> 4
 	mov si, cs
@@ -2403,12 +2481,86 @@ writefiles:
 
 	mov ah, 3Eh
 	int 21h
+%else
+	xchg si, ax
+
+	mov cx, ((- payload_uncompressed_size) >> 16) & 0FFFFh
+	mov dx, (- payload_uncompressed_size) & 0FFFFh
+	mov ax, 4202h
+	mov bx, [bp + ?handle]
+	int 21h
+	jc .closefile2
+
+	push ss
+	pop ds
+	lea dx, [bp + ?buffer]
+
+%if payload_uncompressed_size == 0
+ %error Empty payload not allowed
+%endif
+%if (payload_uncompressed_size / ?buffersize) != 0
+	mov cx, payload_uncompressed_size / ?buffersize
+%if ?buffersize == 0 || (?buffersize & 15) != 0
+ %error Unexpected layout
+%endif
+.loop:
+	push cx
+	mov cx, ?buffersize
+	call transferchunk
+	pop cx
+	jc .closefile2
+	loop .loop
+%endif
+%if (payload_uncompressed_size % ?buffersize) != 0
+	mov cx, payload_uncompressed_size % ?buffersize
+	call transferchunk
+%endif
+
+.closefile2:
+	mov bx, si
+	mov ah, 3Eh
+	int 21h
+%endif
 
 .notfile2:
 	retn
+
+%if ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+		; INP:	ds:dx -> buffer
+		;	cx = size to transfer, must fit in buffer
+		;	?handle = source file handle
+		;	si = destination file handle
+		; OUT:	NC if success
+		;	CY if error
+		; CHG:	ax, bx
+		; STT:	UP
+transferchunk:
+	mov bx, word [bp + ?handle]
+	mov ah, 3Fh
+	int 21h
+	jc .ret
+	cmp ax, cx
+	stc
+	jne .ret		; if partial read --> (CY)
+	mov bx, si
+	mov ah, 40h
+	int 21h
+	jc .ret
+	cmp ax, cx
+	je .ret			; if not partial write --> (NC)
+	stc
+.ret:
+	retn
 %endif
 
+%endif
+
+
 		; INP:	si => decompressed image
+		;	payload_uncompressed_size = size
+		;	! _INCLUDE_UNCOMPRESSED_IN_IMAGE:
+		;	 word [bp + ?handle] = file handle
+		;	 [bp + ?buffer] = ?buffersize buffer
 		; OUT:	ZR if matching
 		;	NZ if mismatching
 		; CHG:	es, ds, di, bx, cx
@@ -2417,6 +2569,7 @@ checkdecompressed:
 	push ax
 	push dx
 	push si
+%if _INCLUDE_UNCOMPRESSED_IN_IMAGE
 %if _PAYLOAD_KERNEL_MAX_PARAS
 	mov cx, _PAYLOAD_KERNEL_MAX_PARAS
 	mov bx, 0
@@ -2451,10 +2604,81 @@ checkdecompressed:
 	xor di, di		; (ZR)
 	mov cx, bx
 	repe cmpsb
+%else
+	mov cx, ((- payload_uncompressed_size) >> 16) & 0FFFFh
+	mov dx, (- payload_uncompressed_size) & 0FFFFh
+	mov ax, 4202h
+	mov bx, [bp + ?handle]
+	int 21h
+	jc .error
+%if payload_uncompressed_size == 0
+ %error Empty payload not allowed
+%endif
+%if (payload_uncompressed_size / ?buffersize) != 0
+	mov cx, payload_uncompressed_size / ?buffersize
+%if ?buffersize == 0 || (?buffersize & 15) != 0
+ %error Unexpected layout
+%endif
+.loop:
+	push cx
+	mov cx, ?buffersize
+	call comparechunk
+	pop cx
+	jne .ret
+	loop .loop
+%endif
+%if (payload_uncompressed_size % ?buffersize) != 0
+	mov cx, payload_uncompressed_size % ?buffersize
+	call comparechunk
+%endif
+%endif
 .ret:
 	pop si
 	pop dx
 	pop ax
+	retn
+
+%if ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+.error:
+	or al, 1			; NZ
+	jmp .ret
+%endif
+%endif
+
+
+%if ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+		; INP:	?buffer -> ?buffersize buffer
+		;	cx = amount of bytes, 0 < cx <= ?buffersize
+		;	si => chunk
+		;	?handle = handle
+		;	seek -> chunk
+		; OUT:	NZ if mismatch or error
+		;	ZR else,
+		;	 si => next chunk (assumes full chunk)
+		; CHG:	ds, es, di, ax, bx, cx, dx
+		; STT:	UP
+comparechunk:
+	push ss
+	pop ds
+	lea dx, [bp + ?buffer]
+	mov bx, [bp + ?handle]
+	mov ah, 3Fh
+	int 21h
+	jc .error
+	cmp ax, cx
+	jne .error
+	mov es, si
+	add si, ?buffersize / 16
+	push si
+	xor di, di
+	mov si, dx
+	repe cmpsb
+	pop si
+.ret:
+	retn
+
+.error:
+	or al, 1			; NZ
 	retn
 %endif
 
@@ -2778,8 +3002,8 @@ init2_movp:
 
 	align 16
 
+%if _INCLUDE_UNCOMPRESSED && _INCLUDE_UNCOMPRESSED_IN_IMAGE
 	strdef UNCOMPRESSED_FILE, "lDOSLOAD.BIN"
-%if _INCLUDE_UNCOMPRESSED
 payload_uncompressed:
 	incbin _UNCOMPRESSED_FILE
 .end:
