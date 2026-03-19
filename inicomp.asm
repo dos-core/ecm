@@ -2160,6 +2160,10 @@ init2_start:
 %endif
 	lenter
 
+%if _RELOAD_FILE && _RELOAD_XMS
+	or word [bp + ?xmshandle], -1
+%endif
+
 	mov dx, word [bp + ?repetitions]
 	cmp dx, -1
 	jne @F
@@ -2193,7 +2197,11 @@ init2_start:
 	mov ax, 4300h
 	int 2Fh
 	cmp al, 80h
+%if _RELOAD_FILE
+	jne .noxms
+%else
 	jne init2_error_xms
+%endif
 	mov ax, 4310h
 	int 2Fh
 	mov word [bp + ?xmsentry], bx
@@ -2202,7 +2210,11 @@ init2_start:
 	mov dx, KiB(payload_end - payload)
 	call far [bp + ?xmsentry]
 	cmp ax, 1
+%if _RELOAD_FILE
+	jne .noxms
+%else
 	jne init2_error_xms
+%endif
 	mov word [bp + ?xmshandle], dx
 	mov ax, cs
 	sub ax, ( (init1_end - init1_start) \
@@ -2213,12 +2225,23 @@ init2_start:
 	mov si, init2_xmsm_to_save
 	mov word [si + XMSM.dsthdl], dx
 	mov word [si + XMSM.srcadr + 2], ax
+%ifn _RELOAD_FILE
 	push ax
+%endif
 	mov ah, 0Bh
 	call far [bp + ?xmsentry]
 	cmp ax, 1
 	jne init2_error_xms_free
+%ifn _RELOAD_FILE
 	pop ax			; => payload
+%else
+.noxms:
+	mov ax, cs
+	sub ax, ( (init1_end - init1_start) \
+		+ (payload_end - payload) \
+		) >> 4		; => payload source for first run
+@@:
+%endif
 	pop si
 %elif _RELOAD_FILE
 	mov ax, cs
@@ -2366,11 +2389,15 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	pop dx
 
 %if _RELOAD_XMS
+	mov ax, [bp + ?xmshandle]
+ %if _RELOAD_FILE
+	cmp ax, -1
+	je .restore_no_xms
+ %endif
 	push si
 	 push cs
 	 pop ds
 	mov si, init2_xmsm_from_save
-	mov ax, [bp + ?xmshandle]
 	mov word [si + XMSM.srchdl], ax
 	mov word [si + XMSM.dstadr + 2], dx
 	mov ah, 0Bh
@@ -2378,7 +2405,12 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	cmp ax, 1
 	jne init2_error_xms_free
 	pop si
-%elif _RELOAD_FILE
+ %if _RELOAD_FILE
+	jmp .restore_done
+ %endif
+%endif
+%if _RELOAD_FILE
+.restore_no_xms:
 size_compressed equ (payload.end - payload)
 	push dx
 	mov ds, dx
@@ -2417,7 +2449,9 @@ size_compressed equ (payload.end - payload)
 	or cx, dx
 	jnz @BB
 	pop dx
-%else
+.restore_done:
+%endif
+%ifn _RELOAD_XMS || _RELOAD_FILE
 	mov ax, cs
 	add ax, (init2_end - init2_start) >> 4
 				; => payload in saving area
@@ -2601,7 +2635,7 @@ writefiles:
 %else
 	xchg si, ax
 
-%if _RELOAD_FILE && ! _RELOAD_XMS
+%if _RELOAD_FILE
 	mov cx, ((- size_compressed_plus_uncompressed) >> 16) & 0FFFFh
 	mov dx, (- size_compressed_plus_uncompressed) & 0FFFFh
 %else
@@ -2727,7 +2761,7 @@ checkdecompressed:
 	mov cx, bx
 	repe cmpsb
 %else
-%if _RELOAD_FILE && ! _RELOAD_XMS
+%if _RELOAD_FILE
 size_compressed_plus_uncompressed equ \
  payload_uncompressed_size + (payload.end - payload)
 	mov cx, ((- size_compressed_plus_uncompressed) >> 16) & 0FFFFh
@@ -2818,8 +2852,13 @@ freexms:
 	push dx
 	mov dx, -1
 	xchg dx, [bp + ?xmshandle]
+%if _RELOAD_FILE
+	cmp dx, -1
+	je @F
+%endif
 	mov ah, 0Ah
 	call far [bp + ?xmsentry]
+@@:
 	pop dx
 	pop bx
 	pop ax
@@ -2831,7 +2870,9 @@ init2_error_xms:
 	mov dx, init2_msg.xms_error
 	mov cx, init2_msg.xms_error.length
 	jmp init2_error
-%elif _RELOAD_FILE
+%endif
+
+%if _RELOAD_FILE
 init2_error_file:
 	mov dx, init2_msg.file_error
 	mov cx, init2_msg.file_error.length
@@ -3039,7 +3080,8 @@ init2_msg:
 %if _RELOAD_XMS
 .xms_error:	db "Error: XMS failure.",13,10
 .xms_error.length: equ $ - .xms_error
-%elif _RELOAD_FILE
+%endif
+%if _RELOAD_FILE
 .file_error:	db "Error: File read failure.",13,10
 .file_error.length: equ $ - .file_error
 %endif
