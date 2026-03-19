@@ -66,6 +66,7 @@ ldLoadUntilSeg:	resw 1
 	numdef INCLUDE_UNCOMPRESSED
 	numdef INCLUDE_UNCOMPRESSED_IN_IMAGE, 1
 	numdef WRITE_WRONG_FILE
+	numdef RELOAD_XMS, 0
 
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -173,6 +174,14 @@ ldLoadUntilSeg:	resw 1
   %error Device name must be set
  %endif
 %endif
+
+	struc XMSM
+.size_:		resd 1
+.srchdl:	resw 1
+.srcadr:	resd 1
+.dsthdl:	resw 1
+.dstadr:	resd 1
+	endstruc
 
 
 	cpu 8086
@@ -382,8 +391,10 @@ init0_common:
 		;	bx = mode
 	cld
 %if _TEST_PROGRAM
+ %ifn _RELOAD_XMS
 	sub dx, ( (payload_end - payload) ) >> 4
 	jc .error
+ %endif
 	mov cx, ( \
 		+ (init0b_end - init0b_start) \
 		+ (payload_end - payload) \
@@ -2138,6 +2149,10 @@ init2_start:
 %endif
 	lpar word,	repetitions
 	lpar word,	whichtest
+%if _RELOAD_XMS
+ 	lvar dword, xmsentry
+ 	lvar word, xmshandle
+%endif
 %if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
 	lequ 128,	buffersize
 	lvar ?buffersize,	buffer
@@ -2172,6 +2187,39 @@ init2_start:
 	jnz .cmdline_error
 @@:
 
+%if _RELOAD_XMS
+	push si
+	mov ax, 4300h
+	int 2Fh
+	cmp al, 80h
+	jne init2_error_xms
+	mov ax, 4310h
+	int 2Fh
+	mov word [bp + ?xmsentry], bx
+	mov word [bp + ?xmsentry + 2], es
+	mov ah, 09h
+	mov dx, KiB(payload_end - payload)
+	call far [bp + ?xmsentry]
+	cmp ax, 1
+	jne init2_error_xms
+	mov word [bp + ?xmshandle], dx
+	mov ax, cs
+	sub ax, ( (init1_end - init1_start) \
+		+ (payload_end - payload) \
+		) >> 4		; => payload source for first run
+	 push cs
+	 pop ds
+	mov si, init2_xmsm_to_save
+	mov word [si + XMSM.dsthdl], dx
+	mov word [si + XMSM.srcadr + 2], ax
+	push ax
+	mov ah, 0Bh
+	call far [bp + ?xmsentry]
+	cmp ax, 1
+	jne init2_error_xms_free
+	pop ax			; => payload
+	pop si
+%else
 	mov dx, cs
 	add dx, (init2_end - init2_start) >> 4
 				; => payload saving area
@@ -2181,6 +2229,7 @@ init2_start:
 		) >> 4		; => payload source for first run
 	mov cx, (payload_end - payload) >> 4
 	call init2_movp		; copy payload to payload saving area
+%endif
 		; We save away the payload here because a failure
 		;  to decompress generally overwrites part of that
 		;  payload which was used as source.
@@ -2204,7 +2253,7 @@ init2_start:
 
 	mov dx, init2_msg.initial_error
 	mov cx, init2_msg.initial_error.length
-	jmp init2_error
+	jmp init2_error_free
 
 @@:
 %if _INCLUDE_UNCOMPRESSED
@@ -2225,7 +2274,7 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 %endif
 	mov dx, init2_msg.initial_error_2
 	mov cx, init2_msg.initial_error_2.length
-	jmp init2_error
+	jmp init2_error_free
 
 @@:
 %endif
@@ -2242,6 +2291,9 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	call init2_disp_al
 	mov al, 10
 	call init2_disp_al
+%if _RELOAD_XMS
+	call freexms
+%endif
 	mov ax, 4C00h
 	int 21h
 
@@ -2283,6 +2335,9 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	mov ah, 40h
 	int 21h
 %endif
+%if _RELOAD_XMS
+	call freexms
+%endif
 	mov ax, 4C00h
 	int 21h
 
@@ -2304,12 +2359,26 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	mov [bp + ?current_init1], dx
 	pop dx
 
+%if _RELOAD_XMS
+	push si
+	 push cs
+	 pop ds
+	mov si, init2_xmsm_from_save
+	mov ax, [bp + ?xmshandle]
+	mov word [si + XMSM.srchdl], ax
+	mov word [si + XMSM.dstadr + 2], dx
+	mov ah, 0Bh
+	call far [bp + ?xmsentry]
+	cmp ax, 1
+	jne init2_error_xms_free
+	pop si
+%else
 	mov ax, cs
 	add ax, (init2_end - init2_start) >> 4
 				; => payload in saving area
 	mov cx, (payload_end - payload) >> 4
 	call init2_movp		; copy payload from payload saving area
-
+%endif
 		; dx => source
 	mov ax, [bp + ?current_init1]
 	mov bx, 1
@@ -2360,7 +2429,7 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 %endif
 	mov dx, init2_msg.subsequent_error_2
 	mov cx, init2_msg.subsequent_error_2.length
-	jmp init2_error
+	jmp init2_error_free
 
 @@:
 %endif
@@ -2392,6 +2461,9 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	call init2_disp_al
 	mov al, 10
 	call init2_disp_al
+%if _RELOAD_XMS
+	call freexms
+%endif
 	mov ax, 4C00h
 	int 21h
 
@@ -2682,7 +2754,33 @@ comparechunk:
 	retn
 %endif
 
+%if _RELOAD_XMS
+freexms:
+	push ax
+	push bx
+	push dx
+	mov dx, -1
+	xchg dx, [bp + ?xmshandle]
+	mov ah, 0Ah
+	call far [bp + ?xmsentry]
+	pop dx
+	pop bx
+	pop ax
+	retn
 
+init2_error_xms_free:
+	call freexms
+init2_error_xms:
+	mov dx, init2_msg.xms_error
+	mov cx, init2_msg.xms_error.length
+	jmp init2_error
+%endif
+
+
+init2_error_free:
+%if _RELOAD_XMS
+	call freexms
+%endif
 init2_error:
 %if _DEBUG0
 	push bx
@@ -2878,6 +2976,10 @@ init2_msg:
 %endif
 .cmdline_error:	db "Error: Invalid command line input.",13,10
 .cmdline_error.length: equ $ - .cmdline_error
+%if _RELOAD_XMS
+.xms_error:	db "Error: XMS failure.",13,10
+.xms_error.length: equ $ - .xms_error
+%endif
 
 .error_c_stdout:
 .error_stdout:	db "0"
@@ -2999,6 +3101,18 @@ init2_movp:
 	pop cx
 	retn
 
+
+	align 4
+%if _RELOAD_XMS
+init2_xmsm_from_save:
+	istruc XMSM
+at XMSM.size_,	dd payload_end - payload
+	iend
+init2_xmsm_to_save:
+	istruc XMSM
+at XMSM.size_,	dd payload_end - payload
+	iend
+%endif
 
 	align 16
 
