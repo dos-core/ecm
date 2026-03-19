@@ -67,6 +67,7 @@ ldLoadUntilSeg:	resw 1
 	numdef INCLUDE_UNCOMPRESSED_IN_IMAGE, 1
 	numdef WRITE_WRONG_FILE
 	numdef RELOAD_XMS, 0
+	numdef RELOAD_FILE, 0
 
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -274,7 +275,7 @@ init0_exe_entry:
 	mov bx, 1		; EXE mode
 	push ax
   %if _TEST_PROGRAM
-%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+%if (_INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE) || _RELOAD_FILE
 	push ds
 	mov ax, word [2Ch]	; => environment
 	test ax, ax
@@ -391,7 +392,7 @@ init0_common:
 		;	bx = mode
 	cld
 %if _TEST_PROGRAM
- %ifn _RELOAD_XMS
+ %ifn _RELOAD_XMS || _RELOAD_FILE
 	sub dx, ( (payload_end - payload) ) >> 4
 	jc .error
  %endif
@@ -500,7 +501,7 @@ init0_common:
 	mov ax, 4CFFh
 	int 21h
 
-%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+%if (_INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE) || _RELOAD_FILE
 init0_error_file:
 	mov dx, init0_msg.error_stderr_file + 256
 	mov cx, init0_msg.error_stderr_file.length
@@ -2062,7 +2063,7 @@ init1_end:
 	usesection INIT0
 %if _TEST_PROGRAM
 init0_msg:
-%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+%if (_INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE) || _RELOAD_FILE
 .error_stderr_file:	db "Error: Unable to open own executable file.",13,10
 .error_stderr_file.length equ $ - .error_stderr_file
 %endif
@@ -2144,7 +2145,7 @@ init2_start:
 	push bx			; push into ?whichtest
 
 	lframe 0
-%if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+%if (_INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE) || _RELOAD_FILE
 	lpar word,	handle
 %endif
 	lpar word,	repetitions
@@ -2219,6 +2220,11 @@ init2_start:
 	jne init2_error_xms_free
 	pop ax			; => payload
 	pop si
+%elif _RELOAD_FILE
+	mov ax, cs
+	sub ax, ( (init1_end - init1_start) \
+		+ (payload_end - payload) \
+		) >> 4		; => payload source for first run
 %else
 	mov dx, cs
 	add dx, (init2_end - init2_start) >> 4
@@ -2372,6 +2378,45 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	cmp ax, 1
 	jne init2_error_xms_free
 	pop si
+%elif _RELOAD_FILE
+size_compressed equ (payload.end - payload)
+	push dx
+	mov ds, dx
+	mov cx, ((- size_compressed) >> 16) & 0FFFFh
+	mov dx, (- size_compressed) & 0FFFFh
+	mov ax, 4202h
+	mov bx, [bp + ?handle]
+	int 21h
+	jc init2_error_file
+	mov dx, size_compressed >> 16
+	mov ax, size_compressed & 0FFFFh
+@@:
+	mov cx, 0FF00h
+	test dx, dx
+	jnz @F
+	cmp ax, cx
+	jae @F
+	mov cx, ax
+@@:
+	sub ax, cx
+	sbb dx, 0
+	push dx
+	push ax
+	xor dx, dx
+	mov ah, 3Fh
+	int 21h
+	jc init2_error_file
+	cmp ax, cx
+	jne init2_error_file
+	mov dx, ds
+	add dx, 0FF0h
+	mov ds, dx
+	pop ax
+	pop dx
+	mov cx, ax
+	or cx, dx
+	jnz @BB
+	pop dx
 %else
 	mov ax, cs
 	add ax, (init2_end - init2_start) >> 4
@@ -2556,8 +2601,13 @@ writefiles:
 %else
 	xchg si, ax
 
+%if _RELOAD_FILE && ! _RELOAD_XMS
+	mov cx, ((- size_compressed_plus_uncompressed) >> 16) & 0FFFFh
+	mov dx, (- size_compressed_plus_uncompressed) & 0FFFFh
+%else
 	mov cx, ((- payload_uncompressed_size) >> 16) & 0FFFFh
 	mov dx, (- payload_uncompressed_size) & 0FFFFh
+%endif
 	mov ax, 4202h
 	mov bx, [bp + ?handle]
 	int 21h
@@ -2677,8 +2727,15 @@ checkdecompressed:
 	mov cx, bx
 	repe cmpsb
 %else
+%if _RELOAD_FILE && ! _RELOAD_XMS
+size_compressed_plus_uncompressed equ \
+ payload_uncompressed_size + (payload.end - payload)
+	mov cx, ((- size_compressed_plus_uncompressed) >> 16) & 0FFFFh
+	mov dx, (- size_compressed_plus_uncompressed) & 0FFFFh
+%else
 	mov cx, ((- payload_uncompressed_size) >> 16) & 0FFFFh
 	mov dx, (- payload_uncompressed_size) & 0FFFFh
+%endif
 	mov ax, 4202h
 	mov bx, [bp + ?handle]
 	int 21h
@@ -2774,8 +2831,11 @@ init2_error_xms:
 	mov dx, init2_msg.xms_error
 	mov cx, init2_msg.xms_error.length
 	jmp init2_error
+%elif _RELOAD_FILE
+init2_error_file:
+	mov dx, init2_msg.file_error
+	mov cx, init2_msg.file_error.length
 %endif
-
 
 init2_error_free:
 %if _RELOAD_XMS
@@ -2979,6 +3039,9 @@ init2_msg:
 %if _RELOAD_XMS
 .xms_error:	db "Error: XMS failure.",13,10
 .xms_error.length: equ $ - .xms_error
+%elif _RELOAD_FILE
+.file_error:	db "Error: File read failure.",13,10
+.file_error.length: equ $ - .file_error
 %endif
 
 .error_c_stdout:
