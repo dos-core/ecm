@@ -192,7 +192,7 @@ Intended for Real/Virtual 86 Mode programs.
 %define %$newlabel %1
 __lvar_check_duplicate_label %$labellist
 %ifdef ?%1
- %xdefine %$labellist %1,defined,?%1,%$labellist
+ %xdefine %$labellist %1,defined,{?%1},%$labellist
 %else
  %xdefine %$labellist %1,undefined,,%$labellist
 %endif
