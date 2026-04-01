@@ -3236,100 +3236,30 @@ set_lba:
 	cmp word [load_use_lba], -1
 	je .done_msg		; done, no change -->
 
-	mov di, word [bx - 8]	; -> what we matched (eg LBA)
+	mov bx, word [bx - 8 + 6]	; SEARCHINDEX
 
-	cmp di, lba_search_strings_hdd
-	jb .nothddmatch
-
-	cmp byte [load_use_lba + 1], 1
-	je .done_msg
-
-	mov bx, word [bx - 8 + 6]
-	push bx
-	mov bx, word [bx + 2]
-	mov di, word [bx]	; -> the other code
-	add bx, 8
-	call .patchwildcards
-	pop bx
-	push bx
-	mov bx, word [bx + 4]
-	mov di, word [bx]	; -> the other code
-	add bx, 8
-	call .patchwildcards
-	pop bx
-	cmp byte [load_use_lba + 1], 0
-	jne .hddsetauto
-.hddsetnone:
-	mov bx, word [bx + 2]
-	mov di, word [bx]
-	mov dx, msg.using_none_lba
-	jmp .do_patch
-
-.hddsetauto:
-	mov bx, word [bx + 4]
-	mov di, word [bx]
-	mov dx, msg.using_auto_lba
-	jmp .do_patch
-
-.nothddmatch:
-	cmp byte [load_use_lba + 1], 1
-	jne .nothddreplace
-	sub bx, 8
-	mov di, label_hdd_special
-@@:
-	cmp word [di], 0
-	je .hddreplacenotfound
-	cmp word [di + 2], bx
-	je @F
-	cmp word [di + 4], bx
-	je @F
-	add di, 6
-	jmp @B
-
-@@:
-	mov bx, word [di]
-	mov di, word [bx]
-	add bx, 8
-	call .patchwildcards
+	mov di, ahddchoices
 	mov dx, msg.using_autohdd_lba
-	jmp .do_patch
-
+	cmp byte [load_use_lba + 1], 1
+	je @F
+	mov di, autochoices
+	mov dx, msg.using_auto_lba
+	ja @F
+	mov di, nonechoices
+	mov dx, msg.using_none_lba
+@@:				; di -> table, dx -> message
+	add bx, bx
+	mov bx, word [di + bx]
+	test bx, bx
+	jnz @F
 .hddreplacenotfound:
 	mov dx, msg.lba_autohdd_not_found
 	jmp disp_error
 
-
-.nothddreplace:
-	push di
-	mov bx, word [bx - 8 + 6]
-	mov di, word [bx]	; -> the other code
-	add bx, 8
-	call .patchwildcards	; patch other code in case we use it
-	mov ax, di		; ax -> the other code
-	pop bx
-	mov di, bx		; bx = di -> what we matched
-	push ax
-	mov ax, [load_use_lba]
-
-	test ah, ah
-	jnz @F			; if to set auto LBA -->
-
-	mov dx, msg.using_none_lba
-	pop ax
-	xchg ax, di		; di -> what we didn't match (eg CHS)
-	jmp @FF
-
 @@:
-	pop ax
-				; di -> what we matched (eg LBA)
-	mov dx, msg.using_auto_lba
-@@:
-
-	cmp bx, lba_search_strings_chs
-				; matched CHS ? (this checks what we matched)
-	jb @F			; no -->
-	xchg ax, di		; reverse (we matched CHS instead)
-@@:
+	mov di, word [bx]	; -> the code to use
+	add bx, 8		; -> wildcard list
+	call .patchwildcards	; patch code to use (re-do if keeping)
 
 .do_patch:
 	xchg si, di

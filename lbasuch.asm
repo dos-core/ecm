@@ -15,12 +15,16 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %unmacro searchflag 3
 %unmacro search_wildcard 1-2 0
-%unmacro ldosboot_lba_search_string 10
+%unmacro ldosboot_lba_search_string 12
 %unmacro freedos_lba_search_string 4
 %unmacro dumpsearches 1-*
 
 
 %define SEARCHES dw ""
+%assign SEARCHINDEX 0
+%xdefine AUTOLIST dw ""
+%xdefine AHDDLIST dw ""
+%xdefine NONELIST dw ""
 %define METASEARCHES dw ""
 %define METASTRINGS dw ""
 %define SEARCHFLAGS dw ""
@@ -52,7 +56,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %xdefine WILDCARDS WILDCARDS, dw %%wc
 	%endmacro
 
-	%macro ldosboot_lba_search_string 10
+	%macro ldosboot_lba_search_string 12
 %define WILDCARDS dw ""
 %assign _FORCE_CHS %2
 %assign _LBA_SKIP_CHECK %3
@@ -62,8 +66,10 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %assign _RETRY_RESET %7
 %assign _LBA_RETRY %8
 %assign _LBA_WORKAROUND %9
+%assign _LBA_HDD_ONLY %10
+%assign _LBA_HDD_ONLY_DISABLED %11
 %assign _CHS 1
-%assign _LDOSBOOT32 %10
+%assign _LDOSBOOT32 %12
 
 
 %if !ALL && \
@@ -85,16 +91,35 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
  (_RETRY_RESET)
 %elif !ALL && \
  (_LBA_SKIP_LBA_RETRY)
+%elif (_FORCE_CHS && _LBA_HDD_ONLY && !_LBA_HDD_ONLY_DISABLED)
+%elif (!_LBA_HDD_ONLY && _LBA_HDD_ONLY_DISABLED)
 %else
 
-%if _FORCE_CHS
- %define %%identifier %[PREFIX]label_%1_chs
- %define %%identifierminusall label_%1_chs
- %define %%other %[PREFIX]label_%1_lba
+%if _LBA_HDD_ONLY
+ %xdefine %%autochoice %[PREFIX]label_%1_autodisabled
+ %xdefine %%ahddchoice %[PREFIX]label_%1_ahdd
+ %xdefine %%nonechoice %[PREFIX]label_%1_nonedisabled
 %else
- %define %%identifier %[PREFIX]label_%1_lba
- %define %%identifierminusall label_%1_lba
- %define %%other %[PREFIX]label_%1_chs
+ %xdefine %%autochoice %[PREFIX]label_%1_auto
+ %xdefine %%ahddchoice 0
+ %xdefine %%nonechoice %[PREFIX]label_%1_none
+%endif
+
+%if _LBA_HDD_ONLY && _FORCE_CHS
+ %define %%identifier %[PREFIX]label_%1_nonedisabled
+ %define %%identifierminusall label_%1_nonedisabled
+%elif _LBA_HDD_ONLY && _LBA_HDD_ONLY_DISABLED
+ %define %%identifier %[PREFIX]label_%1_autodisabled
+ %define %%identifierminusall label_%1_autodisabled
+%elif _LBA_HDD_ONLY
+ %define %%identifier %[PREFIX]label_%1_ahdd
+ %define %%identifierminusall label_%1_ahdd
+%elif _FORCE_CHS
+ %define %%identifier %[PREFIX]label_%1_none
+ %define %%identifierminusall label_%1_none
+%else
+ %define %%identifier %[PREFIX]label_%1_auto
+ %define %%identifierminusall label_%1_auto
 %endif
 
 %%start:
@@ -103,6 +128,17 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
  %if _LBA_SKIP_CHECK		; -14 bytes
 	mov dl, [bp + 127]
 search_wildcard %%start, -1
+  %if _LBA_HDD_ONLY
+   %if _LBA_HDD_ONLY_DISABLED || _FORCE_CHS
+	test dl, dl
+	test al, .no_lba - ($ + 2)
+search_wildcard %%start, -1
+   %else
+	test dl, dl
+	jns .no_lba
+search_wildcard %%start, -1
+   %endif
+  %endif
  %else
   %if _LBA_WORKAROUND
 	push ds
@@ -116,13 +152,26 @@ search_wildcard %%start, -1
 	mov dl, [bp + 127]
 search_wildcard %%start, -1
 	mov bx, 55AAh
+%if _LBA_HDD_ONLY
+ %if _LBA_HDD_ONLY_DISABLED || _FORCE_CHS
+	cmp dl, dl
 	stc
+	jne @F
+ %else
+	test dl, dl
+	stc
+	jns @F
+ %endif
+%else
+	stc
+%endif
 %if _FORCE_CHS
 	nop
 	nop
 %else
 	int 13h		; 13.41.bx=55AA extensions installation check
 %endif
+@@:
   %if _LBA_WORKAROUND
 	pop ds
   %endif
@@ -206,25 +255,66 @@ search_wildcard %%start, -1
 %%end:
 
 %if _FORCE_CHS
- %define %%message lba_search_msg.forcechs
-%else
- %if _LBA_SKIP_CHECK
-  %define %%message lba_search_msg.autoskip
+ %if _LBA_HDD_ONLY
+  %define %%message lba_search_msg.forcechshdd
  %else
-  %define %%message lba_search_msg.auto
+  %define %%message lba_search_msg.forcechs
+ %endif
+%else
+ %if _LBA_HDD_ONLY
+  %if _LBA_HDD_ONLY_DISABLED
+   %if _LBA_SKIP_CHECK
+    %define %%message lba_search_msg.autohdddisabledskip
+   %else
+    %define %%message lba_search_msg.autohdddisabled
+   %endif
+  %else
+   %if _LBA_SKIP_CHECK
+    %define %%message lba_search_msg.autohddskip
+   %else
+    %define %%message lba_search_msg.autohdd
+   %endif
+  %endif
+ %else
+  %if _LBA_SKIP_CHECK
+   %define %%message lba_search_msg.autoskip
+  %else
+   %define %%message lba_search_msg.auto
+  %endif
  %endif
 %endif
+
+%xdefine AUTOLIST AUTOLIST, dw %%autochoice
+%xdefine AHDDLIST AHDDLIST, dw %%ahddchoice
+%xdefine NONELIST NONELIST, dw %%nonechoice
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
-	 dw %%message, dw %%other, WILDCARDS, dw 0
+	 dw %%message, dw SEARCHINDEX, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname, dw variant
 %defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
-%if _FORCE_CHS
- %if %[%%identifier %+ _length] != %[%%other %+ _length]
-  %error Expected same length of replacement
+%ifnidni %%autochoice, 0
+ %ifdef %[%%autochoice%+_length]
+  %if %[%%identifier %+ _length] != %[%%autochoice %+ _length]
+   %error Expected same length of replacement
+  %endif
  %endif
 %endif
+%ifnidni %%ahddchoice, 0
+ %ifdef %[%%ahddchoice%+_length]
+  %if %[%%identifier %+ _length] != %[%%ahddchoice %+ _length]
+   %error Expected same length of replacement
+  %endif
+ %endif
+%endif
+%ifnidni %%nonechoice, 0
+ %ifdef %[%%nonechoice%+_length]
+  %if %[%%identifier %+ _length] != %[%%nonechoice %+ _length]
+   %error Expected same length of replacement
+  %endif
+ %endif
+%endif
+%assign SEARCHINDEX SEARCHINDEX + 1
 
 %endif
 	%endmacro
@@ -235,19 +325,19 @@ search_wildcard %%start, -1
 %assign _OEM_BOOT %3
 %assign _FORCE_CHS_DISKETTE %4
 
+ %xdefine %%autochoice %[PREFIX]label_%1_autodisabled
+ %xdefine %%ahddchoice %[PREFIX]label_%1_ahdd
+ %xdefine %%nonechoice %[PREFIX]label_%1_none
 
 %if _FORCE_CHS_DISKETTE
- %define %%identifier %[PREFIX]label_%1_chs_diskette
- %define %%identifierminusall label_%1_chs_diskette
- %define %%other %[PREFIX]label_%1_special
+ %define %%identifier %[PREFIX]label_%1_ahdd
+ %define %%identifierminusall label_%1_ahdd
 %elif _FORCE_CHS
- %define %%identifier %[PREFIX]label_%1_chs
- %define %%identifierminusall label_%1_chs
- %define %%other %[PREFIX]label_%1_lba
+ %define %%identifier %[PREFIX]label_%1_none
+ %define %%identifierminusall label_%1_none
 %else
- %define %%identifier %[PREFIX]label_%1_lba
- %define %%identifierminusall label_%1_lba
- %define %%other %[PREFIX]label_%1_chs
+ %define %%identifier %[PREFIX]label_%1_autodisabled
+ %define %%identifierminusall label_%1_autodisabled
 %endif
 
 %%start:
@@ -309,18 +399,39 @@ search_wildcard %%start, -1
   %define %%message lba_search_msg.auto
  %endif
 %endif
+
+%xdefine AUTOLIST AUTOLIST, dw %%autochoice
+%xdefine AHDDLIST AHDDLIST, dw %%ahddchoice
+%xdefine NONELIST NONELIST, dw %%nonechoice
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
-	 dw %%message, dw %%other, WILDCARDS, dw 0
+	 dw %%message, dw SEARCHINDEX, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname
 %xdefine METASEARCHES METASEARCHES, dw 32*1024 + !!%2 * 1 + !!%3 * 2 + !!%4 * 4
 %defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
 %[%%identifier %+ _length]: equ %%end - %%start
-%if _FORCE_CHS
- %if %[%%identifier %+ _length] != %[%%other %+ _length]
-  %error Expected same length of replacement
+%ifnidni %%autochoice, 0
+ %ifdef %[%%autochoice%+_length]
+  %if %[%%identifier %+ _length] != %[%%autochoice %+ _length]
+   %error Expected same length of replacement
+  %endif
  %endif
 %endif
+%ifnidni %%ahddchoice, 0
+ %ifdef %[%%ahddchoice%+_length]
+  %if %[%%identifier %+ _length] != %[%%ahddchoice %+ _length]
+   %error Expected same length of replacement
+  %endif
+ %endif
+%endif
+%ifnidni %%nonechoice, 0
+ %ifdef %[%%nonechoice%+_length]
+  %if %[%%identifier %+ _length] != %[%%nonechoice %+ _length]
+   %error Expected same length of replacement
+  %endif
+ %endif
+%endif
+%assign SEARCHINDEX SEARCHINDEX + 1
 	%endmacro
 
 searchflag freedos, "_FORCE_CHS", 1
@@ -330,24 +441,28 @@ searchflag freedos, "_FORCE_CHS_DISKETTE", 4
 
 %[PREFIX]lba_search_msg:
 .auto:		asciz "Auto LBA detection"
-.autohdd:	asciz "Auto LBA detection (HDD only)"
 .autoskip:	asciz "Auto LBA detection (skip check)"
 .forcechs:	asciz "Forced CHS access"
+.autohdd:	asciz "Auto LBA detection (HDD only)"
+.autohddskip:	asciz "Auto LBA detection (HDD only, skip check)"
+.forcechshdd:	asciz "Forced CHS access (HDD only unused)"
+.autohdddisabled:	asciz "Auto LBA detection (HDD only disabled)"
+.autohdddisabledskip:	asciz "Auto LBA detection (HDD only disabled, skip check)"
 
 %[PREFIX]lba_search_strings_lba:
 	freedos_lba_search_string freedos, 0, 0, 0
 	freedos_lba_search_string freedos_oem, 0, 1, 0
 %assign variant 0
-%rep 512
- %if variant == 256
+%rep 2048
+ %if variant == 1024
 %[PREFIX]lba_search_strings_chs:
 	freedos_lba_search_string freedos, 1, 0, 0
 	freedos_lba_search_string freedos_oem, 1, 1, 0
  %endif
- %assign identifier variant & ~256
+ %assign identifier variant & ~(1024 | 128 | 256)
 	ldosboot_lba_search_string \
 	 identifier, \
-	 variant & 256, \
+	 variant & 1024, \
 	 variant & 1, \
 	 variant & 2, \
 	 variant & 4, \
@@ -355,11 +470,13 @@ searchflag freedos, "_FORCE_CHS_DISKETTE", 4
 	 variant & 16, \
 	 variant & 32, \
 	 variant & 64, \
-	 variant & 128
+	 variant & 128, \
+	 variant & 256, \
+	 variant & 512
  %assign variant variant + 1
 %endrep
 
-searchflag ldos, "_FORCE_CHS", 256
+searchflag ldos, "_FORCE_CHS", 1024
 searchflag ldos, "_LBA_SKIP_CHECK", 1
 searchflag ldos, "_LBA_SKIP_CY", 2
 searchflag ldos, "_LBA_SKIP_LBA_RETRY", 4
@@ -367,42 +484,15 @@ searchflag ldos, "_LBA_SKIP_ANY", 8
 searchflag ldos, "_RETRY_RESET", 16
 searchflag ldos, "_LBA_RETRY", 32
 searchflag ldos, "_LBA_WORKAROUND", 64
-searchflag ldos, "_LDOSBOOT32", 128
+searchflag ldos, "_LBA_HDD_ONLY", 128
+searchflag ldos, "_LBA_HDD_ONLY_DISABLED", 256
+searchflag ldos, "_LDOSBOOT32", 512
 
 
 %[PREFIX]lba_search_strings_hdd:
-	freedos_lba_search_string freedos_hdd, 0, 0, 1
-	freedos_lba_search_string freedos_hdd_oem, 0, 1, 1
+	freedos_lba_search_string freedos, 0, 0, 1
+	freedos_lba_search_string freedos_oem, 0, 1, 1
 %[PREFIX]lba_search_strings_end:
-
-%ifn %[PREFIX]label_freedos_chs_length == %[PREFIX]label_freedos_hdd_chs_diskette_length
-  %error Expected same length of replacement
-%endif
-%ifn %[PREFIX]label_freedos_lba_length == %[PREFIX]label_freedos_hdd_chs_diskette_length
-  %error Expected same length of replacement
-%endif
-%ifn %[PREFIX]label_freedos_oem_chs_length == %[PREFIX]label_freedos_hdd_oem_chs_diskette_length
-  %error Expected same length of replacement
-%endif
-%ifn %[PREFIX]label_freedos_oem_lba_length == %[PREFIX]label_freedos_hdd_oem_chs_diskette_length
-  %error Expected same length of replacement
-%endif
-
-
-	align 2, db 0
-%[PREFIX]label_hdd_special:
-
-%[PREFIX]label_freedos_hdd_special:
-	dw %[PREFIX]label_freedos_hdd_chs_diskette
-	dw %[PREFIX]label_freedos_chs
-	dw %[PREFIX]label_freedos_lba
-
-%[PREFIX]label_freedos_hdd_oem_special:
-	dw %[PREFIX]label_freedos_hdd_oem_chs_diskette
-	dw %[PREFIX]label_freedos_oem_chs
-	dw %[PREFIX]label_freedos_oem_lba
-
-	dw 0,0,0
 
 
 	%macro dumpsearches 1-*
@@ -413,6 +503,14 @@ searchflag ldos, "_LDOSBOOT32", 128
 	%endmacro
 
 	align 2, db 0
+%[PREFIX]autochoices:
+	dumpsearches AUTOLIST
+%[PREFIX]ahddchoices:
+	dumpsearches AHDDLIST
+%[PREFIX]nonechoices:
+	dumpsearches NONELIST
+
+	align 2, db 0
 %[PREFIX]lba_search_metadata:
-dumpsearches SEARCHES
+	dumpsearches SEARCHES
 	dw 0,0
