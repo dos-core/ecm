@@ -1124,13 +1124,13 @@ read_sector:
 			shr ax, 1	; al7:6 = cylinder 9:8
 	; bx has bits set iff it's > 0, indicating a cylinder >= 65536.
 			 or bl, bh	; collect set bits from bh
-			or cl, al	; cl7:6 = cylinder 9:8
 	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
 			 or bl, ah	; collect set bits from ah
-			mov dl,[VAR(boot_unit)] ; dl = drive
 .nz_err:
 			 jnz .err	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
+			or cl, al	; cl7:6 = cylinder 9:8
+			mov dl,[VAR(boot_unit)] ; dl = drive
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
