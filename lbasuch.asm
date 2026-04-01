@@ -292,24 +292,25 @@ search_wildcard %%start, -1
 %xdefine METASEARCHES METASEARCHES, dw %%metaname, dw variant
 %defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
-%[%%identifier %+ _length]: equ %%end - %%start
+%[%%identifier]_length: equ %%end - %%start
+%assign %[%%identifier]_length_set 1
 %ifnidni %%autochoice, 0
- %ifdef %[%%autochoice%+_length]
-  %if %[%%identifier %+ _length] != %[%%autochoice %+ _length]
+ %ifdef %[%%autochoice]_length_set
+  %if %[%%identifier]_length != %[%%autochoice]_length
    %error Expected same length of replacement
   %endif
  %endif
 %endif
 %ifnidni %%ahddchoice, 0
- %ifdef %[%%ahddchoice%+_length]
-  %if %[%%identifier %+ _length] != %[%%ahddchoice %+ _length]
+ %ifdef %[%%ahddchoice]_length_set
+  %if %[%%identifier]_length != %[%%ahddchoice]_length
    %error Expected same length of replacement
   %endif
  %endif
 %endif
 %ifnidni %%nonechoice, 0
- %ifdef %[%%nonechoice%+_length]
-  %if %[%%identifier %+ _length] != %[%%nonechoice %+ _length]
+ %ifdef %[%%nonechoice]_length_set
+  %if %[%%identifier]_length != %[%%nonechoice]_length
    %error Expected same length of replacement
   %endif
  %endif
@@ -409,24 +410,25 @@ search_wildcard %%start, -1
 %xdefine METASEARCHES METASEARCHES, dw 32*1024 + !!%2 * 1 + !!%3 * 2 + !!%4 * 4
 %defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
-%[%%identifier %+ _length]: equ %%end - %%start
+%[%%identifier]_length: equ %%end - %%start
+%assign %[%%identifier]_length_set 1
 %ifnidni %%autochoice, 0
- %ifdef %[%%autochoice%+_length]
-  %if %[%%identifier %+ _length] != %[%%autochoice %+ _length]
+ %ifdef %[%%autochoice]_length_set
+  %if %[%%identifier]_length != %[%%autochoice]_length
    %error Expected same length of replacement
   %endif
  %endif
 %endif
 %ifnidni %%ahddchoice, 0
- %ifdef %[%%ahddchoice%+_length]
-  %if %[%%identifier %+ _length] != %[%%ahddchoice %+ _length]
+ %ifdef %[%%ahddchoice]_length_set
+  %if %[%%identifier]_length != %[%%ahddchoice]_length
    %error Expected same length of replacement
   %endif
  %endif
 %endif
 %ifnidni %%nonechoice, 0
- %ifdef %[%%nonechoice%+_length]
-  %if %[%%identifier %+ _length] != %[%%nonechoice %+ _length]
+ %ifdef %[%%nonechoice]_length_set
+  %if %[%%identifier]_length != %[%%nonechoice]_length
    %error Expected same length of replacement
   %endif
  %endif
