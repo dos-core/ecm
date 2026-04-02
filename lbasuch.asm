@@ -99,10 +99,19 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
  %xdefine %%autochoice %[PREFIX]label_%1_autodisabled
  %xdefine %%ahddchoice %[PREFIX]label_%1_ahdd
  %xdefine %%nonechoice %[PREFIX]label_%1_nonedisabled
+ %xdefine %%choice %[PREFIX]label_%1_hdd
 %else
  %xdefine %%autochoice %[PREFIX]label_%1_auto
  %xdefine %%ahddchoice 0
  %xdefine %%nonechoice %[PREFIX]label_%1_none
+ %xdefine %%choice %[PREFIX]label_%1_nonhdd
+%endif
+%ifndef %[%%choice]_search_index
+ %xdefine AUTOLIST AUTOLIST, dw %%autochoice
+ %xdefine AHDDLIST AHDDLIST, dw %%ahddchoice
+ %xdefine NONELIST NONELIST, dw %%nonechoice
+ %assign %[%%choice]_search_index SEARCHINDEX
+ %assign SEARCHINDEX SEARCHINDEX + 1
 %endif
 
 %if _LBA_HDD_ONLY && _FORCE_CHS
@@ -284,11 +293,8 @@ search_wildcard %%start, -1
  %endif
 %endif
 
-%xdefine AUTOLIST AUTOLIST, dw %%autochoice
-%xdefine AHDDLIST AHDDLIST, dw %%ahddchoice
-%xdefine NONELIST NONELIST, dw %%nonechoice
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
-	 dw %%message, dw SEARCHINDEX, WILDCARDS, dw 0
+	 dw %%message, dw %[%%choice]_search_index, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname, dw variant
 %defstr %%name %%identifierminusall
 %xdefine METASTRINGS METASTRINGS, %%metaname:, {asciz %%name}
@@ -315,7 +321,6 @@ search_wildcard %%start, -1
   %endif
  %endif
 %endif
-%assign SEARCHINDEX SEARCHINDEX + 1
 
 %endif
 	%endmacro
@@ -329,6 +334,15 @@ search_wildcard %%start, -1
  %xdefine %%autochoice %[PREFIX]label_%1_autodisabled
  %xdefine %%ahddchoice %[PREFIX]label_%1_ahdd
  %xdefine %%nonechoice %[PREFIX]label_%1_none
+ %xdefine %%choice %[PREFIX]label_%1_freedos
+
+%ifndef %[%%choice]_search_index
+ %xdefine AUTOLIST AUTOLIST, dw %%autochoice
+ %xdefine AHDDLIST AHDDLIST, dw %%ahddchoice
+ %xdefine NONELIST NONELIST, dw %%nonechoice
+ %assign %[%%choice]_search_index SEARCHINDEX
+ %assign SEARCHINDEX SEARCHINDEX + 1
+%endif
 
 %if _FORCE_CHS_DISKETTE
  %define %%identifier %[PREFIX]label_%1_ahdd
@@ -401,11 +415,8 @@ search_wildcard %%start, -1
  %endif
 %endif
 
-%xdefine AUTOLIST AUTOLIST, dw %%autochoice
-%xdefine AHDDLIST AHDDLIST, dw %%ahddchoice
-%xdefine NONELIST NONELIST, dw %%nonechoice
 %xdefine SEARCHES SEARCHES, %%identifier:, dw %%start, dw %%end - %%start, \
-	 dw %%message, dw SEARCHINDEX, WILDCARDS, dw 0
+	 dw %%message, dw %[%%choice]_search_index, WILDCARDS, dw 0
 %xdefine METASEARCHES METASEARCHES, dw %%metaname
 %xdefine METASEARCHES METASEARCHES, dw 32*1024 + !!%2 * 1 + !!%3 * 2 + !!%4 * 4
 %defstr %%name %%identifierminusall
@@ -433,7 +444,6 @@ search_wildcard %%start, -1
   %endif
  %endif
 %endif
-%assign SEARCHINDEX SEARCHINDEX + 1
 	%endmacro
 
 searchflag freedos, "_FORCE_CHS", 1
