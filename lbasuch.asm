@@ -406,12 +406,12 @@ search_wildcard %%start, -1
 
 
 %if _FORCE_CHS
- %define %%message lba_search_msg.forcechs
+ %define %%message lba_search_msg.forcechshdd
 %else
  %if _FORCE_CHS_DISKETTE
   %define %%message lba_search_msg.autohdd
  %else
-  %define %%message lba_search_msg.auto
+  %define %%message lba_search_msg.autohdddisabled
  %endif
 %endif
 
