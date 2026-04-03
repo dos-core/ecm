@@ -5685,12 +5685,12 @@ load_kernel_name: equ $
 .using_auto_query:	asciz " Using auto query geometry.",13,10
 
 .using_none_lba:	asciz " Using no LBA.",13,10
-.using_auto_lba:	asciz " Using auto LBA detection.",13,10
-.lba_not_found:		asciz "Error: LBA detection not found in sector.",13,10
-.lba_not_found.keep:	asciz "LBA detection not found in sector. Keeping as is.",13,10
+.using_auto_lba:	asciz " Using auto LBA detect.",13,10
+.lba_not_found:		asciz "Error: LBA detect not found in sector.",13,10
+.lba_not_found.keep:	asciz "LBA detect not found in sector. Keeping as is.",13,10
 .lba_found_suffix:	asciz " found in sector."
-.lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detection to auto detection for HDD only.",13,10
-.using_autohdd_lba:	asciz " Using auto LBA detection (HDD only).",13,10
+.lba_autohdd_not_found:	asciz 13,10,"Error: Cannot patch this LBA detect to auto detect for HDD only.",13,10
+.using_autohdd_lba:	asciz " Using auto LBA (HDD) detect.",13,10
 
 
 .errorcolon:		asciz "Error: "

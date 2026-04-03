@@ -452,14 +452,16 @@ searchflag freedos, "_FORCE_CHS_DISKETTE", 4
 
 
 %[PREFIX]lba_search_msg:
-.auto:		asciz "Auto LBA detection"
-.autoskip:	asciz "Auto LBA detection (skip check)"
+.auto:		asciz "Auto LBA detect"
+.autoskip:	asciz "Auto LBA detect (skip)"
 .forcechs:	asciz "Forced CHS access"
-.autohdd:	asciz "Auto LBA detection (HDD only)"
-.autohddskip:	asciz "Auto LBA detection (HDD only, skip check)"
-.forcechshdd:	asciz "Forced CHS access (HDD only unused)"
-.autohdddisabled:	asciz "Auto LBA detection (HDD only disabled)"
-.autohdddisabledskip:	asciz "Auto LBA detection (HDD only disabled, skip check)"
+.autohdd:	asciz "Auto LBA detect (HDD)"
+.autohddskip:	asciz "Auto LBA detect (HDD, skip)"
+.forcechshdd:	asciz "Forced CHS access (HDD unused)"
+.autohdddisabled:
+		asciz "Auto LBA detect (HDD unused)"
+.autohdddisabledskip:
+		asciz "Auto LBA detect (HDD unused, skip)"
 
 %[PREFIX]lba_search_strings_lba:
 	freedos_lba_search_string freedos, 0, 0, 0
