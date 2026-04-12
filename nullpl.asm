@@ -366,7 +366,9 @@ relocate:
 %else
 
 	pop si
+%if _DEVICE || _IMAGE_EXE
 	pop ax
+%endif
 
 %if _DEVICE
 	test bl, 2
