@@ -167,6 +167,7 @@ query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
 	numdef MULTISECTOR,	1	; stash multi-sector loader into end2
 	numdef LBA_MULTI,	1	; stash LBA multi-sector loader into end3
 	numdef ADDPROGRESS,	0	; patch to display progress dots in end3
+	numdef RESET_SINGLE_SECTOR, 1	; clear ldhlfForceSingleSector flag at end
 	numdef MULTIBOOT1,	1	; use Multiboot specification loader
 	numdef MULTIBOOT2,	1	; use Multiboot2 specification loader
 	numdef EDRDOS,		0	; use heuristic to detect EDR-DOS entry
@@ -2265,8 +2266,6 @@ skipped_all_multi:
 	pop dx				; get ldmSector and clean stack
 	call multi_sector_read
 	call restore_dpt		; clobbers bx, ds (unused by loaded_all)
-	clropt [bp + ldHasLBA], ldhlfForceSingleSector
-					; reset single-sector flag
 	jmp loaded_all
 
 .eoc:
@@ -2758,6 +2757,11 @@ loaded_all.2stack:
 	pop ax
 	pop ax
 loaded_all:
+ %if _MULTISECTOR && _RESET_SINGLE_SECTOR
+	clropt [bp + ldHasLBA], ldhlfForceSingleSector
+					; reset single-sector flag
+ %endif
+
 	mov ax, word [bp + bsBPB + bpbSectorsPerFAT]
 	test ax, ax
 	jz .fat32
