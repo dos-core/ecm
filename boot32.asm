@@ -89,6 +89,8 @@ Public domain by E. C. Masloch, 2012--2025
 	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
 	incdef _LBA_SKIP_ANY, LBA_SKIP_CY
 	numdef LBA_HDD_ONLY,	1	; don't use LBA on diskettes (unit < 80h)
+	numdef LBA_HDD_ONLY_DISABLED, 0	; if diskette detect included, disable it
+	numdef FORCE_CHS, 0		; if LBA support included, disable it
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
@@ -1261,7 +1263,12 @@ read_sector:
 	mov dl, [VAR(boot_unit)]
   %if _LBA_HDD_ONLY
 	test dl, dl
+   %if _LBA_HDD_ONLY_DISABLED || _FORCE_CHS
+	test al, .no_lba - @F
+@@:
+   %else
 	jns .no_lba
+   %endif
   %endif
  %else
   %if _LBA_WORKAROUND
@@ -1276,13 +1283,24 @@ read_sector:
 	mov dl, [VAR(boot_unit)]
 	mov bx, 55AAh
 %if _LBA_HDD_ONLY
+ %if _LBA_HDD_ONLY_DISABLED || _FORCE_CHS
+	cmp dl, dl
+	stc
+	jne @F
+ %else
 	test dl, dl
 	stc
 	jns @F
+ %endif
 %else
 	stc
 %endif
+%if _FORCE_CHS
+	nop
+	nop
+%else
 	int 13h		; 13.41.bx=55AA extensions installation check
+%endif
 @@:
   %if _LBA_WORKAROUND
 	pop ds
@@ -1299,7 +1317,12 @@ read_sector:
 	stc
  %endif
 	mov ah, 42h
+%if _FORCE_CHS
+	nop
+	stc
+%else
 	int 13h		; 13.42 extensions read
+%endif
 	jnc .lba_done
 
  %if _RETRY_RESET
@@ -1316,8 +1339,14 @@ read_sector:
  %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
 	stc
  %endif
+%if _FORCE_CHS
+	mov ah, 01h
+	nop
+	stc
+%else
 	mov ah, 42h
 	int 13h
+%endif
  %if _LBA_SKIP_CHECK && _CHS
   %if _LBA_SKIP_ANY
 	jc .no_lba
