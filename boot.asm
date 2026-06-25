@@ -1090,7 +1090,7 @@ read_sector:
 %if _CHS && _LBA_SET_TYPE
 	mov byte [bp + 2], 0Eh	; LBA-enabled FAT16 FS partition type
 %endif
-	add sp, 10h
+	add sp, word [si]	; size of LBA packet (10h)
 %if _CHS
 	jmp short .done
 %endif
