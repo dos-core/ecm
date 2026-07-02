@@ -186,37 +186,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	mov bx, word [bp + ?last_offset + 2]
 	mov cx, word [bp + ?last_offset]
 
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
-	call normalise_pointer_with_displacement_bxcx
-	 pop si
-	 pop ds				; ds:si -> source of matching
-d0	mov byte [bp + ?errordata], 1Fh
-	jnc .error
-
-	push ax
-	mov ax, ds			; is source of matching within ?dst ?
-	cmp word [bp + ?original_dst + 2], ax
-	pop ax
-d0	mov byte [bp + ?errordata], 16h
-.error_A_1:
-	ja .error
-	jb @F
-	cmp word [bp + ?original_dst], si
-d0	mov byte [bp + ?errordata], 17h
-	ja .error_A_1			; no, ?original_dst is above it -->
-@@:
-
-	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
-		; returns: ?dst incremented, ds:si -> after match source
-d0	mov byte [bp + ?errordata], 1Ah
-	jc .error
-
-%if _ALLOW_OVERLAPPING
-	call check_pointers_not_overlapping
-d0	mov byte [bp + ?errordata], 1Ch
-	jc .error
-%endif
+	call .match
 
 	call readbit_count
 	jnc .copyliterals
@@ -256,47 +226,16 @@ d0	mov byte [bp + ?errordata], 1Ch
 	mov word [bp + ?last_offset + 2], bx
 	mov word [bp + ?last_offset], cx
 
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
-	call normalise_pointer_with_displacement_bxcx
-	 pop si
-	 pop ds				; ds:si -> source of matching
-d0	mov byte [bp + ?errordata], 1Fh
-	jnc .error
-
-	mov ax, ds			; is source of matching within ?dst ?
-	cmp word [bp + ?original_dst + 2], ax
-d0	mov byte [bp + ?errordata], 16h
-.error_A_2:
-	ja .error
-	jb @F
-	cmp word [bp + ?original_dst], si
-d0	mov byte [bp + ?errordata], 17h
-	ja .error_A_2			; no, ?original_dst is above it -->
-@@:
-
-	push ds
-	push si
-
+	push bx
 	call readinterlacedeliasgamma_normal
 					; dx:ax = length of match - 1
 	inc ax
 	jnz @F
 	inc dx				; dx:ax = length of match
 @@:
-	pop si
-	pop ds
+	pop bx
 
-	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
-		; returns: ?dst incremented, ds:si -> after match source
-d0	mov byte [bp + ?errordata], 1Ah
-	jc .error
-
-%if _ALLOW_OVERLAPPING
-	call check_pointers_not_overlapping
-d0	mov byte [bp + ?errordata], 1Ch
-	jc .error
-%endif
+	call .match
 
 	call readbit_count
 	jnc .copyliterals
@@ -326,6 +265,41 @@ d0	mov byte [bp + ?errordata], 1Ch
 d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
+
+
+.match:
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop ds				; ds:si -> source of matching
+d0	mov byte [bp + ?errordata], 1Fh
+	jnc .error
+
+	push ax
+	mov ax, ds			; is source of matching within ?dst ?
+	cmp word [bp + ?original_dst + 2], ax
+	pop ax
+d0	mov byte [bp + ?errordata], 16h
+.error_A_1:
+	ja .error
+	jb @F
+	cmp word [bp + ?original_dst], si
+d0	mov byte [bp + ?errordata], 17h
+	ja .error_A_1			; no, ?original_dst is above it -->
+@@:
+
+	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
+		; returns: ?dst incremented, ds:si -> after match source
+d0	mov byte [bp + ?errordata], 1Ah
+	jc .error
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+d0	mov byte [bp + ?errordata], 1Ch
+	jc .error
+%endif
+	retn
 
 
 		; INP:	?dst -> destination (normalised)
