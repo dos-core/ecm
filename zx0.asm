@@ -206,7 +206,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	mov bh, bl
 	mov bl, 0
 	rcr dx, 1
-	rcr bx, 1			; shift right 25-bit number in CF:bx:dh
+	rcr bx, 1			; shift right 25-bit number in CF:dx:bh
 	call readbyte			; al = next byte
 	shr al, 1			; get upper 7 bits into al
 	mov ah, 0
