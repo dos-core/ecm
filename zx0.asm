@@ -152,9 +152,29 @@ d0	mov byte [bp + ?errordata], 1Bh
 .copyliterals:
 	call readinterlacedeliasgamma_normal
 					; dx:ax = length of literals (may be 0)
-	call lz4_copy_literal_or_uncompressed
-					; copy over the literals
+
+		; INP:	?dst -> destination (normalised)
+		;	?src -> source (normalised)
+		;	dx:ax = how long the literal data is (0 is valid)
+		; OUT:	?dst incremented (normalised)
+		;	?src incremented (normalised)
+		;	?length_of_destination shortened
+		;	?length_of_source shortened
+		;	CY if error (either buffer too small)
+		;	NC if success
+		; CHG:	cx, dx, ax, es, di, ds, si
+	lds si, [bp + ?src]
+
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], dx
+					; enough data exists ?
+	jb .error			; no --> (CY)
+
+	call lz4_copy_data		; CY/NC depending on status
 	jc .error
+
+	mov word [bp + ?src], si
+	mov word [bp + ?src + 2], ds
 
 	call readbit_count
 	jc .copyfromnewoffset
@@ -306,33 +326,6 @@ d0	mov byte [bp + ?errordata], 1Ch
 d0	mov bx, word [bp + ?errordata]
 	lleave code
 	lret
-
-
-		; INP:	?dst -> destination (normalised)
-		;	?src -> source (normalised)
-		;	dx:ax = how long the literal data is (0 is valid)
-		; OUT:	?dst incremented (normalised)
-		;	?src incremented (normalised)
-		;	?length_of_destination shortened
-		;	?length_of_source shortened
-		;	CY if error (either buffer too small)
-		;	NC if success
-		; CHG:	cx, dx, ax, es, di, ds, si
-lz4_copy_literal_or_uncompressed:
-	lds si, [bp + ?src]
-
-	sub word [bp + ?length_of_source], ax
-	sbb word [bp + ?length_of_source + 2], dx
-					; enough data exists ?
-	jb .return			; no --> (CY)
-
-	call lz4_copy_data		; CY/NC depending on status
-
-	mov word [bp + ?src], si
-	mov word [bp + ?src + 2], ds
-					; (CF preserved)
-.return:
-	retn
 
 
 		; INP:	?dst -> destination (normalised)
