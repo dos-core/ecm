@@ -170,7 +170,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 					; enough data exists ?
 	jb .error			; no --> (CY)
 
-	call lz4_copy_data		; CY/NC depending on status
+	call copy_data			; CY/NC depending on status
 	jc .error
 
 	mov word [bp + ?src], si
@@ -289,7 +289,7 @@ d0	mov byte [bp + ?errordata], 17h
 	ja .error_A_1			; no, ?original_dst is above it -->
 @@:
 
-	call lz4_copy_data		; give ?dst -> dest, ds:si -> source
+	call copy_data			; give ?dst -> dest, ds:si -> source
 		; returns: ?dst incremented, ds:si -> after match source
 d0	mov byte [bp + ?errordata], 1Ah
 	jc .error
@@ -317,7 +317,7 @@ d0	mov byte [bp + ?errordata], 1Ch
 		;	 the function, therefore discarding any of the stack
 		;	 contents between the frame and the stack top.
 		; CHG:	cx, dx, ax, es, di, ds, si
-lz4_copy_data:
+copy_data:
 d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
