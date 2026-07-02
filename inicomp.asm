@@ -107,9 +107,10 @@ ldLoadUntilSeg:	resw 1
 	numdef ZEROCOMP,	0
 	numdef MVCOMP,		0
 	numdef LZEXEDAT,	0
+	numdef ZX0,		0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
 	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
-	+ !!_MVCOMP + !!_LZEXEDAT) != 1
+	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -141,6 +142,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.MV"
 %elif _LZEXEDAT
 	strdef PAYLOAD_FILE,	"lDOSLOAD.LZE"
+%elif _ZX0
+	strdef PAYLOAD_FILE,	"lDOSLOAD.ZX0"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! (_IMAGE_EXE || _DEVICE)
@@ -1840,6 +1843,11 @@ msg:
 %endif
 
 
+%if _ZX0
+	%include "zx0.asm"
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
@@ -2121,6 +2129,8 @@ init0_end:
 %define which inimv
 %elif _LZEXEDAT
 %define which inilzexe
+%elif _ZX0
+%define which inizx0
 %endif
 %warning which: num bytes used for depacker
 
