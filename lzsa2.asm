@@ -28,6 +28,7 @@
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
 %endif
+	numdef M, 0
 
 %assign CHECK_POINTERS_VARIABLE_SRC 0
 %assign CHECK_POINTERS_VARIABLE_DST 0
@@ -307,6 +308,8 @@ lzsa2_decompress:
 	call disp_al_counter
 @@:
 %endif
+
+%ifn _M
 	mov ax, word [bp + ?length_of_source]
 	mov dx, word [bp + ?length_of_source + 2]
 
@@ -316,6 +319,7 @@ lzsa2_decompress:
 @@:
 	je .end
 	ja depack.error
+%endif
 
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
 	call .lodsb		; read token byte: XYZ|LL|MMMM
@@ -339,7 +343,10 @@ lzsa2_decompress:
 
 	call .lodsw		; grab 16-bit extra length
 
+%ifn _M
 .got_literals:
+%endif
+				; code only reached if not _M or did lodsw
    xchg cx,ax
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
@@ -362,6 +369,21 @@ lzsa2_decompress:
 	pop dx
 	je .end
 	ja depack.error
+
+%if _M
+		; here cx = 0
+
+	db __TEST_IMM8		; skip xchg with ax
+.got_literals:
+   xchg cx,ax
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], 0
+	jb depack.error
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb depack.error
+   rep movsb               ; copy cx literals from ds:si to es:di
+%endif
 
    test dl,0C0h            ; check match offset mode in token (X bit)
    js .rep_match_or_large_offset
