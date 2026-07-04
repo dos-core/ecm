@@ -541,6 +541,27 @@ lzsa2_decompress:
    sub al,2                ; substract 512
    jmp short .get_match_length_1
 
+.end:
+   pop ax                  ; retrieve the original decompression offset
+   xchg di,ax              ; compute decompressed size
+   sub ax,di
+   ret                     ; done
+
+.get_nibble:
+   neg bh                  ; nibble ready?
+   jns .has_nibble
+
+   xchg bx,ax
+	do_lodsb		; load two nibbles
+   xchg bx,ax
+
+.has_nibble:
+   mov cl,4                ; swap 4 high and low bits of nibble
+   ror bl,cl
+   mov cl,0FH
+   and cl,bl
+   ret
+
 .rep_match_or_16_bit:
    test dl,020H            ; test bit Z (offset bit 8)
    jne .repeat_match       ; rep-match
@@ -649,12 +670,6 @@ lzsa2_decompress:
 	jmp .after_full_3
 %endif
 
-.end:
-   pop ax                  ; retrieve the original decompression offset
-   xchg di,ax              ; compute decompressed size
-   sub ax,di
-   ret                     ; done
-
 .get_nibble_x:
    cmc                     ; carry set if bit 4 was set
    rcr al,1
@@ -662,21 +677,6 @@ lzsa2_decompress:
    or al,cl                ; merge nibble
    rol al,1
    xor al,0E1H             ; set offset bits 7-5 to 1
-   ret
-
-.get_nibble:
-   neg bh                  ; nibble ready?
-   jns .has_nibble
-
-   xchg bx,ax
-	do_lodsb		; load two nibbles
-   xchg bx,ax
-
-.has_nibble:
-   mov cl,4                ; swap 4 high and low bits of nibble
-   ror bl,cl
-   mov cl,0FH
-   and cl,bl
    ret
 
 %if _WORDLENGTH
