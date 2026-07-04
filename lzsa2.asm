@@ -368,21 +368,31 @@ lzsa2_decompress:
 	pop ax
 	pop dx
 	je .end
-	ja depack.error
+	ja .error_j
 
 %if _M
 		; here cx = 0
+%if 1
+	jmp @F
 
+.error_j:
+	jmp depack.error
+%else
+.error_j: equ depack.error
 	db __TEST_IMM8		; skip xchg with ax
+%endif
 .got_literals:
    xchg cx,ax
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
-	jb depack.error
+	jb .error_j
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
-	jb depack.error
+	jb .error_j
    rep movsb               ; copy cx literals from ds:si to es:di
+@@:
+%else
+.error_j: equ depack.error
 %endif
 
    test dl,0C0h            ; check match offset mode in token (X bit)
@@ -450,7 +460,7 @@ lzsa2_decompress:
 	call .lodsb		; grab extra length byte
    add al,018H             ; overflow?
    jnc .got_matchlen       ; if not, we have the entire length
-	je depack.error		; detect EOD code
+	je .error_j		; detect EOD code
 
 	call .lodsw		; grab 16-bit length
 
@@ -473,19 +483,19 @@ lzsa2_decompress:
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop bx
-	jnc depack.error
+	jnc .error_j2
 	cmp bx, word [bp + ?original_dst + 2]
 	jne @F
 	cmp si, word [bp + ?original_dst]
 @@:
-	jb depack.error
+	jb .error_j2
 	mov ds, bx
 	pop cx
 	pop bx
 @@:
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
-	jb depack.error
+	jb .error_j2
    rep movsb               ; copy match
    xchg si,ax              ; restore ds:si
    pop ds
@@ -496,9 +506,12 @@ lzsa2_decompress:
 	call check_pointers_not_overlapping
 .waszero:
 	pop bx
-	jc depack.error
+	jc .error_j2
 	jmp .decode_token_clear_cx
 				; go decode another token
+
+.error_j2:
+	jmp depack.error
 
 .zero:
 	push es
