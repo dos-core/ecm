@@ -34,24 +34,6 @@
 %assign CHECK_POINTERS_VARIABLE_SRC 0
 %assign CHECK_POINTERS_VARIABLE_DST 0
 
-%if _INLINELOD
- %imacro do_lodsb 0.nolist
-	sub word [bp + ?length_of_source], 1
-	sbb word [bp + ?length_of_source + 2], 0
-	jb .error
-	lodsb
- %endmacro
- %imacro do_lodsw 0.nolist
-	sub word [bp + ?length_of_source], 2
-	sbb word [bp + ?length_of_source + 2], 0
-	jb .error
-	lodsw
- %endmacro
-%else
- %idefine do_lodsb call .lodsb
- %idefine do_lodsw call .lodsw
-%endif
-
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
 		;	es:di -> destination (below source)
@@ -178,10 +160,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
 
-	do_lodsw
+	call .lodsw
 	cmp ax, 7Bh | (9Eh << 8)	; signature
 	jne .error
-	do_lodsb
+	call .lodsb
 	cmp al, 1 << 5			; traits byte, check for lzsa2
 	jne .error
 
@@ -189,9 +171,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call normalise_both_pointers
 
 	xor dx, dx
-	do_lodsw			; bits 0 to 15 of length
+	call .lodsw			; bits 0 to 15 of length
 	xchg ax, dx
-	do_lodsb
+	call .lodsb
 	test al, 0111_1111b		; reserved bits + bit 16 of length
 	jnz .error			; error if nonzero -->
 
@@ -293,6 +275,25 @@ d0	mov bx, word [bp + ?errordata]
 	jb .error
 	lodsw
 	retn
+
+
+%if _INLINELOD
+ %imacro do_lodsb 0.nolist
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	lodsb
+ %endmacro
+ %imacro do_lodsw 0.nolist
+	sub word [bp + ?length_of_source], 2
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	lodsw
+ %endmacro
+%else
+ %idefine do_lodsb call .lodsb
+ %idefine do_lodsw call .lodsw
+%endif
 
 
 		; Decompress LZSA2 block
