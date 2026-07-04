@@ -342,7 +342,7 @@ lzsa2_decompress:
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
 	do_lodsb		; read token byte: XYZ|LL|MMMM
    mov dx,ax               ; keep token in dl
-   
+
    and al,018H             ; isolate literals length in token (LL)
    mov cl,3
    shr al,cl               ; shift literals length into place
@@ -351,7 +351,7 @@ lzsa2_decompress:
    jne .got_literals       ; no, we have the full literals count from the token, go copy
 
    call .get_nibble        ; get extra literals length nibble
-   add al,cl               ; add len from token to nibble 
+   add al,cl               ; add len from token to nibble
    cmp al,012H             ; LITERALS_RUN_LEN_V2 + 15 ?
    jne .got_literals       ; if not, we have the full literals count, go copy
 
@@ -471,7 +471,7 @@ lzsa2_decompress:
    jne .got_matchlen       ; no, we have the full match length from the token, go copy
 
    call .get_nibble        ; get extra literals length nibble
-   add al,cl               ; add len from token to nibble 
+   add al,cl               ; add len from token to nibble
    cmp al,018H             ; MIN_MATCH_SIZE_V2 + MATCH_RUN_LEN_V2 + 15?
    jne .got_matchlen       ; no, we have the full match length from the token, go copy
 
@@ -485,7 +485,7 @@ lzsa2_decompress:
 .got_matchlen:
    xchg cx,ax              ; copy match length into cx
    push ds                 ; save ds:si (current pointer to compressed data)
-   xchg si,ax          
+   xchg si,ax
    push es
    pop ds
 	mov si, di
@@ -562,7 +562,7 @@ lzsa2_decompress:
 .get_nibble:
    neg bh                  ; nibble ready?
    jns .has_nibble
-   
+
    xchg bx,ax
 	do_lodsb		; load two nibbles
    xchg bx,ax
