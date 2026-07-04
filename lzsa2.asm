@@ -328,11 +328,10 @@ lzsa2_decompress:
 %endif
 
 %ifn _M
-	mov ax, word [bp + ?length_of_source]
-	mov dx, word [bp + ?length_of_source + 2]
-
-	cmp word [bp + ?length_of_source_after_block + 2], dx
+	mov ax, word [bp + ?length_of_source + 2]
+	cmp word [bp + ?length_of_source_after_block + 2], ax
 	jne @F
+	mov ax, word [bp + ?length_of_source]
 	cmp word [bp + ?length_of_source_after_block], ax
 @@:
 	je .end
@@ -374,17 +373,14 @@ lzsa2_decompress:
 	jb .error
    rep movsb               ; copy cx literals from ds:si to es:di
 
-	push dx
 	push ax
-	mov ax, word [bp + ?length_of_source]
-	mov dx, word [bp + ?length_of_source + 2]
-
-	cmp word [bp + ?length_of_source_after_block + 2], dx
+	mov ax, word [bp + ?length_of_source + 2]
+	cmp word [bp + ?length_of_source_after_block + 2], ax
 	jne @F
+	mov ax, word [bp + ?length_of_source]
 	cmp word [bp + ?length_of_source_after_block], ax
 @@:
 	pop ax
-	pop dx
 	je .end
 	ja .error
 
