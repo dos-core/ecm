@@ -30,6 +30,7 @@
 %endif
 	numdef M, 0
 	numdef INLINELOD, 1
+	numdef WORDLENGTH, 1
 
 %assign CHECK_POINTERS_VARIABLE_SRC 0
 %assign CHECK_POINTERS_VARIABLE_DST 0
@@ -78,8 +79,14 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
-	lvar dword,	length_of_source_after_block
 	lvar word,	matchlength
+%if _WORDLENGTH
+	lvar word,	word_length_of_source
+	lvar word,	word_length_of_destination
+	lvar word,	bool_not_full_destination
+%else
+	lvar dword,	length_of_source_after_block
+%endif
 	lenter
 
 	call normalise_both_pointers
@@ -209,8 +216,23 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sub cx, ax
 	sbb bx, 0
 	jc .error
+%if _WORDLENGTH
+	push ax				; remember initial word length
+	mov word [bp + ?word_length_of_source], ax
+	xor ax, ax
+	cmp word [bp + ?length_of_destination + 2], ax
+					; >= 64 KiB ?
+	jne @F				; yes, store zeroes -->
+	or ax, word [bp + ?length_of_destination]
+					; ax = length left
+	jz .error			; must be NZ
+@@:					; ax == 0 if full 64 KiB destination
+	mov word [bp + ?word_length_of_destination], ax
+	mov word [bp + ?bool_not_full_destination], ax
+%else
 	mov word [bp + ?length_of_source_after_block], cx
 	mov word [bp + ?length_of_source_after_block + 2], bx
+%endif
 
 	push es
 	push di
@@ -219,9 +241,22 @@ d0	mov byte [bp + ?errordata], 1Bh
 	xchg cx, ax
 	sbb bx, bx			; -1 if cx == 0, else 0
 	neg bx				; 1 if cx == 0, else 0
+%if _WORDLENGTH
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], bx
+	jc .error
+%endif
 	call normalise_pointer_with_displacement_bxcx
 	pop di
 	pop es
+%if _WORDLENGTH
+	pop ax				; initial word length
+	sub ax, word [bp + ?word_length_of_source]
+					; initial - left = how much processed
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
+%endif
 	jmp .loop
 
 .end:
@@ -279,14 +314,22 @@ d0	mov bx, word [bp + ?errordata]
 
 %if _INLINELOD
  %imacro do_lodsb 0.nolist
+  %if _WORDLENGTH
+	sub word [bp + ?word_length_of_source], 1
+  %else
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
+  %endif
 	jb .error
 	lodsb
  %endmacro
  %imacro do_lodsw 0.nolist
+  %if _WORDLENGTH
+	sub word [bp + ?word_length_of_source], 2
+  %else
 	sub word [bp + ?length_of_source], 2
 	sbb word [bp + ?length_of_source + 2], 0
+  %endif
 	jb .error
 	lodsw
  %endmacro
@@ -295,6 +338,27 @@ d0	mov bx, word [bp + ?errordata]
  %idefine do_lodsw call .lodsw
 %endif
 
+	%imacro noninlinelod 0
+%if !_INLINELOD
+ %if !_WORDLENGTH
+.lodsb equ depack.lodsb
+.lodsw equ depack.lodsw
+ %else
+.lodsb:
+	sub word [bp + ?word_length_of_source], 1
+	jb .error
+	lodsb
+.retn:
+	retn
+
+.lodsw:
+	sub word [bp + ?word_length_of_source], 2
+	jb .error
+	lodsw
+	retn
+ %endif
+%endif
+	%endmacro
 
 		; Decompress LZSA2 block
 		;
@@ -308,9 +372,6 @@ d0	mov bx, word [bp + ?errordata]
 		;	jumps to depack.error if error condition detected
 		; CHG:	all except bp
 lzsa2_decompress:
-.lodsb equ depack.lodsb
-.lodsw equ depack.lodsw
-
    push di                 ; remember decompression offset
 
    mov bx,0100H
@@ -329,6 +390,10 @@ lzsa2_decompress:
 %endif
 
 %ifn _M
+ %if _WORDLENGTH
+	cmp word [bp + ?word_length_of_source], 0
+	je .end
+ %else
 	mov ax, word [bp + ?length_of_source + 2]
 	cmp word [bp + ?length_of_source_after_block + 2], ax
 	jne @F
@@ -337,6 +402,7 @@ lzsa2_decompress:
 @@:
 	je .end
 	ja depack.error
+ %endif
 %endif
 
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
@@ -366,14 +432,25 @@ lzsa2_decompress:
 %endif
 				; code only reached if not _M or did lodsw
    xchg cx,ax
+ %if _WORDLENGTH
+	sub word [bp + ?word_length_of_source], cx
+	jb .error
+	sub word [bp + ?word_length_of_destination], cx
+	jb .error_or_full_1
+.after_full_1:
+ %else
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
+ %endif
    rep movsb               ; copy cx literals from ds:si to es:di
 
+ %if _WORDLENGTH
+	cmp word [bp + ?word_length_of_source], 0
+ %else
 	push ax
 	mov ax, word [bp + ?length_of_source + 2]
 	cmp word [bp + ?length_of_source_after_block + 2], ax
@@ -382,32 +459,35 @@ lzsa2_decompress:
 	cmp word [bp + ?length_of_source_after_block], ax
 @@:
 	pop ax
-	je .end
 	ja .error
+ %endif
+	je .end
 
 %if _M
 		; here cx = 0
 %if 1
 	jmp @F
-
-.error:
-	jmp depack.error
 %else
-.error: equ depack.error
 	db __TEST_IMM8		; skip xchg with ax
 %endif
 .got_literals:
    xchg cx,ax
+ %if _WORDLENGTH
+	sub word [bp + ?word_length_of_source], cx
+	jb .error
+	sub word [bp + ?word_length_of_destination], cx
+	jb .error_or_full_2
+.after_full_2:
+ %else
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
+ %endif
    rep movsb               ; copy cx literals from ds:si to es:di
 @@:
-%else
-.error: equ depack.error
 %endif
 
    test dl,0C0h            ; check match offset mode in token (X bit)
@@ -422,6 +502,22 @@ lzsa2_decompress:
    cmp dl,020H             ; test bit 5
    call .get_nibble_x
    jmp short .dec_offset_top
+
+%if _WORDLENGTH
+.error_or_full_1:
+	call .error_or_full_common
+	jmp .after_full_1
+
+ %if _M
+.error_or_full_2:
+	call .error_or_full_common
+	jmp .after_full_2
+ %endif
+%endif
+
+	noninlinelod
+.error:
+	jmp depack.error
 
 .offset_9_bit:             ; 9 bit offset
 	do_lodsb		; get 8 bit offset from stream in A
@@ -508,9 +604,15 @@ lzsa2_decompress:
 	pop cx
 	pop bx
 @@:
+ %if _WORDLENGTH
+	sub word [bp + ?word_length_of_destination], cx
+	jb .error_or_full_3
+.after_full_3:
+ %else
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error_j2
+ %endif
    rep movsb               ; copy match
    xchg si,ax              ; restore ds:si
    pop ds
@@ -541,6 +643,12 @@ lzsa2_decompress:
 .error_j2:
 	jmp depack.error
 
+%if _WORDLENGTH
+.error_or_full_3:
+	call .error_or_full_common
+	jmp .after_full_3
+%endif
+
 .end:
    pop ax                  ; retrieve the original decompression offset
    xchg di,ax              ; compute decompressed size
@@ -570,3 +678,17 @@ lzsa2_decompress:
    mov cl,0FH
    and cl,bl
    ret
+
+%if _WORDLENGTH
+		; INP:	?word_length_of_destination underflowed
+		;	?bool_not_full_destination == 0 iff underflow allowed
+		; OUT:	to depack.error if underflow not allowed
+		;	returns near if underflow allowed,
+		;	 ?bool_not_full_destination = nonzero
+.error_or_full_common:
+	sub word [bp + ?bool_not_full_destination], 1
+				; like cmp word, 1
+	jae .error_j2		; word >= 1 ? then error -->
+				; word was < 1 (full destination), now is 0FFFFh
+	retn
+%endif
