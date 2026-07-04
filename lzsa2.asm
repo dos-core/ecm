@@ -528,9 +528,6 @@ lzsa2_decompress:
 	jmp .decode_token_clear_cx
 				; go decode another token
 
-.error_j2:
-	jmp depack.error
-
 .zero:
 	push es
 	mov bx, es		; => our block
@@ -543,6 +540,9 @@ lzsa2_decompress:
 	jmp .decode_token
 				; go decode another token
 %endif
+
+.error_j2:
+	jmp depack.error
 
 .end:
    pop ax                  ; retrieve the original decompression offset
