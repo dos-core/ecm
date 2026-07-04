@@ -29,10 +29,28 @@
  %error COUNTER must be a power of two
 %endif
 	numdef M, 0
+	numdef INLINELOD, 1
 
 %assign CHECK_POINTERS_VARIABLE_SRC 0
 %assign CHECK_POINTERS_VARIABLE_DST 0
 
+%if _INLINELOD
+ %imacro do_lodsb 0.nolist
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	lodsb
+ %endmacro
+ %imacro do_lodsw 0.nolist
+	sub word [bp + ?length_of_source], 2
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	lodsw
+ %endmacro
+%else
+ %idefine do_lodsb call .lodsb
+ %idefine do_lodsw call .lodsw
+%endif
 
 		; INP:	ds:si -> source
 		;	dx:cx = length of source
@@ -160,10 +178,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
 
-	call .lodsw
+	do_lodsw
 	cmp ax, 7Bh | (9Eh << 8)	; signature
 	jne .error
-	call .lodsb
+	do_lodsb
 	cmp al, 1 << 5			; traits byte, check for lzsa2
 	jne .error
 
@@ -171,9 +189,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 	call normalise_both_pointers
 
 	xor dx, dx
-	call .lodsw			; bits 0 to 15 of length
+	do_lodsw			; bits 0 to 15 of length
 	xchg ax, dx
-	call .lodsb
+	do_lodsb
 	test al, 0111_1111b		; reserved bits + bit 16 of length
 	jnz .error			; error if nonzero -->
 
@@ -322,7 +340,7 @@ lzsa2_decompress:
 %endif
 
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
-	call .lodsb		; read token byte: XYZ|LL|MMMM
+	do_lodsb		; read token byte: XYZ|LL|MMMM
    mov dx,ax               ; keep token in dl
    
    and al,018H             ; isolate literals length in token (LL)
@@ -337,11 +355,11 @@ lzsa2_decompress:
    cmp al,012H             ; LITERALS_RUN_LEN_V2 + 15 ?
    jne .got_literals       ; if not, we have the full literals count, go copy
 
-	call .lodsb		; grab extra length byte
+	do_lodsb		; grab extra length byte
    add al,012H             ; overflow?
    jnc .got_literals       ; if not, we have the full literals count, go copy
 
-	call .lodsw		; grab 16-bit extra length
+	do_lodsw		; grab 16-bit extra length
 
 %ifn _M
 .got_literals:
@@ -368,31 +386,31 @@ lzsa2_decompress:
 	pop ax
 	pop dx
 	je .end
-	ja .error_j
+	ja .error
 
 %if _M
 		; here cx = 0
 %if 1
 	jmp @F
 
-.error_j:
+.error:
 	jmp depack.error
 %else
-.error_j: equ depack.error
+.error: equ depack.error
 	db __TEST_IMM8		; skip xchg with ax
 %endif
 .got_literals:
    xchg cx,ax
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
-	jb .error_j
+	jb .error
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
-	jb .error_j
+	jb .error
    rep movsb               ; copy cx literals from ds:si to es:di
 @@:
 %else
-.error_j: equ depack.error
+.error: equ depack.error
 %endif
 
    test dl,0C0h            ; check match offset mode in token (X bit)
@@ -409,7 +427,7 @@ lzsa2_decompress:
    jmp short .dec_offset_top
 
 .offset_9_bit:             ; 9 bit offset
-	call .lodsb		; get 8 bit offset from stream in A
+	do_lodsb		; get 8 bit offset from stream in A
    dec ah                  ; set offset bits 15-8 to 1
    test dl,020H            ; test bit Z (offset bit 8)
    je .get_match_length
@@ -435,11 +453,11 @@ lzsa2_decompress:
    jne .repeat_match       ; rep-match
 
                            ; 16 bit offset
-	call .lodsb		; Get 2-byte match offset
+	do_lodsb		; Get 2-byte match offset
 
 .get_match_length_1:
    xchg ah,al
-	call .lodsb		; load match offset bits 0-7
+	do_lodsb		; load match offset bits 0-7
 
 .get_match_length:
 	xchg word [bp + ?matchlength], ax
@@ -457,12 +475,12 @@ lzsa2_decompress:
    cmp al,018H             ; MIN_MATCH_SIZE_V2 + MATCH_RUN_LEN_V2 + 15?
    jne .got_matchlen       ; no, we have the full match length from the token, go copy
 
-	call .lodsb		; grab extra length byte
+	do_lodsb		; grab extra length byte
    add al,018H             ; overflow?
    jnc .got_matchlen       ; if not, we have the entire length
-	je .error_j		; detect EOD code
+	je .error		; detect EOD code
 
-	call .lodsw		; grab 16-bit length
+	do_lodsw		; grab 16-bit length
 
 .got_matchlen:
    xchg cx,ax              ; copy match length into cx
@@ -546,7 +564,7 @@ lzsa2_decompress:
    jns .has_nibble
    
    xchg bx,ax
-	call .lodsb		; load two nibbles
+	do_lodsb		; load two nibbles
    xchg bx,ax
 
 .has_nibble:
