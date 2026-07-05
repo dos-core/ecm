@@ -31,6 +31,7 @@
 	numdef M, 0
 	numdef INLINELOD, 1
 	numdef WORDLENGTH, 1
+	numdef UNSAFE, 0
 
 %assign CHECK_POINTERS_VARIABLE_SRC 0
 %assign CHECK_POINTERS_VARIABLE_DST 0
@@ -82,8 +83,10 @@ depack:
 	lvar word,	matchlength
 %if _WORDLENGTH
 	lvar word,	word_length_of_source
+ %ifn _UNSAFE
 	lvar word,	word_length_of_destination
 	lvar word,	bool_not_full_destination
+ %endif
 %else
 	lvar dword,	length_of_source_after_block
 %endif
@@ -100,9 +103,11 @@ depack:
 	lvar dword,	dst
 	 push es
 	 push di
+%ifn _UNSAFE
 	lvar dword,	length_of_source
 	 push dx
 	 push cx
+%endif
 
 %if 0 ; && _PAYLOAD_KERNEL_MAX_PARAS
 	cmp ax, -1		; no maximum specified ?
@@ -122,6 +127,7 @@ d0	mov byte [bp + ?errordata], 40h
 	 push ax
 %endif
 
+%ifn _UNSAFE
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -155,6 +161,7 @@ d0	mov byte [bp + ?errordata], 40h
 	lvar dword,	length_of_destination
 	 push bx		; push into [bp + ?length_of_destination + 2]
 	 push cx		; push into [bp + ?length_of_destination]
+%endif
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
@@ -207,6 +214,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jmp .loop
 
 .compressed:
+%ifn _UNSAFE
 	mov cx, word [bp + ?length_of_source]
 	mov bx, word [bp + ?length_of_source + 2]
 
@@ -216,9 +224,15 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sub cx, ax
 	sbb bx, 0
 	jc .error
+%else
+	test ax, ax
+	jz .end
+%endif
+
 %if _WORDLENGTH
 	push ax				; remember initial word length
 	mov word [bp + ?word_length_of_source], ax
+ %ifn _UNSAFE
 	xor ax, ax
 	cmp word [bp + ?length_of_destination + 2], ax
 					; >= 64 KiB ?
@@ -229,7 +243,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 @@:					; ax == 0 if full 64 KiB destination
 	mov word [bp + ?word_length_of_destination], ax
 	mov word [bp + ?bool_not_full_destination], ax
+ %endif
 %else
+ %if _UNSAFE
+  %error Combination not implemented
+ %endif
 	mov word [bp + ?length_of_source_after_block], cx
 	mov word [bp + ?length_of_source_after_block + 2], bx
 %endif
@@ -241,27 +259,33 @@ d0	mov byte [bp + ?errordata], 1Bh
 	xchg cx, ax
 	sbb bx, bx			; -1 if cx == 0, else 0
 	neg bx				; 1 if cx == 0, else 0
+%ifn _UNSAFE
 %if _WORDLENGTH
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], bx
 	jc .error
+%endif
 %endif
 	call normalise_pointer_with_displacement_bxcx
 	pop di
 	pop es
 %if _WORDLENGTH
 	pop ax				; initial word length
+ %ifn _UNSAFE
 	sub ax, word [bp + ?word_length_of_source]
 					; initial - left = how much processed
 	sub word [bp + ?length_of_source], ax
 	sbb word [bp + ?length_of_source + 2], 0
 	jc .error
+ %endif
 %endif
 	jmp .loop
 
 .end:
+%ifn _UNSAFE
 	or bx, cx
 	jnz .error
+%endif
 
 .ret:
 	db __TEST_IMM8		; (skip stc, NC)
@@ -289,9 +313,11 @@ d0	mov bx, word [bp + ?errordata]
 		;	 ds:si incremented (NOT normalised)
 		;	 ?length_of_source decremented
 .lodsb:
+%ifn _UNSAFE
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
+%endif
 	lodsb
 .retn:
 	retn
@@ -305,9 +331,11 @@ d0	mov bx, word [bp + ?errordata]
 		;	 ds:si incremented (NOT normalised)
 		;	 ?length_of_source decremented
 .lodsw:
+%ifn _UNSAFE
 	sub word [bp + ?length_of_source], 2
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
+%endif
 	lodsw
 	retn
 
@@ -435,9 +463,11 @@ lzsa2_decompress:
  %if _WORDLENGTH
 	sub word [bp + ?word_length_of_source], cx
 	jb .error
+  %ifn _UNSAFE
 	sub word [bp + ?word_length_of_destination], cx
 	jb .error_or_full_1
 .after_full_1:
+  %endif
  %else
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
@@ -475,9 +505,11 @@ lzsa2_decompress:
  %if _WORDLENGTH
 	sub word [bp + ?word_length_of_source], cx
 	jb .error
+  %ifn _UNSAFE
 	sub word [bp + ?word_length_of_destination], cx
 	jb .error_or_full_2
 .after_full_2:
+  %endif
  %else
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
@@ -504,6 +536,7 @@ lzsa2_decompress:
    jmp short .dec_offset_top
 
 %if _WORDLENGTH
+ %ifn _UNSAFE
 .error_or_full_1:
 	call .error_or_full_common
 	jmp .after_full_1
@@ -512,6 +545,7 @@ lzsa2_decompress:
 .error_or_full_2:
 	call .error_or_full_common
 	jmp .after_full_2
+ %endif
  %endif
 %endif
 
@@ -626,9 +660,11 @@ lzsa2_decompress:
 	pop bx
 @@:
  %if _WORDLENGTH
+  %ifn _UNSAFE
 	sub word [bp + ?word_length_of_destination], cx
 	jb .error_or_full_3
 .after_full_3:
+  %endif
  %else
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
@@ -665,9 +701,11 @@ lzsa2_decompress:
 	jmp depack.error
 
 %if _WORDLENGTH
+ %ifn _UNSAFE
 .error_or_full_3:
 	call .error_or_full_common
 	jmp .after_full_3
+ %endif
 %endif
 
 .get_nibble_x:
@@ -680,6 +718,7 @@ lzsa2_decompress:
    ret
 
 %if _WORDLENGTH
+ %ifn _UNSAFE
 		; INP:	?word_length_of_destination underflowed
 		;	?bool_not_full_destination == 0 iff underflow allowed
 		; OUT:	to depack.error if underflow not allowed
@@ -691,4 +730,5 @@ lzsa2_decompress:
 	jae .error_j2		; word >= 1 ? then error -->
 				; word was < 1 (full destination), now is 0FFFFh
 	retn
+ %endif
 %endif
