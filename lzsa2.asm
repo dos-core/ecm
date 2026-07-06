@@ -29,6 +29,8 @@
  %error COUNTER must be a power of two
 %endif
 	numdef M, 0
+%undef N
+	numdef N, 0
 	numdef INLINELOD, 1
 	numdef WORDLENGTH, 1
 	numdef UNSAFE, 0
@@ -417,7 +419,7 @@ lzsa2_decompress:
 @@:
 %endif
 
-%ifn _M
+%ifn _M || _N
  %if _WORDLENGTH
 	cmp word [bp + ?word_length_of_source], 0
 	je .end
@@ -455,7 +457,7 @@ lzsa2_decompress:
 
 	do_lodsw		; grab 16-bit extra length
 
-%ifn _M
+%ifn _M && !_N
 .got_literals:
 %endif
 				; code only reached if not _M or did lodsw
@@ -478,6 +480,7 @@ lzsa2_decompress:
  %endif
    rep movsb               ; copy cx literals from ds:si to es:di
 
+%ifn _N
  %if _WORDLENGTH
 	cmp word [bp + ?word_length_of_source], 0
  %else
@@ -492,8 +495,9 @@ lzsa2_decompress:
 	ja .error
  %endif
 	je .end
+%endif
 
-%if _M
+%if _M && !_N
 		; here cx = 0
 %if 1
 	jmp @F
@@ -541,7 +545,7 @@ lzsa2_decompress:
 	call .error_or_full_common
 	jmp .after_full_1
 
- %if _M
+ %if _M && !_N
 .error_or_full_2:
 	call .error_or_full_common
 	jmp .after_full_2
@@ -575,6 +579,20 @@ lzsa2_decompress:
    sub al,2                ; substract 512
    jmp short .get_match_length_1
 
+%if _N
+.end_check:
+ %if _WORDLENGTH
+	cmp word [bp + ?word_length_of_source], 0
+ %else
+	mov ax, word [bp + ?length_of_source + 2]
+	cmp word [bp + ?length_of_source_after_block + 2], ax
+	jne @F
+	mov ax, word [bp + ?length_of_source]
+	cmp word [bp + ?length_of_source_after_block], ax
+@@:
+ %endif
+	jne .error
+%endif
 .end:
    pop ax                  ; retrieve the original decompression offset
    xchg di,ax              ; compute decompressed size
@@ -626,7 +644,11 @@ lzsa2_decompress:
 	do_lodsb		; grab extra length byte
    add al,018H             ; overflow?
    jnc .got_matchlen       ; if not, we have the entire length
+%if _N
+	je .end_check
+%else
 	je .error		; detect EOD code
+%endif
 
 	do_lodsw		; grab 16-bit length
 
