@@ -84,7 +84,9 @@ depack:
 %endif
 	lvar word,	matchlength
 %if _WORDLENGTH
+ %if !_N || !_UNSAFE
 	lvar word,	word_length_of_source
+ %endif
  %ifn _UNSAFE
 	lvar word,	word_length_of_destination
 	lvar word,	bool_not_full_destination
@@ -232,8 +234,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 %if _WORDLENGTH
+ %if !_N || !_UNSAFE
 	push ax				; remember initial word length
 	mov word [bp + ?word_length_of_source], ax
+ %endif
  %ifn _UNSAFE
 	xor ax, ax
 	cmp word [bp + ?length_of_destination + 2], ax
@@ -272,7 +276,9 @@ d0	mov byte [bp + ?errordata], 1Bh
 	pop di
 	pop es
 %if _WORDLENGTH
+ %if !_N || !_UNSAFE
 	pop ax				; initial word length
+ %endif
  %ifn _UNSAFE
 	sub ax, word [bp + ?word_length_of_source]
 					; initial - left = how much processed
@@ -345,22 +351,28 @@ d0	mov bx, word [bp + ?errordata]
 %if _INLINELOD
  %imacro do_lodsb 0.nolist
   %if _WORDLENGTH
+   %if !_N || !_UNSAFE
 	sub word [bp + ?word_length_of_source], 1
+	jb .error
+   %endif
   %else
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
-  %endif
 	jb .error
+  %endif
 	lodsb
  %endmacro
  %imacro do_lodsw 0.nolist
   %if _WORDLENGTH
+   %if !_N || !_UNSAFE
 	sub word [bp + ?word_length_of_source], 2
+	jb .error
+   %endif
   %else
 	sub word [bp + ?length_of_source], 2
 	sbb word [bp + ?length_of_source + 2], 0
-  %endif
 	jb .error
+  %endif
 	lodsw
  %endmacro
 %else
@@ -375,15 +387,19 @@ d0	mov bx, word [bp + ?errordata]
 .lodsw equ depack.lodsw
  %else
 .lodsb:
+   %if !_N || !_UNSAFE
 	sub word [bp + ?word_length_of_source], 1
 	jb .error
+   %endif
 	lodsb
 .retn:
 	retn
 
 .lodsw:
+   %if !_N || !_UNSAFE
 	sub word [bp + ?word_length_of_source], 2
 	jb .error
+   %endif
 	lodsw
 	retn
  %endif
@@ -463,8 +479,10 @@ lzsa2_decompress:
 				; code only reached if not _M or did lodsw
    xchg cx,ax
  %if _WORDLENGTH
+   %if !_N || !_UNSAFE
 	sub word [bp + ?word_length_of_source], cx
 	jb .error
+   %endif
   %ifn _UNSAFE
 	sub word [bp + ?word_length_of_destination], cx
 	jb .error_or_full_1
@@ -507,8 +525,10 @@ lzsa2_decompress:
 .got_literals:
    xchg cx,ax
  %if _WORDLENGTH
+   %if !_N || !_UNSAFE
 	sub word [bp + ?word_length_of_source], cx
 	jb .error
+   %endif
   %ifn _UNSAFE
 	sub word [bp + ?word_length_of_destination], cx
 	jb .error_or_full_2
@@ -581,6 +601,7 @@ lzsa2_decompress:
 
 %if _N
 .end_check:
+ %ifn _UNSAFE
  %if _WORDLENGTH
 	cmp word [bp + ?word_length_of_source], 0
  %else
@@ -592,6 +613,7 @@ lzsa2_decompress:
 @@:
  %endif
 	jne .error
+ %endif
 %endif
 .end:
    pop ax                  ; retrieve the original decompression offset
