@@ -24,6 +24,11 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
 	numdef COUNTER,		0, 128
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -61,6 +66,15 @@
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
+
 %if _IMAGE_EXE || _DEBUG0 || _COUNTER
 	lenter early
  %if _IMAGE_EXE
@@ -94,10 +108,20 @@ depack:
 %else
 	lvar dword,	length_of_source_after_block
 %endif
+
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lenter
 
 	call normalise_both_pointers
 
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
@@ -132,6 +156,11 @@ d0	mov byte [bp + ?errordata], 40h
 %endif
 
 %ifn _UNSAFE
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -161,6 +190,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	lvar dword,	length_of_destination
 	 push bx		; push into [bp + ?length_of_destination + 2]
@@ -222,7 +252,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error
 %endif
 	xchg ax, cx
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb			; copy this
+%endif
 	jmp .loop
 
 .compressed:
@@ -308,6 +342,27 @@ d0	mov byte [bp + ?errordata], 1Bh
 .error:
 	stc
 
+%if _SCAN
+	pushf
+	 push es
+	 push di
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
 %if _COUNTER
 	lahf
 	mov al, 13
@@ -434,6 +489,10 @@ lzsa2_decompress:
 .decode_token_clear_cx:
    xor cx,cx
 .decode_token:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -504,7 +563,11 @@ lzsa2_decompress:
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
  %endif
+%if _SCAN
+	call scan_rep_movsb
+%else
    rep movsb               ; copy cx literals from ds:si to es:di
+%endif
 
 %ifn _N
  %if _WORDLENGTH
@@ -550,7 +613,11 @@ lzsa2_decompress:
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
  %endif
+%if _SCAN
+	call scan_rep_movsb
+%else
    rep movsb               ; copy cx literals from ds:si to es:di
+%endif
 @@:
 %endif
 
@@ -722,7 +789,11 @@ lzsa2_decompress:
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error_j2
  %endif
+%if _SCAN
+	call scan_rep_movsb
+%else
    rep movsb               ; copy match
+%endif
    xchg si,ax              ; restore ds:si
    pop ds
 %if _ALLOW_OVERLAPPING
