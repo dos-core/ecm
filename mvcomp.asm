@@ -13,6 +13,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
 	numdef TESTFILE,	0
 
 %if _TESTFILE
@@ -63,6 +68,18 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lenter
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
@@ -86,7 +103,7 @@ depack:
 
 	call normalise_both_pointers
 
-%if _TESTFILE
+%if _TESTFILE || _SCAN
 	lvar dword,	original_src
 	 push ds
 	 push si
@@ -122,6 +139,11 @@ d0	mov byte [bp + ?errordata], 7Fh
 	 push ax
 %endif
 
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -151,6 +173,7 @@ d0	mov byte [bp + ?errordata], 7Fh
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	lvar dword,	dst_remaining
 	 push bx		; push into [bp + ?dst_remaining + 2]
@@ -168,6 +191,10 @@ d0	mov byte [bp + ?errordata], 7Eh
 %endif
 
 .loop:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -335,9 +362,30 @@ d0	mov byte [bp + ?errordata], 7Ch
 	sahf
 %endif
 d0	mov bx, word [bp + ?errordata]
-%if _TESTFILE
+%if _TESTFILE || _SCAN
 	les di, [bp + ?dst]
  %assign _TESTFILE_SUPPORTED 1
+%if _SCAN
+	pushf
+	 push es
+	 push di
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
 %endif
 	lleave code
 	lret
@@ -369,7 +417,11 @@ d0	inc byte [bp + ?errordata + 1]
 	les di, [bp + ?dst]
 		; If both pointers are normalised, moving 0FFF0h bytes is
 		;  valid and results in a maximum offset of 0FFFFh in either.
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb
+%endif
 
 	call normalise_both_pointers
 
