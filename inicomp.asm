@@ -3464,7 +3464,7 @@ init2_msg:
 .scan.2:		counted " ahead="
 .scan.3:		counted ",para="
 .scan.4:		counted " alloc="
-.scan.5:		counted " progress="
+.scan.5:		counted " tick="
 .scan.6:		counted 13,10
 .scan.fail:		counted "Note: Scan failure",13,10
 %endif
