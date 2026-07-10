@@ -213,6 +213,14 @@ d0	mov byte [bp + ?errordata], 1Bh
 	xchg ax, dx
 	jns .compressed			; no -->
 .uncompressed:
+%ifn _UNSAFE
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
+	sub word [bp + ?length_of_destination], ax
+	sbb word [bp + ?length_of_destination + 2], 0
+	jc .error
+%endif
 	xchg ax, cx
 	rep movsb			; copy this
 	jmp .loop
