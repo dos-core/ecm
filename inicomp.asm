@@ -87,6 +87,11 @@ ldLoadUntilSeg:	resw 1
 %endmacro
 	[list +]
 
+	numdef SCAN, 0
+
+	numdef USESCAN, 0
+	strdef SCANBINARY, ""
+
 	numdef DEBUG0		; use errordata to generate an error code
 	numdef DEBUG1		; dump_stack_frame after an error occurred
 	numdef DEBUG2		; dump_stack_frame before blz_depack_safe call
@@ -228,6 +233,10 @@ ldLoadUntilSeg:	resw 1
 
 
 	cpu 8086
+[list -]
+%ifn _SCAN
+[list +]
+
 	addsection INIT0, start=0 vstart=0
 init0_start:
 %if _DEVICE
@@ -1804,10 +1813,14 @@ msg:
 %endif
 
 
+%endif	; _SCAN
+[list +]
+
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 1
 %assign NEED_NORMALISE_BOTH_POINTERS 1
 %assign CHECK_POINTERS_VARIABLE_SRC 1
 %assign CHECK_POINTERS_VARIABLE_DST 1
+%assign SCAN_SUPPORTED 0
 
 		; Specific depacker's file is included within label msg.
 		; In the file, lframe is used and lleave ctx is not used.
@@ -1887,12 +1900,26 @@ msg:
 %endif
 
 
+%if _SCAN && ! SCAN_SUPPORTED
+ %error Scan not supported by this depacker method
+%endif
+
+
 %if _ALLOW_OVERLAPPING
 		; INP:	?src, ?dst
 		; OUT:	CY if error (?src < ?dst)
 		;	NC if success
 		; CHG:	ax, bx, cx, dx
 check_pointers_not_overlapping:
+
+ %if _SCAN
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear
+	xchg cx, ax
+	xchg bx, dx			; bx:cx = linear ?original_dst
+ %endif
+
 %if CHECK_POINTERS_VARIABLE_DST
 	 push word [bp + ?dst + 2]
 	 push word [bp + ?dst]
@@ -1900,10 +1927,23 @@ check_pointers_not_overlapping:
 	 push es
 	 push di
 %endif
-	call pointer_to_linear
+	call pointer_to_linear		; dx:ax = linear ?dst
 
+ %if _SCAN
+	sub ax, cx
+	sbb dx, bx
+	mov word [bp + ?plusdst], ax
+	mov word [bp + ?plusdst + 2], dx
+
+	 push word [bp + ?original_src + 2]
+	 push word [bp + ?original_src]
+	call pointer_to_linear
+	xchg cx, ax
+	xchg bx, dx			; bx:cx = linear ?original_src
+ %else
 	xchg cx, ax
 	xchg bx, dx			; bx:cx = linear ?dst after write
+ %endif
 
 %if CHECK_POINTERS_VARIABLE_SRC
 	 push word [bp + ?src + 2]
@@ -1914,12 +1954,55 @@ check_pointers_not_overlapping:
 %endif
 	call pointer_to_linear		; dx:ax = linear ?src before next read
 
+ %if _SCAN
+	sub ax, cx
+	sbb dx, bx
+	mov word [bp + ?plussrc], ax
+	mov word [bp + ?plussrc + 2], dx; = plussrc
+
+	mov bx, word [bp + ?plusdst + 2]
+	mov cx, word [bp + ?plusdst]	; = plusdst
+
+%if 0
+        plusdst = dst - dstbuffer;
+        plussrc = src - srcbuffer;
+        if (plusdst > plussrc) {
+          bytesahead = plusdst - plussrc;
+          if (bytesahead > *maxbytesahead) {
+            *maxbytesahead = bytesahead;
+          }
+        }
+%endif
+
+	cmp bx, dx
+	jne @F
+	cmp cx, ax			; plusdst > plussrc ?
+@@:
+	jna .ret			; no -->
+
+	sub cx, ax
+	sbb bx, dx			; bytesahead = plusdst - plussrc
+
+	cmp bx, word [bp + ?maxbytesahead + 2]
+	jne @F
+	cmp cx, word [bp + ?maxbytesahead]
+@@:					; bytesahead > maxbytesahead ?
+	jna .ret			; no -->
+
+	mov word [bp + ?maxbytesahead + 2], bx
+	mov word [bp + ?maxbytesahead], cx
+					; update maxbytesahead
+
+.ret:
+	clc				; NC
+ %else
 	cmp dx, bx			; ?src >= ?dst ?
 	jne @F
 	cmp ax, cx
 @@:
 					; (CY) if error (src < dst)
 					; (NC) if no error
+ %endif
 	retn
 %endif
 
@@ -1927,6 +2010,30 @@ check_pointers_not_overlapping:
 	;  specific depacker's file. The above function
 	;  check_pointers_not_overlapping uses the frame.
 	lleave ctx
+
+
+%if _SCAN
+		; Pretend to copy data for scan mode. Don't actually
+		;  read or write the data, just adjust registers as if.
+		;
+		; INP:	ds:si -> source
+		;	es:di -> destination
+		;	cx = amount of bytes to copy
+		; OUT:	si incremented
+		;	di incremented
+		;	cx = 0
+		; CHG:	(not even flags)
+scan_rep_movsb:
+	pushf
+	add si, cx
+	add di, cx
+	xor cx, cx
+	popf
+disp_al_for_progress:
+disp_al_counter:
+disp_al:
+	retn
+%endif
 
 
 		; INP:	ds:si = pointer
@@ -2098,6 +2205,10 @@ pointer_to_linear:
 	lret
 
 
+[list -]
+%ifn _SCAN
+[list +]
+
 %if _PASSLCFG
 	align 16
 transfer_lcfg_block:
@@ -2211,6 +2322,122 @@ init2_start:
 
 %if _RELOAD_FILE && _RELOAD_XMS
 	or word [bp + ?xmshandle], -1
+%endif
+
+%if _USESCAN
+doscan:
+	push si
+	mov ax, cs
+	sub ax, ( (init1_end - init1_start) \
+		+ (payload_end - payload) \
+		) >> 4		; => payload source for first run
+	mov ds, ax
+	xor si, si
+
+	lframe 0, nested
+	lenter
+	lvar dword, progressticks
+	 push si
+	 push si
+	lvar dword, maxbytesahead
+	 push si
+	 push si
+	lvar dword, depackedsize
+	 push si
+	 push si		; stack variables used by scan
+
+	mov bx, 1		; pretend exe mode
+	mov cx, (payload.end - payload) & 0FFFFh
+%if (payload.end - payload) >> 16
+	mov dx, (payload.end - payload) >> 16	; = length of source
+%else
+	xor dx, dx
+%endif
+	mov ax, -1		; pretend no kernel clamp
+	call scan
+		; CF, stack variables written
+	push cs
+	pop ds
+	jc .fail
+
+	mov bx, init2_msg.scan.success
+	call init2_error_disp_counted
+
+	pop ax
+	pop dx			; depacked size
+	call init2_error_decdword
+
+	mov bx, init2_msg.scan.1
+	call init2_error_disp_counted
+
+	mov ax, (payload.end - payload) & 0FFFFh
+%if (payload.end - payload) >> 16
+	mov dx, (payload.end - payload) >> 16	; = length of source
+%else
+	xor dx, dx
+%endif
+	call init2_error_decdword
+
+	mov bx, init2_msg.scan.2
+	call init2_error_disp_counted
+
+	pop ax
+	pop dx			; maxbytesahead
+	call init2_error_decdword
+	add ax, 15
+	adc dx, 0		; += 15
+	mov cx, 4
+@@:
+	shr dx, 1
+	rcr ax, 1
+	loop @B			; >>= 4
+
+	test dx, dx
+	jz @F
+	mov ax, -1
+@@:
+	xchg si, ax		; si = maximum paras ahead
+
+	mov bx, init2_msg.scan.3
+	call init2_error_disp_counted
+
+	mov ax, si
+	call init2_error_decword
+
+	mov bx, init2_msg.scan.4
+	call init2_error_disp_counted
+
+	add si, paras( (init1_end - init1_start) \
+			+ (payload_end - payload) )
+	mov ax, si		; = decompression size
+	call init2_error_decword
+
+	mov bx, init2_msg.scan.5
+	call init2_error_disp_counted
+
+	pop ax
+	pop dx			; progress ticks
+	call init2_error_decdword
+
+	mov bx, init2_msg.scan.6
+	call init2_error_disp_counted
+
+	xchg ax, si		; ax = decompression size
+	jmp @F
+
+.fail:
+	mov bx, init2_msg.scan.fail
+	call init2_error_disp_counted
+
+	mov ax, -1
+@@:
+
+	lleave
+	pop si
+
+init2_scan_done:
+	lvar word, scansizeresult
+	 push ax
 %endif
 
 	mov dx, word [bp + ?repetitions]
@@ -2604,6 +2831,12 @@ size_compressed equ (payload.end - payload)
 	retf			; transfer to INIT1:init1_start
 
 
+%if _USESCAN
+	align 16, nop
+scan:
+	noteincbin _SCANBINARY, "scan.lst"
+%endif
+
 
 %if _INCLUDE_UNCOMPRESSED
 
@@ -2977,7 +3210,7 @@ init2_error:
 	lleave ctx
 
 
-%if _DEBUG0
+%if _DEBUG0 || _USESCAN
 init2_error_disp_ax_hex:	; ax
 		xchg al,ah
 		call init2_error_disp_al_hex	; display former ah
@@ -3035,6 +3268,135 @@ init2_disp_al:
 	pop ax
 	pop dx
 	retn
+
+
+%if _USESCAN
+init2_error_disp_counted:
+	push ax
+	push bx
+	push cx
+	push dx
+	xor cx, cx
+	mov cl, [bx]
+	lea dx, [bx + 1]
+	mov ah, 40h
+	mov bx, 2
+	int 21h
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	retn
+
+
+init2_error_decword:
+	push dx
+	xor dx, dx
+	call init2_error_decdword
+	pop dx
+	retn
+
+
+init2_error_decdword:
+	push cx
+	xor cx, cx
+	call init2_error_dec_dword_minwidth
+	pop cx
+	retn
+
+
+		; Dump dword as decimal number string
+		;
+		; INP:	dx:ax = dword
+		;	cx = minimum width (<= 1 for none, must be < 10)
+		;	es:di -> where to store
+		; OUT:	es:di -> behind variable-length string
+		; CHG:	-
+		; STT:	UP
+init2_error_dec_dword_minwidth:
+	lframe near
+	lequ 10,	bufferlen
+	lvar ?bufferlen,buffer
+	lenter
+	lvar dword,	dividend
+	 push dx
+	 push ax
+	dec cx
+	lvar word,	minwidth
+	 push cx
+	inc cx
+
+	push ax
+	push bx
+	push cx
+	push dx
+	push si
+	push di
+	push es
+
+	 push ss
+	 pop es
+
+	lea di, [bp + ?buffer + ?bufferlen - 1]
+	mov bx, di
+	std			; _AMD_ERRATUM_109_WORKAROUND does not apply
+
+		; dword [bp + ?dividend] = number to display
+	mov cx, 10		; divisor
+.loop_write:
+
+	xor dx, dx
+	push di
+	mov di, 4
+.loop_divide:
+	mov ax, [bp + ?dividend - 2 + di]
+	div cx
+	mov word [bp + ?dividend - 2 + di], ax
+	dec di
+	dec di
+	jnz .loop_divide
+				; dx = last remainder
+	pop di
+	xchg ax, dx		; ax = remainder (next digit)
+				; dword [bp + ?dividend] = result of div
+	add al, '0'
+	stosb
+	dec word [bp + ?minwidth]
+	jns .loop_write
+
+	cmp word [bp + ?dividend + 2], 0
+	jnz .loop_write
+	cmp word [bp + ?dividend], 0
+				; any more ?
+	jnz .loop_write		; loop -->
+
+	cld
+
+	sub bx, di
+	mov cx, bx
+	mov dx, di
+	inc dx
+
+	mov ah, 40h
+	mov bx, 2		; stderr
+	push ds
+	 push ss
+	 pop ds
+	int 21h
+	pop ds
+
+	pop es
+	pop di
+
+	pop si
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+
+	lleave
+	retn
+%endif
 
 
 		; Display number in ax decimal
@@ -3096,6 +3458,16 @@ init2_disp_ax_dec:			; ax (no leading zeros)
 
 
 init2_msg:
+%if _USESCAN
+.scan.success:		counted "Note: Scan depack="
+.scan.1:		counted " pack="
+.scan.2:		counted " ahead="
+.scan.3:		counted ",para="
+.scan.4:		counted " alloc="
+.scan.5:		counted " progress="
+.scan.6:		counted 13,10
+.scan.fail:		counted "Note: Scan failure",13,10
+%endif
 %if _TEST_PROGRESS
 .progress.1:		db "Info: 1"
 .progress.1.length: equ $ - .progress.1
@@ -3281,3 +3653,6 @@ payload_uncompressed:
 init2_end:
 %endif
 
+
+%endif	; _SCAN
+[list +]
