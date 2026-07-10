@@ -513,7 +513,12 @@ init0_common:
 		) >> 4		; => INIT1
  %endif
 %endif
+
+%if _USESCAN && _TEST_PROGRAM
+	mov cx, init2_entry
+%else
 	xor cx, cx
+%endif
 	push ax
 	push cx
 	retf			; jump to relocated
@@ -2288,6 +2293,15 @@ init0_end:
 %if _TEST_PROGRAM
 	addsection INIT2, align=16 follows=INIT1 vstart=0
 init2_start:
+
+%if _USESCAN
+scan:
+	noteincbin _SCANBINARY, "scan.lst"
+
+init2_entry:
+%endif
+
+
 		; si => after PSP
 		; cs => INIT2
 		; psp, free, payload, init1, init2, payload space, stack
@@ -2846,13 +2860,6 @@ size_compressed equ (payload.end - payload)
 	push ax			; INIT1 segment
 	push di			; zero = init1_start
 	retf			; transfer to INIT1:init1_start
-
-
-%if _USESCAN
-	align 16, nop
-scan:
-	noteincbin _SCANBINARY, "scan.lst"
-%endif
 
 
 %if _INCLUDE_UNCOMPRESSED
