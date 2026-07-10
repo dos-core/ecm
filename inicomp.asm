@@ -2331,11 +2331,28 @@ doscan:
 	sub ax, ( (init1_end - init1_start) \
 		+ (payload_end - payload) \
 		) >> 4		; => payload source for first run
-	mov ds, ax
-	xor si, si
+	mov ds, ax		; => source
 
 	lframe 0, nested
 	lenter
+	lvar word, buffer
+	 push si		; => buffer
+
+	sub ax, si		; = amount paragraphs
+	lvar word, bufferparas
+	 push ax
+
+	xor dx, dx
+	mov cx, 4
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+	lvar dword, bufferbytes
+	 push dx
+	 push ax
+
+	xor si, si
 	lvar dword, progressticks
 	 push si
 	 push si
