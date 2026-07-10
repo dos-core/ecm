@@ -48,6 +48,45 @@ ldLoadUntilSeg:	resw 1
 
 	defaulting
 
+	[list -]
+%if __NASM_VERSION_ID__ >= 2000000h + 17 * 10000h
+	numdef HAVE_NASM_NOTE, 1
+ %note Disable usesection detection
+%else
+	numdef HAVE_NASM_NOTE, 0
+%endif
+%imacro hiddenusesection 1.nolist
+ usesection %1
+%endmacro
+
+%unimacro usesection 1-2.nolist 0
+	%imacro usesection 1-2.nolist 0
+%ifndef _SECTION_ADDED_%1
+ %error Section %1 not yet added
+%endif
+%if %2
+%define _CURRENT_SECTION
+%define _CURRENT_SECTION_TYPE
+	[section %1]
+%else
+%xdefine _CURRENT_SECTION %1
+%xdefine _CURRENT_SECTION_TYPE SECTION_TYPE_%1
+	section %1
+%endif
+%if _HAVE_NASM_NOTE
+ %note usesection %1
+%endif
+	%endmacro
+
+%imacro noteincbin 2.nolist
+%strcat %%string _PAYLOAD_PREFIX_LST, %2
+%if _HAVE_NASM_NOTE
+ %note include listing file %%string
+%endif
+	incbin %1
+%endmacro
+	[list +]
+
 	numdef DEBUG0		; use errordata to generate an error code
 	numdef DEBUG1		; dump_stack_frame after an error occurred
 	numdef DEBUG2		; dump_stack_frame before blz_depack_safe call
