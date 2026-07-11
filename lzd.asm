@@ -22,6 +22,12 @@
 %endif
 
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+	jmp depack
+%endif
+
+
 	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -728,6 +734,15 @@ lzip_header_bytes:
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar word, buffer
+	lpar word, bufferparas
+	lpar dword, bufferbytes
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+%endif
 %if _IMAGE_EXE || _COUNTER || _DEBUG0
 	lenter early
  %if _IMAGE_EXE
@@ -752,14 +767,28 @@ d0	 push bx
 	lvar dword,	dis_slot
 	lvar word,	len_state
 	lvar word,	pos_state
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lenter
 
+%if _SCAN
+	mov es, word [bp + ?buffer]
+	xor di, di		; destination
+%endif
 	call normalise_both_pointers
 
 		; ! di < 16, so dih == 0
 	lvar dword,	src
 	 push ds
 	 push si
+
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
 	lvar dword,	final_dst
 	 push es
 	 push di
@@ -788,6 +817,10 @@ d0	mov byte [bp + ?errordata], 40h
 	 push ax
 %endif
 
+%if _SCAN
+	mov bx, word [bp + ?bufferbytes + 2]
+	mov cx, word [bp + ?bufferbytes]
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -817,6 +850,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	sub cx, localvariables_size & 0FFFFh
 	sbb bx, localvariables_size >> 16
@@ -1015,6 +1049,10 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	rep stosw
 
 .loop:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -1599,6 +1637,12 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	call pointer_to_linear
 	sub ax, cx
 	sbb dx, bx		; = linear dst minus linear original_dst
+%if _SCAN
+	mov word [bp + ?depackedsize], ax
+	mov word [bp + ?depackedsize + 2], dx
+	add word [bp + ?maxbytesahead], localvariables_size & 0FFFFh
+	adc word [bp + ?maxbytesahead + 2], localvariables_size >> 16
+%endif
 
 	mov cx, 4
 	add ax, 15
@@ -1612,7 +1656,9 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 d0	mov byte [bp + ?errordata], 84h
 	jnz .error
 
+%ifn _SCAN
 	call x_mov_p
+%endif
 
 	db __TEST_IMM8			; (NC)
 .error:
@@ -1806,6 +1852,7 @@ anti_normalise_pointer_with_displacement_bxcx:
 	lret
 
 
+%ifn _SCAN
 		; Move paragraphs
 		;
 		; INP:	ds:si -> source
@@ -1955,3 +2002,4 @@ Contact your AMD representative for information on a BIOS update.
 	cld
 .return:
 	jmp normalise_both_pointers
+%endif
