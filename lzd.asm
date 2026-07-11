@@ -930,7 +930,6 @@ member_min_size equ lzip_header_size + lzip_trailer_size
 	shr ch, cl
 	mov cl, ch
 	mov ch, 0
-	jcxz @FF
 
 	push dx
 	push ax
