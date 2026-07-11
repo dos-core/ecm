@@ -25,6 +25,11 @@ Intended for Real/Virtual 86 Mode programs.
 [warning +reloc-abs-byte]
 [warning +error=reloc-abs-byte]
 
+	; This warning crops up in spades on recent NASM revisions
+	;  when an unrelated error happens. Silence it to avoid
+	;  the spam. (Previously used grep to filter these out.)
+[warning -label-redef-late]
+
 
 %idefine by byte
 %idefine wo word
