@@ -21,6 +21,9 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 	numdef TESTFILE,	0
 
 %if _TESTFILE
+ %if _SCAN
+	jmp depack
+ %endif
 .verbose.2:	db @F - ($ + 1)
 		db "dest="
 .verbose.2.desthigh:
