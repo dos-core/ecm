@@ -820,7 +820,11 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, localvariables_size & 0FFFFh
 	sbb bx, localvariables_size >> 16
-	jbe .error		; make variables buffer available
+	jb .error		; make variables buffer available
+	jne @F
+	test cx, cx
+	jz .error
+@@:
 
 	lvar dword,	length_of_destination
 	 push bx		; push into [bp + ?length_of_destination + 2]
