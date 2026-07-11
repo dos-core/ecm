@@ -1906,7 +1906,7 @@ msg:
 
 
 %if _SCAN && ! SCAN_SUPPORTED
- %error Scan not supported by this depacker method
+ %fatal Scan not supported by this depacker method
 %endif
 
 
