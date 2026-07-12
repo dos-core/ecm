@@ -701,7 +701,9 @@ bit_models_end:
  %error Expecting lz_decoder structure at start of localvariables structure
 %endif
 %assign STRUCSIZE localvariables_size
+%ifn _SCAN
 %warning localvariables has STRUCSIZE bytes
+%endif
 
 
 	align 4
