@@ -132,7 +132,7 @@ depack:
 	lvar dword,	after_end_length_of_source
 	lvar dword,	after_end_length_of_destination
 	lvar dword,	flags
-	lvar dword,	original_dst
+	lvar dword,	original_dst_header
 	lenter
 
 	call normalise_both_pointers
@@ -213,8 +213,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 .loop_header:
 	push word [bp + ?dst + 2]
 	push word [bp + ?dst]
-	pop word [bp + ?original_dst]
-	pop word [bp + ?original_dst + 2]
+	pop word [bp + ?original_dst_header]
+	pop word [bp + ?original_dst_header + 2]
 
 	xor cx, cx
 	cmp word [bp + ?length_of_source + 2], cx
@@ -803,9 +803,9 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	pop dx				; dx:ax = length
 	jnc .error			; must carry !
 	mov cx, ds
-	cmp cx, word [bp + ?original_dst + 2]
+	cmp cx, word [bp + ?original_dst_header + 2]
 	jne @F
-	cmp si, word [bp + ?original_dst]
+	cmp si, word [bp + ?original_dst_header]
 @@:
 	jb .error			; must not be before buffer !
 
@@ -1130,4 +1130,3 @@ read_be_data_src:
 .error:
 	stc
 	retn
-
