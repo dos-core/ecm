@@ -26,6 +26,12 @@ freely, subject to the following restrictions:
 
 %endif
 
+
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
 	numdef P, 7, 7
 %if _P > 63
  %error Too large P value, not supported
@@ -64,6 +70,14 @@ eteBase:	resw 1
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
 	lenter
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
@@ -94,6 +108,11 @@ depack:
 
 	call normalise_both_pointers
 
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
@@ -125,6 +144,11 @@ d0	mov byte [bp + ?errordata], 40h
 	 push ax
 %endif
 
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -154,6 +178,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	lvar dword,	dst_remaining
 	 push bx		; push into [bp + ?dst_remaining + 2]
@@ -179,6 +204,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	lvar ?16tablesize, offsets4
 %endif
 	lvar ?16tablesize, lengths
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lreserve
 
 %ifn _P & 8
@@ -245,6 +274,10 @@ d0	mov byte [bp + ?errordata], 46h
 	; jmp .STATE_NEXT_BYTE
 
 .STATE_NEXT_BYTE:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -328,6 +361,27 @@ d0	mov byte [bp + ?errordata], 40h
 .error:
 	stc
 
+%if _SCAN
+	pushf
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
 %if _COUNTER
 	lahf
 	mov al, 13
@@ -690,11 +744,19 @@ d0	inc byte [bp + ?errordata + 1]
 	mov al, cl
 	and al, 15			; second step length
 	mov cl, 0F0h			; maximum first step = 0FFF0h
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb			; move first step of two steps
+%endif
 	call normalise_both_pointers	; normalise pointers after
 	xchg ax, cx			; cx = second step length
 @@:
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb			; move last step
+%endif
 	call normalise_both_pointers	; normalise (again)
 	mov word [bp + ?dst], di
 	mov word [bp + ?dst + 2], es	; store to ?dst
