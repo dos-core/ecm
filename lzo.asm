@@ -13,6 +13,11 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
 %include "lmacros3.mac"
 
 	numdef LZO_SUPPORT_RLE,	0	; DO NOT ENABLE
@@ -20,6 +25,9 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 					;  the Linux kernel's one. lzop does
 					;  not use the LZO-RLE extension.
 
+%if _SCAN
+	jmp depack
+%endif
 
 lzop_signature:
 .:
@@ -103,6 +111,14 @@ lzopfCompressedSize:		resd 1
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
 %if _IMAGE_EXE || _DEBUG0 || _COUNTER || 1
 	lenter early
  %if _IMAGE_EXE
@@ -133,10 +149,22 @@ depack:
 	lvar dword,	after_end_length_of_destination
 	lvar dword,	flags
 	lvar dword,	original_dst_header
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lenter
 
 	call normalise_both_pointers
 
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
@@ -165,6 +193,11 @@ d0	mov byte [bp + ?errordata], 40h
 	 push ax
 %endif
 
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -194,6 +227,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	lvar dword,	length_of_destination
 	 push bx		; push into [bp + ?length_of_destination + 2]
@@ -227,6 +261,27 @@ d0	mov byte [bp + ?errordata], 1Bh
 .error:
 	stc
 
+%if _SCAN
+	pushf
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
 %if _COUNTER
 	lahf
 	mov al, 13
@@ -754,7 +809,12 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jb .error			; (must not carry)
 	push ax
 	mov al, 0
+%if _SCAN
+	add di, cx
+	; xor cx, cx
+%else
 	rep stosb
+%endif
 	pop ax
 	 push es
 	 push di
@@ -984,7 +1044,11 @@ d0	inc byte [bp + ?errordata + 1]
 	xor ax, ax			; no more remaining
 
 .copy:
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb			; move one block (full or partial)
+%endif
 
 	call normalise_both_pointers
 	jmp .loop
