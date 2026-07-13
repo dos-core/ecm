@@ -33,6 +33,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 %endif
 
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
 %assign CHECK_POINTERS_VARIABLE_SRC 0
 %assign CHECK_POINTERS_VARIABLE_DST 0
@@ -61,6 +66,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lenter
  %if _IMAGE_EXE
 	lvar word,	exemode	; must be bp - 2!
@@ -83,9 +98,19 @@ depack:
 
 	call normalise_both_pointers
 
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
+%if _SCAN
+	lvar dword,	original_dst
+	 push es
+	 push di
+%endif
 	lvar dword,	dst
 	 push es
 	 push di
@@ -111,6 +136,11 @@ d0	mov byte [bp + ?errordata], 40h
 	 push ax
 %endif
 
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -140,6 +170,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	lvar dword,	length_of_destination
 	 push bx		; push into [bp + ?length_of_destination + 2]
@@ -159,6 +190,10 @@ d0	mov byte [bp + ?errordata], 1Bh
 	xor dx, dx		; dh = mask, dl = bitbyte
 
 .loop:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -277,6 +312,27 @@ d0	mov byte [bp + ?errordata], 05h
 .error_CY:
 .end_NC:
 
+%if _SCAN
+	pushf
+	 push es
+	 push di
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
 %if _COUNTER
 	lahf
 	mov al, 13
@@ -295,8 +351,12 @@ d0	mov byte [bp + ?errordata], 06h
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jc .error_CY
+%if _SCAN
+	jmp scan_rep_movsb
+%else
 	rep movsb
 	retn
+%endif
 
 
 		; INP:	depack stack frame
