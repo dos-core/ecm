@@ -24,6 +24,11 @@
 ;  3. This notice may not be removed or altered from any source distribution.
 
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
 	numdef COUNTER,		0, 256
 %if (_COUNTER - 1) & _COUNTER
  %error COUNTER must be a power of two
@@ -56,6 +61,14 @@
 		;	 Normalised means that the offset part is below 16.
 depack:
 	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
 %if _IMAGE_EXE || _DEBUG0 || _COUNTER
 	lenter early
  %if _IMAGE_EXE
@@ -79,10 +92,19 @@ depack:
 %endif
 	lvar word,	gamma_high_word
 	lvar word,	distance_high_word
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
 	lenter
 
 	call normalise_both_pointers
 
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
 	lvar dword,	src
 	 push ds
 	 push si
@@ -114,6 +136,11 @@ d0	mov byte [bp + ?errordata], 40h
 	 push ax
 %endif
 
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
 	 push ds
 	 push si
 	call pointer_to_linear
@@ -143,6 +170,7 @@ d0	mov byte [bp + ?errordata], 40h
 
 	sub cx, ax
 	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
 
 	lvar dword,	length_of_destination
 	 push bx		; push into [bp + ?length_of_destination + 2]
@@ -180,12 +208,21 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
 	jb .error
+%if _SCAN
+	inc si
+	inc di
+%else
         movsb                   ; read and write literal byte
+%endif
 	call normalise_both_pointers
 .next_command_after_literal:
         mov     bx,03H          ; set follows_literal(bx) to 3
 
 .next_command:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
 %if _COUNTER
 	inc byte [bp + ?counter]
 	test byte [bp + ?counter], _COUNTER - 1
@@ -276,7 +313,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sub word [bp + ?length_of_destination], cx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb		; copy matched bytes
+%endif
 	jmp normalise_both_pointers
 
 .get_match_pointer:
@@ -390,7 +431,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 	sub word [bp + ?length_of_destination], 1
 	sbb word [bp + ?length_of_destination + 2], 0
 	jb .error
+%if _SCAN
+	inc di
+%else
         stosb                   ; copy matched byte
+%endif
 	push es
 	push di
 	call normalise_pointer
@@ -411,6 +456,27 @@ d0	mov byte [bp + ?errordata], 1Bh
 .error:
 	stc
 
+%if _SCAN
+	pushf
+	 push es
+	 push di
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
 %if _COUNTER
 	lahf
 	mov al, 13
