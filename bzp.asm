@@ -305,11 +305,16 @@ d0	mov byte [bp + ?errordata], 04h
 		; The end marker should code 1FFh. Refer to
 		;  https://github.com/mbaze/bzpack/issues/7
 	cmp cx, 1FFh			; correct end marker ?
-	je .end_NC			; yes --> (NC)
-	stc				; no, error!
-d0	mov byte [bp + ?errordata], 05h
+	jne .error			; no -->
+	xor cx, cx
+	cmp word [bp + ?length_of_source], cx
+	jne .error
+	cmp word [bp + ?length_of_source + 2], cx
+	je .end_NC
 
 .error_CY:
+.error:
+	stc
 .end_NC:
 
 %if _SCAN
