@@ -1,6 +1,6 @@
 
-; 8086 Assembly lDOS iniload payload LZSA2 depacker
-;  by E. C. Masloch, 2021
+; 8086 Assembly lDOS iniload payload LZSA2/LZSA1 depacker
+;  by E. C. Masloch, 2021, 2026
 ;
 ;  based on:
 ;  decompress_small.S - space-efficient decompressor implementation for 8088
@@ -212,7 +212,11 @@ d0	mov byte [bp + ?errordata], 1Bh
 	cmp ax, 7Bh | (9Eh << 8)	; signature
 	jne .error
 	call .lodsb
+%if _LZSA1
+	test al, al			; check for lzsa1
+%else
 	cmp al, 1 << 5			; traits byte, check for lzsa2
+%endif
 	jne .error
 
 .loop:
@@ -302,7 +306,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 
 	push es
 	push di
-	call lzsa2_decompress
+	call lzsa_decompress
 	cmp ax, 1			; CY if ax == 0
 	xchg cx, ax
 	sbb bx, bx			; -1 if cx == 0, else 0
@@ -469,9 +473,9 @@ d0	mov bx, word [bp + ?errordata]
 %endif
 	%endmacro
 
-		; Decompress LZSA2 block
+		; Decompress LZSA2/LZSA1 block
 		;
-		; INP:	ds:si -> LZSA2 block
+		; INP:	ds:si -> compressed block
 		;	es:di -> output buffer
 		;	?length_of_source
 		;	?length_of_source_after_block = block end target
@@ -480,7 +484,7 @@ d0	mov bx, word [bp + ?errordata]
 		;	ds:si -> behind source data
 		;	jumps to depack.error if error condition detected
 		; CHG:	all except bp
-lzsa2_decompress:
+lzsa_decompress:
    push di                 ; remember decompression offset
 
    mov bx,0100H
@@ -520,15 +524,37 @@ lzsa2_decompress:
 
    mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
 	do_lodsb		; read token byte: XYZ|LL|MMMM
+				; LZSA1: O|LLL|MMMM
    mov dx,ax               ; keep token in dl
 
+%if _LZSA1
+	and al, 70h
+	mov cl, 4
+%else
    and al,018H             ; isolate literals length in token (LL)
    mov cl,3
+%endif
    shr al,cl               ; shift literals length into place
 
+%if _LZSA1
+	cmp al, 7
+%else
    cmp al,03H              ; LITERALS_RUN_LEN_V2?
+%endif
    jne .got_literals       ; no, we have the full literals count from the token, go copy
 
+%if _LZSA1
+	do_lodsb
+	add al, 7
+	jnc .got_literals
+	jz .get_literals_word
+.get_literals_byte:
+	do_lodsb
+	inc ah
+	jmp .got_literals
+
+.get_literals_word:
+%else
    call .get_nibble        ; get extra literals length nibble
    add al,cl               ; add len from token to nibble
    cmp al,012H             ; LITERALS_RUN_LEN_V2 + 15 ?
@@ -537,6 +563,7 @@ lzsa2_decompress:
 	do_lodsb		; grab extra length byte
    add al,012H             ; overflow?
    jnc .got_literals       ; if not, we have the full literals count, go copy
+%endif
 
 	do_lodsw		; grab 16-bit extra length
 
@@ -621,6 +648,17 @@ lzsa2_decompress:
 @@:
 %endif
 
+%if _LZSA1
+	mov ah, -1
+	do_lodsb		; match offset low
+	test dl, dl		; O set ?
+	jns @F
+	xchg al, ah
+	do_lodsb		; match offset high
+	xchg al, ah
+@@:
+	jmp .get_match_length
+%else
    test dl,0C0h            ; check match offset mode in token (X bit)
    js .rep_match_or_large_offset
 
@@ -633,6 +671,7 @@ lzsa2_decompress:
    cmp dl,020H             ; test bit 5
    call .get_nibble_x
    jmp short .dec_offset_top
+%endif
 
 %if _WORDLENGTH
  %ifn _UNSAFE
@@ -652,6 +691,7 @@ lzsa2_decompress:
 .error:
 	jmp depack.error
 
+%ifn _LZSA1
 .offset_9_bit:             ; 9 bit offset
 	do_lodsb		; get 8 bit offset from stream in A
    dec ah                  ; set offset bits 15-8 to 1
@@ -673,6 +713,7 @@ lzsa2_decompress:
    call .get_nibble_x
    sub al,2                ; substract 512
    jmp short .get_match_length_1
+%endif
 
 %if _N
 .end_check:
@@ -696,6 +737,7 @@ lzsa2_decompress:
    sub ax,di
    ret                     ; done
 
+%ifn _LZSA1
 .get_nibble:
    neg bh                  ; nibble ready?
    jns .has_nibble
@@ -721,12 +763,36 @@ lzsa2_decompress:
 .get_match_length_1:
    xchg ah,al
 	do_lodsb		; load match offset bits 0-7
+%endif
 
 .get_match_length:
 	xchg word [bp + ?matchlength], ax
 			; bp: offset
 .repeat_match:
    xchg ax,dx              ; ax: original token
+
+%if _LZSA1
+	and al, 15
+	add al, 3
+	cmp al, 15 + 3
+	jne .got_matchlen
+	do_lodsb
+	add al, 15 + 3
+	jnc .got_matchlen
+	jz .get_matchlen_word
+	do_lodsb
+	inc ah
+	jmp .got_matchlen
+
+.get_matchlen_word:
+	do_lodsw
+	test ax, ax
+ %if _N
+	je .end_check
+ %else
+	je .error		; detect EOD code
+ %endif
+%else
    and al,07H              ; isolate match length in token (MMM)
    add al,2                ; add MIN_MATCH_SIZE_V2
 
@@ -748,6 +814,7 @@ lzsa2_decompress:
 %endif
 
 	do_lodsw		; grab 16-bit length
+%endif
 
 .got_matchlen:
    xchg cx,ax              ; copy match length into cx
@@ -831,6 +898,7 @@ lzsa2_decompress:
  %endif
 %endif
 
+%ifn _LZSA1
 .get_nibble_x:
    cmc                     ; carry set if bit 4 was set
    rcr al,1
@@ -839,6 +907,7 @@ lzsa2_decompress:
    rol al,1
    xor al,0E1H             ; set offset bits 7-5 to 1
    ret
+%endif
 
 %if _WORDLENGTH
  %ifn _UNSAFE

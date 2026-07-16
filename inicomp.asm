@@ -146,6 +146,7 @@ ldLoadUntilSeg:	resw 1
 	numdef LZD,		0
 	numdef LZO,		0
 	numdef LZSA2,		0
+	numdef LZSA1,		0
 	numdef APL,		0
 	numdef BZP,		0
 	numdef ZEROCOMP,	0
@@ -154,7 +155,7 @@ ldLoadUntilSeg:	resw 1
 	numdef ZX0,		0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
 	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
-	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0) != 1
+	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0 + !!_LZSA1) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -176,6 +177,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.LZO"
 %elif _LZSA2
 	strdef PAYLOAD_FILE,	"lDOSLOAD.SA2"
+%elif _LZSA1
+	strdef PAYLOAD_FILE,	"lDOSLOAD.SA1"
 %elif _APL
 	strdef PAYLOAD_FILE,	"lDOSLOAD.APL"
 %elif _BZP
@@ -1870,7 +1873,7 @@ msg:
 %endif
 
 
-%if _LZSA2
+%if _LZSA2 || _LZSA1
 	%include "lzsa2.asm"
 %endif
 
@@ -2274,6 +2277,8 @@ init0_end:
 %define which inilzo
 %elif _LZSA2
 %define which inilzsa2
+%elif _LZSA1
+%define which inilzsa1
 %elif _APL
 %define which iniapl
 %elif _BZP
