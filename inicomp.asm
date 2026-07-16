@@ -2385,7 +2385,15 @@ doscan:
 	xor dx, dx
 %endif
 	mov ax, -1		; pretend no kernel clamp
+
+	numdef SCAN_DISABLED, 0
+%if _SCAN_DISABLED
+	stc
+	nop
+	nop
+%else
 	call scan
+%endif
 		; CF, stack variables written
 	push cs
 	pop ds
