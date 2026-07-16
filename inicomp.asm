@@ -1874,7 +1874,7 @@ msg:
 
 
 %if _LZSA2 || _LZSA1
-	%include "lzsa2.asm"
+	%include "lzsa.asm"
 %endif
 
 
