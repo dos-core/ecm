@@ -2163,6 +2163,16 @@ chunksize equ fromparas(paras(4096))
 	adc word [cs:.tick], cx
 	adc word [cs:.tick + 2], cx
 
+	numdef INT3_AT_TICK, 0
+%if _INT3_AT_TICK
+	cmp word [cs:.tick + 2], _INT3_AT_TICK >> 16
+	jne @F
+	cmp word [cs:.tick], _INT3_AT_TICK & 0FFFFh
+	jne @F
+	int3
+@@:
+%endif
+
  	clc
  .ret:
 
