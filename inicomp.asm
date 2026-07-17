@@ -109,6 +109,8 @@ ldLoadUntilSeg:	resw 1
 
 	numdef INCLUDE_UNCOMPRESSED
 	numdef INCLUDE_UNCOMPRESSED_IN_IMAGE, 1
+	numdef COMPARE_UNCOMPRESSED_PROGRESS
+	excdef !_INCLUDE_UNCOMPRESSED, COMPARE_UNCOMPRESSED_PROGRESS
 	numdef WRITE_WRONG_FILE
 	numdef RELOAD_XMS, 0
 	numdef RELOAD_FILE, 0
@@ -2004,12 +2006,18 @@ check_pointers_not_overlapping:
 .ret:
 	clc				; NC
  %else
+  %if _COMPARE_UNCOMPRESSED_PROGRESS
+	nop
+	call far 0:init2_compare_progress
+..@patch_init1_init2cs: equ $ - 2
+  %else
 	cmp dx, bx			; ?src >= ?dst ?
 	jne @F
 	cmp ax, cx
 @@:
 					; (CY) if error (src < dst)
 					; (NC) if no error
+  %endif
  %endif
 	retn
 %endif
@@ -2341,6 +2349,14 @@ init2_entry:
 
 %if _RELOAD_FILE && _RELOAD_XMS
 	or word [bp + ?xmshandle], -1
+%endif
+
+%if _COMPARE_UNCOMPRESSED_PROGRESS
+	mov ax, cs
+	sub ax, ( (init1_end - init1_start) \
+		) >> 4		; => INIT1
+	mov ds, ax
+	mov word [..@patch_init1_init2cs], cs
 %endif
 
 %if _USESCAN
@@ -2876,6 +2892,18 @@ size_compressed equ (payload.end - payload)
 
 
 %if _INCLUDE_UNCOMPRESSED
+
+%if _COMPARE_UNCOMPRESSED_PROGRESS
+init2_compare_progress:
+	cmp dx, bx			; ?src >= ?dst ?
+	jne @F
+	cmp ax, cx
+@@:
+					; (CY) if error (src < dst)
+					; (NC) if no error
+	; int3
+	retf
+%endif
 
 
 %if _WRITE_WRONG_FILE
