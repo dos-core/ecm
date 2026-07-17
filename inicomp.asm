@@ -2095,6 +2095,16 @@ init2_compare_progress:
 	 push bx
 	 push bx
 
+	numdef START_AT_TICK, 0
+%if _START_AT_TICK
+	xor cx, cx
+	cmp word [cs:.tick + 2], _START_AT_TICK >> 16
+	jne @F
+	cmp word [cs:.tick], _START_AT_TICK & 0FFFFh
+@@:
+	jb .justtick
+%endif
+
  %if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
 	mov bx, 0
 ..@patch_init2_init2handle: equ $ - 2
@@ -2159,6 +2169,7 @@ chunksize equ fromparas(paras(4096))
 .done:
  %endif
 
+.justtick:
 	stc
 	adc word [cs:.tick], cx
 	adc word [cs:.tick + 2], cx
