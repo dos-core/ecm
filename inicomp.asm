@@ -519,7 +519,7 @@ init0_common:
  %endif
 %endif
 
-%if _USESCAN && _TEST_PROGRAM
+%if _TEST_PROGRAM
 	mov cx, init2_entry
 %else
 	xor cx, cx
@@ -1135,6 +1135,18 @@ payload_end:
 
 
 	addsection INIT1, align=16 follows=PAYLOAD vstart=0
+
+%if _TEST_PROGRAM
+	addsection INIT2, align=16 follows=INIT1 vstart=0
+init2_start:
+
+ %if _USESCAN
+scan:
+	noteincbin _SCANBINARY, "scan.lst"
+ %endif
+%endif
+
+	usesection INIT1
 init1_start:
 		; INP:	ax = cs = INIT1
 		;	dx = cs - (payload_end - payload) >> 4 => source data
@@ -2006,7 +2018,7 @@ check_pointers_not_overlapping:
 .ret:
 	clc				; NC
  %else
-  %if _COMPARE_UNCOMPRESSED_PROGRESS
+  %if !_SCAN && _INCLUDE_UNCOMPRESSED && _COMPARE_UNCOMPRESSED_PROGRESS
 	nop
 	call far 0:init2_compare_progress
 ..@patch_init1_init2cs: equ $ - 2
@@ -2020,6 +2032,44 @@ check_pointers_not_overlapping:
   %endif
  %endif
 	retn
+%endif
+
+%if !_SCAN && _INCLUDE_UNCOMPRESSED && _COMPARE_UNCOMPRESSED_PROGRESS
+	usesection INIT2
+init2_compare_progress:
+	cmp dx, bx			; ?src >= ?dst ?
+	jne @F
+	cmp ax, cx
+@@:
+					; (CY) if error (src < dst)
+					; (NC) if no error
+	; int3
+	jnc @F
+	retf
+
+@@:
+	push ds
+	push si
+	push es
+	push di
+
+ %if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+	mov bx, 0
+..@patch_init2_init2handle: equ $ - 2
+	mov dx, 0
+..@patch_init2_init2buffer: equ $ - 2
+ %else
+	mov ax, cs
+	add ax, (payload_uncompressed - init2_start) >> 4
+ %endif
+
+ 	pop di
+ 	pop es
+ 	pop si
+ 	pop ds
+ 	clc
+	retf
+	usesection INIT1
 %endif
 
 	; This leaves the lframe context created within the
@@ -2304,19 +2354,11 @@ init0_end:
 
 
 %if _TEST_PROGRAM
-	addsection INIT2, align=16 follows=INIT1 vstart=0
-init2_start:
-
-%if _USESCAN
-scan:
-	noteincbin _SCANBINARY, "scan.lst"
-
+	usesection INIT2
 init2_entry:
-%endif
-
-
 		; si => after PSP
 		; cs => INIT2
+		; ! ip may != 0
 		; psp, free, payload, init1, init2, payload space, stack
 		;
 		; The correct allocation for the test program
@@ -2357,6 +2399,13 @@ init2_entry:
 		) >> 4		; => INIT1
 	mov ds, ax
 	mov word [..@patch_init1_init2cs], cs
+ %if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+	mov ax, word [bp + ?handle]
+	mov word [cs:..@patch_init2_init2handle], ax
+	lea ax, [bp + ?buffer]
+	mov word [cs:..@patch_init2_init2buffer], ax
+init2buffersize equ ?buffersize
+ %endif
 %endif
 
 %if _USESCAN
@@ -2892,19 +2941,6 @@ size_compressed equ (payload.end - payload)
 
 
 %if _INCLUDE_UNCOMPRESSED
-
-%if _COMPARE_UNCOMPRESSED_PROGRESS
-init2_compare_progress:
-	cmp dx, bx			; ?src >= ?dst ?
-	jne @F
-	cmp ax, cx
-@@:
-					; (CY) if error (src < dst)
-					; (NC) if no error
-	; int3
-	retf
-%endif
-
 
 %if _WRITE_WRONG_FILE
 		; INP:	si => decompressed image
