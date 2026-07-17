@@ -2158,6 +2158,11 @@ chunksize equ fromparas(paras(4096))
 
 .done:
  %endif
+
+	stc
+	adc word [cs:.tick], cx
+	adc word [cs:.tick + 2], cx
+
  	clc
  .ret:
 
@@ -2196,9 +2201,6 @@ chunksize equ fromparas(paras(4096))
 	adc word [bp + ?processed + 2], cx
 	sub word [bp + ?length], ax
 	sbb word [bp + ?length + 2], cx
-	stc
-	adc word [cs:.tick], cx
-	adc word [cs:.tick + 2], cx
 	retn
 
 .diff:
