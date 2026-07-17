@@ -2053,22 +2053,284 @@ init2_compare_progress:
 	push es
 	push di
 
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+%if CHECK_POINTERS_VARIABLE_DST
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+%else
+	 push es
+	 push di
+%endif
+	lframe 0, nested
+	lpar dword, orig
+	lpar dword, current
+	lenter
+
+	push word [bp + ?orig + 2]
+	push word [bp + ?orig]
+	call init2_pointer_to_linear
+	xchg cx, ax
+	xchg bx, dx			; bx:cx = linear ?original_dst
+
+	push word [bp + ?current + 2]
+	push word [bp + ?current]
+	call init2_pointer_to_linear	; dx:ax = linear ?dst
+	 sub ax, cx
+	 sbb dx, bx
+
+	cmp dx, payload_uncompressed_size >> 16
+	jne @F
+	cmp ax, payload_uncompressed_size & 0FFFFh
+@@:
+	jbe @F
+	mov dx, payload_uncompressed_size >> 16
+	mov ax, payload_uncompressed_size & 0FFFFh
+@@:
+	lvar dword, length
+	 push dx
+	 push ax
+	xor bx, bx
+	lvar dword, processed
+	 push bx
+	 push bx
+
  %if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
 	mov bx, 0
 ..@patch_init2_init2handle: equ $ - 2
+
+%if _RELOAD_FILE
+	mov cx, ((- size_compressed_plus_uncompressed) >> 16) & 0FFFFh
+	mov dx, (- size_compressed_plus_uncompressed) & 0FFFFh
+%else
+	mov cx, ((- payload_uncompressed_size) >> 16) & 0FFFFh
+	mov dx, (- payload_uncompressed_size) & 0FFFFh
+%endif
+	mov ax, 4202h
+	int 21h
+	jc .ret
+
+	 push ss
+	 pop ds
 	mov dx, 0
 ..@patch_init2_init2buffer: equ $ - 2
+		; init2buffersize
+
+	les di, [bp + ?orig]
+.loop:
+	cmp word [bp + ?length + 2], 0
+	jnz .full
+	cmp word [bp + ?length], init2buffersize
+	jb .last
+.full:
+	mov cx, init2buffersize
+	call .chunk
+	jmp .loop
+
+.last:
+	mov cx, word [bp + ?length]
+	jcxz .done
+	call .chunk
+
+.done:
  %else
 	mov ax, cs
 	add ax, (payload_uncompressed - init2_start) >> 4
+	mov ds, ax
+	xor si, si
+
+chunksize equ fromparas(paras(4096))
+	les di, [bp + ?orig]
+.loop:
+	cmp word [bp + ?length + 2], 0
+	jnz .full
+	cmp word [bp + ?length], chunksize
+	jb .last
+.full:
+	mov cx, chunksize
+	call .chunk
+	jmp .loop
+
+.last:
+	mov cx, word [bp + ?length]
+	jcxz .done
+	call .chunk
+
+.done:
  %endif
+ 	clc
+ .ret:
+
+ 	lleave code
+ 	mov di, sp
+ 	lea sp, [di + 8]
 
  	pop di
  	pop es
  	pop si
  	pop ds
- 	clc
 	retf
+
+ %if _INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE
+.chunk:
+	mov ah, 3Fh
+	int 21h
+	jc .ret
+	cmp ax, cx
+	stc
+	jne .ret
+	mov si, dx
+	repe cmpsb
+	jne .diff
+
+	call init2_normalise_esdi_pointer
+ %else
+	mov ax, cx
+	repe cmpsb
+	jne .diff
+
+	call init2_normalise_both_pointers
+ %endif
+
+	add word [bp + ?processed], ax
+	adc word [bp + ?processed + 2], cx
+	sub word [bp + ?length], ax
+	sbb word [bp + ?length + 2], cx
+	stc
+	adc word [cs:.tick], cx
+	adc word [cs:.tick + 2], cx
+	retn
+
+.diff:
+	dec di
+	dec si
+	inc cx
+	sub ax, cx
+	int3
+	mov bx, [cs:.tick]
+	mov dx, [cs:.tick + 2]
+	add word [bp + ?processed], ax
+	adc word [bp + ?processed + 2], 0
+	sub word [bp + ?length], ax
+	sbb word [bp + ?length + 2], 0
+
+	stc
+	jmp .ret
+
+	lleave ctx
+
+	align 4, nop
+.tick:		dd 0
+
+init2_normalise_both_pointers:
+	 push ds
+	 push si
+	call init2_normalise_pointer
+	 pop si
+	 pop ds
+init2_normalise_esdi_pointer:
+	 push es
+	 push di
+	call init2_normalise_pointer
+	 pop di
+	 pop es
+	retn
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+		;
+		; Note:	Does not work correctly with pointers that point to
+		;	 a HMA location. Do not use then!
+init2_normalise_pointer:
+	lframe near, nested
+	lpar word,	segment
+	lpar word,	offset
+	lpar_return
+	lenter
+
+%ifn NEED_NORMALISE_POINTER_WITH_DISPLACEMENT
+	cmp word [bp + ?offset], 15
+	jbe .ret
+%endif
+
+	push ax
+	push cx
+	push dx
+
+	 push word [bp + ?segment]
+	 push word [bp + ?offset]
+	call init2_pointer_to_linear
+
+	xchg ax, cx
+
+%if 0
+		; Adds in HMA support for this function. Not currently used.
+	cmp dx, 10h			; dx:ax >= 10_0000h ?
+	jb @F				; no, linear-to-pointer normally -->
+	; ja .error
+
+	add cx, 10h
+	; jc .error
+	mov word [bp + ?offset], cx
+	or word [bp + ?segment], -1
+	jmp .return
+@@:
+%endif
+
+	push bx
+	mov bx, cx
+	and cx, 15
+	mov word [bp + ?offset], cx
+
+	mov cl, 4
+@@:
+	shr dx, 1
+	rcr bx, 1
+	loop @B
+
+	mov word [bp + ?segment], bx
+	pop bx
+
+	; test dx, dx
+	; jnz .error
+
+.return:
+
+	pop dx
+	pop cx
+	pop ax
+.ret:
+	lleave
+	lret
+
+
+		; INP:	word [ss:sp + 2] = segment
+		;	word [ss:sp] = offset
+		; OUT:	dx:ax = linear address
+init2_pointer_to_linear:
+	lframe near, nested
+	lpar word,	segment
+	lpar word,	offset
+	lenter
+
+	mov ax, word [bp + ?segment]
+	xor dx, dx
+	push cx
+	mov cx, 4
+@@:
+	shl ax, 1
+	rcl dx, 1
+	loop @B
+
+	add ax, word [bp + ?offset]
+	adc dx, cx			; cx = 0 here
+	pop cx
+
+	lleave
+	lret
+
+
 	usesection INIT1
 %endif
 
