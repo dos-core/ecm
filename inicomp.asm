@@ -155,9 +155,10 @@ ldLoadUntilSeg:	resw 1
 	numdef MVCOMP,		0
 	numdef LZEXEDAT,	0
 	numdef ZX0,		0
+	numdef SHRINKLER,	0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
 	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
-	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0 + !!_LZSA1) != 1
+	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0 + !!_LZSA1 + !!_SHRINKLER) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -193,6 +194,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.LZE"
 %elif _ZX0
 	strdef PAYLOAD_FILE,	"lDOSLOAD.ZX0"
+%elif _SHRINKLER
+	strdef PAYLOAD_FILE,	"lDOSLOAD.SHR"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! (_IMAGE_EXE || _DEVICE)
@@ -1922,6 +1925,11 @@ msg:
 %endif
 
 
+%if _SHRINKLER
+	%include "shrd86.asm"
+%endif
+
+
 %if _SCAN && ! SCAN_SUPPORTED
  %fatal Scan not supported by this depacker method
 %endif
@@ -2634,6 +2642,8 @@ init0_end:
 %define which inilzexe
 %elif _ZX0
 %define which inizx0
+%elif _SHRINKLER
+%define which inishr
 %endif
 %warning which: num bytes used for depacker
 
