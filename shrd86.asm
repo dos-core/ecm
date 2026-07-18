@@ -74,6 +74,7 @@ depack:
 	lvar dword,	plusdst
 	lvar dword,	plussrc
 %endif
+	lvar word,	lastbyte; high byte is clobbered by a pop
 	lenter
 
 %if _SCAN
@@ -225,9 +226,9 @@ inc cx
 %else
 	; call normalise_dssi_pointer
 	stc	; CY, cf=1
-rcl byte [si], 1
-	inc si
-.nonewbyte:
+	lodsb
+	mov byte [bp + ?lastbyte], al
+	rcl byte [bp + ?lastbyte], 1
 	rcl word [bp + ?base], 1
 add cx, cx
 %endif
@@ -415,17 +416,17 @@ d0	mov bx, word [bp + ?errordata]
 	lret
 
 
-		; lDOS: We point ds:si -> after the current byte,
-		;	 in order for the overlap checks to work.
 readbit:
-	shl byte [si - 1], 1
+	shl byte [bp + ?lastbyte], 1
 jnz .nonewbyte
 	sub word [bp + ?length_of_source], 1
 	sbb word [bp + ?length_of_source + 2], 0
 	jc depack.error
 	call normalise_dssi_pointer
+	push word [si]
+	pop word [bp + ?lastbyte]
 	stc	; CY, cf=1
-rcl byte [si], 1
+	rcl byte [bp + ?lastbyte], 1
 	inc si
 .nonewbyte:
 	rcl word [bp + ?base], 1
