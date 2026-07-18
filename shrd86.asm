@@ -285,18 +285,11 @@ jnc .readoff
 
 mov bh, 2
 call getnum
-	test ax, ax
-	jne .error
-pop bx		; ?offset value can be reused later, must be saved
-	pop ax
-	push ax
-push bx
-
 	push cx
 	push ds
 	push si
 	sub word [bp + ?length_of_destination], dx
-	sbb word [bp + ?length_of_destination + 2], 0
+	sbb word [bp + ?length_of_destination + 2], ax
 	jc depack.error
 	add word [bp + ?context_di], dx
 
@@ -309,10 +302,12 @@ push bx
 	 pop ds
 
 %if 1
-	mov ax, di
-	add ax, 20h
+	test ax, ax
+	jnz .normalise
+	mov cx, di
+	add cx, 20h
 	jc .normalise
-	add ax, dx
+	add cx, dx
 	jnc @F
 .normalise:
 %endif
@@ -323,20 +318,25 @@ push bx
 	 pop es
 @@:
 
-	mov cx, dx
-	cmp cx, 0FFE0h
-	jbe @F
-	push cx
+.matchloop:
 	mov cx, 0FFE0h
+	test ax, ax
+	jnz .matchmid
+	cmp dx, cx
+	jbe .matchlast
+.matchmid:
+	sub dx, cx
+	sbb ax, 0
 %if _SCAN
 	call scan_rep_movsb
 %else
 	rep movsb
 %endif
-	pop cx
-	and cx, (~ 0FFE0h) & 0FFFFh
 	call normalise_both_pointers
-@@:
+	jmp .matchloop
+
+.matchlast:
+	mov cx, dx
 %if _SCAN
 	call scan_rep_movsb
 %else
