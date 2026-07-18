@@ -204,7 +204,8 @@ loop .init_prob
 	 push cx
 	lvar word, context_di
 	 push cx
-	lvar word, offset
+	lvar dword, offset
+	 push ax
 	 push ax		; must be last word on stack
 
 ;range decoder state
@@ -255,7 +256,11 @@ jnc .readoff
 .readlen:
 mov bh, 2
 call getnum
-pop bx ;offset value can be reused later, must be saved
+	test ax, ax
+	jne .error
+pop bx		; ?offset value can be reused later, must be saved
+	pop ax
+	push ax
 push bx
 
 	push cx
@@ -267,7 +272,7 @@ push bx
 	add word [bp + ?context_di], dx
 
 	mov cx, bx
-	mov bx, -1
+	xchg bx, ax
 	 push es
 	 push di
 	call normalise_pointer_with_displacement_bxcx
@@ -317,12 +322,18 @@ jnc .lit
 .readoff:
 mov bh, 3
 call getnum
-neg dx
-inc dx
-inc dx ;offset=2-getnum()
-pop ax
-push dx ;save ofset value
-jnz .readlen
+	add sp, 4	; discard 2 words
+	neg ax
+	neg dx
+	sbb ax, 0	; neg ax:dx
+	add dx, 2
+	adc ax, 0	; offset=2-getnum()
+	push ax
+	push dx		; save ?offset value
+@@:
+	jnz .readlen
+	test dx, dx
+	jnz @B
 
 .end_check:
 	mov cx, word [bp + ?length_of_source]
@@ -451,12 +462,16 @@ inc bx
 call getbit
 jc .numloop
 neg bl
+	xor ax, ax
 mov dx, 1
 .bitloop:
+push ax
 push dx
 call getbit
 pop dx
-adc dx, dx
+pop ax
+	adc dx, dx
+	adc ax, ax
 inc bl
 jnz .bitloop
 ret
