@@ -300,8 +300,8 @@ push bx
 	jc depack.error
 	add word [bp + ?context_di], dx
 
-	mov cx, bx
-	xchg bx, ax
+	mov cx, word [bp + ?offset]
+	mov bx, word [bp + ?offset + 2]
 	 push es
 	 push di
 	call normalise_pointer_with_displacement_bxcx
