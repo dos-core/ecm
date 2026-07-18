@@ -3,6 +3,10 @@
 ;Uses only 8086 instructions, suitable for IBM PC/XT (~2 KB/s on 4.77 MHz 8088).
 ;Assembled size is 177 bytes.
 
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
 %assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 1
 %assign NEED_NORMALISE_BOTH_POINTERS 1
 %assign CHECK_POINTERS_VARIABLE_SRC 0
@@ -246,7 +250,11 @@ xchg ax, bx
 	sbb word [bp + ?length_of_destination + 2], 0
 	jc depack.error
 	add word [bp + ?context_di], 1
-stosb
+%if _SCAN
+	inc di
+%else
+	stosb
+%endif
 	cmp di, 0FFE0h
 	jb @F
 	 push es
@@ -262,6 +270,19 @@ mov bh, 2
 call getbit
 jnc .readoff
 .readlen:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al_counter
+@@:
+%endif
+
 mov bh, 2
 call getnum
 	test ax, ax
@@ -307,12 +328,20 @@ push bx
 	jbe @F
 	push cx
 	mov cx, 0FFE0h
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb
+%endif
 	pop cx
 	and cx, (~ 0FFE0h) & 0FFFFh
 	call normalise_both_pointers
 @@:
+%if _SCAN
+	call scan_rep_movsb
+%else
 	rep movsb
+%endif
 
 	pop si
 	pop ds
