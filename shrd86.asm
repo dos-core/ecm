@@ -207,8 +207,6 @@ loop .init_prob
 	les di, [bp + ?dst]
 	lvar word, base
 	 push cx
-	lvar word, context_di
-	 push cx
 	lvar dword, offset
 	 push ax
 	 push ax		; must be last word on stack
@@ -249,7 +247,6 @@ xchg ax, bx
 	sub word [bp + ?length_of_destination], 1
 	sbb word [bp + ?length_of_destination + 2], 0
 	jc depack.error
-	add word [bp + ?context_di], 1
 %if _SCAN
 	inc di
 %else
@@ -291,7 +288,6 @@ call getnum
 	sub word [bp + ?length_of_destination], dx
 	sbb word [bp + ?length_of_destination + 2], ax
 	jc depack.error
-	add word [bp + ?context_di], dx
 
 	mov cx, word [bp + ?offset]
 	mov bx, word [bp + ?offset + 2]
@@ -494,12 +490,8 @@ ret
 
 getkind:
 mov bx, 1
-%if 0
 and bx, di ;di value is used as context
            ;and Shrinkler assumes it's even for the first byte
-%else
-	and bx, word [bp + ?context_di]
-%endif
 xchg bh, bl
 call getbit
 ret
