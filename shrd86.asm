@@ -208,6 +208,13 @@ loop .init_prob
 	 push ax
 	 push ax		; must be last word on stack
 
+	add word [bp + ?length_of_source], 2
+	adc word [bp + ?length_of_source + 2], 0
+				; apparently the End Of Data marker may read
+				;  up to 2 more bytes from the source than are
+				;  present in the compressed source data.
+				; allow reading these here (see also .end_check).
+
 ;range decoder state
 inc cx
 	; ?base=0 - base
@@ -336,9 +343,20 @@ call getnum
 	jnz @B
 
 .end_check:
-	mov cx, word [bp + ?length_of_source]
-	or cx, word [bp + ?length_of_source + 2]
-	jnz .error
+	cmp word [bp + ?length_of_source + 2], 0
+	ja @F
+	cmp word [bp + ?length_of_source], 2
+@@:				; 0, 1, or 2 bytes allowed to be left, due to
+	ja .error		;  the possible reading past last source data
+
+; Original depacker's comment, note the "two next bytes" notice:
+;How to use:
+;ds:si - must point to byte 0x80 immediately followed by compressed data block.
+;es:di - decompressed data pointer, value in di must be even!
+;Call shrd86, after decompressing it will return decompressed data size in ax.
+;Also it will rewrite compressed data block with zeroes and can change up to two next bytes.
+;It uses 2 KB on the stack.
+
 .end:
 
 	 push es
