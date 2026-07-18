@@ -2102,10 +2102,23 @@ init2_compare_progress:
 	lvar dword, processed
 	 push bx
 	 push bx
+	xor cx, cx
+
+	numdef START_AT_POS, 0
+%if _START_AT_POS
+	cmp word [bp + ?length + 2], _START_AT_POS >> 16
+	jne @F
+	cmp word [bp + ?length], _START_AT_POS & 0FFFFh
+@@:
+	jb .justtick
+	numdef START_AT_POS_INT3, 0
+%if _START_AT_POS_INT3
+	int3
+%endif
+%endif
 
 	numdef START_AT_TICK, 0
 %if _START_AT_TICK
-	xor cx, cx
 	cmp word [cs:.tick + 2], _START_AT_TICK >> 16
 	jne @F
 	cmp word [cs:.tick], _START_AT_TICK & 0FFFFh
