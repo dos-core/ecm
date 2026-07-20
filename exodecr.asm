@@ -664,19 +664,22 @@ generate_table_cx:
 	push cx
 %if _P & 2
 	mov cl, 3
+	add di, cx		; add di, 3
 	call read_bits
-	mov byte [bp + di + eteBits], al
+	mov byte [bp + di - 3 + eteBits], al
 	call read_bits_1
 	shl al, 1
 	shl al, 1
 	shl al, 1
-	or byte [bp + di + eteBits], al
+	or byte [bp + di - 3 + eteBits], al
 	mov al, 1		; ah was = 0
-	mov cl, byte [bp + di + eteBits]
+	mov cl, byte [bp + di - 3 + eteBits]
 %else
 	mov cl, 4
+	add di, cx		; add di, 4
+	dec di
 	call read_bits
-	mov byte [bp + di + eteBits], al
+	mov byte [bp + di - 3 + eteBits], al
 	xchg cx, ax		; cl = al, ah = 0
 	inc ax			; ax was = 0
 %endif
@@ -686,8 +689,6 @@ generate_table_cx:
 %if exo_table_entry_size != 3
  %error Unexpected size
 %endif
-	scasw			; (di must never equal 0FFFFh here)
-	inc di			; like add di, 3
 	loop .loop
 	retn
 
