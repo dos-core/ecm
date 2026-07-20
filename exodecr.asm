@@ -589,8 +589,7 @@ read_bits:
 %else
 	cmp cx, 17		; CY if valid
 %endif
-	cmc			; NC if valid
-	jc error_j3		; if error --> (CY)
+	jnc error_j3		; if error -->
 %if _P & 2
 	mov al, cl
 	mov ah, cl
