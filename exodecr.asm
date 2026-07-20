@@ -289,8 +289,8 @@ d0	mov byte [bp + ?errordata], 32h
 
 	; call get_gamma_code
 		; INP:	-
-		; OUT:	CY if error
-		;	NC if success,
+		; OUT:	jumps to depack.error if error
+		;	returns if success,
 		;	 bx:dx = gamma
 		;	 ax = cx = 0
 		; STT:	bp -> depack stack frame
@@ -552,10 +552,10 @@ d0	mov byte [bp + ?errordata], 1Ch
 
 		; INP:	ds:si -> source
 		;	?src_remaining
-		; OUT:	CY if error (source exhausted)
-		;	NC if success,
+		; OUT:	jumps to depack.error if error (source exhausted)
+		;	returns if success,
 		;	 al = byte read from source
-		;	 ds:si updated
+		;	 ds:si updated (normalised)
 		;	 ?src_remaining updated
 		; STT:	bp -> depack stack frame
 		;	UP
@@ -571,11 +571,16 @@ read_byte:
 read_bits_1:
 	mov cx, 1
 
-		; INP:	cl = cx = number of bits to read (0..15)
-		; OUT:	CY if error (cx too high or source exhausted)
-		;	NC if success,
+		; INP:	ds:si -> source
+		;	?src_remaining
+		;	cl = cx = number of bits to read (0..15)
+		; OUT:	jumps to depack.error if error (cx too high or
+		;	 source exhausted)
+		;	returns if success,
 		;	 ax = read data
 		;	 cx = 0
+		;	 ds:si updated (normalised)
+		;	 ?src_remaining updated
 		; STT:	bp -> depack stack frame
 		;	UP
 read_bits:
@@ -638,12 +643,16 @@ error_j3:
 
 generate_table_16:
 	mov cx, 16
-		; INP:	cx = amount of table entries, < 256 (ch = 0)
+		; INP:	ds:si -> source
+		;	?src_remaining
+		;	cx = amount of table entries, < 256 (ch = 0)
 		;	bp + di -> start of table
-		; OUT:	CY if error
-		;	NC if success,
+		; OUT:	jumps to depack.error if error
+		;	returns if success,
 		;	 cx = 0
 		;	 di = INP:di + INP:cx * exo_table_entry_size
+		;	 ds:si updated (normalised)
+		;	 ?src_remaining updated
 		; CHG:	ax, bx
 		; STT:	bp -> depack stack frame
 		;	UP
@@ -685,8 +694,8 @@ generate_table_cx:
 		; INP:	ds:si -> data (normalised and in bounds)
 		;	?dst (normalised), ?dst_remaining
 		;	cx = number of bytes (entire range valid)
-		; OUT:	CY if error (destination exhausted)
-		;	NC if success,
+		; OUT:	jumps to depack.error if error (destination exhausted)
+		;	returns if success,
 		;	 ds:si -> behind copied source (normalised)
 		;	 ?dst -> behind copied destination (normalised)
 		;	 ?dst_remaining decremented
