@@ -552,24 +552,6 @@ d0	mov byte [bp + ?errordata], 1Ch
 	jmp .error
 
 
-		; INP:	ds:si -> source
-		;	?src_remaining
-		; OUT:	jumps to depack.error if error (source exhausted)
-		;	returns if success,
-		;	 al = byte read from source
-		;	 ds:si updated (normalised)
-		;	 ?src_remaining updated
-		; STT:	bp -> depack stack frame
-		;	UP
-read_byte:
-	lodsb
-	call normalise_dssi_pointer
-	sub word [bp + ?src_remaining], 1
-	sbb word [bp + ?src_remaining + 2], 0
-	jc error_j3
-	retn
-
-
 read_bits_1:
 	mov cx, 1
 
@@ -631,10 +613,30 @@ read_bits:
 	test ah, ah		; NC
 	jz .byte_copy_zero	; (NC)
 	mov ah, al		; bits <<= 8;
-	call read_byte		; bits |= read_byte()
-				; pass CF to caller
-.byte_copy_zero:		; ax = bits
+	; jmp read_byte		; bits |= read_byte()
+	; fall through
+.byte_copy_zero: equ retn_read_byte
+				; ax = bits
+%else
+	retn
 %endif
+
+		; INP:	ds:si -> source
+		;	?src_remaining
+		; OUT:	jumps to depack.error if error (source exhausted)
+		;	returns if success,
+		;	 al = byte read from source
+		;	 ds:si updated (normalised)
+		;	 ?src_remaining updated
+		; STT:	bp -> depack stack frame
+		;	UP
+read_byte:
+	lodsb
+	call normalise_dssi_pointer
+	sub word [bp + ?src_remaining], 1
+	sbb word [bp + ?src_remaining + 2], 0
+	jc error_j3
+retn_read_byte:
 	retn
 
 
