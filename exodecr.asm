@@ -720,6 +720,9 @@ d0	inc byte [bp + ?errordata + 1]
 	jc error_j3
 	les di, [bp + ?dst]
 
+		numdef COPY_DATA_NOPS, 4
+	times _COPY_DATA_NOPS nop	; somehow this speeds up the test
+
 	cmp cx, 0FFF0h			; can copy in one step ?
 	jbe @F				; yes -->
 	mov ax, cx
