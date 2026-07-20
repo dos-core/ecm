@@ -195,6 +195,7 @@ d0	mov byte [bp + ?errordata], 1Bh
 	jc .error_CY_8
 %endif
 
+		; The tables are all even sized due to the counts.
 	lequ fromwords(words(4 * exo_table_entry_size)), 4tablesize
 	lvar ?4tablesize, offsets1
 	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
