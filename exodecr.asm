@@ -671,14 +671,14 @@ generate_table_cx:
 	shl al, 1
 	shl al, 1
 	or byte [bp + di + eteBits], al
-	mov ax, 1
+	mov al, 1		; ah was = 0
 	mov cl, byte [bp + di + eteBits]
 %else
 	mov cl, 4
 	call read_bits
 	mov byte [bp + di + eteBits], al
-	xchg cx, ax		; cl = al
-	mov ax, 1
+	xchg cx, ax		; cl = al, ah = 0
+	inc ax			; ax was = 0
 %endif
 	shl ax, cl
 	add bx, ax
