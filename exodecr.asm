@@ -702,7 +702,7 @@ retn_generate_table:
 		;	 ds:si -> behind copied source (normalised)
 		;	 ?dst -> behind copied destination (normalised)
 		;	 ?dst_remaining decremented
-		;	 ax = cx = 0
+		;	 cx = 0
 		;	Instead of returning, this may jump to depack.end
 		;	 if the destination segment grows up to the value
 		;	 stored in the ?dst_max_segment variable. It is
@@ -720,12 +720,11 @@ d0	inc byte [bp + ?errordata + 1]
 	jc error_j3
 	les di, [bp + ?dst]
 
-	xor ax, ax			; initialise second step length
 	cmp cx, 0FFF0h			; can copy in one step ?
 	jbe @F				; yes -->
-	mov al, cl
-	and al, 15			; second step length
+	mov ax, cx
 	mov cl, 0F0h			; maximum first step = 0FFF0h
+	xor ax, cx			; second step length
 %if _SCAN
 	call scan_rep_movsb
 %else
