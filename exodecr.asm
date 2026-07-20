@@ -411,7 +411,8 @@ d0	mov byte [bp + ?errordata], 4Ch
 %endif
 
 d0	mov byte [bp + ?errordata], 3Bh
-	mov dh, (?offsets1 >> 8) & 0FFh
+	mov dx, ?offsets1	; default for .switch_case1, and upper
+				;  byte may be re-used for other cases
 	test bx, bx
 	jz .switch_default
 %ifn _P & 16
@@ -428,7 +429,6 @@ d0	mov byte [bp + ?errordata], 3Bh
 %endif
 .switch_case1:
 	mov cl, 2		; cx = 2
-	mov dl, ?offsets1 & 0FFh
 d0	mov byte [bp + ?errordata], 3Ah
 	jmp .switch_common
 
