@@ -340,14 +340,13 @@ d0	mov byte [bp + ?errordata], 48h
 
 .end_check:
 d0	mov byte [bp + ?errordata], 40h
-	cmp word [bp + ?src_remaining + 2], 0
-	jne .error
 	cmp word [bp + ?src_remaining], 15
 	ja .error
-.end:
-	db __TEST_IMM8			; (NC)
+	cmp word [bp + ?src_remaining + 2], 0
+	je .end_NC			; (NC)
 .error:
 	stc
+.end_NC:
 
 %if _SCAN
 	pushf
@@ -740,6 +739,6 @@ d0	inc byte [bp + ?errordata + 1]
 %if _PAYLOAD_KERNEL_MAX_PARAS
 	mov di, es			; ! this is the *segment*
 	cmp di, word [bp + ?dst_max_segment]
-	jae depack.end
+	jae depack.end_NC		; ! --> NC
 %endif
 	retn
