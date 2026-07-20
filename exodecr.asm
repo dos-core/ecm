@@ -32,6 +32,10 @@ freely, subject to the following restrictions:
 %endif
 
 
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 1
+
+
 	numdef P, 7, 7
 %if _P > 63
  %error Too large P value, not supported
@@ -113,9 +117,6 @@ depack:
 	 push ds
 	 push si
 %endif
-	lvar dword,	src
-	 push ds
-	 push si
 	lvar dword,	original_dst
 	 push es
 	 push di
@@ -250,7 +251,6 @@ d0	mov byte [bp + ?errordata], 44h
 .literal:
 	inc cx				; cx = 1
 .STATE_NEXT_LITERAL_BYTE_increment_counter:
-	lds si, [bp + ?src]
 	sub word [bp + ?src_remaining], cx
 	sbb word [bp + ?src_remaining + 2], 0
 d0	mov byte [bp + ?errordata], 45h
@@ -258,8 +258,6 @@ d0	mov byte [bp + ?errordata], 45h
 	jc .error
 d0	mov byte [bp + ?errordata], 46h
 	call copy_data
-	mov word [bp + ?src], si
-	mov word [bp + ?src + 2], ds
 %if _P & 32
 	stc
 .STATE_NEXT_BYTE_rcl:
@@ -295,7 +293,6 @@ d0	mov byte [bp + ?errordata], 32h
 		;	NC if success,
 		;	 bx:dx = gamma
 		;	 ax = cx = 0
-		; CHG:	ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 .get_gamma_code:
@@ -506,6 +503,8 @@ d0	mov byte [bp + ?errordata], 3Eh
 
 .use_prior_offset:
 %endif
+	 push ds
+	 push si
 	push cx
 	mov cx, dx
         neg bx
@@ -532,6 +531,8 @@ d0	mov byte [bp + ?errordata], 17h
 	mov ds, bx		; -> match source data
 	call copy_data
 d0	mov byte [bp + ?errordata], 3Fh
+	 pop si
+	 pop ds
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
@@ -549,24 +550,18 @@ d0	mov byte [bp + ?errordata], 1Ch
 %endif
 
 
-		; INP:	?src
+		; INP:	ds:si -> source
 		;	?src_remaining
 		; OUT:	CY if error (source exhausted)
 		;	NC if success,
 		;	 al = byte read from source
-		;	 ?src
-		;	 ?src_remaining
-		; CHG:	ds, si
+		;	 ds:si updated
+		;	 ?src_remaining updated
 		; STT:	bp -> depack stack frame
 		;	UP
 read_byte:
-	lds si, [bp + ?src]
 	lodsb
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop word [bp + ?src]
-	 pop word [bp + ?src + 2]
+	call normalise_dssi_pointer
 	sub word [bp + ?src_remaining], 1
 	sbb word [bp + ?src_remaining + 2], 0
 	jc error_j3
@@ -581,7 +576,6 @@ read_bits_1:
 		;	NC if success,
 		;	 ax = read data
 		;	 cx = 0
-		; CHG:	ds, si
 		; STT:	bp -> depack stack frame
 		;	UP
 read_bits:
@@ -650,7 +644,7 @@ generate_table_16:
 		;	NC if success,
 		;	 cx = 0
 		;	 di = INP:di + INP:cx * exo_table_entry_size
-		; CHG:	ax, bx, ds, si
+		; CHG:	ax, bx
 		; STT:	bp -> depack stack frame
 		;	UP
 generate_table_cx:
