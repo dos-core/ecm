@@ -714,6 +714,7 @@ retn_generate_table:
 		;	UP
 copy_data:
 d0	inc byte [bp + ?errordata + 1]
+	mov ax, cx
 
 	sub word [bp + ?dst_remaining], cx
 	sbb word [bp + ?dst_remaining + 2], 0
@@ -723,9 +724,8 @@ d0	inc byte [bp + ?errordata + 1]
 		numdef COPY_DATA_NOPS, 4
 	times _COPY_DATA_NOPS nop	; somehow this speeds up the test
 
-	cmp cx, 0FFF0h			; can copy in one step ?
+	cmp ax, 0FFF0h			; can copy in one step ?
 	jbe @F				; yes -->
-	mov ax, cx
 	mov cl, 0F0h			; maximum first step = 0FFF0h
 	xor ax, cx			; second step length
 %if _SCAN
