@@ -615,7 +615,7 @@ read_bits:
 	mov ah, al		; bits <<= 8;
 	; jmp read_byte		; bits |= read_byte()
 	; fall through
-.byte_copy_zero: equ retn_read_byte
+.byte_copy_zero: equ retn_generate_table
 				; ax = bits
 %else
 	retn
@@ -631,13 +631,11 @@ read_bits:
 		; STT:	bp -> depack stack frame
 		;	UP
 read_byte:
-	lodsb
-	call normalise_dssi_pointer
 	sub word [bp + ?src_remaining], 1
 	sbb word [bp + ?src_remaining + 2], 0
 	jc error_j3
-retn_read_byte:
-	retn
+	lodsb
+	jmp normalise_dssi_pointer
 
 
 error_j3:
@@ -692,6 +690,7 @@ generate_table_cx:
  %error Unexpected size
 %endif
 	loop .loop
+retn_generate_table:
 	retn
 
 
