@@ -410,6 +410,12 @@ cmdline:
 	je .c
 	cmp al, 'c'
 	je .c
+%if _TIME
+	cmp al, 'T'
+	je .t
+	cmp al, 't'
+	je .t
+%endif
 .invalid:
 	mov dx, -1		; invalid
 	jmp .end
@@ -425,6 +431,12 @@ cmdline:
 .c:
 	or bh, 40h		; C mode. how often would the counter be called
 	jmp .
+
+%if _TIME
+.t:
+	or bl, 80h
+	jmp .
+%endif
 
 .end:
 				; bx for ?whichtest
@@ -3257,6 +3269,9 @@ quit_with_time:
 	call freexms
 %endif
 %if _TIME
+	testopt [bp + ?whichtest], 80h
+	jz .quit
+
 	xor ax, ax
 	mov ds, ax
 	cli
@@ -3550,6 +3565,7 @@ quit_with_time:
 
 	mov bx, init2_msg.time.3
 	call init2_error_disp_counted
+.quit:
 %endif
 	mov ax, 4C00h
 	int 21h
