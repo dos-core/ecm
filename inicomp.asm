@@ -89,6 +89,7 @@ ldLoadUntilSeg:	resw 1
 
 	numdef SCAN, 0
 	numdef TIME, 0
+	numdef TIME_FORCE, 0
 
 	numdef USESCAN, 0
 	strdef SCANBINARY, ""
@@ -3269,8 +3270,10 @@ quit_with_time:
 	call freexms
 %endif
 %if _TIME
+%ifn _TIME_FORCE
 	testopt [bp + ?whichtest], 80h
 	jz .quit
+%endif
 
 	xor ax, ax
 	mov ds, ax
