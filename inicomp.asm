@@ -3308,7 +3308,8 @@ quit_with_time:
 	xchg ax, si		; si:ax:di
 	xchg ax, di
 				; si:di:ax = ticks * 10000
-
+ push bp
+ xor bp, bp
 	mov cx, 100
 	mul cx
 	xchg di, ax		; dx:di = ticks * 10000 * 100 part, ax = mid word
@@ -3316,15 +3317,19 @@ quit_with_time:
 	mul cx
 	add bx, ax
 	adc dx, 0		; dx:bx:di
-	jc .time_carry
-	xchg ax, dx		; ax:bx:di
-	xchg ax, si		; si:bx:di, ax = third high word
+	adc bp, 0		; bp:dx:bx:di
+	xchg ax, dx		; bp:ax:bx:di
+	xchg ax, si		; bp:si:bx:di, ax = third high word
 	mul cx
-	add si, ax		; si:bx:di = ticks * 10000 * 100
+	add si, ax		; bp:si:bx:di = ticks * 10000 * 100
+	adc bp, dx		; cannot carry
 	jc .time_carry
 
 	mov cx, 182
 	xor dx, dx
+	xchg ax, bp
+	div cx
+	xchg bp, ax
 	xchg ax, si
 	div cx
 	xchg si, ax
@@ -3334,7 +3339,8 @@ quit_with_time:
 	xchg ax, di
 	div cx			; si:bx:ax = ms/100
 	mov di, ax		; si:bx:di
-	jmp @F
+	test bp, bp		; cannot be nonzero
+	jz @F
 
 .time_carry:
 	mov ax, -1
@@ -3342,6 +3348,7 @@ quit_with_time:
 	mov di, ax
 	mov bx, ax
 @@:
+ pop bp
 	mov dx, bx		; (si:)dx:ax = ms/100 per loop
 	test si, si
 	jz .time_no_carry_dura
