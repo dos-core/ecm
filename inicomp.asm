@@ -88,7 +88,7 @@ ldLoadUntilSeg:	resw 1
 	[list +]
 
 	numdef SCAN, 0
-	numdef TIME, 0
+	numdef TIME, 1
 	numdef TIME_FORCE, 0
 
 	numdef USESCAN, 0
