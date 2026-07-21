@@ -3318,6 +3318,10 @@ quit_with_time:
 	cwd
 .time_no_carry:
 
+	lvar dword, cms		; centi milliseconds
+	 push dx
+	 push ax
+
 	push cs
 	pop es
 	mov di, init2_msg.time.0.patch - 1
@@ -3328,6 +3332,79 @@ quit_with_time:
 	pop ds
 	mov bx, init2_msg.time.0
 	call init2_error_disp_counted
+
+	pop di
+	pop si
+	push si
+	push di			; get si:di = ?cms
+
+	mov cx, 10000		; get deciseconds
+	xor dx, dx
+	xchg ax, si
+	div cx
+	xchg ax, di
+	div cx			; di:ax = deciseconds
+	test di, di
+	jnz .deciminutes
+	cmp ax, 20		; >= 2.0 seconds ?
+	jb .nolargerunit
+.deciseconds:
+	cmp ax, 600		; >= 1.0 minutes ?
+	jae .deciminutes
+
+	cwd
+	mov di, init2_msg.time.deciseconds.patch - 1
+	mov si, init2_msg.time.deciseconds.decimalpoint
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.time.deciseconds.length
+	mov bx, init2_msg.time.deciseconds.prefix
+	jmp .donelargerunit
+
+.deciminutes:
+	mov cx, 60
+	xor dx, dx
+	xchg ax, di		; dx:ax = high word, di = low word
+	div cx
+	xchg di, ax
+	div cx
+	mov dx, di		; dx:ax = deciminutes
+
+	test dx, dx
+	jnz .minutes
+	cmp ax, 600
+	jae .minutes
+
+	mov di, init2_msg.time.deciminutes.patch - 1
+	mov si, init2_msg.time.deciminutes.decimalpoint
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.time.deciminutes.length
+	mov bx, init2_msg.time.deciminutes.prefix
+	jmp .donelargerunit
+
+.minutes:
+	mov cx, 10
+	xchg di, ax
+	xchg ax, dx
+	xor dx, dx		; dx:ax = high word, di = low word
+	div cx
+	xchg di, ax
+	div cx
+	mov dx, di		; dx:ax = minutes
+
+	mov di, init2_msg.time.minutes.patch - 1
+	mov si, init2_msg.time.minutes.decimalpoint
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.time.minutes.length
+	mov bx, init2_msg.time.minutes.prefix
+
+.donelargerunit:
+	push cs
+	pop ds
+	call init2_error_disp_counted
+	lea bx, [di - 1]
+	mov byte [bx], cl
+	call init2_error_disp_counted
+.nolargerunit:
 
 	mov bx, init2_msg.time.1
 	call init2_error_disp_counted
@@ -3352,6 +3429,11 @@ quit_with_time:
 
 
 %if _TIME
+		; INP:	dx:ax = number
+		;	es:di -> last byte of buffer (should be 11 bytes)
+		;	es:si -> decimal point in buffer (skip if would write)
+		; OUT:	es:di -> written number
+		;	cx = written bytes (include decimal point if wrote past)
 store_dec_dword_with_decimalpoint:
 	lframe near, nested
 	lequ 10,	bufferlen
@@ -3414,6 +3496,9 @@ store_dec_dword_with_decimalpoint:
 	movsb
 	loop .time.loop
 	cld
+	mov cx, word [bp + ?destination]
+	sub cx, di		; = length of numeric output
+	inc di			; -> numeric output
 
 	lleave
 	lret
@@ -4061,6 +4146,35 @@ init2_msg:
 .time.0.patch:
 			db "ms"
 @@:
+
+				db 0
+				times 8 db 32
+				db "0"
+.time.deciseconds.decimalpoint:	db "."
+				db "0"
+.time.deciseconds.patch:
+.time.deciseconds.length: equ @F - $
+				db "s)"
+@@:
+
+				db 0
+				times 8 db 32
+				db "0"
+.time.deciminutes.decimalpoint:	db "."
+.time.minutes.decimalpoint:	equ -1
+				db "0"
+.time.deciminutes.patch:
+.time.minutes.patch:
+.time.deciminutes.length: equ @F - $
+.time.minutes.length: equ @F - $
+				db "min)"
+@@:
+
+.time.deciseconds.prefix:	; counted " ("
+.time.deciminutes.prefix:	; counted " ("
+.time.minutes.prefix:		counted " ("
+
+
 .time.1:		counted " Time="
 .time.2:		counted "h="
 .time.3:		counted " ticks",13,10
