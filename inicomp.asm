@@ -3334,7 +3334,14 @@ quit_with_time:
 	xchg ax, di
 	div cx			; si:bx:ax = ms/100
 	mov di, ax		; si:bx:di
+	jmp @F
 
+.time_carry:
+	mov ax, -1
+	mov si, ax
+	mov di, ax
+	mov bx, ax
+@@:
 	mov dx, bx		; (si:)dx:ax = ms/100 per loop
 	test si, si
 	jz .time_no_carry_dura
@@ -3360,11 +3367,11 @@ quit_with_time:
 
 	mov dx, bx		; (si:)dx:ax = ms/100 per run
 	test si, si
-	jz .time_no_carry
-.time_carry:
+	jz .time_no_carry_run
+.time_carry_run:
 	mov ax, -1
 	cwd
-.time_no_carry:
+.time_no_carry_run:
 
 	lvar dword, cms_per_run	; centi milliseconds
 	 push dx
