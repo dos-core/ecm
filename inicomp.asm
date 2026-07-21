@@ -3067,167 +3067,7 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	mov ah, 40h
 	int 21h
 %endif
-.quit_with_time:
-%if _RELOAD_XMS
-	call freexms
-%endif
-%if _TIME
-	xor ax, ax
-	mov ds, ax
-	cli
-	lvar dword, timeend
-	 push word [46Ch + 2]
-	 push word [46Ch]
-	sti
-
-	mov ax, word [bp + ?timeend]
-	mov dx, word [bp + ?timeend + 2]
-	sub ax, word [bp + ?timestart]
-	sbb dx, word [bp + ?timestart + 2]
-	jnc .no_time_overflow
-	add ax,    00B0h
-	adc dx, 18h
-.no_time_overflow:
-	lvar dword, timeelapsed
-	 push dx
-	 push ax
-
-int3
-	xchg bx, dx
-	mov cx, 10000		; multiplier
-	mul cx
-	mov si, dx
-	mov di, ax		; si:di = low word * 10000
-	xchg ax, bx		; ax = high word
-	mul cx			; dx:ax = high word * 10000
-	add si, ax
-	adc dx, 0		; dx:si:di = ticks * 10000
-	xchg ax, dx		; ax:si:di
-	xchg ax, si		; si:ax:di
-	xchg ax, di
-				; si:di:ax = ticks * 10000
-
-	mov cx, 100
-	mul cx
-	xchg di, ax		; dx:di = ticks * 10000 * 100 part, ax = mid word
-	mov bx, dx		; bx:di
-	mul cx
-	add bx, ax
-	adc dx, 0		; dx:bx:di
-	jc .time_carry
-	xchg ax, dx		; ax:bx:di
-	xchg ax, si		; si:bx:di, ax = third high word
-	mul cx
-	add si, ax		; si:bx:di = ticks * 10000 * 100
-	jc .time_carry
-
-	mov cx, 182
-	xor dx, dx
-	xchg ax, si
-	div cx
-	xchg si, ax
-	xchg ax, bx
-	div cx
-	xchg bx, ax
-	xchg ax, di
-	div cx			; si:bx:ax = ms/100
-
-	mov dx, bx		; (si:)dx:ax = ms/100
-	test si, si
-	jz .time_no_carry
-.time_carry:
-	mov ax, -1
-	cwd
-.time_no_carry:
-
-	lframe 0, nested
-	lequ 10,	bufferlen
-	lvar ?bufferlen,buffer
-	lenter
-	lvar dword,	dividend
-	 push dx
-	 push ax
-
-	 push ss
-	 pop es
-	lea di, [bp + ?buffer + ?bufferlen - 1]
-	mov bx, di
-	std			; _AMD_ERRATUM_109_WORKAROUND does not apply
-
-		; dword [bp + ?dividend] = number to display
-	mov cx, 10		; divisor
-.loop_write:
-
-	xor dx, dx
-	push di
-	mov di, 4
-.loop_divide:
-	mov ax, [bp + ?dividend - 2 + di]
-	div cx
-	mov word [bp + ?dividend - 2 + di], ax
-	dec di
-	dec di
-	jnz .loop_divide
-				; dx = last remainder
-	pop di
-	xchg ax, dx		; ax = remainder (next digit)
-				; dword [bp + ?dividend] = result of div
-	add al, '0'
-	stosb
-
-	cmp word [bp + ?dividend + 2], 0
-	jnz .loop_write
-	cmp word [bp + ?dividend], 0
-				; any more ?
-	jnz .loop_write		; loop -->
-
-	push ss
-	pop ds
-	mov si, bx		; -> last digit
-	sub bx, di		; = length
-	mov cx, bx		; = length
-
-	push cs
-	pop es
-	mov di, init2_msg.time.0.patch - 1
-
-.time.loop:
-	cmp di, init2_msg.time.0.decimalpoint
-	jne .time.next
-	dec di
-.time.next:
-	movsb
-	loop .time.loop
-
-	cld
-	lleave
-
-	push cs
-	pop ds
-	mov bx, init2_msg.time.0
-	call init2_error_disp_counted
-
-	mov bx, init2_msg.time.1
-	call init2_error_disp_counted
-	mov ax, word [bp + ?timeelapsed + 2]
-	call init2_error_disp_ax_hex
-	mov al, '_'
-	call init2_error_disp_al
-	mov ax, word [bp + ?timeelapsed]
-	call init2_error_disp_ax_hex
-	mov bx, init2_msg.time.2
-	call init2_error_disp_counted
-
-	mov ax, word [bp + ?timeelapsed]
-	mov dx, word [bp + ?timeelapsed + 2]
-	call init2_error_decdword
-
-	mov bx, init2_msg.time.3
-	call init2_error_disp_counted
-%endif
-	mov ax, 4C00h
-	int 21h
-
+	jmp .quit_with_time
 
 @@:
 	sub dx, [bp + ?lowerbound]
@@ -3398,7 +3238,167 @@ size_compressed equ (payload.end - payload)
 	call init2_disp_al
 	mov al, 10
 	call init2_disp_al
-	jmp .quit_with_time
+
+.quit_with_time:
+%if _RELOAD_XMS
+	call freexms
+%endif
+%if _TIME
+	xor ax, ax
+	mov ds, ax
+	cli
+	lvar dword, timeend
+	 push word [46Ch + 2]
+	 push word [46Ch]
+	sti
+
+	mov ax, word [bp + ?timeend]
+	mov dx, word [bp + ?timeend + 2]
+	sub ax, word [bp + ?timestart]
+	sbb dx, word [bp + ?timestart + 2]
+	jnc .no_time_overflow
+	add ax,    00B0h
+	adc dx, 18h
+.no_time_overflow:
+	lvar dword, timeelapsed
+	 push dx
+	 push ax
+
+int3
+	xchg bx, dx
+	mov cx, 10000		; multiplier
+	mul cx
+	mov si, dx
+	mov di, ax		; si:di = low word * 10000
+	xchg ax, bx		; ax = high word
+	mul cx			; dx:ax = high word * 10000
+	add si, ax
+	adc dx, 0		; dx:si:di = ticks * 10000
+	xchg ax, dx		; ax:si:di
+	xchg ax, si		; si:ax:di
+	xchg ax, di
+				; si:di:ax = ticks * 10000
+
+	mov cx, 100
+	mul cx
+	xchg di, ax		; dx:di = ticks * 10000 * 100 part, ax = mid word
+	mov bx, dx		; bx:di
+	mul cx
+	add bx, ax
+	adc dx, 0		; dx:bx:di
+	jc .time_carry
+	xchg ax, dx		; ax:bx:di
+	xchg ax, si		; si:bx:di, ax = third high word
+	mul cx
+	add si, ax		; si:bx:di = ticks * 10000 * 100
+	jc .time_carry
+
+	mov cx, 182
+	xor dx, dx
+	xchg ax, si
+	div cx
+	xchg si, ax
+	xchg ax, bx
+	div cx
+	xchg bx, ax
+	xchg ax, di
+	div cx			; si:bx:ax = ms/100
+
+	mov dx, bx		; (si:)dx:ax = ms/100
+	test si, si
+	jz .time_no_carry
+.time_carry:
+	mov ax, -1
+	cwd
+.time_no_carry:
+
+	lframe 0, nested
+	lequ 10,	bufferlen
+	lvar ?bufferlen,buffer
+	lenter
+	lvar dword,	dividend
+	 push dx
+	 push ax
+
+	 push ss
+	 pop es
+	lea di, [bp + ?buffer + ?bufferlen - 1]
+	mov bx, di
+	std			; _AMD_ERRATUM_109_WORKAROUND does not apply
+
+		; dword [bp + ?dividend] = number to display
+	mov cx, 10		; divisor
+.loop_write:
+
+	xor dx, dx
+	push di
+	mov di, 4
+.loop_divide:
+	mov ax, [bp + ?dividend - 2 + di]
+	div cx
+	mov word [bp + ?dividend - 2 + di], ax
+	dec di
+	dec di
+	jnz .loop_divide
+				; dx = last remainder
+	pop di
+	xchg ax, dx		; ax = remainder (next digit)
+				; dword [bp + ?dividend] = result of div
+	add al, '0'
+	stosb
+
+	cmp word [bp + ?dividend + 2], 0
+	jnz .loop_write
+	cmp word [bp + ?dividend], 0
+				; any more ?
+	jnz .loop_write		; loop -->
+
+	push ss
+	pop ds
+	mov si, bx		; -> last digit
+	sub bx, di		; = length
+	mov cx, bx		; = length
+
+	push cs
+	pop es
+	mov di, init2_msg.time.0.patch - 1
+
+.time.loop:
+	cmp di, init2_msg.time.0.decimalpoint
+	jne .time.next
+	dec di
+.time.next:
+	movsb
+	loop .time.loop
+
+	cld
+	lleave
+
+	push cs
+	pop ds
+	mov bx, init2_msg.time.0
+	call init2_error_disp_counted
+
+	mov bx, init2_msg.time.1
+	call init2_error_disp_counted
+	mov ax, word [bp + ?timeelapsed + 2]
+	call init2_error_disp_ax_hex
+	mov al, '_'
+	call init2_error_disp_al
+	mov ax, word [bp + ?timeelapsed]
+	call init2_error_disp_ax_hex
+	mov bx, init2_msg.time.2
+	call init2_error_disp_counted
+
+	mov ax, word [bp + ?timeelapsed]
+	mov dx, word [bp + ?timeelapsed + 2]
+	call init2_error_decdword
+
+	mov bx, init2_msg.time.3
+	call init2_error_disp_counted
+%endif
+	mov ax, 4C00h
+	int 21h
 
 
 .transfer:
