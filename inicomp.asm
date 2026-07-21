@@ -3218,6 +3218,13 @@ size_compressed equ (payload.end - payload)
 %endif
 	jmp .loop
 
+.transfer:
+	xor di, di
+	push di			; placeholder ax value on stack
+	push ax			; INIT1 segment
+	push di			; zero = init1_start
+	retf			; transfer to INIT1:init1_start
+
 .found:
 %if _TEST_PROGRESS
 	push cs
@@ -3398,14 +3405,6 @@ size_compressed equ (payload.end - payload)
 %endif
 	mov ax, 4C00h
 	int 21h
-
-
-.transfer:
-	xor di, di
-	push di			; placeholder ax value on stack
-	push ax			; INIT1 segment
-	push di			; zero = init1_start
-	retf			; transfer to INIT1:init1_start
 
 
 %if _INCLUDE_UNCOMPRESSED
