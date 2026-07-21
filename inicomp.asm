@@ -3344,6 +3344,7 @@ quit_with_time:
 	pop es
 	mov di, init2_msg.time.0.patch - 1
 	mov si, init2_msg.time.0.decimalpoint
+	mov bx, init2_msg.time.0.atleast
 	call store_dec_dword_with_decimalpoint
 
 	push cs
@@ -3373,6 +3374,7 @@ quit_with_time:
 	cwd
 	mov di, init2_msg.time.deciseconds.patch - 1
 	mov si, init2_msg.time.deciseconds.decimalpoint
+	mov bx, init2_msg.time.deciseconds.atleast
 	call store_dec_dword_with_decimalpoint
 	add cx, init2_msg.time.deciseconds.length
 	mov bx, init2_msg.time.deciseconds.prefix
@@ -3394,6 +3396,7 @@ quit_with_time:
 
 	mov di, init2_msg.time.deciminutes.patch - 1
 	mov si, init2_msg.time.deciminutes.decimalpoint
+	mov bx, init2_msg.time.deciminutes.atleast
 	call store_dec_dword_with_decimalpoint
 	add cx, init2_msg.time.deciminutes.length
 	mov bx, init2_msg.time.deciminutes.prefix
@@ -3411,6 +3414,7 @@ quit_with_time:
 
 	mov di, init2_msg.time.minutes.patch - 1
 	mov si, init2_msg.time.minutes.decimalpoint
+	mov bx, init2_msg.time.minutes.atleast
 	call store_dec_dword_with_decimalpoint
 	add cx, init2_msg.time.minutes.length
 	mov bx, init2_msg.time.minutes.prefix
@@ -3428,6 +3432,7 @@ quit_with_time:
 	mov ax, word [bp + ?amountruns]
 	mov di, init2_msg.time.runs.patch - 1
 	mov si, -1
+	mov bx, di
 	call store_dec_dword_with_decimalpoint
 	push cs
 	pop ds
@@ -3454,6 +3459,7 @@ quit_with_time:
 		; INP:	dx:ax = number
 		;	es:di -> last byte of buffer (should be 11 bytes)
 		;	es:si -> decimal point in buffer (skip if would write)
+		;	es:bx -> part to always display at least
 		; OUT:	es:di -> written number
 		;	cx = written bytes (include decimal point if wrote past)
 store_dec_dword_with_decimalpoint:
@@ -3469,6 +3475,8 @@ store_dec_dword_with_decimalpoint:
 	 push di
 	lvar word,	destinationdecimalpoint
 	 push si
+	lvar word,	atleast
+	 push bx
 
 	 push ss
 	 pop es
@@ -3518,9 +3526,15 @@ store_dec_dword_with_decimalpoint:
 	movsb
 	loop .time.loop
 	cld
-	mov cx, word [bp + ?destination]
-	sub cx, di		; = length of numeric output
+
 	inc di			; -> numeric output
+	cmp di, word [bp + ?atleast]
+	jbe @F
+	mov di, word [bp + ?atleast]
+@@:
+	mov cx, word [bp + ?destination]
+	inc cx
+	sub cx, di		; = length of numeric output
 
 	lleave
 	lret
@@ -4160,7 +4174,7 @@ init2_msg:
 .time.0:		db @F - ($ + 1)
 			db "Note: "
 			times 7 db 32
-			db "0"
+.time.0.atleast:	db "0"
 .time.0.decimalpoint:	db "."
 			db "00"
 	; good enough for 99_999_999.99ms (27h)
@@ -4171,7 +4185,7 @@ init2_msg:
 
 				db 0
 				times 8 db 32
-				db "0"
+.time.deciseconds.atleast:	db "0"
 .time.deciseconds.decimalpoint:	db "."
 				db "0"
 .time.deciseconds.patch:
@@ -4181,10 +4195,10 @@ init2_msg:
 
 				db 0
 				times 8 db 32
-				db "0"
+.time.deciminutes.atleast:	db "0"
 .time.deciminutes.decimalpoint:	db "."
 .time.minutes.decimalpoint:	equ -1
-				db "0"
+.time.minutes.atleast:		db "0"
 .time.deciminutes.patch:
 .time.minutes.patch:
 .time.deciminutes.length: equ @F - $
