@@ -3318,13 +3318,53 @@ quit_with_time:
 	cwd
 .time_no_carry:
 
-	lframe 0, nested
+	push cs
+	pop es
+	mov di, init2_msg.time.0.patch - 1
+	mov si, init2_msg.time.0.decimalpoint
+	call store_dec_dword_with_decimalpoint
+
+	push cs
+	pop ds
+	mov bx, init2_msg.time.0
+	call init2_error_disp_counted
+
+	mov bx, init2_msg.time.1
+	call init2_error_disp_counted
+	mov ax, word [bp + ?timeelapsed + 2]
+	call init2_error_disp_ax_hex
+	mov al, '_'
+	call init2_error_disp_al
+	mov ax, word [bp + ?timeelapsed]
+	call init2_error_disp_ax_hex
+	mov bx, init2_msg.time.2
+	call init2_error_disp_counted
+
+	mov ax, word [bp + ?timeelapsed]
+	mov dx, word [bp + ?timeelapsed + 2]
+	call init2_error_decdword
+
+	mov bx, init2_msg.time.3
+	call init2_error_disp_counted
+%endif
+	mov ax, 4C00h
+	int 21h
+
+
+%if _TIME
+store_dec_dword_with_decimalpoint:
+	lframe near, nested
 	lequ 10,	bufferlen
 	lvar ?bufferlen,buffer
 	lenter
 	lvar dword,	dividend
 	 push dx
 	 push ax
+	lvar dword,	destination
+	 push es
+	 push di
+	lvar word,	destinationdecimalpoint
+	 push si
 
 	 push ss
 	 pop es
@@ -3365,46 +3405,19 @@ quit_with_time:
 	sub bx, di		; = length
 	mov cx, bx		; = length
 
-	push cs
-	pop es
-	mov di, init2_msg.time.0.patch - 1
-
+	les di, [bp + ?destination]
 .time.loop:
-	cmp di, init2_msg.time.0.decimalpoint
+	cmp di, word [bp + ?destinationdecimalpoint]
 	jne .time.next
 	dec di
 .time.next:
 	movsb
 	loop .time.loop
-
 	cld
+
 	lleave
-
-	push cs
-	pop ds
-	mov bx, init2_msg.time.0
-	call init2_error_disp_counted
-
-	mov bx, init2_msg.time.1
-	call init2_error_disp_counted
-	mov ax, word [bp + ?timeelapsed + 2]
-	call init2_error_disp_ax_hex
-	mov al, '_'
-	call init2_error_disp_al
-	mov ax, word [bp + ?timeelapsed]
-	call init2_error_disp_ax_hex
-	mov bx, init2_msg.time.2
-	call init2_error_disp_counted
-
-	mov ax, word [bp + ?timeelapsed]
-	mov dx, word [bp + ?timeelapsed + 2]
-	call init2_error_decdword
-
-	mov bx, init2_msg.time.3
-	call init2_error_disp_counted
+	lret
 %endif
-	mov ax, 4C00h
-	int 21h
 
 
 %if _INCLUDE_UNCOMPRESSED
