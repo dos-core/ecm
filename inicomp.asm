@@ -3264,7 +3264,6 @@ size_compressed equ (payload.end - payload)
 	 push dx
 	 push ax
 
-int3
 	xchg bx, dx
 	mov cx, 10000		; multiplier
 	mul cx
