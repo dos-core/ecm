@@ -4164,7 +4164,7 @@ init2_msg:
 %endif
 %if _TIME
 .time.0:		db @F - ($ + 1)
-			db "Note: Time "
+			db "Note: "
 			times 7 db 32
 			db "0"
 .time.0.decimalpoint:	db "."
