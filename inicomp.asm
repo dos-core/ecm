@@ -3092,15 +3092,128 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	 push dx
 	 push ax
 
+int3
+	xchg bx, dx
+	mov cx, 10000		; multiplier
+	mul cx
+	mov si, dx
+	mov di, ax		; si:di = low word * 10000
+	xchg ax, bx		; ax = high word
+	mul cx			; dx:ax = high word * 10000
+	add si, ax
+	adc dx, 0		; dx:si:di = ticks * 10000
+	xchg ax, dx		; ax:si:di
+	xchg ax, si		; si:ax:di
+	xchg ax, di
+				; si:di:ax = ticks * 10000
+
+	mov cx, 100
+	mul cx
+	xchg di, ax		; dx:di = ticks * 10000 * 100 part, ax = mid word
+	mov bx, dx		; bx:di
+	mul cx
+	add bx, ax
+	adc dx, 0		; dx:bx:di
+	jc .time_carry
+	xchg ax, dx		; ax:bx:di
+	xchg ax, si		; si:bx:di, ax = third high word
+	mul cx
+	add si, ax		; si:bx:di = ticks * 10000 * 100
+	jc .time_carry
+
+	mov cx, 182
+	xor dx, dx
+	xchg ax, si
+	div cx
+	xchg si, ax
+	xchg ax, bx
+	div cx
+	xchg bx, ax
+	xchg ax, di
+	div cx			; si:bx:ax = ms/100
+
+	mov dx, bx		; (si:)dx:ax = ms/100
+	test si, si
+	jz .time_no_carry
+.time_carry:
+	mov ax, -1
+	cwd
+.time_no_carry:
+
+	lframe 0, nested
+	lequ 10,	bufferlen
+	lvar ?bufferlen,buffer
+	lenter
+	lvar dword,	dividend
+	 push dx
+	 push ax
+
+	 push ss
+	 pop es
+	lea di, [bp + ?buffer + ?bufferlen - 1]
+	mov bx, di
+	std			; _AMD_ERRATUM_109_WORKAROUND does not apply
+
+		; dword [bp + ?dividend] = number to display
+	mov cx, 10		; divisor
+.loop_write:
+
+	xor dx, dx
+	push di
+	mov di, 4
+.loop_divide:
+	mov ax, [bp + ?dividend - 2 + di]
+	div cx
+	mov word [bp + ?dividend - 2 + di], ax
+	dec di
+	dec di
+	jnz .loop_divide
+				; dx = last remainder
+	pop di
+	xchg ax, dx		; ax = remainder (next digit)
+				; dword [bp + ?dividend] = result of div
+	add al, '0'
+	stosb
+
+	cmp word [bp + ?dividend + 2], 0
+	jnz .loop_write
+	cmp word [bp + ?dividend], 0
+				; any more ?
+	jnz .loop_write		; loop -->
+
+	push ss
+	pop ds
+	mov si, bx		; -> last digit
+	sub bx, di		; = length
+	mov cx, bx		; = length
+
+	push cs
+	pop es
+	mov di, init2_msg.time.0.patch - 1
+
+.time.loop:
+	cmp di, init2_msg.time.0.decimalpoint
+	jne .time.next
+	dec di
+.time.next:
+	movsb
+	loop .time.loop
+
+	cld
+	lleave
+
 	push cs
 	pop ds
+	mov bx, init2_msg.time.0
+	call init2_error_disp_counted
+
 	mov bx, init2_msg.time.1
 	call init2_error_disp_counted
-	xchg ax, dx
+	mov ax, word [bp + ?timeelapsed + 2]
 	call init2_error_disp_ax_hex
 	mov al, '_'
 	call init2_error_disp_al
-	xchg ax, dx
+	mov ax, word [bp + ?timeelapsed]
 	call init2_error_disp_ax_hex
 	mov bx, init2_msg.time.2
 	call init2_error_disp_counted
@@ -3926,7 +4039,18 @@ init2_msg:
 .scan.fail:		counted "Note: Scan failure",13,10
 %endif
 %if _TIME
-.time.1:		counted "Note: Time="
+.time.0:		db @F - ($ + 1)
+			db "Note: Time "
+			times 7 db 32
+			db "0"
+.time.0.decimalpoint:	db "."
+			db "00"
+	; good enough for 99_999_999.99ms (27h)
+	;  though we only use up to 42_949_672.95ms (11h) as a 32-bit ms/100
+.time.0.patch:
+			db "ms"
+@@:
+.time.1:		counted " Time="
 .time.2:		counted "h="
 .time.3:		counted " ticks",13,10
 %endif
