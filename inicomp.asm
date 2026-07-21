@@ -3434,16 +3434,10 @@ quit_with_time:
 	mov bx, init2_msg.time.runs
 	call init2_error_disp_counted
 
-	mov bx, init2_msg.time.1
-	call init2_error_disp_counted
-	mov ax, word [bp + ?timeelapsed + 2]
-	call init2_error_disp_ax_hex
-	mov al, '_'
+	mov al, ","
 	call init2_error_disp_al
-	mov ax, word [bp + ?timeelapsed]
-	call init2_error_disp_ax_hex
-	mov bx, init2_msg.time.2
-	call init2_error_disp_counted
+	mov al, 32
+	call init2_error_disp_al
 
 	mov ax, word [bp + ?timeelapsed]
 	mov dx, word [bp + ?timeelapsed + 2]
@@ -4209,8 +4203,6 @@ init2_msg:
 .time.runs.patch:		db " runs"
 @@:
 
-.time.1:		counted " Time="
-.time.2:		counted "h="
 .time.3:		counted " ticks",13,10
 %endif
 %if _TEST_PROGRESS
