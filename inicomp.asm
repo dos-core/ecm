@@ -3067,7 +3067,7 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	mov ah, 40h
 	int 21h
 %endif
-	jmp .quit_with_time
+	jmp quit_with_time
 
 @@:
 	sub dx, [bp + ?lowerbound]
@@ -3246,7 +3246,7 @@ size_compressed equ (payload.end - payload)
 	mov al, 10
 	call init2_disp_al
 
-.quit_with_time:
+quit_with_time:
 %if _RELOAD_XMS
 	call freexms
 %endif
