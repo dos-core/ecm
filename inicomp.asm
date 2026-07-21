@@ -3315,7 +3315,19 @@ quit_with_time:
 	xchg bx, ax
 	xchg ax, di
 	div cx			; si:bx:ax = ms/100
-	xchg di, ax		; si:bx:di
+	mov di, ax		; si:bx:di
+
+	mov dx, bx		; (si:)dx:ax = ms/100 per loop
+	test si, si
+	jz .time_no_carry_dura
+.time_carry_dura:
+	mov ax, -1
+	cwd
+.time_no_carry_dura:
+
+	lvar dword, cms_per_loop; centi milliseconds
+	 push dx
+	 push ax
 
 	mov cx, word [bp + ?amountruns]
 	xor dx, dx
@@ -3336,7 +3348,7 @@ quit_with_time:
 	cwd
 .time_no_carry:
 
-	lvar dword, cms		; centi milliseconds
+	lvar dword, cms_per_run	; centi milliseconds
 	 push dx
 	 push ax
 
@@ -3355,7 +3367,7 @@ quit_with_time:
 	pop di
 	pop si
 	push si
-	push di			; get si:di = ?cms
+	push di			; get si:di = ?cms_per_run
 
 	mov cx, 10000		; get deciseconds
 	xor dx, dx
@@ -3439,10 +3451,98 @@ quit_with_time:
 	mov bx, init2_msg.time.runs
 	call init2_error_disp_counted
 
-	mov al, ","
-	call init2_error_disp_al
-	mov al, 32
-	call init2_error_disp_al
+	mov si, word [bp + ?cms_per_loop + 2]
+	mov di, word [bp + ?cms_per_loop]
+				; get si:di = ?cms_per_loop
+
+	mov cx, 1000		; get centiseconds
+	xor dx, dx
+	xchg ax, si
+	div cx
+	xchg si, ax
+	xchg ax, di
+	div cx			; si:di = centiseconds
+	mov di, ax
+
+	test si, si
+	jnz .dura_notcentiseconds
+	cmp ax, 10_00
+	jae .dura_notcentiseconds
+.dura_centiseconds:
+	cwd
+	mov di, init2_msg.dura.centiseconds.patch - 1
+	mov si, init2_msg.dura.centiseconds.decimalpoint
+	mov bx, init2_msg.dura.centiseconds.atleast
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.dura.centiseconds.length
+	jmp .dura_done
+
+.dura_notcentiseconds:
+	mov cx, 10		; get deciseconds
+	xor dx, dx
+	xchg ax, si
+	div cx
+	xchg ax, di
+	div cx			; di:ax = deciseconds
+	test di, di
+	jnz .dura_deciminutes
+.dura_deciseconds:
+	cmp ax, 600		; >= 1.0 minutes ?
+	jae .dura_deciminutes
+
+	cwd
+	mov di, init2_msg.dura.deciseconds.patch - 1
+	mov si, init2_msg.dura.deciseconds.decimalpoint
+	mov bx, init2_msg.dura.deciseconds.atleast
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.dura.deciseconds.length
+	jmp .dura_done
+
+.dura_deciminutes:
+	mov cx, 60
+	xor dx, dx
+	xchg ax, di		; dx:ax = high word, di = low word
+	div cx
+	xchg di, ax
+	div cx
+	mov dx, di		; dx:ax = deciminutes
+
+	test dx, dx
+	jnz .dura_minutes
+	cmp ax, 600
+	jae .dura_minutes
+
+	mov di, init2_msg.dura.deciminutes.patch - 1
+	mov si, init2_msg.dura.deciminutes.decimalpoint
+	mov bx, init2_msg.dura.deciminutes.atleast
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.dura.deciminutes.length
+	jmp .dura_done
+
+.dura_minutes:
+	mov cx, 10
+	xchg di, ax
+	xchg ax, dx
+	xor dx, dx		; dx:ax = high word, di = low word
+	div cx
+	xchg di, ax
+	div cx
+	mov dx, di		; dx:ax = minutes
+
+	mov di, init2_msg.dura.minutes.patch - 1
+	mov si, init2_msg.dura.minutes.decimalpoint
+	mov bx, init2_msg.dura.minutes.atleast
+	call store_dec_dword_with_decimalpoint
+	add cx, init2_msg.dura.minutes.length
+
+.dura_done:
+	mov bx, init2_msg.dura.prefix
+	push cs
+	pop ds
+	call init2_error_disp_counted
+	lea bx, [di - 1]
+	mov byte [bx], cl
+	call init2_error_disp_counted
 
 	mov ax, word [bp + ?timeelapsed]
 	mov dx, word [bp + ?timeelapsed + 2]
@@ -4209,6 +4309,41 @@ init2_msg:
 .time.deciseconds.prefix:	; counted " ("
 .time.deciminutes.prefix:	; counted " ("
 .time.minutes.prefix:		counted " ("
+
+.dura.prefix:			counted ", duration "
+
+				db 0
+				times 7 db 32
+.dura.centiseconds.atleast:	db "0"
+.dura.centiseconds.decimalpoint:db "."
+				db "00"
+.dura.centiseconds.patch:
+.dura.centiseconds.length: equ @F - $
+				db "s = "
+@@:
+
+				db 0
+				times 8 db 32
+.dura.deciseconds.atleast:	db "0"
+.dura.deciseconds.decimalpoint:	db "."
+				db "0"
+.dura.deciseconds.patch:
+.dura.deciseconds.length: equ @F - $
+				db "s = "
+@@:
+
+				db 0
+				times 8 db 32
+.dura.deciminutes.atleast:	db "0"
+.dura.deciminutes.decimalpoint:	db "."
+.dura.minutes.decimalpoint:	equ -1
+.dura.minutes.atleast:		db "0"
+.dura.deciminutes.patch:
+.dura.minutes.patch:
+.dura.deciminutes.length: equ @F - $
+.dura.minutes.length: equ @F - $
+				db "min = "
+@@:
 
 .time.runs:			db @F - ($ + 1)
 				db " / run for "
