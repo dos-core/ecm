@@ -2966,6 +2966,9 @@ init2_scan_done:
 	 push word [46Ch + 2]
 	 push word [46Ch]
 	sti
+	inc ax
+	lvar word, amountruns
+	 push ax		; = 1
 %endif
 	mov ax, cs
 	sub ax, (init1_end - init1_start) >> 4
@@ -3156,6 +3159,9 @@ size_compressed equ (payload.end - payload)
 	mov cx, (payload_end - payload) >> 4
 	call init2_movp		; copy payload from payload saving area
 %endif
+%if _TIME
+	inc word [bp + ?amountruns]
+%endif
 		; dx => source
 	mov ax, [bp + ?current_init1]
 	mov bx, 1
@@ -3309,8 +3315,20 @@ quit_with_time:
 	xchg bx, ax
 	xchg ax, di
 	div cx			; si:bx:ax = ms/100
+	xchg di, ax		; si:bx:di
 
-	mov dx, bx		; (si:)dx:ax = ms/100
+	mov cx, word [bp + ?amountruns]
+	xor dx, dx
+	xchg ax, si
+	div cx
+	xchg si, ax
+	xchg ax, bx
+	div cx
+	xchg bx, ax
+	xchg ax, di
+	div cx			; si:bx:ax = ms/100 per run
+
+	mov dx, bx		; (si:)dx:ax = ms/100 per run
 	test si, si
 	jz .time_no_carry
 .time_carry:
@@ -3405,6 +3423,16 @@ quit_with_time:
 	mov byte [bx], cl
 	call init2_error_disp_counted
 .nolargerunit:
+
+	xor dx, dx
+	mov ax, word [bp + ?amountruns]
+	mov di, init2_msg.time.runs.patch - 1
+	mov si, -1
+	call store_dec_dword_with_decimalpoint
+	push cs
+	pop ds
+	mov bx, init2_msg.time.runs
+	call init2_error_disp_counted
 
 	mov bx, init2_msg.time.1
 	call init2_error_disp_counted
@@ -4174,6 +4202,12 @@ init2_msg:
 .time.deciminutes.prefix:	; counted " ("
 .time.minutes.prefix:		counted " ("
 
+.time.runs:			db @F - ($ + 1)
+				db " / run for "
+				times 4 db 32
+				db "0"
+.time.runs.patch:		db " runs"
+@@:
 
 .time.1:		counted " Time="
 .time.2:		counted "h="
