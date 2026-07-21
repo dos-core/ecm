@@ -88,6 +88,7 @@ ldLoadUntilSeg:	resw 1
 	[list +]
 
 	numdef SCAN, 0
+	numdef TIME, 0
 
 	numdef USESCAN, 0
 	strdef SCANBINARY, ""
@@ -2957,6 +2958,15 @@ init2_scan_done:
 		;  payload which was used as source.
 
 	mov dx, ax		; dx => payload source to use
+%if _TIME
+	xor ax, ax
+	mov ds, ax
+	cli
+	lvar dword, timestart
+	 push word [46Ch + 2]
+	 push word [46Ch]
+	sti
+%endif
 	mov ax, cs
 	sub ax, (init1_end - init1_start) >> 4
 				; ax => INIT1
@@ -3057,8 +3067,50 @@ payload_uncompressed_size equ _TEST_PROGRAM_DECOMPRESSED_SIZE
 	mov ah, 40h
 	int 21h
 %endif
+.quit_with_time:
 %if _RELOAD_XMS
 	call freexms
+%endif
+%if _TIME
+	xor ax, ax
+	mov ds, ax
+	cli
+	lvar dword, timeend
+	 push word [46Ch + 2]
+	 push word [46Ch]
+	sti
+
+	mov ax, word [bp + ?timeend]
+	mov dx, word [bp + ?timeend + 2]
+	sub ax, word [bp + ?timestart]
+	sbb dx, word [bp + ?timestart + 2]
+	jnc .no_time_overflow
+	add ax,    00B0h
+	adc dx, 18h
+.no_time_overflow:
+	lvar dword, timeelapsed
+	 push dx
+	 push ax
+
+	push cs
+	pop ds
+	mov bx, init2_msg.time.1
+	call init2_error_disp_counted
+	xchg ax, dx
+	call init2_error_disp_ax_hex
+	mov al, '_'
+	call init2_error_disp_al
+	xchg ax, dx
+	call init2_error_disp_ax_hex
+	mov bx, init2_msg.time.2
+	call init2_error_disp_counted
+
+	mov ax, word [bp + ?timeelapsed]
+	mov dx, word [bp + ?timeelapsed + 2]
+	call init2_error_decdword
+
+	mov bx, init2_msg.time.3
+	call init2_error_disp_counted
 %endif
 	mov ax, 4C00h
 	int 21h
@@ -3233,11 +3285,7 @@ size_compressed equ (payload.end - payload)
 	call init2_disp_al
 	mov al, 10
 	call init2_disp_al
-%if _RELOAD_XMS
-	call freexms
-%endif
-	mov ax, 4C00h
-	int 21h
+	jmp .quit_with_time
 
 
 .transfer:
@@ -3619,7 +3667,7 @@ init2_error:
 	lleave ctx
 
 
-%if _DEBUG0 || _USESCAN
+%if _DEBUG0 || _USESCAN || _TIME
 init2_error_disp_ax_hex:	; ax
 		xchg al,ah
 		call init2_error_disp_al_hex	; display former ah
@@ -3679,7 +3727,7 @@ init2_disp_al:
 	retn
 
 
-%if _USESCAN
+%if _USESCAN || _TIME
 init2_error_disp_counted:
 	push ax
 	push bx
@@ -3876,6 +3924,11 @@ init2_msg:
 .scan.5:		counted " tick="
 .scan.6:		counted 13,10
 .scan.fail:		counted "Note: Scan failure",13,10
+%endif
+%if _TIME
+.time.1:		counted "Note: Time="
+.time.2:		counted "h="
+.time.3:		counted " ticks",13,10
 %endif
 %if _TEST_PROGRESS
 .progress.1:		db "Info: 1"
