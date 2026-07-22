@@ -3472,14 +3472,14 @@ quit_with_time:
 	call init2_error_disp_counted
 .nolargerunit:
 
-	xor dx, dx
-	mov ax, word [bp + ?amountruns]
-	mov di, init2_msg.time.runs.patch - 1
-	mov si, -1
-	mov bx, di
-	call store_dec_dword_with_decimalpoint
 	push cs
 	pop ds
+	mov bx, init2_msg.time.perrun
+	call init2_error_disp_counted
+
+	mov ax, word [bp + ?amountruns]
+	call init2_error_decword
+
 	mov bx, init2_msg.time.runs
 	call init2_error_disp_counted
 
@@ -4343,7 +4343,7 @@ init2_msg:
 .time.deciminutes.prefix:	; counted " ("
 .time.minutes.prefix:		counted " ("
 
-.dura.prefix:			counted ", duration "
+.dura.prefix:			counted ", sum "
 
 				db 0
 				times 7 db 32
@@ -4352,7 +4352,7 @@ init2_msg:
 				db "00"
 .dura.centiseconds.patch:
 .dura.centiseconds.length: equ @F - $
-				db "s = "
+				db "s="
 @@:
 
 				db 0
@@ -4362,7 +4362,7 @@ init2_msg:
 				db "0"
 .dura.deciseconds.patch:
 .dura.deciseconds.length: equ @F - $
-				db "s = "
+				db "s="
 @@:
 
 				db 0
@@ -4375,17 +4375,14 @@ init2_msg:
 .dura.minutes.patch:
 .dura.deciminutes.length: equ @F - $
 .dura.minutes.length: equ @F - $
-				db "min = "
+				db "min="
 @@:
 
-.time.runs:			db @F - ($ + 1)
-				db " / run for "
-				times 4 db 32
-				db "0"
-.time.runs.patch:		db " runs"
+.time.perrun:			counted "/run, "
+.time.runs:			counted " runs"
 @@:
 
-.time.3:		counted " ticks",13,10
+.time.3:		counted "t",13,10
 %endif
 %if _TEST_PROGRESS
 .progress.1:		db "Info: 1"
