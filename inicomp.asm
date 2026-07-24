@@ -1860,89 +1860,99 @@ msg:
 %assign CHECK_POINTERS_VARIABLE_SRC 1
 %assign CHECK_POINTERS_VARIABLE_DST 1
 %assign SCAN_SUPPORTED 0
-
+%define FILENAME
 		; Specific depacker's file is included within label msg.
 		; In the file, lframe is used and lleave ctx is not used.
 
 %if _BRIEFLZ
-	%include "brieflz.asm"
+ %define METHODNAME "brieflz"
 %endif
 
 
 %if _LZ4
-	%include "lz4.asm"
+ %define METHODNAME "lz4"
 %endif
 
 
 %if _SNAPPY
-	%include "snappy.asm"
+ %define METHODNAME "snappy"
 %endif
 
 
 %if _EXODECR
-	%include "exodecr.asm"
+ %define METHODNAME "exodecr"
 %endif
 
 
 %if _X
-	%include "x.asm"
+ %define METHODNAME "x"
 %endif
 
 
 %if _HEATSHRINK
-	%include "heatshr.asm"
+ %define METHODNAME "heatshr"
 %endif
 
 
 %if _LZD
-	%include "lzd.asm"
+ %define METHODNAME "lzd"
 %endif
 
 
 %if _LZO
-	%include "lzo.asm"
+ %define METHODNAME "lzo"
 %endif
 
 
 %if _LZSA2 || _LZSA1
-	%include "lzsa.asm"
+ %define FILENAME "lzsa.asm"
+ %if _LZSA2
+  %define METHODNAME "lzsa2"
+ %else
+  %define METHODNAME "lzsa1"
+ %endif
 %endif
 
 
 %if _APL
-	%include "apl.asm"
+ %define METHODNAME "apl"
 %endif
 
 
 %if _BZP
-	%include "bzp.asm"
+ %define METHODNAME "bzp"
 %endif
 
 
 %if _ZEROCOMP
-	%include "zerocomp.asm"
+ %define METHODNAME "zerocomp"
 %endif
 
 
 %if _MVCOMP
-	%include "mvcomp.asm"
+ %define METHODNAME "mvcomp"
 %endif
 
 
 %if _LZEXEDAT
-	%include "lzexedat.asm"
+ %define METHODNAME "lzexedat"
 %endif
 
 
 %if _ZX0
-	%include "zx0.asm"
+ %define METHODNAME "zx0"
 %endif
 
 
 %if _SHRINKLER
-	%include "shrd86.asm"
+ %define METHODNAME "shrd86"
 %endif
 
+%ifempty FILENAME
+ %strcat FILENAME METHODNAME,".asm"
+%endif
+
+%include FILENAME
 
 %if _SCAN && ! SCAN_SUPPORTED
  %fatal Scan not supported by this depacker method
