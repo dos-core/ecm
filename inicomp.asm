@@ -4402,6 +4402,12 @@ init2_msg:
 			db "t "
 			times LENGTH db 32
 			db METHODNAME
+	strdef APPEND_NAME, ""
+			db _APPEND_NAME
+	strdef APPEND_INCLUDE, ""
+%ifnidni _APPEND_INCLUDE, ""
+			incbin _APPEND_INCLUDE
+%endif
 			db 13,10
 @@:
 %endif
