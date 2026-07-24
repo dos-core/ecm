@@ -4392,7 +4392,18 @@ init2_msg:
 .time.runs:			counted " runs"
 @@:
 
-.time.3:		counted "t",13,10
+%strlen LENGTH METHODNAME
+%if LENGTH <= 8
+ %assign LENGTH 8 - LENGTH
+%else
+ %aasign LENGTH 0
+%endif
+.time.3:		db @F - ($ + 1)
+			db "t "
+			times LENGTH db 32
+			db METHODNAME
+			db 13,10
+@@:
 %endif
 %if _TEST_PROGRESS
 .progress.1:		db "Info: 1"
