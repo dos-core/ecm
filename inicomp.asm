@@ -370,6 +370,7 @@ init0_exe_entry:
 	mov si, 81h
 	xor dx, dx
 	xor ax, ax
+	xor di, di
 cmdline:
 .:
 	lodsb
@@ -416,6 +417,10 @@ cmdline:
 	je .t
 	cmp al, 't'
 	je .t
+	cmp al, 'L'
+	je .l
+	cmp al, 'l'
+	je .l
 %endif
 .invalid:
 	mov dx, -1		; invalid
@@ -437,10 +442,43 @@ cmdline:
 .t:
 	or bl, 80h
 	jmp .
+
+.l:
+	or bl, 40h
+	lodsb
+	cmp al, ':'
+	je @F
+	cmp al, '='
+	jne @FF
+@@:
+	lodsb
+@@:
+	cmp al, 32
+	je @BB
+	cmp al, 9
+	je @BB
+	cmp al, 13
+	je .invalid
+	lea di, [si - 1]
+@@:
+	lodsb
+	cmp al, 13
+	je @F
+	cmp al, 32
+	je @F
+	cmp al, 9
+	jne @B
+@@:
+	mov byte [si - 1], 0
+	cmp al, 13
+	jne .
 %endif
 
 .end:
 				; bx for ?whichtest
+%if _TIME
+	push di			; for ?timefilename
+%endif
 	push dx			; for ?repetitions
   %endif
 	mov dx, ss		; => after end of available space
@@ -2709,6 +2747,9 @@ init2_entry:
 %if (_INCLUDE_UNCOMPRESSED && ! _INCLUDE_UNCOMPRESSED_IN_IMAGE) || _RELOAD_FILE
 	lpar word,	handle
 %endif
+%if _TIME
+	lpar word,	timefilename
+%endif
 	lpar word,	repetitions
 	lpar word,	whichtest
 %if _RELOAD_XMS
@@ -3292,6 +3333,57 @@ quit_with_time:
 	 push word [46Ch + 2]
 	 push word [46Ch]
 	sti
+
+	mov bx, init2_msg.time.00
+	testopt [bp + ?whichtest], 40h
+	jz .no_file
+	mov ah, 62h
+	int 21h
+	mov ds, bx
+	mov si, word [bp + ?timefilename]
+	xor cx, cx			; create attributes
+	mov dx, 0001_0001b		; create or open
+	mov bx, 0110_0000_1_010_0_001b	; auto-commit, no int 24h, no inherit,
+					;  DENY WRITE, write-only
+	mov ax, 6C00h
+	stc
+	int 21h
+	jnc .got_file
+
+	xchg ax, bx			; al = no inherit, DENY WRITE, write-only
+	mov ah, 3Dh
+	mov dx, si
+	int 21h
+	jnc .got_file
+
+	mov ah, 3Ch
+	int 21h
+	jnc .got_file
+
+	mov bx, init2_msg.error_time_file
+	jmp .no_file
+
+.got_file:
+	push ax
+	xchg bx, ax
+	xor dx, dx
+	xor cx, cx
+	mov ax, 4202h
+	int 21h				; to EOF
+
+	push cs
+	pop ds
+	mov bx, init2_msg.time.00
+	call init2_error_disp_counted
+
+	pop word [cs:init2_error_disp_counted.patchhandle]
+	jmp @F
+
+.no_file:
+	push cs
+	pop ds
+	call init2_error_disp_counted
+@@:
 
 	mov ax, word [bp + ?timeend]
 	mov dx, word [bp + ?timeend + 2]
@@ -4127,6 +4219,15 @@ init2_error_disp_counted:
 	mov ah, 40h
 	mov bx, 2
 	int 21h
+%if _TIME
+	mov bx, -1
+.patchhandle: equ $ - 2
+	cmp bx, -1
+	je @F
+	mov ah, 40h
+	int 21h
+@@:
+%endif
 	pop dx
 	pop cx
 	pop bx
@@ -4311,8 +4412,9 @@ init2_msg:
 .scan.fail:		counted "Note: Scan failure",13,10
 %endif
 %if _TIME
+.error_time_file:	counted "Note: Unable to append to specified time log file!",13,10,"Time: "
+.time.00:		counted "Time: "
 .time.0:		db @F - ($ + 1)
-			db "Time: "
 			times 7 db 32
 .time.0.atleast:	db "0"
 .time.0.decimalpoint:	db "."
