@@ -4160,7 +4160,7 @@ init2_error_decdword:
 		; STT:	UP
 init2_error_dec_dword_minwidth:
 	lframe near
-	lequ 10,	bufferlen
+	lequ 12,	bufferlen
 	lvar ?bufferlen,buffer
 	lenter
 	lvar dword,	dividend
@@ -4219,15 +4219,12 @@ init2_error_dec_dword_minwidth:
 
 	sub bx, di
 	mov cx, bx
-	mov dx, di
-	inc dx
-
-	mov ah, 40h
-	mov bx, 2		; stderr
 	push ds
 	 push ss
 	 pop ds
-	int 21h
+	mov bx, di
+	mov byte [bx], cl
+	call init2_error_disp_counted
 	pop ds
 
 	pop es
