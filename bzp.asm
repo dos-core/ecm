@@ -304,8 +304,13 @@ d0	mov byte [bp + ?errordata], 04h
 .end_check:
 		; The end marker should code 1FFh. Refer to
 		;  https://github.com/mbaze/bzpack/issues/7
+		; New end marker is 256 as discussed in
+		;  https://github.com/mbaze/bzpack/issues/13#issuecomment-4962189786
+	cmp cx, 256			; new end marker ?
+	je @F				; yes -->
 	cmp cx, 1FFh			; correct end marker ?
 	jne .error			; no -->
+@@:
 	xor cx, cx
 	cmp word [bp + ?length_of_source], cx
 	jne .error
