@@ -536,14 +536,14 @@ lz4_check_behind_block_higher_than_src:
 					; dx:ax -> behind block
 
 	cmp word [bp + ?src + 2], dx	; compare segment
-	ja .error			; ?src > dx:ax -->
-	jb .success			; ?src < dx:ax -->
+	jne @F
 	cmp word [bp + ?src], ax	; segment is same, compare offset
-	jae .error			; ?src >= dx:ax -->
+@@:
+	jae .end			; ?src >= dx:ax -->
 
-.success:
+.notyet:
 	db __TEST_IMM8			; (NC)
-.error:
+.end:
 	stc
 	retn
 
