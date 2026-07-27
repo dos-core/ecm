@@ -24,6 +24,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %include "lmacros3.mac"
 
+	numdef INLINELOD, 1
 	numdef LZO_SUPPORT_RLE,	0	; DO NOT ENABLE
 					; Our implementation doesn't match
 					;  the Linux kernel's one. lzop does
@@ -529,10 +530,33 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov byte [bp + ?version], al
 %endif
 
-
-.loop:
+%if _INLINELOD
+ %imacro do_lodsb 0.nolist
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb depack.error
+	lodsb
+ %endmacro
+ %imacro do_lodsw 0.nolist
+	sub word [bp + ?length_of_source], 2
+	sbb word [bp + ?length_of_source + 2], 0
+	jb depack.error
+	lodsw
+ %endmacro
+%else
+ %imacro do_lodsb 0.nolist
 	mov cx, 1
 	call read_le_data_src
+ %endmacro
+ %imacro do_lodsw 0.nolist
+	mov cx, 2
+	call read_le_data_src
+ %endmacro
+%endif
+
+
+.loop:
+	do_lodsb
 	mov ah, 0
 	cmp al, 16
 	jae .not_normal
@@ -568,8 +592,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shr bl, 1
 	shr bl, 1			; bx = D D
 
-	mov cx, 1
-	call read_le_data_src
+	do_lodsb
 	mov ah, 0			; ax = H{8}
 	shl ax, 1
 	shl ax, 1			; ax = H << 2
@@ -590,8 +613,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shr bl, 1
 	shr bl, 1
 
-	mov cx, 1
-	call read_le_data_src
+	do_lodsb
 	mov ah, 0
 	shl ax, 1
 	shl ax, 1
@@ -612,14 +634,12 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov dx, 7
 	mov bx, ax
 	call get_length
-	mov cx, 2			; cx = 2
-
-	add bx, cx
+	add bx, 2
 	adc dx, 0			; dx:bx = length = 2 + encoded length
 	jc .error
 
 	push dx
-	call read_le_data_src		; read D{14} S S
+	do_lodsw			; read D{14} S S
 	pop dx
 	pop cx
 	 push si
@@ -651,9 +671,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jb @F
 	cmp ax, 0BFFFh
 	jne @F
-	mov cx, 1
 	push dx
-	call read_le_data_src
+	do_lodsb
 	pop dx
 	mov ah, 0
 	mov cl, 3
@@ -679,14 +698,12 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov dx, 31
 	mov bx, ax
 	call get_length
-	mov cx, 2
-
-	add bx, cx
+	add bx, 2
 	adc dx, 0			; dx:bx = length = 2 + encoded length
 	jc .error
 
 	push dx
-	call read_le_data_src
+	do_lodsw
 	pop dx
 
 	mov cx, ax
@@ -718,8 +735,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shr ax, 1
 	shr ax, 1
 	push ax
-	mov cl, 1
-	call read_le_data_src
+	do_lodsb
 	pop dx
 
 	mov ah, 0
@@ -749,8 +765,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shr ax, 1
 	shr ax, 1
 	push ax
-	mov cl, 1
-	call read_le_data_src
+	do_lodsb
 	pop dx
 
 	mov ah, 0
@@ -851,6 +866,9 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 
 	call copy_data
 
+%if _INLINELOD
+	call normalise_pointer
+%endif
 	pop si
 	pop ds
 %if _ALLOW_OVERLAPPING
@@ -932,8 +950,7 @@ get_length:
 	add bx, dx
 	adc di, 0
 	jc error_j1
-	mov cx, 1
-	call read_le_data_src
+	do_lodsb
 	mov dx, 255
 	test al, al
 	jz .loop
@@ -962,6 +979,10 @@ error_j1:
 		;	returns if success
 		; CHG:	cx, dx, ax, es, di, ds, si
 copy_literal_or_uncompressed:
+%if _INLINELOD
+	call normalise_dssi_pointer
+%endif
+
 	sub word [bp + ?length_of_source], ax
 	sbb word [bp + ?length_of_source + 2], dx
 					; enough data exists ?
