@@ -18,6 +18,10 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
+
+
 %include "lmacros3.mac"
 
 	numdef LZO_SUPPORT_RLE,	0	; DO NOT ENABLE
@@ -165,12 +169,6 @@ depack:
 	 push es
 	 push di
 %endif
-	lvar dword,	src
-	 push ds
-	 push si
-	lvar dword,	dst
-	 push es
-	 push di
 	lvar dword,	length_of_source
 	 push dx
 	 push cx
@@ -214,11 +212,11 @@ LENDST equ 960 * 1024
 	adc bx, word [bp + ?length_of_source + 2]
 		; In case of allowing overlapping source and destination,
 		;  the ?length_of_destination variable is set to
-		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  ds:si + ?length_of_source - es:di, allowing to write to
 		;  all of the source buffer (with the checks already in place
 		;  from the default handling). Additional checks are done by
 		;  calling check_pointers_not_overlapping. This is done after
-		;  every change of ?dst to verify that the write pointer stays
+		;  every change of es:di to verify that the write pointer stays
 		;  below-or-equal the read pointer.
 		; This means the remaining source data may be corrupted by a
 		;  write, but nothing after the source data is written to,
@@ -245,8 +243,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 %endif
 
 .loop_header:
-	push word [bp + ?dst + 2]
-	push word [bp + ?dst]
+	push es
+	push di
 	pop word [bp + ?original_dst_header]
 	pop word [bp + ?original_dst_header + 2]
 
@@ -263,8 +261,8 @@ d0	mov byte [bp + ?errordata], 1Bh
 
 %if _SCAN
 	pushf
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
+	 push es
+	 push di
 	call pointer_to_linear
 
 	mov bx, dx
@@ -302,7 +300,8 @@ d0	mov bx, word [bp + ?errordata]
 @@:
 	jb .error
 
-	lds si, [bp + ?src]
+	 push es
+	 push di
 	push cs
 	pop es
 	mov di, lzop_signature
@@ -314,12 +313,10 @@ d0	mov bx, word [bp + ?errordata]
 
 	repe cmpsb
 	jne .error
+	 pop di
+	 pop es
 
-	 push ds
-	 push si
-	call normalise_pointer
-	 pop word [bp + ?src]
-	 pop word [bp + ?src + 2]
+	call normalise_dssi_pointer
 
 	mov cl, 2
 d0	mov byte [bp + ?errordata], 1
@@ -624,7 +621,9 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	push dx
 	call read_le_data_src		; read D{14} S S
 	pop dx
-	pop si
+	pop cx
+	 push si
+	mov si, cx
 	and si, 0000_0000_0000_1000b
 	mov cl, 14 - 3
 	shl si, cl
@@ -635,6 +634,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shr ax, 1
 	shr ax, 1			; ax = D{14}
 	add ax, si			; ax = D + (H << 14)
+	 pop si
 	jc .error
 	jz .end_frame
 	add ax, 16384
@@ -767,14 +767,13 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 %if _LZO_SUPPORT_RLE
 		; INP:	dx:ax = length
 .zeros_run:
-	les di, [bp + ?dst]
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
 	jc .error
 
 .zr_loop:
 	mov cx, 0FFF0h			; how much we can do per step
-					;  (?dst is always normalised)
+					;  (es:di is always normalised)
 	test dx, dx			; a lot ?
 	jnz .zr_do			; yes, skip check -->
 	cmp ax, cx			; more than one step ?
@@ -805,8 +804,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jmp .zr_loop
 
 .zr_end:
-	mov word [bp + ?dst], di
-	mov word [bp + ?dst + 2], es
 	jmp .next
 %endif
 
@@ -823,6 +820,9 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 		; INP:	dx:bx = length
 		;	ax = distance
 .match:
+	push ds
+	push si
+
 	push dx
 	push bx				; on stack: dword length
 	xor dx, dx			; dx:ax = distance
@@ -834,8 +834,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov cx, ax
 	mov bx, dx			; bx:cx = minus distance
 
-	 push word [bp + ?dst + 2]
-	 push word [bp + ?dst]
+	 push es
+	 push di
 	call normalise_pointer_with_displacement_bxcx
 	 pop si
 	 pop ds				; -> source
@@ -851,6 +851,8 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 
 	call copy_data
 
+	pop si
+	pop ds
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
 d0	mov byte [bp + ?errordata], 1Ch
@@ -917,65 +919,59 @@ check_limits:
 		;	dx = initial length value mask
 		; OUT:	returns if success,
 		;	 dx:bx = cumulated length value
-		;	 ?src incremented, ?length_of_source decremented
+		;	 ds:si incremented, ?length_of_source decremented
 		;	jumps to depack.error if error
 		; CHG:	ax, cx, ds, si
 get_length:
-	xor si, si
+	push di
+	xor di, di
 	and bx, dx
 	jnz .ret
 
 .loop:
 	add bx, dx
-	adc si, 0
+	adc di, 0
 	jc error_j1
 	mov cx, 1
-	push si
 	call read_le_data_src
-	pop si
 	mov dx, 255
 	test al, al
 	jz .loop
 	mov ah, 0
 	add bx, ax
-	adc si, 0
+	adc di, 0
 	jc error_j1
 .ret:
-	mov dx, si
-	retn
-
-
-		; INP:	?dst -> destination (normalised)
-		;	?src -> source (normalised)
-		;	dx:ax = how long the literal data is (0 is valid)
-		; OUT:	?dst incremented (normalised)
-		;	?src incremented (normalised)
-		;	?length_of_destination shortened
-		;	?length_of_source shortened
-		;	jumps to depack.error if error (either buffer too small)
-		;	returns if success
-		; CHG:	cx, dx, ax, es, di, ds, si
-copy_literal_or_uncompressed:
-	lds si, [bp + ?src]
-
-	sub word [bp + ?length_of_source], ax
-	sbb word [bp + ?length_of_source + 2], dx
-					; enough data exists ?
-	jb error_j1			; no -->
-
-	call copy_data
-	mov word [bp + ?src], si
-	mov word [bp + ?src + 2], ds
+	mov dx, di
+	pop di
 	retn
 
 
 error_j1:
 	jmp depack.error
 
-		; INP:	?dst -> destination (normalised)
+
+		; INP:	es:di -> destination (normalised)
+		;	ds:si -> source (normalised)
+		;	dx:ax = how long the literal data is (0 is valid)
+		; OUT:	es:di incremented (normalised)
+		;	ds:si incremented (normalised)
+		;	?length_of_destination shortened
+		;	?length_of_source shortened
+		;	jumps to depack.error if error (either buffer too small)
+		;	returns if success
+		; CHG:	cx, dx, ax, es, di, ds, si
+copy_literal_or_uncompressed:
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], dx
+					; enough data exists ?
+	jb error_j1			; no -->
+
+	; jmp copy_data
+		; INP:	es:di -> destination (normalised)
 		;	ds:si -> source (normalised)
 		;	dx:ax = how long the data is (0 is valid)
-		; OUT:	?dst incremented (normalised)
+		; OUT:	es:di incremented (normalised)
 		;	ds:si incremented (normalised)
 		;	?length_of_destination shortened
 		;	jumps to depack.error if error (buffer too small)
@@ -994,7 +990,6 @@ d0	inc byte [bp + ?errordata + 1]
 					; enough space left ?
 	jb error_j1			; no -->
 
-	les di, [bp + ?dst]
 .loop:
 	mov cx, 64 * 1024 - 16		; block size
 		; If both pointers are normalised, moving 0FFF0h bytes is
@@ -1027,8 +1022,6 @@ d0	inc byte [bp + ?errordata + 1]
 	jmp .loop
 
 .end:
-	mov word [bp + ?dst], di
-	mov word [bp + ?dst + 2], es
 %if _PAYLOAD_KERNEL_MAX_PARAS
 	mov ax, es
 	cmp ax, word [bp + ?dst_max_segment]
@@ -1037,7 +1030,7 @@ d0	inc byte [bp + ?errordata + 1]
 	retn
 
 
-		; INP:	?src -> source data (normalised)
+		; INP:	ds:si -> source data (normalised)
 		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
 		;	?length_of_source
 		; OUT:	If cx >= 4,
@@ -1050,7 +1043,7 @@ d0	inc byte [bp + ?errordata + 1]
 		;	 al = value read
 		;	If cx == 0,
 		;	 invalid, jumps to depack.error
-		;	ds:si = ?src = incremented source (normalised)
+		;	ds:si -> incremented source (normalised)
 		;	?length_of_source decremented
 		;	jumps to depack.error if error (source buffer too small, or cx zero)
 		;	returns if success
@@ -1064,8 +1057,6 @@ read_le_data_src:
 	sbb word [bp + ?length_of_source + 2], 0
 	jb error_j2
 
-	lds si, [bp + ?src]
-
 	lodsw
 	xchg ax, dx		; dx = low word (first)
 	lodsw			; ax = high word (second)
@@ -1074,17 +1065,14 @@ read_le_data_src:
 	sub si, 4
 	add si, cx
 
-	call normalise_dssi_pointer
-	mov word [bp + ?src], si
-	mov word [bp + ?src + 2], ds
-	retn
+	jmp normalise_dssi_pointer
 
 
 error_j2:
 	jmp depack.error
 
 
-		; INP:	?src -> source data (normalised)
+		; INP:	ds:si -> source data (normalised)
 		;	cx = size to read, 1 to 4 or higher (at most 0FFF0h)
 		;	?length_of_source
 		; OUT:	If cx >= 4,
@@ -1097,7 +1085,7 @@ error_j2:
 		;	 al = value read
 		;	If cx == 0,
 		;	 invalid, jumps to depack.error
-		;	ds:si = ?src = incremented source (normalised)
+		;	ds:si -> incremented source (normalised)
 		;	?length_of_source decremented
 		;	jumps to depack.error if error (source buffer too small, or cx zero)
 		;	returns if success
@@ -1108,8 +1096,6 @@ read_be_data_src:
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
 	jb error_j2
-
-	lds si, [bp + ?src]
 
 	push si
 	cmp cx, 3
@@ -1155,7 +1141,4 @@ read_be_data_src:
 	pop si
 	add si, cx
 
-	call normalise_dssi_pointer
-	mov word [bp + ?src], si
-	mov word [bp + ?src + 2], ds
-	retn
+	jmp normalise_dssi_pointer
