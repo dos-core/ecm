@@ -157,7 +157,7 @@ depack:
 
 	call normalise_both_pointers
 
-%if _SCAN
+%if _SCAN || _COMPARE_UNCOMPRESSED_PROGRESS
 	lvar dword,	original_src
 	 push ds
 	 push si
