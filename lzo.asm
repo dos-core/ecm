@@ -651,10 +651,9 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	shr ax, 1			; ax = D{14}
 	add ax, si			; ax = D + (H << 14)
 	jc .error
+	jz .end_frame
 	add ax, 16384
 	jc .error
-	cmp ax, 16384
-	je .end_frame
 
 
 		; Note: We already parsed the length here. If the length
@@ -886,7 +885,7 @@ d0	mov byte [bp + ?errordata], 1Ch
 
 
 .end_frame:
-	xor ax, ax
+	; xor ax, ax			; already = 0
 	cmp word [bp + ?length_of_source + 2], ax
 	jne .error
 	cmp word [bp + ?length_of_source], ax
