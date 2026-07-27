@@ -322,19 +322,16 @@ d0	mov bx, word [bp + ?errordata]
 	 pop word [bp + ?src + 2]
 
 	mov cl, 2
-	call read_be_data_src		; get version
 d0	mov byte [bp + ?errordata], 1
-	jc .error
+	call read_be_data_src		; get version
 
 	cmp ax, 0940h			; we only support 0940h+
 		; (some header fields are omitted for 0900h..093Fh)
 	jb .error
 
 	call read_be_data_src		; skip lib version
-	jc .error
 
 	call read_be_data_src		; get version needed
-	jc .error
 	cmp ax, 0900h
 	jb .error
 	cmp ax, 1040h
@@ -342,18 +339,15 @@ d0	mov byte [bp + ?errordata], 1
 
 	mov cl, 1
 	call read_be_data_src		; method
-	jc .error
 	test al, al
 	jz .error
 	cmp al, 3			; 1, 2, 3 valid
 	ja .error
 
 	call read_be_data_src		; skip level
-	jc .error
 
 	mov cl, 4
 	call read_be_data_src		; flags
-	jc .error
 	test dl, F_reserved_bits >> 16	; reserved ?
 	jnz .error
 	test ax, (F_reserved_bits & 0FFFFh) | F_H_FILTER | F_H_EXTRA_FIELD
@@ -365,18 +359,14 @@ d0	mov byte [bp + ?errordata], 1
 
 	mov cl, 4 * 3
 	call read_be_data_src		; skip mode, mtimelow, mtimehigh
-	jc .error
 
 	mov cl, 1
 	call read_be_data_src		; load filename length
-	jc .error
 	mov cl, al
 	call read_be_data_src		; skip filename
-	jc .error
 
 	mov cl, 4
 	call read_be_data_src		; skip header checksum
-	jc .error
 
 .loop_frame:
 	mov cx, 4
@@ -412,13 +402,10 @@ d0	mov byte [bp + ?errordata], 1
 @@:
 
 	call read_be_data_src		; skip checksums
-	jc .error
 
 	call check_limits
-	jc .error
 
 	call copy_literal_or_uncompressed
-	jc .error
 
 	jmp .loop_frame
 
@@ -445,7 +432,6 @@ d0	mov byte [bp + ?errordata], 1
 	call read_be_data_src		; skip checksums
 
 	call check_limits
-	jc .error
 
 	push dx
 	push ax				; ?length_of_compressed
@@ -563,7 +549,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov bx, ax
 	call get_length
 	mov ax, bx			; dx:ax = length
-	jc .error
+
 	add ax, 3
 	adc dx, 0
 	jc .error
@@ -630,7 +616,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov bx, ax
 	call get_length
 	mov cx, 2			; cx = 2
-	jc .error
+
 	add bx, cx
 	adc dx, 0			; dx:bx = length = 2 + encoded length
 	jc .error
@@ -638,7 +624,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	push dx
 	call read_le_data_src		; read D{14} S S
 	pop dx
-	jc .error
 	pop si
 	and si, 0000_0000_0000_1000b
 	mov cl, 14 - 3
@@ -695,7 +680,7 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov bx, ax
 	call get_length
 	mov cx, 2
-	jc .error
+
 	add bx, cx
 	adc dx, 0			; dx:bx = length = 2 + encoded length
 	jc .error
@@ -703,7 +688,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	push dx
 	call read_le_data_src
 	pop dx
-	jc .error
 
 	mov cx, ax
 	and cx, 3
@@ -737,7 +721,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov cl, 1
 	call read_le_data_src
 	pop dx
-	jc .error
 
 	mov ah, 0
 	mov cl, 3
@@ -769,7 +752,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	mov cl, 1
 	call read_le_data_src
 	pop dx
-	jc .error
 
 	mov ah, 0
 	mov cl, 3
@@ -832,7 +814,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 		; INP:	dx:ax = length
 .literals:
 	call copy_literal_or_uncompressed
-	jc .error
 	jmp .loop
 
 
@@ -869,7 +850,6 @@ state is indeed always set to "byte - 17" (which for 21 results in 4 too).
 	jb .error			; must not be before buffer !
 
 	call copy_data
-	jc .error
 
 %if _ALLOW_OVERLAPPING
 	call check_pointers_not_overlapping
@@ -909,9 +889,9 @@ d0	mov byte [bp + ?errordata], 1Ch
 
 
 		; INP:	?length_of_compressed|uncompressed|source|destination
-		; OUT:	NC if success,
+		; OUT:	returns if success,
 		;	 dx:ax = ?length_of_compressed
-		;	CY if error
+		;	jumps to depack.error if error
 check_limits:
 	mov ax, word [bp + ?length_of_uncompressed]
 	mov dx, word [bp + ?length_of_uncompressed + 2]
@@ -920,7 +900,7 @@ check_limits:
 	jne @F
 	cmp ax, word [bp + ?length_of_destination]
 @@:
-	ja .error
+	ja error_j1
 
 	mov ax, word [bp + ?length_of_compressed]
 	mov dx, word [bp + ?length_of_compressed + 2]
@@ -929,43 +909,37 @@ check_limits:
 	jne @F
 	cmp ax, word [bp + ?length_of_source]
 @@:
-	ja .error
-
-	db __TEST_IMM8			; (NC, skip stc)
-.error:
-	stc
+	ja error_j1
 	retn
 
 
 		; INP:	bx = initial length value (needs to be masked)
 		;	dx = initial length value mask
-		; OUT:	NC if success,
+		; OUT:	returns if success,
 		;	 dx:bx = cumulated length value
 		;	 ?src incremented, ?length_of_source decremented
-		;	CY if error
+		;	jumps to depack.error if error
 		; CHG:	ax, cx, ds, si
 get_length:
 	xor si, si
-	and bx, dx		; (NC)
+	and bx, dx
 	jnz .ret
 
 .loop:
 	add bx, dx
 	adc si, 0
-	jc .ret
+	jc error_j1
 	mov cx, 1
 	push si
 	call read_le_data_src
 	pop si
-	jc .ret
 	mov dx, 255
 	test al, al
 	jz .loop
 	mov ah, 0
 	add bx, ax
 	adc si, 0
-	jc .ret
-	clc
+	jc error_j1
 .ret:
 	mov dx, si
 	retn
@@ -978,8 +952,8 @@ get_length:
 		;	?src incremented (normalised)
 		;	?length_of_destination shortened
 		;	?length_of_source shortened
-		;	CY if error (either buffer too small)
-		;	NC if success
+		;	jumps to depack.error if error (either buffer too small)
+		;	returns if success
 		; CHG:	cx, dx, ax, es, di, ds, si
 copy_literal_or_uncompressed:
 	lds si, [bp + ?src]
@@ -987,16 +961,16 @@ copy_literal_or_uncompressed:
 	sub word [bp + ?length_of_source], ax
 	sbb word [bp + ?length_of_source + 2], dx
 					; enough data exists ?
-	jb .return			; no --> (CY)
+	jb error_j1			; no -->
 
-	call copy_data			; CY/NC depending on status
-
+	call copy_data
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
-					; (CF preserved)
-.return:
 	retn
 
+
+error_j1:
+	jmp depack.error
 
 		; INP:	?dst -> destination (normalised)
 		;	ds:si -> source (normalised)
@@ -1004,8 +978,8 @@ copy_literal_or_uncompressed:
 		; OUT:	?dst incremented (normalised)
 		;	ds:si incremented (normalised)
 		;	?length_of_destination shortened
-		;	CY if error (buffer too small)
-		;	NC if success
+		;	jumps to depack.error if error (buffer too small)
+		;	returns if success
 		;	Instead of returning, this may jump to depack.end
 		;	 if the destination segment grows up to the value
 		;	 stored in the ?dst_max_segment variable. It is
@@ -1018,7 +992,7 @@ d0	inc byte [bp + ?errordata + 1]
 	sub word [bp + ?length_of_destination], ax
 	sbb word [bp + ?length_of_destination + 2], dx
 					; enough space left ?
-	jb .error			; no -->
+	jb error_j1			; no -->
 
 	les di, [bp + ?dst]
 .loop:
@@ -1060,10 +1034,6 @@ d0	inc byte [bp + ?errordata + 1]
 	cmp ax, word [bp + ?dst_max_segment]
 	jae depack.end
 %endif
-
-	db __TEST_IMM8			; (NC)
-.error:
-	stc
 	retn
 
 
@@ -1079,20 +1049,20 @@ d0	inc byte [bp + ?errordata + 1]
 		;	If cx == 1,
 		;	 al = value read
 		;	If cx == 0,
-		;	 invalid, CY
+		;	 invalid, jumps to depack.error
 		;	ds:si = ?src = incremented source (normalised)
 		;	?length_of_source decremented
-		;	CY if error (source buffer too small, or cx zero)
-		;	NC if success
+		;	jumps to depack.error if error (source buffer too small, or cx zero)
+		;	returns if success
 		; CHG:	ds, si, dx, ax
 		;
 		; Note:	Always reads four bytes at INP:ds:si -> data.
 read_le_data_src:
-	jcxz .error
+	jcxz error_j2
 
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
-	jb .error
+	jb error_j2
 
 	lds si, [bp + ?src]
 
@@ -1107,11 +1077,11 @@ read_le_data_src:
 	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
-
-	db __TEST_IMM8		; (NC)
-.error:
-	stc
 	retn
+
+
+error_j2:
+	jmp depack.error
 
 
 		; INP:	?src -> source data (normalised)
@@ -1126,18 +1096,18 @@ read_le_data_src:
 		;	If cx == 1,
 		;	 al = value read
 		;	If cx == 0,
-		;	 invalid, CY
+		;	 invalid, jumps to depack.error
 		;	ds:si = ?src = incremented source (normalised)
 		;	?length_of_source decremented
-		;	CY if error (source buffer too small, or cx zero)
-		;	NC if success
+		;	jumps to depack.error if error (source buffer too small, or cx zero)
+		;	returns if success
 		; CHG:	ds, si, dx, ax
 read_be_data_src:
-	jcxz .error
+	jcxz error_j2
 
 	sub word [bp + ?length_of_source], cx
 	sbb word [bp + ?length_of_source + 2], 0
-	jb .error
+	jb error_j2
 
 	lds si, [bp + ?src]
 
@@ -1188,8 +1158,4 @@ read_be_data_src:
 	call normalise_dssi_pointer
 	mov word [bp + ?src], si
 	mov word [bp + ?src + 2], ds
-
-	db __TEST_IMM8		; (NC)
-.error:
-	stc
 	retn
