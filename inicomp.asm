@@ -3345,11 +3345,115 @@ quit_with_time:
 	mov dx, 0001_0001b		; create or open
 	mov bx, 0110_0000_1_010_0_001b	; auto-commit, no int 24h, no inherit,
 					;  DENY WRITE, write-only
-	mov ax, 6C00h
+	mov ax, 716Ch				; LFN open-create
+	xor di, di				; alias hint
+	stc
+	int 21h
+	jnc .got_file		; LFN call succeeded -->
+
+		; Early case for no-LFN-interface available.
+	; cmp ax, 1
+	; je .try_sfn
+	cmp ax, 7100h
+	je .try_sfn
+
+		; Only now, we check whether the used drive supports LFNs.
+		; If it does, then we treat the error received as an
+		; actual error and cancel here. If not, the SFN function
+		; is called next as a fallback.
+		;
+		; We cannot rely on specific error returns like the
+		; expected 7100h CY (or 7100h CF-unchanged) or the similar
+		; 0001h CY (Invalid function) because no one agrees on what
+		; error code to use.
+		;
+		; dosemu returns 0003h (Path not found) on FATFS and
+		; redirected-non-dosemu drives. But may be changed so as to
+		; return 0059h (Function not supported on network).
+		; MSWindows 98SE returns 0002h (File not found) on
+		; DOS-redirected drives.
+		; DOSLFN with Fallback mode enabled supports the call (albeit
+		; limited to SFNs).
+		;
+		; To suss out what the error means, check LFN availability.
+		;
+		; Refer to https://github.com/stsp/dosemu2/issues/770
+	push ds
+	push es
+	push di
+	push ax
+	lframe none, nested
+	lvar 34, fstype_buffer
+	lvar 4, pathname_buffer
+	lenter
+
+	lodsw			; load first two bytes of pathname
+
+	push ss
+	pop ds
+	mov dx, sp		; ds:dx -> ?pathname_buffer
+	push ss
+	pop es
+	mov di, sp		; es:di -> ?pathname_buffer
+
+	cmp ah, ':'		; starts with drive specifier ?
+	je @F			; yes -->
+
+	mov ah, 19h
+	int 21h			; get current default drive
+	add al, 'A'		; A: = 0, convert to drive letter
+	mov ah, ':'		; drive specifier
+@@:
+	stosw
+	mov ax, '\'		; backslash and zero terminator
+	stosw			; es:di -> ?fstype_buffer
+
+	xor ax, ax
+	mov cx, 34 >> 1
+	push di
+	rep stosw		; initialise ?fstype_buffer to all zeros
+	pop di			; -> ?fstype_buffer
+
+	mov cx, 32		; size of ?fstype_buffer
+	xor bx, bx		; harden, initialise this
+	mov ax, 71A0h		; get volume information
+	stc
+	int 21h
+
+	jc @F			; if call not supported -->
+				; bx = FS flags
+	test bh, 0100_0000b	; LFN interface available ?
+	stc			; if no
+	jz @F			; no -->
+
+	clc			; is available
+@@:
+
+	lleave
+	pop ax			; (restore error code)
+	pop di
+	pop es
+	pop ds
+	jnc .error_file		; if LFN interface is available, actual error
+				; if LFN interface is not available, try SFN
+
+.try_sfn:
+	mov si, word [bp + ?timefilename]
+	xor cx, cx			; create attributes
+	mov dx, 0001_0001b		; create or open
+	mov bx, 0110_0000_1_010_0_001b	; auto-commit, no int 24h, no inherit,
+					;  DENY WRITE, write-only
+	mov ax, 6C00h				; Open-create
 	stc
 	int 21h
 	jnc .got_file
 
+	cmp ax, 1
+	je .try_old_open_or_create
+	cmp ax, 6C00h
+	jne .error_file
+
+.try_old_open_or_create:
 	xchg ax, bx			; al = no inherit, DENY WRITE, write-only
 	mov ah, 3Dh
 	mov dx, si
@@ -3360,6 +3464,7 @@ quit_with_time:
 	int 21h
 	jnc .got_file
 
+.error_file:
 	mov bx, init2_msg.error_time_file
 	jmp .no_file
 
