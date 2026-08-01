@@ -158,9 +158,11 @@ ldLoadUntilSeg:	resw 1
 	numdef LZEXEDAT,	0
 	numdef ZX0,		0
 	numdef SHRINKLER,	0
+	numdef UNCOMP,		0
 %if (!!_BRIEFLZ + !!_LZ4 + !!_SNAPPY + !!_EXODECR + !!_X + !!_HEATSHRINK \
 	+ !!_LZD + !!_LZO + !!_LZSA2 + !!_APL + !!_BZP + !!_ZEROCOMP \
-	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0 + !!_LZSA1 + !!_SHRINKLER) != 1
+	+ !!_MVCOMP + !!_LZEXEDAT + !!_ZX0 + !!_LZSA1 + !!_SHRINKLER \
+	+ !!_UNCOMP) != 1
  %fatal Exactly one compression method must be selected.
 %endif
 %assign ADDITIONAL_MEMORY 0
@@ -198,6 +200,8 @@ ldLoadUntilSeg:	resw 1
 	strdef PAYLOAD_FILE,	"lDOSLOAD.ZX0"
 %elif _SHRINKLER
 	strdef PAYLOAD_FILE,	"lDOSLOAD.SHR"
+%elif _UNCOMP
+	strdef PAYLOAD_FILE,	"lDOSLOAD.UNC"
 %endif
 	numdef PAYLOAD_KERNEL_MAX_PARAS,	0, 0
 %if _PAYLOAD_KERNEL_MAX_PARAS && ! (_IMAGE_EXE || _DEVICE)
@@ -1986,6 +1990,12 @@ msg:
  %define METHODNAME "shrd86"
 %endif
 
+
+%if _UNCOMP
+ %define METHODNAME "uncomp"
+%endif
+
+
 %ifempty FILENAME
  %strcat FILENAME METHODNAME,".asm"
 %endif
@@ -2719,6 +2729,8 @@ init0_end:
 %define which inizx0
 %elif _SHRINKLER
 %define which inishr
+%elif _UNCOMP
+%define which iniun
 %endif
 %warning which: num bytes used for depacker
 
