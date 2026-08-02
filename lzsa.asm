@@ -96,7 +96,7 @@ depack:
 %if _COUNTER
 	 push bx		; initialise counter (high byte) to zero
 %endif
-	lvar word,	matchlength
+	lvar word,	matchoffset
 %if _WORDLENGTH
  %if !_N || !_UNSAFE
 	lvar word,	word_length_of_source
@@ -488,7 +488,7 @@ lzsa_decompress:
    push di                 ; remember decompression offset
 
    mov bx,0100H
-   and word [bp + ?matchlength], 0
+   and word [bp + ?matchoffset], 0
 
 .decode_token_clear_cx:
    xor cx,cx
@@ -766,7 +766,7 @@ lzsa_decompress:
 %endif
 
 .get_match_length:
-	xchg word [bp + ?matchlength], ax
+	xchg word [bp + ?matchoffset], ax
 			; bp: offset
 .repeat_match:
    xchg ax,dx              ; ax: original token
@@ -823,12 +823,12 @@ lzsa_decompress:
    push es
    pop ds
 	mov si, di
-	add si, word [bp + ?matchlength]
+	add si, word [bp + ?matchoffset]
 			; ds:si now points at back reference in output data
 	jc @FF		; simple case branches here -->
 	push bx
 	push cx
-	mov cx, word [bp + ?matchlength]
+	mov cx, word [bp + ?matchoffset]
 	mov bx, -1
 	 push es
 	 push di
