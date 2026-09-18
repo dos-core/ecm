@@ -261,7 +261,7 @@ __lvar_define_var %2, %$ofs
 		;  final offsets. This is necessary to allow registering
 		;  parameters in the same order they have to be pushed
 		;  onto the stack by the caller.
-%imacro lpar 2.nolist
+%imacro lpar 2-3.nolist needframe
 %ifnctx LFRAME
  %fatal Must use lframe first
 %endif
@@ -288,12 +288,26 @@ __lvar_define_var %2, %$ofs
 %endif
 __lvar_list_label %2
 %assign %$pars_size %$pars_size+%$varsize
-%ifempty %$parlist
- %xdefine %$parlist %$varsize,%2
+%ifidni %3, notneedframe
+ %ifempty %$parlist		; enter empty variable name
+  %xdefine %$parlist %$varsize,
+ %else
+  %xdefine %$parlist %$parlist,%$varsize,
+ %endif
+ %undef ?%2			; delete define if currently set
 %else
- %xdefine %$parlist %$parlist,%$varsize,%2
+ %ifidni %3, needframe
+ %elifempty %3
+ %else
+  %fatal Invalid need specified: %3
+ %endif
+ %assign %$req 1		; mark as needing frame instructions
+ %ifempty %$parlist
+  %xdefine %$parlist %$varsize,%2
+ %else
+  %xdefine %$parlist %$parlist,%$varsize,%2
+ %endif
 %endif
-%assign %$req 1
 %if %$inner
  %assign %$pars_inner_size %$pars_inner_size + %$varsize
  %assign %$ofs %$ofs - %$varsize
@@ -320,7 +334,6 @@ __lvar_list_label %2
  %fatal Specified no parameters with lpar
 %endif
 %assign %$pars_return_size %$pars_size
-%assign %$req 1
 %endmacro
 
 		; Define a stack frame equ.
@@ -614,12 +627,14 @@ __lvar_define_var %2, %1
 %endif
 %rep %0 >> 1
 %assign %$pars_size %$pars_size - %1
-%if %$inner
-%assign ?%2 (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
-._%$lframe_?%2: equ (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
-%else
-%assign ?%2 (%$pars_size + %$parofs + %$base_size)
-._%$lframe_?%2: equ (%$pars_size + %$parofs + %$base_size)
+%ifnempty %2
+ %if %$inner
+ %assign ?%2 (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
+ ._%$lframe_?%2: equ (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
+ %else
+ %assign ?%2 (%$pars_size + %$parofs + %$base_size)
+ ._%$lframe_?%2: equ (%$pars_size + %$parofs + %$base_size)
+ %endif
 %endif
 %rotate 2
 %endrep
