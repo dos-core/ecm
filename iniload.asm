@@ -2136,6 +2136,10 @@ init_memory_multi:
 	rep movsb		; copy it over
 	mov byte [es:di - 16 + 4], 36
 				; force sectors (reportedly DR-DOS does this)
+	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+	mov ah, 00h
+	int 13h			; reset disk unit
+; (A reset may be needed after DPT change, according to PC-MOS source texts.)
 %endif
 
 .ret:
