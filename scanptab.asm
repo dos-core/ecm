@@ -12,7 +12,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
-%ifnmacro dynamiclabel 1+.nolist
+%ifnmacro dynamiclabel 1+
 	%imacro dynamiclabel 1+.nolist
 %1
 	%endmacro
