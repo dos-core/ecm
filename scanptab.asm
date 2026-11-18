@@ -12,6 +12,12 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 
 %endif
 
+%ifnmacro dynamiclabel 1+.nolist
+	%imacro dynamiclabel 1+.nolist
+%1
+	%endmacro
+%endif
+
 	; _SCANPTAB_PREFIX = prefix for our variables and functions
 	; _SCANPTAB_DEBUG4_PREFIX = prefix for d4 function calls
 	numdef PARTITION_TABLE_IN_CS, 1
@@ -78,9 +84,9 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 		; Note:	May load sp from _BASE then pop bp then return
 		;	 near if the scan should stop after the call.
 %if _SPT_MULTIPASS
-%[_SCANPTAB_PREFIX]scan_priority_primary:
+dynamiclabel %[_SCANPTAB_PREFIX]scan_priority_primary:
 %else
-%[_SCANPTAB_PREFIX]scan_partitions:
+dynamiclabel %[_SCANPTAB_PREFIX]scan_partitions:
 %endif
 sptrel	and word [ %[_SCANPTAB_PREFIX]load_partition_cycle], 0
 sptinternal -3
@@ -205,7 +211,7 @@ sptinternal
 	retn			; and bye
 
 
-%[_SCANPTAB_PREFIX]scan_early_primary:
+dynamiclabel %[_SCANPTAB_PREFIX]scan_early_primary:
 sptrel	and word [ %[_SCANPTAB_PREFIX]load_partition_cycle], 0
 sptinternal -3
 
@@ -336,7 +342,7 @@ sptinternal
 	retn			; and bye
 
 
-%[_SCANPTAB_PREFIX]scan_logical:
+dynamiclabel %[_SCANPTAB_PREFIX]scan_logical:
 	push bp
 %ifidn _BASE, ss:bx
 	mov bx, sp
@@ -366,7 +372,7 @@ sptinternal
 %endif
 %else
 
-%[_SCANPTAB_PREFIX]scan_logical:
+dynamiclabel %[_SCANPTAB_PREFIX]scan_logical:
 %endif
 .:
 d4	call %[_SCANPTAB_DEBUG4_PREFIX]d4message
@@ -917,7 +923,7 @@ sptinternal
 		; OUT:  es = ss
 		;       64 bytes [es:partition_table] = partition table
 		;       does not return if error
-%[_SCANPTAB_PREFIX]read_partition_table:
+dynamiclabel %[_SCANPTAB_PREFIX]read_partition_table:
 %if _SPT_ELD
 .first:
 	db __TEST_IMM8			; NC, skip stc
