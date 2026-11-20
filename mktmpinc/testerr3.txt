@@ -1,0 +1,3 @@
+=== baz.tmp ===
+impossible
+=== not the eof ===
