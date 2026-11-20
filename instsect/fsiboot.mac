@@ -1,0 +1,114 @@
+
+%if 0
+
+fsiboot.mac - FSIBOOT revision history for instsect
+ 2024--2025 by E. C. Masloch
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
+
+
+fsi_revision {"FSIBOOT",0}, "Initial revs of lDOS FSIBOOT (2017-09-13)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/f8698897b208
+
+fsi_revision "FSIBOOT0", "lDOS FSIBOOT rev 0 (2018-09-20)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/07a99b9f6f7d
+
+fsi_revision "FSIBOOT1", "lDOS FSIBOOT rev 1 (2018-09-21)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/af54529e9f46
+
+fsi_revision "FSIBOOT2", "lDOS FSIBOOT rev 2 (2018-09-23)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/dae7de41a043
+; Used for RxDOS v7.24, 2020-02-03
+
+fsi_revision "FSIBOOT3", "lDOS FSIBOOT rev 3 (2020-09-30)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/76c52f61072c
+
+;       strdef FSIBOOTNAME,     "FSIBOOT3"
+;       ; strdef FSIBOOTNAME,   "FSIBEX00"
+; 2020-10-12
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/aa15fd7bc58e
+
+fsi_revision "FSIBEX00", "lDOS FSIBOOT experimental rev 00 (2020-10-12)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/143c764757a7
+
+fsi_revision "FSIBEX01", "lDOS FSIBOOT experimental rev 01 (2020-10-25)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/72d74cdd7a3c
+
+fsi_revision "FSIBEX02", "lDOS FSIBOOT experimental rev 02 (2020-11-17)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/5a5ccfb311ef
+
+fsi_revision "FSIBOOT4", "lDOS FSIBOOT rev 4 (2021-01-12)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/b235cf86c77c
+; Used for lDebug releases 1 to 8:
+; lDebug release 1, 2021-02-15
+; lDebug release 2, 2021-05-05
+; lDebug release 3, 2021-08-15
+; lDebug release 4, 2022-03-08
+; lDebug release 5, 2023-03-08
+; lDebug release 6, 2023-08-26
+; lDebug release 7, 2024-02-16
+; lDebug release 8, 2024-03-08
+
+fsi_revision "FSIBEX03", "lDOS FSIBOOT experimental rev 03 (2024-08-18)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/fb5f0cb6ced4
+
+fsi_revision "FSIBEX04", "lDOS FSIBOOT experimental rev 04 (2024-08-19)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/88c097107c86
+
+fsi_revision "FSIBEX05", "lDOS FSIBOOT experimental rev 05 (2024-10-04)"
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/aae8332780e8
+
+fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5 (2024-10-11)", fsiboot_sub_empty
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/dec4786efc0a
+; Used for lDebug release 9:
+; lDebug release 9, 2024-12-21
+; Used for lDOS kernel 2025 March to 2025 September
+
+fsi_revision "FSIBOOT5", "lDOS FSIBOOT rev 5a (2025-10-13)", fsiboot5a_sub_id
+; https://hg.pushbx.org/ecm/ldosboot.exp/rev/83b76ed20c4b
+; This is compatible to FSIBOOT5 so the signature didn't change.
+
+%macro fsiboot_subrevisions 0
+fsiboot_sub_empty:
+
+	align 2, db 0
+fsiboot5a_sub_id:
+	dw 0			; sequential
+	dw .end - .
+.:
+	mov di, -1
+	mov word [bp + lsvFATSector + 2], di
+	mov word [bp + lsvFATSector + 0], di
+.end:
+%endmacro
+
+
+%if 0
+
+hg grep FSIBOOTNAME --all |
+  sed -re 's/^boot32.asm:([0-9]+):.*$/\1/' |
+  LC_ALL=C sort | LC_ALL=C uniq | xargs -r bash -c '
+  for rev;
+  do
+    hg diff -r "rev($rev)^:rev($rev)" | grep -Ei "^\+.*FSIBOOTNAME";
+    hg log -r "rev($rev)" \
+    --template="{date|isodate}\n; https://hg.pushbx.org/ecm/ldosboot.exp/rev/{node|short}\n";
+  done' scriptlet
+
+for file in ~/wwwecm/download/ldebug/ldebug?.tlz;
+do
+  base="${file##*/}";
+  rel="${base%.tlz}";
+  tar -xf "$file" "$rel"/bin/instsect.com;
+  grep --binary-files=text -Eo 'FSIBOOT.' "$rel"/bin/instsect.com |
+    LC_ALL=C sort | LC_ALL=C uniq;
+  ls -lgG --full-time "$rel"/bin/instsect.com;
+done
+
+%endif

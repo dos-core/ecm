@@ -1,0 +1,4 @@
+syntax: regexp
+(?i)\.com$
+(?i)\.lst$
+(?i)\.map$
