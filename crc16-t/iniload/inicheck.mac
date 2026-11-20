@@ -1,0 +1,26 @@
+
+%if 0
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
+
+%ifndef INICHECK_MAC
+%define INICHECK_MAC
+
+	struc CHECKSUMHEADER
+cshSignature:			resw 1
+cshLengthBytesStructure:	resw 1
+cshOffsetStructure:		resw 1
+cshChecksumStructure:		resw 1
+cshTypeChecksum:		resw 1
+cshAmountParagraphsData:	resw 1
+cshChecksumData:		resw 1
+cshReserved:			resw 1
+	endstruc
+
+%endif
