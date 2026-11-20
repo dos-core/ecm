@@ -1,0 +1,5 @@
+syntax: regexp
+(?i)\.bin$
+(?i)\.lst$
+(?i)\.map$
+(?i)\.BLZ$

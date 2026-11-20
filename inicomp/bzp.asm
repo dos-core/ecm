@@ -1,0 +1,408 @@
+
+%if 0
+
+8086 Assembly lDOS iniload payload bzpack depacker
+ by E. C. Masloch, 2021
+
+BSD 2-Clause License
+
+Copyright (c) 2021, Milos Bazelides
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+%endif
+
+
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
+%assign NEED_NORMALISE_POINTER_WITH_DISPLACEMENT 0
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
+
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	if _PAYLOAD_KERNEL_MAX_PARAS:
+		;	 ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		;	else:
+		;	 ax = -1
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
+	lenter
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+  %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+  %endif
+  %if _COUNTER
+	lvar word,	counter
+	 push bx		; initialise counter to zero
+  %endif
+ %endif
+
+	call normalise_both_pointers
+
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
+	lvar dword,	src
+	 push ds
+	 push si
+%if _SCAN
+	lvar dword,	original_dst
+	 push es
+	 push di
+%endif
+	lvar dword,	dst
+	 push es
+	 push di
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+
+%if _PAYLOAD_KERNEL_MAX_PARAS
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error_CY		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+%endif
+
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if _ALLOW_OVERLAPPING
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
+
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error_CY
+%endif
+
+	xor dx, dx		; dh = mask, dl = bitbyte
+
+.loop:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al_counter
+@@:
+%endif
+d0	inc byte [bp + ?errordata + 1]
+	; call decode_elias_1		; cx = value of length
+		; INP:	depack stack frame
+		;	ds:si -> source
+		; OUT:	Only returns iff successful,
+		;	 cx = decoded value
+		;	 ds:si incremented by at most 32,
+		;	 not normalised
+		;	Jumps to depack.error_CY if failure
+		; CHG:	ax
+; decode_elias_1:
+	xor cx, cx			; value = 0 (next inc sets it to 1)
+@@:
+	inc cx				; value += 1
+@@:
+	call getbit
+	jz @F				; read zero
+d0	mov byte [bp + ?errordata], 01h
+	shl cx, 1			; value <<= 1
+	jc .error_CY			; value error
+	call getbit
+	jz @B
+	jmp @BB
+
+@@:
+	; retn
+		; ds:si not normalised, incremented by at most 32
+	test ch, ch			; cx > 255 ? (NC)
+	jnz .end_check			; yes, end marker -->
+	call getbit
+		; ds:si not normalised, incremented by at most 33
+	jz .bitzero
+
+.bitone:
+d0	mov byte [bp + ?errordata], 02h
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error_CY
+	call .copy_to_destination
+		; ds:si not normalised, incremented by at most 33 + 256
+.next:
+	call normalise_dssi_pointer
+	; call normalise_esdi_pointer_at_least_256
+		; INP:	es:di = pointer
+		; OUT:	es:di normalised,
+		;	 di < 256 + 16
+		;	 di >= 256 if possible
+; normalise_esdi_pointer_at_least_256:
+	mov ax, 256
+	sub di, ax			; subtract base and compare
+	jbe @F				; below/equal base,
+					;  just branch and restore -->
+	 push es
+	 push di
+	call normalise_pointer		; normalise pointer to offset 0..15
+	 pop di
+	 pop es
+@@:
+	add di, ax			; restore base, now 0..256+15
+	; retn
+
+%if _PAYLOAD_KERNEL_MAX_PARAS
+	mov ax, es
+	mov bx, di
+	mov cl, 4
+	shr bx, cl			; round DOWN !
+	add ax, bx
+	cmp ax, word [bp + ?dst_max_segment]
+	jae .end_NC			; (NC if it branches)
+%endif
+
+	jmp .loop
+
+.bitzero:
+	xor ax, ax			; initialise ah = 0
+	call getbyte			; ax = al = offset
+		; ds:si not normalised, incremented by at most 34
+	inc cx				; length ++
+	 push ds
+	 push si			; preserve pointer on stack
+	push es
+	pop ds
+d0	mov byte [bp + ?errordata], 03h
+	mov si, di			; (at least 256 normalised)
+	sub si, ax			; should not carry
+	jc .error_CY
+	call .copy_to_destination
+	 pop si
+	 pop ds				; restore pointer
+%if _ALLOW_OVERLAPPING
+		; pointers in es:di and ds:si needn't be normalised.
+	push dx
+	call check_pointers_not_overlapping
+	pop dx
+d0	mov byte [bp + ?errordata], 04h
+	jc .error_CY
+%endif
+	jmp .next
+
+.end_check:
+		; The end marker should code 1FFh. Refer to
+		;  https://github.com/mbaze/bzpack/issues/7
+		; New end marker is 256 as discussed in
+		;  https://github.com/mbaze/bzpack/issues/13#issuecomment-4962189786
+	cmp cx, 256			; new end marker ?
+	je @F				; yes -->
+	cmp cx, 1FFh			; correct end marker ?
+	jne .error			; no -->
+@@:
+	xor cx, cx
+	cmp word [bp + ?length_of_source], cx
+	jne .error
+	cmp word [bp + ?length_of_source + 2], cx
+	je .end_NC
+
+.error_CY:
+.error:
+	stc
+.end_NC:
+
+%if _SCAN
+	pushf
+	 push es
+	 push di
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al_for_progress
+	mov al, 10
+	call disp_al_for_progress
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
+
+.copy_to_destination:
+d0	mov byte [bp + ?errordata], 06h
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jc .error_CY
+%if _SCAN
+	jmp scan_rep_movsb
+%else
+	rep movsb
+	retn
+%endif
+
+
+		; INP:	depack stack frame
+		;	ds:si -> source
+		; OUT:	Only returns iff successful,
+		;	 al = byte read
+		;	 ds:si incremented by at most one,
+		;	 not normalised
+		;	Jumps to depack.error_CY if failure
+		; CHG:	-
+getbyte:
+d0	mov byte [bp + ?errordata], 07h
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jc depack.error_CY
+	lodsb
+	retn
+
+
+		; INP:	depack stack frame
+		;	ds:si -> source
+		; OUT:	Only returns iff successful,
+		;	 ah = zero if bit clear, and ZR
+		;	 ah = nonzero if bit set, and NZ
+		;	 ds:si incremented by at most one,
+		;	 not normalised
+		;	Jumps to depack.error_CY if failure
+		; CHG:	al
+getbit:
+	mov ah, dh
+	test ah, ah
+	jnz @F
+	mov ah, 128
+	call getbyte
+	mov dx, ax
+@@:
+	shr dh, 1
+	and ah, dl
+	retn

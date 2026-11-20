@@ -1,0 +1,752 @@
+
+%if 0
+
+8086 Assembly lDOS iniload payload exomizer raw depacker
+ by E. C. Masloch, 2020
+
+Copyright (c) 2005-2017 Magnus Lind.
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from
+the use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented * you must not
+  claim that you wrote the original software. If you use this software in a
+  product, an acknowledgment in the product documentation would be
+  appreciated but is not required.
+
+  2. Altered source versions must be plainly marked as such, and must not
+  be misrepresented as being the original software.
+
+  3. This notice may not be removed or altered from any source distribution.
+
+%endif
+
+
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 1
+
+
+	numdef P, 7, 7
+%if _P > 63
+ %error Too large P value, not supported
+%endif
+	numdef COUNTER,		0, 256
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
+%endif
+
+
+	struc exo_table_entry
+eteBits:	resb 1
+eteBase:	resw 1
+	endstruc
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	if _PAYLOAD_KERNEL_MAX_PARAS:
+		;	 ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		;	else:
+		;	 ax = -1
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
+	lenter
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+	xor bx, bx
+ %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+ %endif
+	lvar word, bit_buffer_and_counter
+	lequ ?bit_buffer_and_counter, bit_buffer
+	lequ ?bit_buffer_and_counter + 1, counter
+	 push bx		; initialise counter (high byte) to zero
+				; if _P & 8: initialise bit_buffer to zero
+%if _P & 32
+	lvar dword, offset
+	 push bx
+	 push bx
+	lvar word, reuse_offset_state_and_RCL_carry_in
+	lequ ?reuse_offset_state_and_RCL_carry_in, reuse_offset_state
+	inc bx			; = 1
+	 push bx
+%endif
+
+	call normalise_both_pointers
+
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
+	lvar dword,	original_dst
+	 push es
+	 push di
+	lvar dword,	dst
+	 push es
+	 push di
+	lvar dword,	src_remaining
+	 push dx
+	 push cx
+
+%if _PAYLOAD_KERNEL_MAX_PARAS
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+%endif
+
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if _ALLOW_OVERLAPPING
+	add cx, word [bp + ?src_remaining]
+	adc bx, word [bp + ?src_remaining + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?dst_remaining variable is set to
+		;  ?src + ?src_remaining - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
+
+	lvar dword,	dst_remaining
+	 push bx		; push into [bp + ?dst_remaining + 2]
+	 push cx		; push into [bp + ?dst_remaining]
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error
+%endif
+
+		; The tables are all even sized due to the counts.
+	lequ fromwords(words(4 * exo_table_entry_size)), 4tablesize
+	lvar ?4tablesize, offsets1
+	lequ fromwords(words(16 * exo_table_entry_size)), 16tablesize
+	lvar ?16tablesize, offsets2
+	lvar ?16tablesize, offsets3
+%if _P & 16
+	lvar ?16tablesize, offsets4
+%endif
+	lvar ?16tablesize, lengths
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
+	lreserve
+
+%ifn _P & 8
+d0	mov byte [bp + ?errordata], 30h
+	call read_byte
+	mov byte [bp + ?bit_buffer], al
+%endif
+
+d0	mov byte [bp + ?errordata], 41h
+	mov di, ?lengths
+	call generate_table_16
+%if _P & 16
+d0	mov byte [bp + ?errordata], 49h
+	; mov di, ?offsets4		; already pointed to from ?lengths + 48
+	call generate_table_16
+%endif
+d0	mov byte [bp + ?errordata], 42h
+	; mov di, ?offsets3		; already pointed to from ?lengths + 48
+					;  or ?offsets4 + 48
+	call generate_table_16
+
+d0	mov byte [bp + ?errordata], 43h
+	; mov di, ?offsets2		; already pointed to from ?offsets3 + 48
+	call generate_table_16
+
+d0	mov byte [bp + ?errordata], 44h
+	; mov di, ?offsets1		; already pointed to from ?offsets2 + 48
+	mov cl, 4
+	call generate_table_cx		; cx = 0 if NC
+
+%ifn _P & 4
+	jmp .STATE_NEXT_BYTE
+%endif
+
+		; cx = 0
+.STATE_IMPLICIT_FIRST_LITERAL_BYTE:
+		; ! cx = 0
+		; All paths to this label must have cx = 0.
+.literal:
+	inc cx				; cx = 1
+.STATE_NEXT_LITERAL_BYTE_increment_counter:
+	sub word [bp + ?src_remaining], cx
+	sbb word [bp + ?src_remaining + 2], 0
+d0	mov byte [bp + ?errordata], 45h
+.error_CY_7:
+	jc .error
+d0	mov byte [bp + ?errordata], 46h
+	call copy_data
+%if _P & 32
+	stc
+.STATE_NEXT_BYTE_rcl:
+	rcl byte [bp + ?reuse_offset_state], 1
+%endif
+
+	; jmp .STATE_NEXT_BYTE
+
+.STATE_NEXT_BYTE:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al_counter
+@@:
+%endif
+d0	mov byte [bp + ?errordata], 32h
+	call read_bits_1		; cx = 0 if NC
+	test ax, ax
+	jnz .literal			; (cx = 0 still)
+
+		; cx = ax = 0
+.not_literal:
+
+	; call get_gamma_code
+		; INP:	-
+		; OUT:	jumps to depack.error if error
+		;	returns if success,
+		;	 bx:dx = gamma
+		;	 ax = cx = 0
+		; STT:	bp -> depack stack frame
+		;	UP
+.get_gamma_code:
+	xor dx, dx
+	xor bx, bx		; bx:dx = gamma = 0
+.ggc_loop:
+		; cx = 0. ax = 0 initially, else = 1
+	add dx, ax
+	adc bx, cx		; ++gamma (except initially)
+d0	mov byte [bp + ?errordata], 33h
+	call read_bits_1	; read_bits(1)
+	xor al, 1		; returned == 0 ?
+	jnz .ggc_loop		; yes, loop --> (ax = 1 if looping)
+				; no, end of loop
+
+	test bx, bx
+d0	mov byte [bp + ?errordata], 34h
+	jnz .error
+	cmp dx, 17
+d0	mov byte [bp + ?errordata], 38h
+	jb .not_literal_data_block
+	ja .error
+
+.literal_data_block:
+%if _P & 2
+d0	mov byte [bp + ?errordata], 35h
+	call read_byte
+	mov ah, al
+d0	mov byte [bp + ?errordata], 36h
+	call read_byte
+%else
+	mov cx, 16
+d0	mov byte [bp + ?errordata], 48h
+	call read_bits
+%endif
+	xchg ax, cx
+	jmp .STATE_NEXT_LITERAL_BYTE_increment_counter
+
+.not_literal_data_block:
+	cmp dl, 16
+	jne .sequence
+
+.end_check:
+d0	mov byte [bp + ?errordata], 40h
+	cmp word [bp + ?src_remaining], 15
+	ja .error
+	cmp word [bp + ?src_remaining + 2], 0
+	je .end_NC			; (NC)
+.error:
+	stc
+.end_NC:
+
+%if _SCAN
+	pushf
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al_for_progress
+	mov al, 10
+	call disp_al_for_progress
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
+
+.sequence:
+	mov di, dx
+	add dx, dx
+	add di, dx		; * 3 = * exo_table_entry_size
+
+	mov bx, word [bp + ?lengths + di + eteBase]
+	; xor cx, cx		; cx = 0 already after get_gamma_code NC
+	mov cl, byte [bp + ?lengths + di + eteBits]
+d0	mov byte [bp + ?errordata], 39h
+	call read_bits		; cx = 0 if NC
+	add bx, ax		; bx = length
+
+%if _P & 32
+	mov al, byte [bp + ?reuse_offset_state]
+	and al, 3
+	cmp al, 1
+	jne @F
+d0	mov byte [bp + ?errordata], 4Ch
+	call read_bits_1	; cx = 0 if NC
+	dec ax			; = -1 if was 0, = 0 if was 1
+	jnz @F			; jump if now -1, ie was 0
+	mov cx, bx
+	mov dx, word [bp + ?offset]
+	mov bx, word [bp + ?offset + 2]
+	jmp .use_prior_offset
+@@:
+%endif
+
+d0	mov byte [bp + ?errordata], 3Bh
+	mov dx, ?offsets1	; default for .switch_case1, and upper
+				;  byte may be re-used for other cases
+	test bx, bx
+	jz .switch_default
+%ifn _P & 16
+	cmp bx, 2
+	je .switch_case2
+	ja .switch_default
+%else
+	cmp bx, 4
+	jae .switch_default
+	cmp bl, 2
+	je .switch_case2
+	; jb .switch_case1
+	ja .switch_case3
+%endif
+.switch_case1:
+	mov cl, 2		; cx = 2
+d0	mov byte [bp + ?errordata], 3Ah
+	jmp .switch_common
+
+.switch_case2:
+ %if (?offsets1 >> 8) == (?offsets2 >> 8)
+	mov dl, ?offsets2 & 0FFh
+ %else
+	mov dx, ?offsets2
+ %endif
+ %if (?offsets1 >> 8) == (?offsets3 >> 8)
+	db __TEST_IMM16		; skip mov dl
+ %else
+	jmp .switch_common_cl_4
+ %endif
+
+%ifn _P & 16
+.switch_default:
+ %if (?offsets1 >> 8) == (?offsets3 >> 8)
+	mov dl, ?offsets3 & 0FFh
+ %else
+	mov dx, ?offsets3
+ %endif
+%else
+.switch_case3:
+ %if (?offsets1 >> 8) == (?offsets3 >> 8)
+	mov dl, ?offsets3 & 0FFh
+ %else
+	mov dx, ?offsets3
+ %endif
+ %if (?offsets1 >> 8) == (?offsets4 >> 8)
+	db __TEST_IMM16		; skip mov dl
+ %else
+	jmp .switch_common_cl_4
+ %endif
+
+.switch_default:
+ %if (?offsets1 >> 8) == (?offsets4 >> 8)
+	mov dl, ?offsets4 & 0FFh
+ %else
+	mov dx, ?offsets4
+ %endif
+%endif
+	; jmp .switch_common_cl_4
+
+.switch_common_cl_4:
+	mov cl, 4		; cx = 4
+
+.switch_common:
+	call read_bits		; ax = next index, dx -> next table
+	mov di, ax
+	add ax, ax
+	add di, ax		; di = offset into table
+	add di, dx		; -> table entry
+	; xor cx, cx		; cx already = 0 after read_bits NC
+	mov cl, byte [bp + di + eteBits]
+d0	mov byte [bp + ?errordata], 3Dh
+	call read_bits		; leaves cx = 0 if NC
+	xchg cx, bx		; cx = length that we remembered in bx
+				; bx = 0
+	xchg dx, ax		; bx:dx = read bits
+
+	add dx, word [bp + di + eteBase]
+	adc bx, bx		; bx:dx = offset
+
+	; test bx, bx		; offset 0 ?
+	jnz @F			; no -->
+	test dx, dx		; offset 0 ?
+d0	mov byte [bp + ?errordata], 3Eh
+	jz .error		; yes, invalid -->
+@@:
+
+%if _P & 32
+	mov word [bp + ?offset], dx
+	mov word [bp + ?offset + 2], bx
+
+.use_prior_offset:
+%endif
+	 push ds
+	 push si
+	push cx
+	mov cx, dx
+        neg bx
+        neg cx
+        sbb bx, byte 0          ; neg bx:cx
+	 push word [bp + ?dst + 2]
+	 push word [bp + ?dst]
+	call normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop bx			; bx:si = pointer into decompressed data
+	pop cx			; restore match length
+d0	mov byte [bp + ?errordata], 47h
+	jnc .error_j4
+
+	cmp bx, word [bp + ?original_dst + 2]
+				; is ?dst below source of matching ?
+	jne @F			; if segment unequal -->
+	cmp si, word [bp + ?original_dst]
+d0	mov byte [bp + ?errordata], 17h
+@@:
+.error_CY_2:
+	jb .error_j4		; yes, ?dst is below ?original_dst -->
+	mov ds, bx		; -> match source data
+	call copy_data
+d0	mov byte [bp + ?errordata], 3Fh
+	 pop si
+	 pop ds
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+d0	mov byte [bp + ?errordata], 1Ch
+	jc .error_CY_2
+				; NC
+%endif
+%if _P & 32
+ %ifn _ALLOW_OVERLAPPING
+	clc
+ %endif
+	jmp .STATE_NEXT_BYTE_rcl
+%else
+	jmp .STATE_NEXT_BYTE
+%endif
+
+.error_j4:
+	jmp .error
+
+
+read_bits_1:
+	mov cx, 1
+
+		; INP:	ds:si -> source
+		;	?src_remaining
+		;	cl = cx = number of bits to read (0..15)
+		; OUT:	jumps to depack.error if error (cx too high or
+		;	 source exhausted)
+		;	returns if success,
+		;	 ax = read data
+		;	 cx = 0
+		;	 ds:si updated (normalised)
+		;	 ?src_remaining updated
+		; STT:	bp -> depack stack frame
+		;	UP
+read_bits:
+%if _P & 2
+	cmp cx, 16		; CY if valid
+%else
+	cmp cx, 17		; CY if valid
+%endif
+	jnc error_j3		; if error -->
+%if _P & 2
+	mov al, cl
+	mov ah, cl
+	and ax, (8 << 8) | 7	; al = bit_count, ah = byte_copy
+	mov cl, al		; cl = cx = bit_count
+	mov al, 0		; al = bits
+%else
+	xor ax, ax		; ax = bits
+%endif
+	jcxz .end
+.loop:
+%if _P & 1
+	shl byte [bp + ?bit_buffer], 1
+%else
+	shr byte [bp + ?bit_buffer], 1
+%endif				; shl/shr both set ZF
+	jnz .notzero
+	push ax
+	call read_byte
+	mov byte [bp + ?bit_buffer], al
+	pop ax
+	stc
+%if _P & 1
+	rcl byte [bp + ?bit_buffer], 1
+%else
+	rcr byte [bp + ?bit_buffer], 1
+%endif
+.notzero:
+%if _P & 2
+	rcl al, 1		; bits <<= 1; bits |= carry;
+%else
+	rcl ax, 1
+%endif
+	loop .loop
+.end:
+%if _P & 2
+	test ah, ah		; NC
+	jz .byte_copy_zero	; (NC)
+	mov ah, al		; bits <<= 8;
+	; jmp read_byte		; bits |= read_byte()
+	; fall through
+.byte_copy_zero: equ retn_generate_table
+				; ax = bits
+%else
+	retn
+%endif
+
+		; INP:	ds:si -> source
+		;	?src_remaining
+		; OUT:	jumps to depack.error if error (source exhausted)
+		;	returns if success,
+		;	 al = byte read from source
+		;	 ds:si updated (normalised)
+		;	 ?src_remaining updated
+		; STT:	bp -> depack stack frame
+		;	UP
+read_byte:
+	sub word [bp + ?src_remaining], 1
+	sbb word [bp + ?src_remaining + 2], 0
+	jc error_j3
+	lodsb
+	jmp normalise_dssi_pointer
+
+
+error_j3:
+	jmp depack.error_j4
+
+
+generate_table_16:
+	mov cx, 16
+		; INP:	ds:si -> source
+		;	?src_remaining
+		;	cx = amount of table entries, < 256 (ch = 0)
+		;	bp + di -> start of table
+		; OUT:	jumps to depack.error if error
+		;	returns if success,
+		;	 cx = 0
+		;	 di = INP:di + INP:cx * exo_table_entry_size
+		;	 ds:si updated (normalised)
+		;	 ?src_remaining updated
+		; CHG:	ax, bx
+		; STT:	bp -> depack stack frame
+		;	UP
+generate_table_cx:
+	mov bx, 1
+.loop:
+	mov word [bp + di + eteBase], bx
+	push cx
+%if _P & 2
+	mov cl, 3
+	add di, cx		; add di, 3
+	call read_bits
+	mov byte [bp + di - 3 + eteBits], al
+	call read_bits_1
+	shl al, 1
+	shl al, 1
+	shl al, 1
+	or byte [bp + di - 3 + eteBits], al
+	mov al, 1		; ah was = 0
+	mov cl, byte [bp + di - 3 + eteBits]
+%else
+	mov cl, 4
+	add di, cx		; add di, 4
+	dec di
+	call read_bits
+	mov byte [bp + di - 3 + eteBits], al
+	xchg cx, ax		; cl = al, ah = 0
+	inc ax			; ax was = 0
+%endif
+	shl ax, cl
+	add bx, ax
+	pop cx
+%if exo_table_entry_size != 3
+ %error Unexpected size
+%endif
+	loop .loop
+retn_generate_table:
+	retn
+
+
+		; INP:	ds:si -> data (normalised and in bounds)
+		;	?dst (normalised), ?dst_remaining
+		;	cx = number of bytes (entire range valid)
+		; OUT:	jumps to depack.error if error (destination exhausted)
+		;	returns if success,
+		;	 ds:si -> behind copied source (normalised)
+		;	 ?dst -> behind copied destination (normalised)
+		;	 ?dst_remaining decremented
+		;	 cx = 0
+		;	Instead of returning, this may jump to depack.end
+		;	 if the destination segment grows up to the value
+		;	 stored in the ?dst_max_segment variable. It is
+		;	 assumed that this will use the stack frame to leave
+		;	 the function, therefore discarding any of the stack
+		;	 contents between the frame and the stack top.
+		; CHG:	es, di
+		; STT:	bp -> depack stack frame
+		;	UP
+copy_data:
+d0	inc byte [bp + ?errordata + 1]
+	mov ax, cx
+
+	sub word [bp + ?dst_remaining], cx
+	sbb word [bp + ?dst_remaining + 2], 0
+	jc error_j3
+	les di, [bp + ?dst]
+
+		numdef COPY_DATA_NOPS, 4
+	times _COPY_DATA_NOPS nop	; somehow this speeds up the test
+
+	cmp ax, 0FFF0h			; can copy in one step ?
+	jbe @F				; yes -->
+	mov cl, 0F0h			; maximum first step = 0FFF0h
+	xor ax, cx			; second step length
+%if _SCAN
+	call scan_rep_movsb
+%else
+	rep movsb			; move first step of two steps
+%endif
+	call normalise_both_pointers	; normalise pointers after
+	xchg ax, cx			; cx = second step length
+@@:
+%if _SCAN
+	call scan_rep_movsb
+%else
+	rep movsb			; move last step
+%endif
+	call normalise_both_pointers	; normalise (again)
+	mov word [bp + ?dst], di
+	mov word [bp + ?dst + 2], es	; store to ?dst
+%if _PAYLOAD_KERNEL_MAX_PARAS
+	mov di, es			; ! this is the *segment*
+	cmp di, word [bp + ?dst_max_segment]
+	jae depack.end_NC		; ! --> NC
+%endif
+	retn

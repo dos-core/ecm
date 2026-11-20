@@ -1,0 +1,926 @@
+
+; 8086 Assembly lDOS iniload payload LZSA2/LZSA1 depacker
+;  by E. C. Masloch, 2021, 2026
+;
+;  based on:
+;  decompress_small.S - space-efficient decompressor implementation for 8088
+;
+;  Copyright (C) 2019 Emmanuel Marty
+;
+;  This software is provided 'as-is', without any express or implied
+;  warranty.  In no event will the authors be held liable for any damages
+;  arising from the use of this software.
+;
+;  Permission is granted to anyone to use this software for any purpose,
+;  including commercial applications, and to alter it and redistribute it
+;  freely, subject to the following restrictions:
+;
+;  1. The origin of this software must not be misrepresented; you must not
+;     claim that you wrote the original software. If you use this software
+;     in a product, an acknowledgment in the product documentation would be
+;     appreciated but is not required.
+;  2. Altered source versions must be plainly marked as such, and must not be
+;     misrepresented as being the original software.
+;  3. This notice may not be removed or altered from any source distribution.
+
+
+%if _SCAN
+ %assign SCAN_SUPPORTED 1
+%endif
+
+
+	numdef COUNTER,		0, 128
+%if (_COUNTER - 1) & _COUNTER
+ %error COUNTER must be a power of two
+%endif
+	numdef M, 0
+%undef N
+	numdef N, 0
+	numdef INLINELOD, 1
+	numdef WORDLENGTH, 1
+	numdef UNSAFE, 0
+
+%assign CHECK_POINTERS_VARIABLE_SRC 0
+%assign CHECK_POINTERS_VARIABLE_DST 0
+
+		; INP:	ds:si -> source
+		;	dx:cx = length of source
+		;	es:di -> destination (below source)
+		;	if _IMAGE_EXE:
+		;	 bx = EXE mode flag (bit 0)
+		;	else:
+		;	 bx = 0
+		;	if _PAYLOAD_KERNEL_MAX_PARAS:
+		;	 ax = maximum amount in paragraphs of destination needed
+		;	 (-1 if full source should be decompressed)
+		;	else:
+		;	 ax = -1
+		; OUT:	NC if success
+		;	CY if error,
+		;	 bx = ?errordata (if _DEBUG0)
+		; CHG:	ax, (bx), cx, dx, es, ds, si, di
+		; STT:	UP
+		;
+		; Note:	The destination reaches up to below the source.
+		; Note:	The input pointers need not be normalised yet.
+		;	 Normalised means that the offset part is below 16.
+depack:
+	lframe near
+%if _SCAN
+	lpar dword, progressticks
+	lpar dword, maxbytesahead
+	lpar dword, depackedsize
+	lpar_return
+	xor di, di
+	mov es, di		; destination = all-zeroes (special)
+%endif
+
+%if _IMAGE_EXE || _DEBUG0 || _COUNTER
+	lenter early
+ %if _IMAGE_EXE
+	lvar word,	exemode	; must be bp - 2!
+	 push bx
+  %if ?exemode != -2
+   %error exemode variable must be directly below bp
+  %endif
+ %endif
+ %if _DEBUG0 || _COUNTER
+	xor bx, bx
+ %endif
+ %if _DEBUG0
+	lvar word,	errordata
+	 push bx
+ %endif
+%endif
+	lvar word,	counter
+%if _COUNTER
+	 push bx		; initialise counter (high byte) to zero
+%endif
+	lvar word,	matchoffset
+%if _WORDLENGTH
+ %if !_N || !_UNSAFE
+	lvar word,	word_length_of_source
+ %endif
+ %ifn _UNSAFE
+	lvar word,	word_length_of_destination
+	lvar word,	bool_not_full_destination
+ %endif
+%else
+	lvar dword,	length_of_source_after_block
+%endif
+
+%if _SCAN
+	lvar dword,	plusdst
+	lvar dword,	plussrc
+%endif
+	lenter
+
+	call normalise_both_pointers
+
+%if _SCAN
+	lvar dword,	original_src
+	 push ds
+	 push si
+%endif
+	lvar dword,	src
+	 push ds
+	 push si
+	lvar dword,	original_dst
+	 push es
+	 push di
+	lvar dword,	dst
+	 push es
+	 push di
+%ifn _UNSAFE
+	lvar dword,	length_of_source
+	 push dx
+	 push cx
+%endif
+
+%if 0 ; && _PAYLOAD_KERNEL_MAX_PARAS
+	cmp ax, -1		; no maximum specified ?
+	je @FF			; retain -1 in ax -->
+	test di, di		; do we need an additional paragraph ?
+	jz @F			; no -->
+	inc ax			; es + ax => paragraph after necessary part
+@@:
+	mov dx, es
+	add ax, dx		; => paragraph after necessary part
+		; If the normalised destination pointer's segment grows
+		;  to this segment then enough has been decompressed.
+d0	mov byte [bp + ?errordata], 40h
+	jc .error		; should not carry
+@@:
+	lvar word,	dst_max_segment
+	 push ax
+%endif
+
+%ifn _UNSAFE
+%if _SCAN
+LENDST equ 960 * 1024
+	mov bx, LENDST >> 16
+	mov cx, LENDST & 0FFFFh
+%else
+	 push ds
+	 push si
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = source linear
+
+	 push es
+	 push di
+	call pointer_to_linear
+
+%if _ALLOW_OVERLAPPING
+	add cx, word [bp + ?length_of_source]
+	adc bx, word [bp + ?length_of_source + 2]
+		; In case of allowing overlapping source and destination,
+		;  the ?length_of_destination variable is set to
+		;  ?src + ?length_of_source - ?dst, allowing to write to
+		;  all of the source buffer (with the checks already in place
+		;  from the default handling). Additional checks are done by
+		;  calling check_pointers_not_overlapping. This is done after
+		;  every change of ?dst to verify that the write pointer stays
+		;  below-or-equal the read pointer.
+		; This means the remaining source data may be corrupted by a
+		;  write, but nothing after the source data is written to,
+		;  so the error handling (in INIT1 after the data) still works.
+%endif
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = source linear - destination linear
+%endif	; _SCAN
+
+	lvar dword,	length_of_destination
+	 push bx		; push into [bp + ?length_of_destination + 2]
+	 push cx		; push into [bp + ?length_of_destination]
+%endif
+
+%if _ALLOW_OVERLAPPING
+	call check_pointers_not_overlapping
+		; Note:	We initially check here that the write pointer is
+		;	 low enough, ie below-or-equal the read pointer.
+		;	 Doing this check here (as well as after any
+		;	 copied match) allows us to drop the check done
+		;	 after moving literal bytes.
+d0	mov byte [bp + ?errordata], 1Bh
+	jc .error
+%endif
+
+	call .lodsw
+	cmp ax, 7Bh | (9Eh << 8)	; signature
+	jne .error
+	call .lodsb
+%if _LZSA1
+	test al, al			; check for lzsa1
+%else
+	cmp al, 1 << 5			; traits byte, check for lzsa2
+%endif
+	jne .error
+
+.loop:
+	call normalise_both_pointers
+
+	xor dx, dx
+	call .lodsw			; bits 0 to 15 of length
+	xchg ax, dx
+	call .lodsb
+	test al, 0111_1111b		; reserved bits + bit 16 of length
+	jnz .error			; error if nonzero -->
+
+	call normalise_dssi_pointer
+
+		; This first check is only really relevant
+		;  for uncompressed blocks.
+	mov bx, di
+	add bx, dx			; fits in destination segment ?
+	jc .error			;  (assuming bit 16 = 0)
+		; This second check is to insure we don't
+		;  have to normalise the source pointer
+		;  until after the end of the block.
+	mov bx, si
+	add bx, dx			; fits in source segment ?
+	jc .error
+
+	test al, al			; uncompressed ?
+	xchg ax, dx
+	jns .compressed			; no -->
+.uncompressed:
+%ifn _UNSAFE
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
+	sub word [bp + ?length_of_destination], ax
+	sbb word [bp + ?length_of_destination + 2], 0
+	jc .error
+%endif
+	xchg ax, cx
+%if _SCAN
+	call scan_rep_movsb
+%else
+	rep movsb			; copy this
+%endif
+	jmp .loop
+
+.compressed:
+%ifn _UNSAFE
+	mov cx, word [bp + ?length_of_source]
+	mov bx, word [bp + ?length_of_source + 2]
+
+	test ax, ax
+	jz .end
+
+	sub cx, ax
+	sbb bx, 0
+	jc .error
+%else
+	test ax, ax
+	jz .end
+%endif
+
+%if _WORDLENGTH
+ %if !_N || !_UNSAFE
+	push ax				; remember initial word length
+	mov word [bp + ?word_length_of_source], ax
+ %endif
+ %ifn _UNSAFE
+	xor ax, ax
+	cmp word [bp + ?length_of_destination + 2], ax
+					; >= 64 KiB ?
+	jne @F				; yes, store zeroes -->
+	or ax, word [bp + ?length_of_destination]
+					; ax = length left
+	jz .error			; must be NZ
+@@:					; ax == 0 if full 64 KiB destination
+	mov word [bp + ?word_length_of_destination], ax
+	mov word [bp + ?bool_not_full_destination], ax
+ %endif
+%else
+ %if _UNSAFE
+  %error Combination not implemented
+ %endif
+	mov word [bp + ?length_of_source_after_block], cx
+	mov word [bp + ?length_of_source_after_block + 2], bx
+%endif
+
+	push es
+	push di
+	call lzsa_decompress
+	cmp ax, 1			; CY if ax == 0
+	xchg cx, ax
+	sbb bx, bx			; -1 if cx == 0, else 0
+	neg bx				; 1 if cx == 0, else 0
+%ifn _UNSAFE
+%if _WORDLENGTH
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], bx
+	jc .error
+%endif
+%endif
+	call normalise_pointer_with_displacement_bxcx
+	pop di
+	pop es
+%if _WORDLENGTH
+ %if !_N || !_UNSAFE
+	pop ax				; initial word length
+ %endif
+ %ifn _UNSAFE
+	sub ax, word [bp + ?word_length_of_source]
+					; initial - left = how much processed
+	sub word [bp + ?length_of_source], ax
+	sbb word [bp + ?length_of_source + 2], 0
+	jc .error
+ %endif
+%endif
+	jmp .loop
+
+.end:
+%ifn _UNSAFE
+	or bx, cx
+	jnz .error
+%endif
+
+.ret:
+	db __TEST_IMM8		; (skip stc, NC)
+.error:
+	stc
+
+%if _SCAN
+	pushf
+	 push es
+	 push di
+	call pointer_to_linear
+
+	mov bx, dx
+	xchg cx, ax		; bx:cx = end destination linear
+
+	 push word [bp + ?original_dst + 2]
+	 push word [bp + ?original_dst]
+	call pointer_to_linear	; dx:ax = start destination linear
+
+	sub cx, ax
+	sbb bx, dx		; bx:cx = end destination linear
+				;  minus start destination linear
+
+	mov word [bp + ?depackedsize], cx
+	mov word [bp + ?depackedsize + 2], bx
+	popf
+%endif
+%if _COUNTER
+	lahf
+	mov al, 13
+	call disp_al_for_progress
+	mov al, 10
+	call disp_al_for_progress
+	sahf
+%endif
+d0	mov bx, word [bp + ?errordata]
+	lleave code
+	lret
+
+
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		; OUT:	CY if error (source buffer too small)
+		;	NC if success,
+		;	 al = value read
+		;	 ds:si incremented (NOT normalised)
+		;	 ?length_of_source decremented
+.lodsb:
+%ifn _UNSAFE
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+%endif
+	lodsb
+.retn:
+	retn
+
+
+		; INP:	ds:si -> source data
+		;	?length_of_source
+		; OUT:	CY if error (source buffer too small)
+		;	NC if success,
+		;	 ax = value read
+		;	 ds:si incremented (NOT normalised)
+		;	 ?length_of_source decremented
+.lodsw:
+%ifn _UNSAFE
+	sub word [bp + ?length_of_source], 2
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+%endif
+	lodsw
+	retn
+
+
+%if _INLINELOD
+ %imacro do_lodsb 0.nolist
+  %if _WORDLENGTH
+   %if !_N || !_UNSAFE
+	sub word [bp + ?word_length_of_source], 1
+	jb .error
+   %endif
+  %else
+	sub word [bp + ?length_of_source], 1
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+  %endif
+	lodsb
+ %endmacro
+ %imacro do_lodsw 0.nolist
+  %if _WORDLENGTH
+   %if !_N || !_UNSAFE
+	sub word [bp + ?word_length_of_source], 2
+	jb .error
+   %endif
+  %else
+	sub word [bp + ?length_of_source], 2
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+  %endif
+	lodsw
+ %endmacro
+%else
+ %idefine do_lodsb call .lodsb
+ %idefine do_lodsw call .lodsw
+%endif
+
+	%imacro noninlinelod 0
+%if !_INLINELOD
+ %if !_WORDLENGTH
+.lodsb equ depack.lodsb
+.lodsw equ depack.lodsw
+ %else
+.lodsb:
+   %if !_N || !_UNSAFE
+	sub word [bp + ?word_length_of_source], 1
+	jb .error
+   %endif
+	lodsb
+.retn:
+	retn
+
+.lodsw:
+   %if !_N || !_UNSAFE
+	sub word [bp + ?word_length_of_source], 2
+	jb .error
+   %endif
+	lodsw
+	retn
+ %endif
+%endif
+	%endmacro
+
+		; Decompress LZSA2/LZSA1 block
+		;
+		; INP:	ds:si -> compressed block
+		;	es:di -> output buffer
+		;	?length_of_source
+		;	?length_of_source_after_block = block end target
+		;	?original_dst -> lowest valid back reference
+		; OUT:	ax = decompressed size (0 means 64 KiB)
+		;	ds:si -> behind source data
+		;	jumps to depack.error if error condition detected
+		; CHG:	all except bp
+lzsa_decompress:
+   push di                 ; remember decompression offset
+
+   mov bx,0100H
+   and word [bp + ?matchoffset], 0
+
+.decode_token_clear_cx:
+   xor cx,cx
+.decode_token:
+%if _SCAN
+	add word [bp + ?progressticks], 1
+	adc word [bp + ?progressticks + 2], 0
+%endif
+%if _COUNTER
+	inc byte [bp + ?counter]
+	test byte [bp + ?counter], _COUNTER - 1
+	jnz @F
+	mov al, '.'
+	call disp_al_counter
+@@:
+%endif
+
+%ifn _M || _N
+ %if _WORDLENGTH
+	cmp word [bp + ?word_length_of_source], 0
+	je .end
+ %else
+	mov ax, word [bp + ?length_of_source + 2]
+	cmp word [bp + ?length_of_source_after_block + 2], ax
+	jne @F
+	mov ax, word [bp + ?length_of_source]
+	cmp word [bp + ?length_of_source_after_block], ax
+@@:
+	je .end
+	ja depack.error
+ %endif
+%endif
+
+   mov ax,cx               ; clear ah - cx is zero from above or from after rep movsb in .copy_match
+	do_lodsb		; read token byte: XYZ|LL|MMMM
+				; LZSA1: O|LLL|MMMM
+   mov dx,ax               ; keep token in dl
+
+%if _LZSA1
+	and al, 70h
+	mov cl, 4
+%else
+   and al,018H             ; isolate literals length in token (LL)
+   mov cl,3
+%endif
+   shr al,cl               ; shift literals length into place
+
+%if _LZSA1
+	cmp al, 7
+%else
+   cmp al,03H              ; LITERALS_RUN_LEN_V2?
+%endif
+   jne .got_literals       ; no, we have the full literals count from the token, go copy
+
+%if _LZSA1
+	do_lodsb
+	add al, 7
+	jnc .got_literals
+	jz .get_literals_word
+.get_literals_byte:
+	do_lodsb
+	inc ah
+	jmp .got_literals
+
+.get_literals_word:
+%else
+   call .get_nibble        ; get extra literals length nibble
+   add al,cl               ; add len from token to nibble
+   cmp al,012H             ; LITERALS_RUN_LEN_V2 + 15 ?
+   jne .got_literals       ; if not, we have the full literals count, go copy
+
+	do_lodsb		; grab extra length byte
+   add al,012H             ; overflow?
+   jnc .got_literals       ; if not, we have the full literals count, go copy
+%endif
+
+	do_lodsw		; grab 16-bit extra length
+
+%ifn _M && !_N
+.got_literals:
+%endif
+				; code only reached if not _M or did lodsw
+   xchg cx,ax
+ %if _WORDLENGTH
+   %if !_N || !_UNSAFE
+	sub word [bp + ?word_length_of_source], cx
+	jb .error
+   %endif
+  %ifn _UNSAFE
+	sub word [bp + ?word_length_of_destination], cx
+	jb .error_or_full_1
+.after_full_1:
+  %endif
+ %else
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .error
+ %endif
+%if _SCAN
+	call scan_rep_movsb
+%else
+   rep movsb               ; copy cx literals from ds:si to es:di
+%endif
+
+%ifn _N
+ %if _WORDLENGTH
+	cmp word [bp + ?word_length_of_source], 0
+ %else
+	push ax
+	mov ax, word [bp + ?length_of_source + 2]
+	cmp word [bp + ?length_of_source_after_block + 2], ax
+	jne @F
+	mov ax, word [bp + ?length_of_source]
+	cmp word [bp + ?length_of_source_after_block], ax
+@@:
+	pop ax
+	ja .error
+ %endif
+	je .end
+%endif
+
+%if _M && !_N
+		; here cx = 0
+%if 1
+	jmp @F
+%else
+	db __TEST_IMM8		; skip xchg with ax
+%endif
+.got_literals:
+   xchg cx,ax
+ %if _WORDLENGTH
+   %if !_N || !_UNSAFE
+	sub word [bp + ?word_length_of_source], cx
+	jb .error
+   %endif
+  %ifn _UNSAFE
+	sub word [bp + ?word_length_of_destination], cx
+	jb .error_or_full_2
+.after_full_2:
+  %endif
+ %else
+	sub word [bp + ?length_of_source], cx
+	sbb word [bp + ?length_of_source + 2], 0
+	jb .error
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .error
+ %endif
+%if _SCAN
+	call scan_rep_movsb
+%else
+   rep movsb               ; copy cx literals from ds:si to es:di
+%endif
+@@:
+%endif
+
+%if _LZSA1
+	mov ah, -1
+	do_lodsb		; match offset low
+	test dl, dl		; O set ?
+	jns @F
+	xchg al, ah
+	do_lodsb		; match offset high
+	xchg al, ah
+@@:
+	jmp .get_match_length
+%else
+   test dl,0C0h            ; check match offset mode in token (X bit)
+   js .rep_match_or_large_offset
+
+   ;;cmp dl,040H             ; check if this is a 5 or 9-bit offset (Y bit)
+                           ; discovered via the test with bit 6 set
+   xchg cx,ax              ; clear ah - cx is zero from the rep movsb above
+   jne .offset_9_bit
+
+                           ; 5 bit offset
+   cmp dl,020H             ; test bit 5
+   call .get_nibble_x
+   jmp short .dec_offset_top
+%endif
+
+%if _WORDLENGTH
+ %ifn _UNSAFE
+.error_or_full_1:
+	call .error_or_full_common
+	jmp .after_full_1
+
+ %if _M && !_N
+.error_or_full_2:
+	call .error_or_full_common
+	jmp .after_full_2
+ %endif
+ %endif
+%endif
+
+	noninlinelod
+.error:
+	jmp depack.error
+
+%ifn _LZSA1
+.offset_9_bit:             ; 9 bit offset
+	do_lodsb		; get 8 bit offset from stream in A
+   dec ah                  ; set offset bits 15-8 to 1
+   test dl,020H            ; test bit Z (offset bit 8)
+   je .get_match_length
+.dec_offset_top:
+   dec ah                  ; clear bit 8 if Z bit is clear
+                           ; or set offset bits 15-8 to 1
+   jmp short .get_match_length
+
+.rep_match_or_large_offset:
+   ;;cmp dl,0c0H             ; check if this is a 13-bit offset or a 16-bit offset/rep match (Y bit)
+   jpe .rep_match_or_16_bit
+
+                           ; 13 bit offset
+
+   cmp dl,0A0H             ; test bit 5 (knowing that bit 7 is also set)
+   xchg ah,al
+   call .get_nibble_x
+   sub al,2                ; substract 512
+   jmp short .get_match_length_1
+%endif
+
+%if _N
+.end_check:
+ %ifn _UNSAFE
+ %if _WORDLENGTH
+	cmp word [bp + ?word_length_of_source], 0
+ %else
+	mov ax, word [bp + ?length_of_source + 2]
+	cmp word [bp + ?length_of_source_after_block + 2], ax
+	jne @F
+	mov ax, word [bp + ?length_of_source]
+	cmp word [bp + ?length_of_source_after_block], ax
+@@:
+ %endif
+	jne .error
+ %endif
+%endif
+.end:
+   pop ax                  ; retrieve the original decompression offset
+   xchg di,ax              ; compute decompressed size
+   sub ax,di
+   ret                     ; done
+
+%ifn _LZSA1
+.get_nibble:
+   neg bh                  ; nibble ready?
+   jns .has_nibble
+
+   xchg bx,ax
+	do_lodsb		; load two nibbles
+   xchg bx,ax
+
+.has_nibble:
+   mov cl,4                ; swap 4 high and low bits of nibble
+   ror bl,cl
+   mov cl,0FH
+   and cl,bl
+   ret
+
+.rep_match_or_16_bit:
+   test dl,020H            ; test bit Z (offset bit 8)
+   jne .repeat_match       ; rep-match
+
+                           ; 16 bit offset
+	do_lodsb		; Get 2-byte match offset
+
+.get_match_length_1:
+   xchg ah,al
+	do_lodsb		; load match offset bits 0-7
+%endif
+
+.get_match_length:
+	xchg word [bp + ?matchoffset], ax
+			; bp: offset
+.repeat_match:
+   xchg ax,dx              ; ax: original token
+
+%if _LZSA1
+	and al, 15
+	add al, 3
+	cmp al, 15 + 3
+	jne .got_matchlen
+	do_lodsb
+	add al, 15 + 3
+	jnc .got_matchlen
+	jz .get_matchlen_word
+	do_lodsb
+	inc ah
+	jmp .got_matchlen
+
+.get_matchlen_word:
+	do_lodsw
+	test ax, ax
+ %if _N
+	je .end_check
+ %else
+	je .error		; detect EOD code
+ %endif
+%else
+   and al,07H              ; isolate match length in token (MMM)
+   add al,2                ; add MIN_MATCH_SIZE_V2
+
+   cmp al,09H              ; MIN_MATCH_SIZE_V2 + MATCH_RUN_LEN_V2?
+   jne .got_matchlen       ; no, we have the full match length from the token, go copy
+
+   call .get_nibble        ; get extra literals length nibble
+   add al,cl               ; add len from token to nibble
+   cmp al,018H             ; MIN_MATCH_SIZE_V2 + MATCH_RUN_LEN_V2 + 15?
+   jne .got_matchlen       ; no, we have the full match length from the token, go copy
+
+	do_lodsb		; grab extra length byte
+   add al,018H             ; overflow?
+   jnc .got_matchlen       ; if not, we have the entire length
+%if _N
+	je .end_check
+%else
+	je .error		; detect EOD code
+%endif
+
+	do_lodsw		; grab 16-bit length
+%endif
+
+.got_matchlen:
+   xchg cx,ax              ; copy match length into cx
+   push ds                 ; save ds:si (current pointer to compressed data)
+   xchg si,ax
+   push es
+   pop ds
+	mov si, di
+	add si, word [bp + ?matchoffset]
+			; ds:si now points at back reference in output data
+	jc @FF		; simple case branches here -->
+	push bx
+	push cx
+	mov cx, word [bp + ?matchoffset]
+	mov bx, -1
+	 push es
+	 push di
+	call normalise_pointer_with_displacement_bxcx
+	 pop si
+	 pop bx
+	jnc .error_j2
+	cmp bx, word [bp + ?original_dst + 2]
+	jne @F
+	cmp si, word [bp + ?original_dst]
+@@:
+	jb .error_j2
+	mov ds, bx
+	pop cx
+	pop bx
+@@:
+ %if _WORDLENGTH
+  %ifn _UNSAFE
+	sub word [bp + ?word_length_of_destination], cx
+	jb .error_or_full_3
+.after_full_3:
+  %endif
+ %else
+	sub word [bp + ?length_of_destination], cx
+	sbb word [bp + ?length_of_destination + 2], 0
+	jb .error_j2
+ %endif
+%if _SCAN
+	call scan_rep_movsb
+%else
+   rep movsb               ; copy match
+%endif
+   xchg si,ax              ; restore ds:si
+   pop ds
+%if _ALLOW_OVERLAPPING
+	push bx
+	test di, di
+	jz .zero
+	call check_pointers_not_overlapping
+.waszero:
+	pop bx
+	jc .error_j2
+	jmp .decode_token_clear_cx
+				; go decode another token
+
+.zero:
+	push es
+	mov bx, es		; => our block
+	add bx, 1000h		; => next 64 KiB block
+	mov es, bx		; es:di -> after our block
+	call check_pointers_not_overlapping
+	pop es
+	jmp .waszero
+%else
+	jmp .decode_token
+				; go decode another token
+%endif
+
+.error_j2:
+	jmp depack.error
+
+%if _WORDLENGTH
+ %ifn _UNSAFE
+.error_or_full_3:
+	call .error_or_full_common
+	jmp .after_full_3
+ %endif
+%endif
+
+%ifn _LZSA1
+.get_nibble_x:
+   cmc                     ; carry set if bit 4 was set
+   rcr al,1
+   call .get_nibble        ; get nibble for offset bits 0-3
+   or al,cl                ; merge nibble
+   rol al,1
+   xor al,0E1H             ; set offset bits 7-5 to 1
+   ret
+%endif
+
+%if _WORDLENGTH
+ %ifn _UNSAFE
+		; INP:	?word_length_of_destination underflowed
+		;	?bool_not_full_destination == 0 iff underflow allowed
+		; OUT:	to depack.error if underflow not allowed
+		;	returns near if underflow allowed,
+		;	 ?bool_not_full_destination = nonzero
+.error_or_full_common:
+	sub word [bp + ?bool_not_full_destination], 1
+				; like cmp word, 1
+	jae .error_j2		; word >= 1 ? then error -->
+				; word was < 1 (full destination), now is 0FFFFh
+	retn
+ %endif
+%endif
