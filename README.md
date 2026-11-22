@@ -13,8 +13,4 @@ LDOSBOOT_DIR, ... in their cfg.sh), one subdirectory each:
 - inicomp/  https://hg.pushbx.org/ecm/inicomp
 - mktmpinc/  https://hg.pushbx.org/ecm/mktmpinc
 
-Maintained by ../sync/sync.py (`python sync.py ecm`): each source is
-converted with hg-git (sync/hg/ecm/<name>), fetched as remote <name>
-(branches <name>/main, <name>/hg/<branch>; tags <name>/<tag>), and its
-main branch merged into <name>/ with `git subtree merge`, so the
-original commits keep their hashes.  Do not edit the subdirectories here.
+This is periodically re-sync'd from upstream Mercurial repositories via local sync.py which fetches remotes and converted via hg-git along with git subtree merge to maintain original commits but combine into single git repository.  This is a mirror only! Do not edit the subdirectories here.  Any PR to this repository will be closed, please reach out to upstream developer with patches.
